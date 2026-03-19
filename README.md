@@ -1,6 +1,6 @@
 ## sbt project compiled with Scala 3
 
-[![Coverage Status](https://coveralls.io/repos/github/arutepsu/SeArChess/badge.svg?branch=domain)](https://coveralls.io/github/arutepsu/SeArChess?branch=domain)
+[![Coverage Status](https://coveralls.io/repos/github/arutepsu/SeArChess/badge.svg?branch=main)](https://coveralls.io/github/arutepsu/SeArChess?branch=main)
 
 ### Usage
 
