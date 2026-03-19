@@ -67,14 +67,14 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
   // ── applyMove: domain failure ──────────────────────────────────────────────
 
   it should "wrap a domain error as DomainFailure when the source square is empty" in {
-    val state  = ChessService.createNewGame()
+    val state  = ChessService.createNewGame().copy(board = Board.empty)
     val result = ChessService.applyMove(state, Move(a1, a2))
     result.left.value shouldBe a[DomainFailure]
     result.left.value.asInstanceOf[DomainFailure].error shouldBe a[DomainError.EmptySourceSquare]
   }
 
   it should "leave the state unchanged after a DomainFailure" in {
-    val state = ChessService.createNewGame()
+    val state = ChessService.createNewGame().copy(board = Board.empty)
     ChessService.applyMove(state, Move(a1, a2))
     state.currentPlayer shouldBe Color.White
     state.moveHistory   shouldBe Nil
