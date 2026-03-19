@@ -6,6 +6,7 @@ import org.scalatest.EitherValues
 import chess.application.ApplicationError.*
 import chess.domain.error.DomainError
 import chess.domain.model.*
+import chess.domain.model.GameStatus
 
 class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
 
@@ -28,6 +29,10 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
     ChessService.createNewGame().moveHistory shouldBe Nil
   }
 
+  it should "start with status Ongoing" in {
+    ChessService.createNewGame().status shouldBe GameStatus.Ongoing
+  }
+
   // ── applyMove: success ─────────────────────────────────────────────────────
 
   "ChessService.applyMove" should "update the board when the current player moves their own piece" in {
@@ -48,6 +53,15 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
     val state  = ChessService.createNewGame().copy(board = Board.empty.place(a1, whitePawn))
     val result = ChessService.applyMove(state, move).value
     result.moveHistory shouldBe List(move)
+  }
+
+  it should "evaluate status for the next player after a successful move" in {
+    // white pawn a1→a2, black king at e8 — result: black's turn, not in check, has moves
+    val state  = ChessService.createNewGame().copy(board =
+      Board.empty.place(a1, whitePawn).place(Position.fromAlgebraic("e8").value, Piece(Color.Black, PieceType.King))
+    )
+    val result = ChessService.applyMove(state, Move(a1, a2)).value
+    result.status shouldBe GameStatus.Ongoing
   }
 
   // ── applyMove: turn enforcement ────────────────────────────────────────────
@@ -83,7 +97,7 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
   // ── handleCommand ──────────────────────────────────────────────────────────
 
   "ChessService.handleCommand" should "reset state on NewGame" in {
-    val dirty  = GameState(Board.empty.place(a1, whitePawn), Color.Black, List(Move(a1, a2)))
+    val dirty  = GameState(Board.empty.place(a1, whitePawn), Color.Black, List(Move(a1, a2)), GameStatus.Ongoing)
     val result = ChessService.handleCommand(dirty, NewGame).value
     result.currentPlayer shouldBe Color.White
     result.board         shouldBe Board.initial

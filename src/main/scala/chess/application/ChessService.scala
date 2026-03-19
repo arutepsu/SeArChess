@@ -1,13 +1,19 @@
 package chess.application
 
 import chess.application.ApplicationError.*
-import chess.domain.model.{Board, Color, Move}
-import chess.domain.rules.MoveApplier
+import chess.domain.model.{Board, Color, GameStatus, Move}
+import chess.domain.rules.{GameStatusEvaluator, MoveApplier}
 
 object ChessService:
 
   def createNewGame(): GameState =
-    GameState(board = Board.initial, currentPlayer = Color.White, moveHistory = Nil)
+    val board = Board.initial
+    GameState(
+      board         = board,
+      currentPlayer = Color.White,
+      moveHistory   = Nil,
+      status        = GameStatusEvaluator.evaluate(board, Color.White)
+    )
 
   def applyMove(state: GameState, move: Move): Either[ApplicationError, GameState] =
     state.board.pieceAt(move.from) match
@@ -16,10 +22,13 @@ object ChessService:
       case _ =>
         MoveApplier.applyMove(state.board, move)
           .map { newBoard =>
+            val nextPlayer = opponent(state.currentPlayer)
+            val nextStatus = GameStatusEvaluator.evaluate(newBoard, nextPlayer)
             state.copy(
               board         = newBoard,
-              currentPlayer = opponent(state.currentPlayer),
-              moveHistory   = state.moveHistory :+ move
+              currentPlayer = nextPlayer,
+              moveHistory   = state.moveHistory :+ move,
+              status        = nextStatus
             )
           }
           .left.map(DomainFailure(_))
