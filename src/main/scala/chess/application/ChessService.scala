@@ -7,7 +7,7 @@ import chess.domain.rules.MoveApplier
 object ChessService:
 
   def createNewGame(): GameState =
-    GameState(board = Board.empty, currentPlayer = Color.White, moveHistory = Nil)
+    GameState(board = Board.initial, currentPlayer = Color.White, moveHistory = Nil)
 
   def applyMove(state: GameState, move: Move): Either[ApplicationError, GameState] =
     state.board.pieceAt(move.from) match

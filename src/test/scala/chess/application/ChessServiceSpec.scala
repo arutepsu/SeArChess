@@ -20,8 +20,8 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
     ChessService.createNewGame().currentPlayer shouldBe Color.White
   }
 
-  it should "start with an empty board" in {
-    ChessService.createNewGame().board shouldBe Board.empty
+  it should "start with the standard initial board" in {
+    ChessService.createNewGame().board shouldBe Board.initial
   }
 
   it should "start with an empty move history" in {
@@ -86,7 +86,7 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
     val dirty  = GameState(Board.empty.place(a1, whitePawn), Color.Black, List(Move(a1, a2)))
     val result = ChessService.handleCommand(dirty, NewGame).value
     result.currentPlayer shouldBe Color.White
-    result.board         shouldBe Board.empty
+    result.board         shouldBe Board.initial
     result.moveHistory   shouldBe Nil
   }
 
