@@ -1,5 +1,7 @@
 ## sbt project compiled with Scala 3
 
+[![Coverage Status](https://coveralls.io/repos/github/arutepsu/SeArChess/badge.svg?branch=domain)](https://coveralls.io/github/arutepsu/SeArChess?branch=domain)
+
 ### Usage
 
 This is a normal sbt project. You can compile code with `sbt compile`, run it with `sbt run`, and `sbt console` will start a Scala 3 REPL.
