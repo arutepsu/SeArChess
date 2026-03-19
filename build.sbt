@@ -21,7 +21,6 @@ lazy val root = project
     // scoverage settings
     coverageEnabled          := false,        // toggled per-command via report/ci aliases
     coverageFailOnMinimum    := true,
-    coverageMinimumStmtTotal := 80,           // 2.0.11 counts Main.scala; threshold reflects that
-    coverageHighlighting     := true,
-    coverageExcludedPackages := "<empty>.*"   // excludes the default sbt Main scaffold
+    coverageMinimumStmtTotal := 100,
+    coverageHighlighting     := true
   )
