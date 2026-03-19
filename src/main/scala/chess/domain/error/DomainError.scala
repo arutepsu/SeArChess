@@ -25,3 +25,6 @@ object DomainError:
 
   case object SameSquare
     extends DomainError
+
+  case object KingInCheck
+    extends DomainError

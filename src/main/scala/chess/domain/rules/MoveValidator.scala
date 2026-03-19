@@ -24,6 +24,29 @@ object MoveValidator:
         case _ =>
           validatePattern(board, piece, move)
 
+  /** Return true if `piece` sitting at `from` attacks `to` on this board.
+   *
+   *  Unlike validate(), this method:
+   *   - ignores the color of any piece at `to` (needed for king-safety checks)
+   *   - for pawns, considers only diagonal attacks, not forward moves
+   *   - never recurses into check detection
+   */
+  def canAttack(board: Board, piece: Piece, from: Position, to: Position): Boolean =
+    if from == to then false
+    else
+      val move = Move(from, to)
+      piece.pieceType match
+        case PieceType.Rook   => validateRook(board, move).isRight
+        case PieceType.Bishop => validateBishop(board, move).isRight
+        case PieceType.Queen  => validateQueen(board, move).isRight
+        case PieceType.Knight => validateKnight(move).isRight
+        case PieceType.King   => validateKing(move).isRight
+        case PieceType.Pawn   => pawnAttacks(piece.color, from, to)
+
+  private def pawnAttacks(color: Color, from: Position, to: Position): Boolean =
+    val direction = if color == Color.White then 1 else -1
+    to.rank - from.rank == direction && math.abs(to.file - from.file) == 1
+
   // ── piece-type dispatch ────────────────────────────────────────────────────
 
   private def validatePattern(board: Board, piece: Piece, move: Move): Either[DomainError, Unit] =
