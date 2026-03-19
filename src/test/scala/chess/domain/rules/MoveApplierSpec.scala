@@ -1,52 +1,48 @@
 package chess.domain.rules
 
-import munit.FunSuite
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.EitherValues
 import chess.domain.error.DomainError
 import chess.domain.model.*
 
-class MoveApplierSpec extends FunSuite:
+class MoveApplierSpec extends AnyFlatSpec with Matchers with EitherValues:
 
-  private val from  = Position.from(0, 0).getOrElse(fail("setup failed"))
-  private val to    = Position.from(1, 0).getOrElse(fail("setup failed"))
+  private val from  = Position.from(0, 0).value
+  private val to    = Position.from(1, 0).value
   private val piece = Piece(Color.White, PieceType.Pawn)
   private val enemy = Piece(Color.Black, PieceType.Rook)
 
   // ── success ────────────────────────────────────────────────────────────────
 
-  test("applyMove moves piece from source to target"):
+  "MoveApplier.applyMove" should "move a piece from source to target" in {
     val board  = Board.empty.place(from, piece)
-    val result = MoveApplier.applyMove(board, Move(from, to))
-    result match
-      case Right(b) =>
-        assertEquals(b.pieceAt(to),   Some(piece))
-        assertEquals(b.pieceAt(from), None)
-      case Left(err) => fail(s"unexpected error: $err")
+    val result = MoveApplier.applyMove(board, Move(from, to)).value
+    result.pieceAt(to)   shouldBe Some(piece)
+    result.pieceAt(from) shouldBe None
+  }
 
-  test("applyMove overwrites an occupied target square"):
+  it should "overwrite an occupied target square" in {
     val board  = Board.empty.place(from, piece).place(to, enemy)
-    val result = MoveApplier.applyMove(board, Move(from, to))
-    result match
-      case Right(b) =>
-        assertEquals(b.pieceAt(to),   Some(piece))
-        assertEquals(b.pieceAt(from), None)
-      case Left(err) => fail(s"unexpected error: $err")
+    val result = MoveApplier.applyMove(board, Move(from, to)).value
+    result.pieceAt(to)   shouldBe Some(piece)
+    result.pieceAt(from) shouldBe None
+  }
 
-  test("applyMove does not mutate the original board"):
+  it should "leave the original board unchanged (immutability)" in {
     val original = Board.empty.place(from, piece)
     val _        = MoveApplier.applyMove(original, Move(from, to))
-    assertEquals(original.pieceAt(from), Some(piece))
+    original.pieceAt(from) shouldBe Some(piece)
+  }
 
   // ── failure ────────────────────────────────────────────────────────────────
 
-  test("applyMove fails with EmptySourceSquare when source is empty"):
+  it should "fail with EmptySourceSquare when the source square is empty" in {
     val result = MoveApplier.applyMove(Board.empty, Move(from, to))
-    result match
-      case Left(DomainError.EmptySourceSquare(_)) => ()
-      case other => fail(s"unexpected: $other")
+    result.left.value shouldBe a[DomainError.EmptySourceSquare]
+  }
 
-  test("applyMove EmptySourceSquare contains the source label"):
-    val result = MoveApplier.applyMove(Board.empty, Move(from, to))
-    result match
-      case Left(DomainError.EmptySourceSquare(label)) =>
-        assertEquals(label, from.toString)
-      case other => fail(s"unexpected: $other")
+  it should "include the source position label in the EmptySourceSquare error" in {
+    val error = MoveApplier.applyMove(Board.empty, Move(from, to)).left.value
+    error shouldBe DomainError.EmptySourceSquare(from.toString)
+  }

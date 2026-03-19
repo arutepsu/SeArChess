@@ -1,57 +1,62 @@
 package chess.domain.model
 
-import munit.FunSuite
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.EitherValues
 
-class BoardSpec extends FunSuite:
+class BoardSpec extends AnyFlatSpec with Matchers with EitherValues:
 
-  private val pos   = Position.from(0, 0).getOrElse(fail("setup failed"))
-  private val pos2  = Position.from(1, 0).getOrElse(fail("setup failed"))
+  private val pos   = Position.from(0, 0).value
+  private val pos2  = Position.from(1, 0).value
   private val piece = Piece(Color.White, PieceType.Pawn)
   private val other = Piece(Color.Black, PieceType.Rook)
 
   // ── Board.empty ────────────────────────────────────────────────────────────
 
-  test("Board.empty has no pieces"):
-    assertEquals(Board.empty.pieceAt(pos), None)
+  "Board.empty" should "have no pieces" in {
+    Board.empty.pieceAt(pos) shouldBe None
+  }
 
   // ── Board.place ────────────────────────────────────────────────────────────
 
-  test("Board.place puts a piece at the given position"):
-    val board = Board.empty.place(pos, piece)
-    assertEquals(board.pieceAt(pos), Some(piece))
+  "Board.place" should "put a piece at the given position" in {
+    Board.empty.place(pos, piece).pieceAt(pos) shouldBe Some(piece)
+  }
 
-  test("Board.place does not affect other squares"):
-    val board = Board.empty.place(pos, piece)
-    assertEquals(board.pieceAt(pos2), None)
+  it should "not affect other squares" in {
+    Board.empty.place(pos, piece).pieceAt(pos2) shouldBe None
+  }
 
-  test("Board.place overwrites an existing piece"):
-    val board = Board.empty.place(pos, piece).place(pos, other)
-    assertEquals(board.pieceAt(pos), Some(other))
+  it should "overwrite an existing piece" in {
+    Board.empty.place(pos, piece).place(pos, other).pieceAt(pos) shouldBe Some(other)
+  }
 
-  test("Board.place is immutable: original board unchanged"):
+  it should "leave the original board unchanged (immutability)" in {
     val original = Board.empty
     val _        = original.place(pos, piece)
-    assertEquals(original.pieceAt(pos), None)
+    original.pieceAt(pos) shouldBe None
+  }
 
   // ── Board.remove ───────────────────────────────────────────────────────────
 
-  test("Board.remove clears the piece at a position"):
-    val board = Board.empty.place(pos, piece).remove(pos)
-    assertEquals(board.pieceAt(pos), None)
+  "Board.remove" should "clear the piece at a position" in {
+    Board.empty.place(pos, piece).remove(pos).pieceAt(pos) shouldBe None
+  }
 
-  test("Board.remove on empty square returns same empty square"):
-    val board = Board.empty.remove(pos)
-    assertEquals(board.pieceAt(pos), None)
+  it should "be a no-op on an already empty square" in {
+    Board.empty.remove(pos).pieceAt(pos) shouldBe None
+  }
 
-  test("Board.remove does not affect other squares"):
-    val board = Board.empty.place(pos, piece).place(pos2, other).remove(pos)
-    assertEquals(board.pieceAt(pos2), Some(other))
+  it should "not affect other squares" in {
+    Board.empty.place(pos, piece).place(pos2, other).remove(pos).pieceAt(pos2) shouldBe Some(other)
+  }
 
   // ── Board.pieceAt ──────────────────────────────────────────────────────────
 
-  test("Board.pieceAt returns None on empty board"):
-    assertEquals(Board.empty.pieceAt(pos), None)
+  "Board.pieceAt" should "return None on an empty board" in {
+    Board.empty.pieceAt(pos) shouldBe None
+  }
 
-  test("Board.pieceAt returns Some(piece) after placement"):
-    val board = Board.empty.place(pos, piece)
-    assertEquals(board.pieceAt(pos), Some(piece))
+  it should "return Some(piece) after placement" in {
+    Board.empty.place(pos, piece).pieceAt(pos) shouldBe Some(piece)
+  }

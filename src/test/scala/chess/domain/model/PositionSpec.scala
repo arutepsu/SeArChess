@@ -1,79 +1,93 @@
 package chess.domain.model
 
-import munit.FunSuite
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.EitherValues
 import chess.domain.error.DomainError
 
-class PositionSpec extends FunSuite:
+class PositionSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   // ── Position.from ──────────────────────────────────────────────────────────
 
-  test("Position.from accepts all corners of the valid range"):
-    assert(Position.from(0, 0).isRight)
-    assert(Position.from(7, 7).isRight)
-    assert(Position.from(0, 7).isRight)
-    assert(Position.from(7, 0).isRight)
+  "Position.from" should "accept all corners of the valid range" in {
+    Position.from(0, 0).isRight shouldBe true
+    Position.from(7, 7).isRight shouldBe true
+    Position.from(0, 7).isRight shouldBe true
+    Position.from(7, 0).isRight shouldBe true
+  }
 
-  test("Position.from preserves file and rank"):
-    val pos = Position.from(4, 1).getOrElse(fail("expected Right"))
-    assertEquals(pos.file, 4)
-    assertEquals(pos.rank, 1)
+  it should "preserve file and rank" in {
+    val pos = Position.from(4, 1).value
+    pos.file shouldBe 4
+    pos.rank shouldBe 1
+  }
 
-  test("Position.from rejects negative file"):
-    assert(Position.from(-1, 0).isLeft)
+  it should "reject a negative file" in {
+    Position.from(-1, 0).isLeft shouldBe true
+  }
 
-  test("Position.from rejects negative rank"):
-    assert(Position.from(0, -1).isLeft)
+  it should "reject a negative rank" in {
+    Position.from(0, -1).isLeft shouldBe true
+  }
 
-  test("Position.from rejects file > 7"):
-    assert(Position.from(8, 0).isLeft)
+  it should "reject file > 7" in {
+    Position.from(8, 0).isLeft shouldBe true
+  }
 
-  test("Position.from rejects rank > 7"):
-    assert(Position.from(0, 8).isLeft)
+  it should "reject rank > 7" in {
+    Position.from(0, 8).isLeft shouldBe true
+  }
 
-  test("Position.from returns OutOfBounds error"):
-    Position.from(9, 9) match
-      case Left(DomainError.OutOfBounds(9, 9)) => ()
-      case other => fail(s"unexpected: $other")
+  it should "return OutOfBounds for invalid coordinates" in {
+    Position.from(9, 9).left.value shouldBe DomainError.OutOfBounds(9, 9)
+  }
 
   // ── Position.fromAlgebraic ─────────────────────────────────────────────────
 
-  test("Position.fromAlgebraic accepts 'a1'"):
-    val pos = Position.fromAlgebraic("a1").getOrElse(fail("expected Right"))
-    assertEquals(pos.file, 0)
-    assertEquals(pos.rank, 0)
+  "Position.fromAlgebraic" should "accept 'a1'" in {
+    val pos = Position.fromAlgebraic("a1").value
+    pos.file shouldBe 0
+    pos.rank shouldBe 0
+  }
 
-  test("Position.fromAlgebraic accepts 'e2'"):
-    val pos = Position.fromAlgebraic("e2").getOrElse(fail("expected Right"))
-    assertEquals(pos.file, 4)
-    assertEquals(pos.rank, 1)
+  it should "accept 'e2'" in {
+    val pos = Position.fromAlgebraic("e2").value
+    pos.file shouldBe 4
+    pos.rank shouldBe 1
+  }
 
-  test("Position.fromAlgebraic accepts 'h8'"):
-    val pos = Position.fromAlgebraic("h8").getOrElse(fail("expected Right"))
-    assertEquals(pos.file, 7)
-    assertEquals(pos.rank, 7)
+  it should "accept 'h8'" in {
+    val pos = Position.fromAlgebraic("h8").value
+    pos.file shouldBe 7
+    pos.rank shouldBe 7
+  }
 
-  test("Position.fromAlgebraic rejects 'i9' (out of range)"):
-    assert(Position.fromAlgebraic("i9").isLeft)
+  it should "reject 'i9' (file out of range)" in {
+    Position.fromAlgebraic("i9").isLeft shouldBe true
+  }
 
-  test("Position.fromAlgebraic rejects '22' (no letter file)"):
-    assert(Position.fromAlgebraic("22").isLeft)
+  it should "reject '22' (no letter file)" in {
+    Position.fromAlgebraic("22").isLeft shouldBe true
+  }
 
-  test("Position.fromAlgebraic rejects empty string"):
-    assert(Position.fromAlgebraic("").isLeft)
+  it should "reject an empty string" in {
+    Position.fromAlgebraic("").isLeft shouldBe true
+  }
 
-  test("Position.fromAlgebraic rejects 'abc' (too long)"):
-    assert(Position.fromAlgebraic("abc").isLeft)
+  it should "reject 'abc' (too long)" in {
+    Position.fromAlgebraic("abc").isLeft shouldBe true
+  }
 
-  test("Position.fromAlgebraic rejects 'a9' (rank out of range)"):
-    assert(Position.fromAlgebraic("a9").isLeft)
+  it should "reject 'a9' (rank out of range)" in {
+    Position.fromAlgebraic("a9").isLeft shouldBe true
+  }
 
-  test("Position.fromAlgebraic returns InvalidPositionString error"):
-    Position.fromAlgebraic("!!") match
-      case Left(DomainError.InvalidPositionString("!!")) => ()
-      case other => fail(s"unexpected: $other")
+  it should "return InvalidPositionString for a bad format" in {
+    Position.fromAlgebraic("!!").left.value shouldBe DomainError.InvalidPositionString("!!")
+  }
 
   // ── toString ───────────────────────────────────────────────────────────────
 
-  test("Position.toString returns algebraic label"):
-    val pos = Position.from(4, 1).getOrElse(fail("expected Right"))
-    assertEquals(pos.toString, "e2")
+  "Position.toString" should "return the algebraic label" in {
+    Position.from(4, 1).value.toString shouldBe "e2"
+  }
