@@ -2,12 +2,9 @@ import org.scoverage.coveralls.CoverallsPlugin
 
 val scala3Version = "3.8.2"
 
-// ── Command aliases ────────────────────────────────────────────────────────
 addCommandAlias("build",    "compile")
 addCommandAlias("rebuild",  ";clean;compile")
 addCommandAlias("check",    ";compile;test")
-// 'report'  – compile with coverage instrumentation, run tests, generate HTML report
-// 'ci'      – same as report, then upload to Coveralls (requires COVERALLS_REPO_TOKEN)
 addCommandAlias("report", ";set coverageEnabled := true;clean;test;coverageReport;set coverageEnabled := false")
 addCommandAlias("ci",     ";set coverageEnabled := true;clean;test;coverageReport;coveralls;set coverageEnabled := false")
 
