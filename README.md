@@ -1,10 +1,27 @@
-## sbt project compiled with Scala 3
+## SeArChess — Scala 3 Chess Engine
 
-[![Coverage Status](https://coveralls.io/repos/github/arutepsu/SeArChess/badge.svg?branch=domain)](https://coveralls.io/github/arutepsu/SeArChess?branch=domain)
+[![Coverage Status](https://coveralls.io/repos/github/arutepsu/SeArChess/badge.svg?branch=main)](https://coveralls.io/github/arutepsu/SeArChess?branch=main)
+
+A pure functional chess engine implemented in Scala 3, built as a university software architecture project.
 
 ### Usage
 
-This is a normal sbt project. You can compile code with `sbt compile`, run it with `sbt run`, and `sbt console` will start a Scala 3 REPL.
+```bash
+sbt run          # start the text UI
+sbt compile      # compile
+sbt test         # run tests
+sbt report       # tests + coverage report
+sbt ci           # tests + coverage + Coveralls upload
+```
 
-For more information on the sbt-dotty plugin, see the
-[scala3-example-project](https://github.com/scala/scala3-example-project/blob/main/README.md).
+---
+
+## Domain Model
+
+![Domain Model](docs/diagrams/domain-model.png)
+
+---
+
+## Architecture
+
+![Architecture](docs/diagrams/architecture.png)
