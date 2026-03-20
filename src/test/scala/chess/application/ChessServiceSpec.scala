@@ -110,3 +110,23 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
     result.board.pieceAt(a2) shouldBe Some(whitePawn)
     result.currentPlayer     shouldBe Color.Black
   }
+
+  it should "switch back to White after Black makes a successful move" in {
+    // Two-move sequence: White moves, then Black moves → covers opponent(Color.Black)
+    val blackPawnPos  = Position.fromAlgebraic("e7").value
+    val blackTarget   = Position.fromAlgebraic("e6").value
+    val whiteKing     = Position.fromAlgebraic("e1").value
+    val blackKing     = Position.fromAlgebraic("e8").value
+    val board = Board.empty
+      .place(a1, whitePawn)
+      .place(blackPawnPos, blackPawn)
+      .place(whiteKing, Piece(Color.White, PieceType.King))
+      .place(blackKing,  Piece(Color.Black, PieceType.King))
+    val afterWhite = ChessService.applyMove(
+      GameState(board, Color.White, Nil, GameStatus.Ongoing),
+      Move(a1, a2)
+    ).value
+    afterWhite.currentPlayer shouldBe Color.Black
+    val afterBlack = ChessService.applyMove(afterWhite, Move(blackPawnPos, blackTarget)).value
+    afterBlack.currentPlayer shouldBe Color.White
+  }
