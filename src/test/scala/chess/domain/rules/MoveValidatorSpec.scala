@@ -26,6 +26,12 @@ class MoveValidatorSpec extends AnyFlatSpec with Matchers with EitherValues:
     validate(boardWith("e4" -> piece), piece, "e4", "e4").left.value shouldBe DomainError.SameSquare
   }
 
+  it should "return false from canAttack when from and to are the same square" in {
+    val piece = Piece(Color.White, PieceType.Queen)
+    val pos   = at("e4")
+    MoveValidator.canAttack(boardWith("e4" -> piece), piece, pos, pos) shouldBe false
+  }
+
   it should "reject a move onto a square occupied by the same color" in {
     val knight = Piece(Color.White, PieceType.Knight)
     val rook   = Piece(Color.White, PieceType.Rook)
