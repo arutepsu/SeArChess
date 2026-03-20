@@ -1,5 +1,3 @@
-@main def hello(): Unit =
-  println("Hello world!")
-  println(msg)
+import chess.adapter.textui.{ConsoleIO, TextUI}
 
-def msg = "I was compiled by Scala 3. :)"
+@main def runChessTextUi(): Unit = TextUI(ConsoleIO).run()
