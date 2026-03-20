@@ -2,8 +2,6 @@
 
 [![Coverage Status](https://coveralls.io/repos/github/arutepsu/SeArChess/badge.svg?branch=main)](https://coveralls.io/github/arutepsu/SeArChess?branch=main)
 
-A pure functional chess engine implemented in Scala 3, built as a university software architecture project.
-
 ### Usage
 
 ```bash
