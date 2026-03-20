@@ -2,6 +2,7 @@ package chess.adapter.textui
 
 import chess.application.{ApplicationError, ChessService, GameState, MakeMove}
 import chess.domain.model.{Move, Position}
+import scala.annotation.tailrec
 
 final class TextUI(console: Console):
 
@@ -10,6 +11,7 @@ final class TextUI(console: Console):
     console.printLine(ConsoleRenderer.renderHelp())
     loop(ChessService.createNewGame())
 
+  @tailrec
   private def loop(state: GameState): Unit =
     console.printLine("")
     console.printLine(ConsoleRenderer.renderBoard(state))
@@ -17,30 +19,25 @@ final class TextUI(console: Console):
     console.print("> ")
     val input = console.readLine()
     InputParser.parse(input) match
-      case Left(err)  =>
+      case Left(err) =>
         console.printLine(ConsoleRenderer.renderParseError(err))
         loop(state)
-      case Right(cmd) =>
-        handleCommand(state, cmd)
 
-  private def handleCommand(state: GameState, cmd: TextUiCommand): Unit =
-    cmd match
-      case TextUiCommand.Quit =>
+      case Right(TextUiCommand.Quit) =>
         console.printLine("Goodbye!")
 
-      case TextUiCommand.Help =>
+      case Right(TextUiCommand.Help) =>
         console.printLine(ConsoleRenderer.renderHelp())
         loop(state)
 
-      case TextUiCommand.Show =>
+      case Right(TextUiCommand.Show) =>
         loop(state)
 
-      case TextUiCommand.New =>
-        val newState = ChessService.createNewGame()
+      case Right(TextUiCommand.New) =>
         console.printLine("New game started.")
-        loop(newState)
+        loop(ChessService.createNewGame())
 
-      case TextUiCommand.MoveCmd(fromStr, toStr) =>
+      case Right(TextUiCommand.MoveCmd(fromStr, toStr)) =>
         val result = for
           from     <- Position.fromAlgebraic(fromStr).left.map(ApplicationError.DomainFailure(_))
           to       <- Position.fromAlgebraic(toStr).left.map(ApplicationError.DomainFailure(_))
