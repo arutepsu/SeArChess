@@ -1,9 +1,10 @@
-package chess.domain.rules
+package chess.domain.rules.evaluation
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.EitherValues
 import chess.domain.model.*
+import chess.domain.model.positionstate.{CastlingRights, EnPassantState}
 
 class GameStatusEvaluatorSpec extends AnyFlatSpec with Matchers with EitherValues:
 

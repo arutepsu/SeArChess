@@ -1,6 +1,7 @@
-package chess.domain.rules
+package chess.domain.rules.application
 
 import chess.domain.model.{Board, Color, Position}
+import chess.domain.rules.validation.CastlingValidator
 
 /** Applies a validated castling move by relocating both the king and the rook.
  *

@@ -6,6 +6,7 @@ import org.scalatest.EitherValues
 import chess.application.ApplicationError.*
 import chess.domain.error.DomainError
 import chess.domain.model.*
+import chess.domain.model.positionstate.{CastlingRights, EnPassantState}
 import chess.application.{Promote, PendingPromotion}
 
 class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues:

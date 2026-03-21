@@ -1,10 +1,11 @@
-package chess.domain.rules
+package chess.domain.rules.validation
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.EitherValues
 import chess.domain.error.DomainError
 import chess.domain.model.*
+import chess.domain.model.positionstate.EnPassantState
 
 class EnPassantValidatorSpec extends AnyFlatSpec with Matchers with EitherValues:
 

@@ -1,4 +1,6 @@
-package chess.domain.model
+package chess.domain.model.positionstate
+
+import chess.domain.model.{Color, Position}
 
 /** Tracks en passant availability for exactly one half-move.
  *

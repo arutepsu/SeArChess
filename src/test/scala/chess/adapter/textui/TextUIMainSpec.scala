@@ -1,3 +1,5 @@
+package chess.adapter.textui
+
 import chess.adapter.textui.{ConsoleIO, TextUI}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
