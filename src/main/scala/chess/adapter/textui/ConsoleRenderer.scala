@@ -64,6 +64,11 @@ object ConsoleRenderer:
     case DomainError.InvalidPositionString(s)  => s"Invalid position: '$s'."
     case DomainError.InvalidPromotionPiece     => "Invalid promotion piece. Choose: q r b n"
     case DomainError.InvalidPromotionState     => "No promotable pawn at the expected square."
+    case DomainError.CastleNotAllowed          => "Castling is no longer allowed on that side."
+    case DomainError.MissingCastlingRook       => "Rook is not on its original square."
+    case DomainError.CastlePathBlocked         => "Castling path is blocked."
+    case DomainError.CastleThroughCheck        => "Cannot castle through or out of check."
+    case DomainError.InvalidEnPassant          => "Illegal en passant capture."
 
   private def colorName(color: Color): String = color match
     case Color.White => "White"
