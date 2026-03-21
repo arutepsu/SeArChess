@@ -1,18 +1,19 @@
 package chess.application
 
 import chess.application.ApplicationError.*
-import chess.domain.model.{Board, Color, GameStatus, Move, MoveResult, PieceType}
-import chess.domain.rules.{GameStatusEvaluator, MoveApplier, PromotionApplier}
+import chess.domain.model.{Board, CastlingRights, Color, EnPassantState, GameStatus, Move, MoveResult, Piece, PieceType, Position}
+import chess.domain.rules.{CastlingRightsUpdater, GameStatusEvaluator, MoveApplier, PromotionApplier}
 
 object ChessService:
 
   def createNewGame(): GameState =
     val board = Board.initial
     GameState(
-      board         = board,
-      currentPlayer = Color.White,
-      moveHistory   = Nil,
-      status        = GameStatusEvaluator.evaluate(board, Color.White)
+      board          = board,
+      currentPlayer  = Color.White,
+      moveHistory    = Nil,
+      status         = GameStatusEvaluator.evaluate(board, Color.White, CastlingRights.full),
+      castlingRights = CastlingRights.full
     )
 
   def applyMove(state: GameState, move: Move): Either[ApplicationError, GameState] =
@@ -23,24 +24,33 @@ object ChessService:
         case Some(piece) if piece.color != state.currentPlayer =>
           Left(NotPlayersTurn)
         case _ =>
-          MoveApplier.applyMove(state.board, move).fold(
+          MoveApplier.applyMove(state.board, move, state.castlingRights, state.enPassantState).fold(
             err => Left(DomainFailure(err)),
             {
               case MoveResult.Applied(newBoard) =>
-                val nextPlayer = opponent(state.currentPlayer)
-                val nextStatus = GameStatusEvaluator.evaluate(newBoard, nextPlayer)
+                val nextRights    = CastlingRightsUpdater.update(state.castlingRights, state.board, move)
+                val nextEnPassant = computeEnPassantState(move, state.board)
+                val nextPlayer    = opponent(state.currentPlayer)
+                val nextStatus    = GameStatusEvaluator.evaluate(newBoard, nextPlayer, nextRights, nextEnPassant)
                 Right(state.copy(
                   board            = newBoard,
                   currentPlayer    = nextPlayer,
                   moveHistory      = state.moveHistory :+ move,
                   status           = nextStatus,
-                  pendingPromotion = None
+                  castlingRights   = nextRights,
+                  pendingPromotion = None,
+                  enPassantState   = nextEnPassant
                 ))
 
               case MoveResult.PromotionRequired(newBoard, square, color) =>
+                // A pawn advancing to the promotion rank is a one-square move and
+                // can never create en passant availability, so clear it immediately.
+                val nextRights = CastlingRightsUpdater.update(state.castlingRights, state.board, move)
                 Right(state.copy(
                   board            = newBoard,
-                  pendingPromotion = Some(PendingPromotion(square, color, move))
+                  castlingRights   = nextRights,
+                  pendingPromotion = Some(PendingPromotion(square, color, move)),
+                  enPassantState   = None
                 ))
             }
           )
@@ -54,15 +64,36 @@ object ChessService:
           err => Left(DomainFailure(err)),
           promotedBoard =>
             val nextPlayer = opponent(state.currentPlayer)
-            val nextStatus = GameStatusEvaluator.evaluate(promotedBoard, nextPlayer)
+            val nextStatus = GameStatusEvaluator.evaluate(promotedBoard, nextPlayer, state.castlingRights)
             Right(state.copy(
               board            = promotedBoard,
               currentPlayer    = nextPlayer,
               moveHistory      = state.moveHistory :+ move,
               status           = nextStatus,
-              pendingPromotion = None
+              pendingPromotion = None,
+              enPassantState   = None
             ))
         )
+
+  // ── en passant lifecycle ────────────────────────────────────────────────────
+
+  /** Derive en passant state from a just-completed move.
+   *
+   *  A two-square pawn advance creates an EnPassantState for the opponent's
+   *  immediate reply.  Every other move produces None, which clears any
+   *  existing en passant availability.
+   */
+  private def computeEnPassantState(move: Move, boardBefore: Board): Option[EnPassantState] =
+    boardBefore.pieceAt(move.from) match
+      case Some(Piece(Color.White, PieceType.Pawn)) if move.from.rank == 1 && move.to.rank == 3 =>
+        Position.from(move.from.file, 2).toOption.map { target =>
+          EnPassantState(target, move.to, Color.White)
+        }
+      case Some(Piece(Color.Black, PieceType.Pawn)) if move.from.rank == 6 && move.to.rank == 4 =>
+        Position.from(move.from.file, 5).toOption.map { target =>
+          EnPassantState(target, move.to, Color.Black)
+        }
+      case _ => None
 
   def handleCommand(state: GameState, command: ChessCommand): Either[ApplicationError, GameState] =
     command match

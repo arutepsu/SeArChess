@@ -34,3 +34,18 @@ object DomainError:
 
   case object InvalidPromotionState
     extends DomainError
+
+  case object CastleNotAllowed
+    extends DomainError
+
+  case object MissingCastlingRook
+    extends DomainError
+
+  case object CastlePathBlocked
+    extends DomainError
+
+  case object CastleThroughCheck
+    extends DomainError
+
+  case object InvalidEnPassant
+    extends DomainError
