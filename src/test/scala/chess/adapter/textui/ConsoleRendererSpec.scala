@@ -176,6 +176,31 @@ class ConsoleRendererSpec extends AnyFlatSpec with Matchers with EitherValues:
     ConsoleRenderer.renderApplicationError(err) should not be empty
   }
 
+  it should "render DomainFailure wrapping CastleNotAllowed" in {
+    val err = ApplicationError.DomainFailure(DomainError.CastleNotAllowed)
+    ConsoleRenderer.renderApplicationError(err) should not be empty
+  }
+
+  it should "render DomainFailure wrapping MissingCastlingRook" in {
+    val err = ApplicationError.DomainFailure(DomainError.MissingCastlingRook)
+    ConsoleRenderer.renderApplicationError(err) should not be empty
+  }
+
+  it should "render DomainFailure wrapping CastlePathBlocked" in {
+    val err = ApplicationError.DomainFailure(DomainError.CastlePathBlocked)
+    ConsoleRenderer.renderApplicationError(err) should not be empty
+  }
+
+  it should "render DomainFailure wrapping CastleThroughCheck" in {
+    val err = ApplicationError.DomainFailure(DomainError.CastleThroughCheck)
+    ConsoleRenderer.renderApplicationError(err) should not be empty
+  }
+
+  it should "render DomainFailure wrapping InvalidEnPassant" in {
+    val err = ApplicationError.DomainFailure(DomainError.InvalidEnPassant)
+    ConsoleRenderer.renderApplicationError(err) should not be empty
+  }
+
   // ── Promotion rendering ────────────────────────────────────────────────────
 
   "renderPromotionRequired" should "include the available promotion choices" in {

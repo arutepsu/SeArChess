@@ -1,4 +1,4 @@
-package chess.domain.rules
+package chess.domain.rules.validation
 
 import chess.domain.model.*
 
