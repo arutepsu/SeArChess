@@ -28,3 +28,9 @@ object DomainError:
 
   case object KingInCheck
     extends DomainError
+
+  case object InvalidPromotionPiece
+    extends DomainError
+
+  case object InvalidPromotionState
+    extends DomainError

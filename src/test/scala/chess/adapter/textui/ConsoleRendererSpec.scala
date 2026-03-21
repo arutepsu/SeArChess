@@ -102,8 +102,14 @@ class ConsoleRendererSpec extends AnyFlatSpec with Matchers with EitherValues:
     ConsoleRenderer.renderParseError(InputParseError.UnknownCommand("foo")) should include("foo")
   }
 
-  it should "render WrongArgumentCount including the command name" in {
+  it should "render WrongArgumentCount for 'move' with the move usage format" in {
     ConsoleRenderer.renderParseError(InputParseError.WrongArgumentCount("move")) should include("move")
+  }
+
+  it should "render WrongArgumentCount for 'promote' with the promote usage format" in {
+    val msg = ConsoleRenderer.renderParseError(InputParseError.WrongArgumentCount("promote"))
+    msg should include("promote")
+    msg should include("q|r|b|n")
   }
 
   // ── Application error rendering ────────────────────────────────────────────
@@ -150,4 +156,44 @@ class ConsoleRendererSpec extends AnyFlatSpec with Matchers with EitherValues:
   it should "render DomainFailure wrapping InvalidPositionString" in {
     val err = ApplicationError.DomainFailure(DomainError.InvalidPositionString("zz"))
     ConsoleRenderer.renderApplicationError(err) should include("zz")
+  }
+
+  it should "render PromotionChoiceRequired" in {
+    ConsoleRenderer.renderApplicationError(ApplicationError.PromotionChoiceRequired) should not be empty
+  }
+
+  it should "render NoPromotionPending" in {
+    ConsoleRenderer.renderApplicationError(ApplicationError.NoPromotionPending) should not be empty
+  }
+
+  it should "render DomainFailure wrapping InvalidPromotionPiece" in {
+    val err = ApplicationError.DomainFailure(DomainError.InvalidPromotionPiece)
+    ConsoleRenderer.renderApplicationError(err) should not be empty
+  }
+
+  it should "render DomainFailure wrapping InvalidPromotionState" in {
+    val err = ApplicationError.DomainFailure(DomainError.InvalidPromotionState)
+    ConsoleRenderer.renderApplicationError(err) should not be empty
+  }
+
+  // ── Promotion rendering ────────────────────────────────────────────────────
+
+  "renderPromotionRequired" should "include the available promotion choices" in {
+    val msg = ConsoleRenderer.renderPromotionRequired()
+    msg should include("q")
+    msg should include("r")
+    msg should include("b")
+    msg should include("n")
+  }
+
+  // ── Parse error: InvalidPromotionToken ────────────────────────────────────
+
+  "renderParseError" should "render InvalidPromotionToken including the bad token" in {
+    ConsoleRenderer.renderParseError(InputParseError.InvalidPromotionToken("k")) should include("k")
+  }
+
+  // ── Help includes promote ─────────────────────────────────────────────────
+
+  "renderHelp" should "mention the promote command" in {
+    ConsoleRenderer.renderHelp() should include("promote")
   }

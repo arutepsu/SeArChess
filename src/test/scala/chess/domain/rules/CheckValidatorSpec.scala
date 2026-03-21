@@ -114,17 +114,20 @@ class CheckValidatorSpec extends AnyFlatSpec with Matchers with EitherValues:
   it should "allow a move that blocks an existing check" in {
     // white king e1 in check from black rook e8; white rook a4 blocks by moving to e4
     val board = boardWith("e1" -> whiteKing, "e8" -> blackRook, "a4" -> whiteRook)
-    MoveApplier.applyMove(board, Move(at("a4"), at("e4"))).value.pieceAt(at("e4")) shouldBe Some(whiteRook)
+    val MoveResult.Applied(result) = MoveApplier.applyMove(board, Move(at("a4"), at("e4"))).value: @unchecked
+    result.pieceAt(at("e4")) shouldBe Some(whiteRook)
   }
 
   it should "allow capturing the attacking piece to resolve check" in {
     // white king e1, black rook e4 gives check (e2/e3 clear); white rook h4 captures
     val board = boardWith("e1" -> whiteKing, "e4" -> blackRook, "h4" -> whiteRook)
-    MoveApplier.applyMove(board, Move(at("h4"), at("e4"))).value.pieceAt(at("e4")) shouldBe Some(whiteRook)
+    val MoveResult.Applied(result) = MoveApplier.applyMove(board, Move(at("h4"), at("e4"))).value: @unchecked
+    result.pieceAt(at("e4")) shouldBe Some(whiteRook)
   }
 
   it should "allow the king to escape check by moving to a safe square" in {
     // white king e1 in check from black rook e8; king escapes to d1 (d-file is clear)
     val board = boardWith("e1" -> whiteKing, "e8" -> blackRook)
-    MoveApplier.applyMove(board, Move(at("e1"), at("d1"))).value.pieceAt(at("d1")) shouldBe Some(whiteKing)
+    val MoveResult.Applied(result) = MoveApplier.applyMove(board, Move(at("e1"), at("d1"))).value: @unchecked
+    result.pieceAt(at("d1")) shouldBe Some(whiteKing)
   }
