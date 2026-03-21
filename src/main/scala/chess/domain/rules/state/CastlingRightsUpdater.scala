@@ -1,6 +1,7 @@
-package chess.domain.rules
+package chess.domain.rules.state
 
 import chess.domain.model.*
+import chess.domain.model.positionstate.CastlingRights
 
 /** Updates castling rights after any move.
  *

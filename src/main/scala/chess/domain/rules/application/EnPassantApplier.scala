@@ -1,6 +1,7 @@
-package chess.domain.rules
+package chess.domain.rules.application
 
-import chess.domain.model.{Board, EnPassantState, Move}
+import chess.domain.model.{Board, Move}
+import chess.domain.model.positionstate.EnPassantState
 
 /** Applies a validated en passant capture by moving the capturing pawn
  *  and removing the captured pawn from its square.

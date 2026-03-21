@@ -1,7 +1,8 @@
-package chess.domain.rules
+package chess.domain.rules.validation
 
 import chess.domain.error.DomainError
 import chess.domain.model.*
+import chess.domain.model.positionstate.EnPassantState
 
 /** Validates whether a move is a legal en passant capture.
  *

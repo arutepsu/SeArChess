@@ -1,6 +1,9 @@
-package chess.domain.rules
+package chess.domain.rules.evaluation
 
 import chess.domain.model.*
+import chess.domain.model.positionstate.{CastlingRights, EnPassantState}
+import chess.domain.rules.application.MoveApplier
+import chess.domain.rules.validation.CheckValidator
 
 /** Evaluates the game status (ongoing / check / checkmate / stalemate)
  *  for the side to move on a given board.

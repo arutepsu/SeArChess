@@ -1,7 +1,9 @@
-package chess.domain.rules
+package chess.domain.rules.application
 
 import chess.domain.error.DomainError
-import chess.domain.model.{Board, CastlingRights, Color, EnPassantState, Move, MoveResult, Piece, PieceType}
+import chess.domain.model.{Board, Color, Move, MoveResult, Piece, PieceType}
+import chess.domain.model.positionstate.{CastlingRights, EnPassantState}
+import chess.domain.rules.validation.{CastlingValidator, CheckValidator, EnPassantValidator, MoveValidator}
 
 object MoveApplier:
 

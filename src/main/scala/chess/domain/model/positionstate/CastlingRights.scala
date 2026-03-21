@@ -1,4 +1,4 @@
-package chess.domain.model
+package chess.domain.model.positionstate
 
 /** Tracks which castling moves are still legally available.
  *
