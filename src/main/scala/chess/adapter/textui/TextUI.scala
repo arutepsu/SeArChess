@@ -1,15 +1,18 @@
 package chess.adapter.textui
 
-import chess.application.{ApplicationError, ChessService, GameState, MakeMove}
-import chess.domain.model.{Move, Position}
+import chess.application.{ApplicationError, ChessService, GameState, MakeMove, Promote}
+import chess.domain.model.{Move, PieceType, Position}
 import scala.annotation.tailrec
 
-final class TextUI(console: Console):
+final class TextUI(
+    console:      Console,
+    initialState: GameState = ChessService.createNewGame()
+):
 
   def run(): Unit =
     console.printLine(ConsoleRenderer.renderWelcome())
     console.printLine(ConsoleRenderer.renderHelp())
-    loop(ChessService.createNewGame())
+    loop(initialState)
 
   @tailrec
   private def loop(state: GameState): Unit =
@@ -44,6 +47,21 @@ final class TextUI(console: Console):
           newState <- ChessService.handleCommand(state, MakeMove(Move(from, to)))
         yield newState
         result match
+          case Left(err)       =>
+            console.printLine(ConsoleRenderer.renderApplicationError(err))
+            loop(state)
+          case Right(newState) =>
+            if newState.pendingPromotion.isDefined then
+              console.printLine(ConsoleRenderer.renderPromotionRequired())
+            loop(newState)
+
+      case Right(TextUiCommand.PromoteCmd(choice)) =>
+        val pieceType = (choice: @unchecked) match
+          case "q" => PieceType.Queen
+          case "r" => PieceType.Rook
+          case "b" => PieceType.Bishop
+          case "n" => PieceType.Knight
+        ChessService.handleCommand(state, Promote(pieceType)) match
           case Left(err)       =>
             console.printLine(ConsoleRenderer.renderApplicationError(err))
             loop(state)
