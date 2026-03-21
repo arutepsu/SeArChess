@@ -1,9 +1,10 @@
-package chess.domain.rules
+package chess.domain.rules.evaluation
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.EitherValues
 import chess.domain.model.*
+import chess.domain.model.positionstate.{CastlingRights, EnPassantState}
 
 class GameStatusEvaluatorSpec extends AnyFlatSpec with Matchers with EitherValues:
 
@@ -68,4 +69,14 @@ class GameStatusEvaluatorSpec extends AnyFlatSpec with Matchers with EitherValue
   it should "return false in a stalemate position" in {
     val board = boardWith("h8" -> bK, "f6" -> wK, "g6" -> wQ)
     GameStatusEvaluator.hasAnyLegalMove(board, Color.Black) shouldBe false
+  }
+
+  it should "include en passant moves when checking for legal moves" in {
+    // White pawn e5 can capture en passant on d6 (Black pawn just advanced d7→d5).
+    // d6 is empty — without ep state, e5→d6 is an illegal diagonal-to-empty move.
+    // With ep state, it is legal.
+    val bP    = Piece(Color.Black, PieceType.Pawn)
+    val ep    = EnPassantState(at("d6"), at("d5"), Color.Black)
+    val board = boardWith("e5" -> wP, "d5" -> bP, "e1" -> Piece(Color.White, PieceType.King), "e8" -> bK)
+    GameStatusEvaluator.hasAnyLegalMove(board, Color.White, CastlingRights.none, Some(ep)) shouldBe true
   }

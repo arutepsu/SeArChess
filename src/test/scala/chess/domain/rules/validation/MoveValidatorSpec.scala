@@ -1,4 +1,4 @@
-package chess.domain.rules
+package chess.domain.rules.validation
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

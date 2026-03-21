@@ -1,4 +1,4 @@
-package chess.domain.rules
+package chess.domain.rules.application
 
 import chess.domain.error.DomainError
 import chess.domain.model.{Board, Color, Piece, PieceType, Position}

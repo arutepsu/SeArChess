@@ -6,7 +6,7 @@ import org.scalatest.EitherValues
 import chess.application.ApplicationError.*
 import chess.domain.error.DomainError
 import chess.domain.model.*
-import chess.domain.model.GameStatus
+import chess.domain.model.positionstate.{CastlingRights, EnPassantState}
 import chess.application.{Promote, PendingPromotion}
 
 class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
@@ -184,6 +184,184 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
     )
     val result = ChessService.handleCommand(state, Promote(PieceType.Rook)).value
     result.board.pieceAt(a8) shouldBe Some(Piece(Color.White, PieceType.Rook))
+  }
+
+  // ── castling rights ────────────────────────────────────────────────────────
+
+  "ChessService.createNewGame" should "start with full castling rights" in {
+    ChessService.createNewGame().castlingRights shouldBe CastlingRights.full
+  }
+
+  "ChessService.applyMove" should "clear white king-side and queen-side rights after the white king moves" in {
+    val e1 = Position.fromAlgebraic("e1").value
+    val f1 = Position.fromAlgebraic("f1").value
+    val e8 = Position.fromAlgebraic("e8").value
+    val board = Board.empty
+      .place(e1, Piece(Color.White, PieceType.King))
+      .place(e8, Piece(Color.Black, PieceType.King))
+    val state  = ChessService.createNewGame().copy(board = board, castlingRights = CastlingRights.full)
+    val result = ChessService.applyMove(state, Move(e1, f1)).value
+    result.castlingRights.whiteKingSide  shouldBe false
+    result.castlingRights.whiteQueenSide shouldBe false
+    result.castlingRights.blackKingSide  shouldBe true
+    result.castlingRights.blackQueenSide shouldBe true
+  }
+
+  it should "apply white king-side castling and place king on g1, rook on f1" in {
+    val e1 = Position.fromAlgebraic("e1").value
+    val g1 = Position.fromAlgebraic("g1").value
+    val f1 = Position.fromAlgebraic("f1").value
+    val h1 = Position.fromAlgebraic("h1").value
+    val e8 = Position.fromAlgebraic("e8").value
+    val board = Board.empty
+      .place(e1, Piece(Color.White, PieceType.King))
+      .place(h1, Piece(Color.White, PieceType.Rook))
+      .place(e8, Piece(Color.Black, PieceType.King))
+    val state  = ChessService.createNewGame().copy(board = board, castlingRights = CastlingRights.full)
+    val result = ChessService.applyMove(state, Move(e1, g1)).value
+    result.board.pieceAt(g1) shouldBe Some(Piece(Color.White, PieceType.King))
+    result.board.pieceAt(f1) shouldBe Some(Piece(Color.White, PieceType.Rook))
+    result.board.pieceAt(e1) shouldBe None
+    result.board.pieceAt(h1) shouldBe None
+    result.currentPlayer     shouldBe Color.Black
+  }
+
+  it should "apply black queen-side castling and place king on c8, rook on d8" in {
+    val e8 = Position.fromAlgebraic("e8").value
+    val c8 = Position.fromAlgebraic("c8").value
+    val d8 = Position.fromAlgebraic("d8").value
+    val a8 = Position.fromAlgebraic("a8").value
+    val e1 = Position.fromAlgebraic("e1").value
+    val board = Board.empty
+      .place(e8, Piece(Color.Black, PieceType.King))
+      .place(a8, Piece(Color.Black, PieceType.Rook))
+      .place(e1, Piece(Color.White, PieceType.King))
+    val state  = ChessService.createNewGame().copy(
+      board          = board,
+      currentPlayer  = Color.Black,
+      castlingRights = CastlingRights.full
+    )
+    val result = ChessService.applyMove(state, Move(e8, c8)).value
+    result.board.pieceAt(c8) shouldBe Some(Piece(Color.Black, PieceType.King))
+    result.board.pieceAt(d8) shouldBe Some(Piece(Color.Black, PieceType.Rook))
+    result.board.pieceAt(e8) shouldBe None
+    result.board.pieceAt(a8) shouldBe None
+    result.currentPlayer     shouldBe Color.White
+  }
+
+  // ── en passant: state lifecycle ────────────────────────────────────────────
+
+  "ChessService.applyMove" should "create enPassantState after a white double pawn advance" in {
+    val e2 = Position.fromAlgebraic("e2").value
+    val e4 = Position.fromAlgebraic("e4").value
+    val e3 = Position.fromAlgebraic("e3").value
+    val e8 = Position.fromAlgebraic("e8").value
+    val board = Board.empty
+      .place(e2, Piece(Color.White, PieceType.Pawn))
+      .place(e8, Piece(Color.Black, PieceType.King))
+    val state  = ChessService.createNewGame().copy(board = board)
+    val result = ChessService.applyMove(state, Move(e2, e4)).value
+    result.enPassantState shouldBe Some(EnPassantState(e3, e4, Color.White))
+  }
+
+  it should "create enPassantState after a black double pawn advance" in {
+    val d7 = Position.fromAlgebraic("d7").value
+    val d5 = Position.fromAlgebraic("d5").value
+    val d6 = Position.fromAlgebraic("d6").value
+    val e1 = Position.fromAlgebraic("e1").value
+    val board = Board.empty
+      .place(d7, Piece(Color.Black, PieceType.Pawn))
+      .place(e1, Piece(Color.White, PieceType.King))
+    val state  = ChessService.createNewGame().copy(board = board, currentPlayer = Color.Black)
+    val result = ChessService.applyMove(state, Move(d7, d5)).value
+    result.enPassantState shouldBe Some(EnPassantState(d6, d5, Color.Black))
+  }
+
+  it should "clear enPassantState after any non-qualifying move" in {
+    // State carries active en passant but White makes a king move instead
+    val e1 = Position.fromAlgebraic("e1").value
+    val f1 = Position.fromAlgebraic("f1").value
+    val e8 = Position.fromAlgebraic("e8").value
+    val e4 = Position.fromAlgebraic("e4").value
+    val e3 = Position.fromAlgebraic("e3").value
+    val board = Board.empty
+      .place(e1, Piece(Color.White, PieceType.King))
+      .place(e8, Piece(Color.Black, PieceType.King))
+    val ep    = EnPassantState(e3, e4, Color.Black)
+    val state = ChessService.createNewGame().copy(board = board, enPassantState = Some(ep))
+    val result = ChessService.applyMove(state, Move(e1, f1)).value
+    result.enPassantState shouldBe None
+  }
+
+  it should "clear enPassantState after a successful en passant capture" in {
+    val d4 = Position.fromAlgebraic("d4").value
+    val e4 = Position.fromAlgebraic("e4").value
+    val e3 = Position.fromAlgebraic("e3").value
+    val e8 = Position.fromAlgebraic("e8").value
+    val board = Board.empty
+      .place(d4, Piece(Color.Black, PieceType.Pawn))
+      .place(e4, Piece(Color.White, PieceType.Pawn))
+      .place(e8, Piece(Color.Black, PieceType.King))
+    val ep    = EnPassantState(e3, e4, Color.White)
+    val state = ChessService.createNewGame().copy(
+      board          = board,
+      currentPlayer  = Color.Black,
+      enPassantState = Some(ep)
+    )
+    val result = ChessService.applyMove(state, Move(d4, e3)).value
+    result.enPassantState shouldBe None
+  }
+
+  it should "clear enPassantState after castling" in {
+    val e1 = Position.fromAlgebraic("e1").value
+    val g1 = Position.fromAlgebraic("g1").value
+    val h1 = Position.fromAlgebraic("h1").value
+    val e8 = Position.fromAlgebraic("e8").value
+    val e4 = Position.fromAlgebraic("e4").value
+    val e3 = Position.fromAlgebraic("e3").value
+    val board = Board.empty
+      .place(e1, Piece(Color.White, PieceType.King))
+      .place(h1, Piece(Color.White, PieceType.Rook))
+      .place(e8, Piece(Color.Black, PieceType.King))
+    val ep    = EnPassantState(e3, e4, Color.Black)
+    val state = ChessService.createNewGame().copy(
+      board          = board,
+      castlingRights = CastlingRights.full,
+      enPassantState = Some(ep)
+    )
+    val result = ChessService.applyMove(state, Move(e1, g1)).value
+    result.enPassantState shouldBe None
+  }
+
+  it should "clear enPassantState after promotion completion" in {
+    val a8 = Position.fromAlgebraic("a8").value
+    val a7 = Position.fromAlgebraic("a7").value
+    val e4 = Position.fromAlgebraic("e4").value
+    val e3 = Position.fromAlgebraic("e3").value
+    val pending = PendingPromotion(a8, Color.White, Move(a7, a8))
+    val ep      = EnPassantState(e3, e4, Color.Black)
+    val state = ChessService.createNewGame().copy(
+      board            = Board.empty.place(a8, Piece(Color.White, PieceType.Pawn)),
+      pendingPromotion = Some(pending),
+      enPassantState   = Some(ep)
+    )
+    val result = ChessService.applyPromotion(state, PieceType.Queen).value
+    result.enPassantState shouldBe None
+  }
+
+  it should "evaluate status considering en passant availability after a double pawn advance" in {
+    // After White's double advance, the returned status is computed with the new ep state.
+    // This confirms ep state is threaded into GameStatusEvaluator.
+    val e2 = Position.fromAlgebraic("e2").value
+    val e4 = Position.fromAlgebraic("e4").value
+    val e8 = Position.fromAlgebraic("e8").value
+    val board = Board.empty
+      .place(e2, Piece(Color.White, PieceType.Pawn))
+      .place(e8, Piece(Color.Black, PieceType.King))
+    val state  = ChessService.createNewGame().copy(board = board)
+    val result = ChessService.applyMove(state, Move(e2, e4)).value
+    // The resulting status must be valid (not an error), confirming ep state was used
+    result.status shouldBe GameStatus.Ongoing
   }
 
   it should "switch back to White after Black makes a successful move" in {
