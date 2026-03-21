@@ -65,3 +65,61 @@ class InputParserSpec extends AnyFlatSpec with Matchers with EitherValues:
     InputParser.parse("move a1 h8") shouldBe Right(TextUiCommand.MoveCmd("a1", "h8"))
     InputParser.parse("move h1 a8") shouldBe Right(TextUiCommand.MoveCmd("h1", "a8"))
   }
+
+  // ── promote command ────────────────────────────────────────────────────────
+
+  it should "parse 'promote q'" in {
+    InputParser.parse("promote q") shouldBe Right(TextUiCommand.PromoteCmd("q"))
+  }
+
+  it should "parse 'promote queen' (full word)" in {
+    InputParser.parse("promote queen") shouldBe Right(TextUiCommand.PromoteCmd("q"))
+  }
+
+  it should "parse 'promote r'" in {
+    InputParser.parse("promote r") shouldBe Right(TextUiCommand.PromoteCmd("r"))
+  }
+
+  it should "parse 'promote rook' (full word)" in {
+    InputParser.parse("promote rook") shouldBe Right(TextUiCommand.PromoteCmd("r"))
+  }
+
+  it should "parse 'promote b'" in {
+    InputParser.parse("promote b") shouldBe Right(TextUiCommand.PromoteCmd("b"))
+  }
+
+  it should "parse 'promote bishop' (full word)" in {
+    InputParser.parse("promote bishop") shouldBe Right(TextUiCommand.PromoteCmd("b"))
+  }
+
+  it should "parse 'promote n'" in {
+    InputParser.parse("promote n") shouldBe Right(TextUiCommand.PromoteCmd("n"))
+  }
+
+  it should "parse 'promote knight' (full word)" in {
+    InputParser.parse("promote knight") shouldBe Right(TextUiCommand.PromoteCmd("n"))
+  }
+
+  it should "parse 'promote' case-insensitively" in {
+    InputParser.parse("promote Q") shouldBe Right(TextUiCommand.PromoteCmd("q"))
+  }
+
+  it should "return InvalidPromotionToken for 'promote k'" in {
+    InputParser.parse("promote k").left.value shouldBe InputParseError.InvalidPromotionToken("k")
+  }
+
+  it should "return InvalidPromotionToken for 'promote p'" in {
+    InputParser.parse("promote p").left.value shouldBe InputParseError.InvalidPromotionToken("p")
+  }
+
+  it should "return InvalidPromotionToken for an unknown promotion token" in {
+    InputParser.parse("promote frog").left.value shouldBe InputParseError.InvalidPromotionToken("frog")
+  }
+
+  it should "return WrongArgumentCount for 'promote' with no arguments" in {
+    InputParser.parse("promote").left.value shouldBe InputParseError.WrongArgumentCount("promote")
+  }
+
+  it should "return WrongArgumentCount for 'promote' with two arguments" in {
+    InputParser.parse("promote q q").left.value shouldBe InputParseError.WrongArgumentCount("promote")
+  }

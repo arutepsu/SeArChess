@@ -7,6 +7,7 @@ import chess.application.ApplicationError.*
 import chess.domain.error.DomainError
 import chess.domain.model.*
 import chess.domain.model.GameStatus
+import chess.application.{Promote, PendingPromotion}
 
 class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
 
@@ -109,6 +110,80 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
     val result = ChessService.handleCommand(state, MakeMove(Move(a1, a2))).value
     result.board.pieceAt(a2) shouldBe Some(whitePawn)
     result.currentPlayer     shouldBe Color.Black
+  }
+
+  // ── applyMove: promotion workflow ──────────────────────────────────────────
+
+  it should "set pendingPromotion instead of switching player when a pawn reaches the last rank" in {
+    val a7 = Position.from(0, 6).value
+    val a8 = Position.from(0, 7).value
+    val state = ChessService.createNewGame().copy(
+      board = Board.empty.place(a7, Piece(Color.White, PieceType.Pawn))
+    )
+    val result = ChessService.applyMove(state, Move(a7, a8)).value
+    result.pendingPromotion shouldBe defined
+    result.currentPlayer    shouldBe Color.White  // turn not switched yet
+    result.moveHistory      shouldBe Nil           // move not recorded yet
+  }
+
+  it should "reject a normal move when promotion is pending" in {
+    val a7 = Position.from(0, 6).value
+    val a8 = Position.from(0, 7).value
+    val a1 = Position.from(0, 0).value
+    val a2 = Position.from(0, 1).value
+    val state = ChessService.createNewGame().copy(
+      board         = Board.empty.place(a7, whitePawn).place(a1, whitePawn),
+      pendingPromotion = Some(PendingPromotion(a8, Color.White, Move(a7, a8)))
+    )
+    ChessService.applyMove(state, Move(a1, a2)).left.value shouldBe ApplicationError.PromotionChoiceRequired
+  }
+
+  // ── applyPromotion ─────────────────────────────────────────────────────────
+
+  "ChessService.applyPromotion" should "fail with NoPromotionPending when no promotion is set" in {
+    ChessService.applyPromotion(ChessService.createNewGame(), PieceType.Queen).left.value shouldBe
+      ApplicationError.NoPromotionPending
+  }
+
+  it should "clear pendingPromotion, switch player, and record move on success" in {
+    val a7 = Position.from(0, 6).value
+    val a8 = Position.from(0, 7).value
+    val pending = PendingPromotion(a8, Color.White, Move(a7, a8))
+    val state = ChessService.createNewGame().copy(
+      board            = Board.empty.place(a8, Piece(Color.White, PieceType.Pawn)),
+      pendingPromotion = Some(pending)
+    )
+    val result = ChessService.applyPromotion(state, PieceType.Queen).value
+    result.pendingPromotion                   shouldBe None
+    result.currentPlayer                      shouldBe Color.Black
+    result.moveHistory                        shouldBe List(Move(a7, a8))
+    result.board.pieceAt(a8)                  shouldBe Some(Piece(Color.White, PieceType.Queen))
+  }
+
+  it should "wrap a domain error as DomainFailure when the promotion piece is invalid" in {
+    val a8 = Position.from(0, 7).value
+    val a7 = Position.from(0, 6).value
+    val pending = PendingPromotion(a8, Color.White, Move(a7, a8))
+    val state = ChessService.createNewGame().copy(
+      board            = Board.empty.place(a8, Piece(Color.White, PieceType.Pawn)),
+      pendingPromotion = Some(pending)
+    )
+    val err = ChessService.applyPromotion(state, PieceType.King).left.value
+    err shouldBe a[ApplicationError.DomainFailure]
+  }
+
+  // ── handleCommand: Promote ─────────────────────────────────────────────────
+
+  "ChessService.handleCommand" should "delegate Promote to applyPromotion" in {
+    val a8 = Position.from(0, 7).value
+    val a7 = Position.from(0, 6).value
+    val pending = PendingPromotion(a8, Color.White, Move(a7, a8))
+    val state = ChessService.createNewGame().copy(
+      board            = Board.empty.place(a8, Piece(Color.White, PieceType.Pawn)),
+      pendingPromotion = Some(pending)
+    )
+    val result = ChessService.handleCommand(state, Promote(PieceType.Rook)).value
+    result.board.pieceAt(a8) shouldBe Some(Piece(Color.White, PieceType.Rook))
   }
 
   it should "switch back to White after Black makes a successful move" in {
