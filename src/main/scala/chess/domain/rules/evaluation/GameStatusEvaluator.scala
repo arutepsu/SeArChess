@@ -53,6 +53,4 @@ object GameStatusEvaluator:
     yield pos
 
   private def allPieces(board: Board, color: Color): Seq[(Position, Piece)] =
-    allSquares.flatMap { pos =>
-      board.pieceAt(pos).filter(_.color == color).map(pos -> _)
-    }
+    board.pieces.filter(_._2.color == color)

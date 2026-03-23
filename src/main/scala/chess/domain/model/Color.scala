@@ -1,7 +1,7 @@
 package chess.domain.model
 
-sealed trait Color
-
-object Color:
-  case object White extends Color
-  case object Black extends Color
+enum Color:
+  case White, Black
+  def opposite: Color = this match
+    case White => Black
+    case Black => White

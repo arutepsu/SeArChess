@@ -101,7 +101,8 @@ class TextUISpec extends AnyFlatSpec with Matchers:
    *  ready for the promote command.  White king at a1, black king at a8.
    *  After promoting to Queen, Black is in check (White Queen on h8 covers rank 8).
    */
-  private def pos(alg: String): Position = Position.fromAlgebraic(alg).toOption.get
+  private def pos(alg: String): Position =
+    Position.fromAlgebraic(alg).getOrElse(throw AssertionError(s"Invalid algebraic position in test constant: $alg"))
 
   private def promotionPendingState: GameState =
     val h8 = pos("h8")
