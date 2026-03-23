@@ -283,3 +283,12 @@ class MoveValidatorSpec extends AnyFlatSpec with Matchers with EitherValues:
     val board = boardWith("e5" -> pawn)
     validate(board, pawn, "e5", "e6").left.value shouldBe a[DomainError.IllegalMove]
   }
+
+  // ── MoveValidator.pawnMidSquare ────────────────────────────────────────────
+
+  "MoveValidator.pawnMidSquare" should "throw AssertionError with a descriptive message for out-of-bounds coordinates" in {
+    val ex = intercept[AssertionError] {
+      MoveValidator.pawnMidSquare(0, 8)
+    }
+    ex.getMessage should include("Invalid pawn mid-square")
+  }

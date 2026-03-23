@@ -22,18 +22,14 @@ object PromotionApplier:
       pieceType: PieceType
   ): Either[DomainError, Board] =
     val promotionRank = if color == Color.White then 7 else 0
-    board.pieceAt(square) match
-      case None =>
-        Left(DomainError.InvalidPromotionState)
-      case Some(p) if p.pieceType != PieceType.Pawn =>
-        Left(DomainError.InvalidPromotionState)
-      case Some(p) if p.color != color =>
-        Left(DomainError.InvalidPromotionState)
-      case _ if square.rank != promotionRank =>
-        Left(DomainError.InvalidPromotionState)
-      case _ =>
-        pieceType match
-          case PieceType.King | PieceType.Pawn =>
-            Left(DomainError.InvalidPromotionPiece)
-          case _ =>
-            Right(board.place(square, Piece(color, pieceType)))
+    val validState    = board.pieceAt(square).exists(p =>
+      p.pieceType == PieceType.Pawn && p.color == color
+    ) && square.rank == promotionRank
+    for
+      _ <- Either.cond(validState, (), DomainError.InvalidPromotionState)
+      _ <- Either.cond(
+             pieceType != PieceType.King && pieceType != PieceType.Pawn,
+             (),
+             DomainError.InvalidPromotionPiece
+           )
+    yield board.place(square, Piece(color, pieceType))
