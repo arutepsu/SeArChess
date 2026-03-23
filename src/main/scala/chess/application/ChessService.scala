@@ -1,6 +1,7 @@
 package chess.application
 
 import chess.application.ApplicationError.*
+import chess.application.ChessCommand.*
 import chess.domain.model.{Board, Color, GameStatus, Move, MoveResult, Piece, PieceType, Position}
 import chess.domain.model.positionstate.{CastlingRights, EnPassantState}
 import chess.domain.rules.application.{MoveApplier, PromotionApplier}
@@ -22,61 +23,58 @@ object ChessService:
   def applyMove(state: GameState, move: Move): Either[ApplicationError, GameState] =
     if state.pendingPromotion.isDefined then
       Left(PromotionChoiceRequired)
+    else if state.board.pieceAt(move.from).exists(_.color != state.currentPlayer) then
+      Left(NotPlayersTurn)
     else
-      state.board.pieceAt(move.from) match
-        case Some(piece) if piece.color != state.currentPlayer =>
-          Left(NotPlayersTurn)
-        case _ =>
-          MoveApplier.applyMove(state.board, move, state.castlingRights, state.enPassantState).fold(
-            err => Left(DomainFailure(err)),
-            {
-              case MoveResult.Applied(newBoard) =>
-                val nextRights    = CastlingRightsUpdater.update(state.castlingRights, state.board, move)
-                val nextEnPassant = computeEnPassantState(move, state.board)
-                val nextPlayer    = opponent(state.currentPlayer)
-                val nextStatus    = GameStatusEvaluator.evaluate(newBoard, nextPlayer, nextRights, nextEnPassant)
-                Right(state.copy(
-                  board            = newBoard,
-                  currentPlayer    = nextPlayer,
-                  moveHistory      = state.moveHistory :+ move,
-                  status           = nextStatus,
-                  castlingRights   = nextRights,
-                  pendingPromotion = None,
-                  enPassantState   = nextEnPassant
-                ))
+      // nextRights is the same regardless of the move outcome, so compute it once.
+      val nextRights = CastlingRightsUpdater.update(state.castlingRights, state.board, move)
+      MoveApplier.applyMove(state.board, move, state.castlingRights, state.enPassantState)
+        .left.map(DomainFailure(_))
+        .flatMap {
+          case MoveResult.Applied(newBoard) =>
+            val nextEnPassant = computeEnPassantState(move, state.board)
+            val nextPlayer    = state.currentPlayer.opposite
+            val nextStatus    = GameStatusEvaluator.evaluate(newBoard, nextPlayer, nextRights, nextEnPassant)
+            Right(state.copy(
+              board            = newBoard,
+              currentPlayer    = nextPlayer,
+              moveHistory      = state.moveHistory :+ move,
+              status           = nextStatus,
+              castlingRights   = nextRights,
+              pendingPromotion = None,
+              enPassantState   = nextEnPassant
+            ))
 
-              case MoveResult.PromotionRequired(newBoard, square, color) =>
-                // A pawn advancing to the promotion rank is a one-square move and
-                // can never create en passant availability, so clear it immediately.
-                val nextRights = CastlingRightsUpdater.update(state.castlingRights, state.board, move)
-                Right(state.copy(
-                  board            = newBoard,
-                  castlingRights   = nextRights,
-                  pendingPromotion = Some(PendingPromotion(square, color, move)),
-                  enPassantState   = None
-                ))
-            }
-          )
+          // A pawn advancing to the promotion rank is a one-square move and
+          // can never create en passant availability, so clear it immediately.
+          case MoveResult.PromotionRequired(newBoard, square, color) =>
+            Right(state.copy(
+              board            = newBoard,
+              castlingRights   = nextRights,
+              pendingPromotion = Some(PendingPromotion(square, color, move)),
+              enPassantState   = None
+            ))
+        }
 
   def applyPromotion(state: GameState, pieceType: PieceType): Either[ApplicationError, GameState] =
     state.pendingPromotion match
       case None =>
         Left(NoPromotionPending)
       case Some(PendingPromotion(square, color, move)) =>
-        PromotionApplier.applyPromotion(state.board, square, color, pieceType).fold(
-          err => Left(DomainFailure(err)),
-          promotedBoard =>
-            val nextPlayer = opponent(state.currentPlayer)
+        PromotionApplier.applyPromotion(state.board, square, color, pieceType)
+          .left.map(DomainFailure(_))
+          .map { promotedBoard =>
+            val nextPlayer = state.currentPlayer.opposite
             val nextStatus = GameStatusEvaluator.evaluate(promotedBoard, nextPlayer, state.castlingRights)
-            Right(state.copy(
+            state.copy(
               board            = promotedBoard,
               currentPlayer    = nextPlayer,
               moveHistory      = state.moveHistory :+ move,
               status           = nextStatus,
               pendingPromotion = None,
               enPassantState   = None
-            ))
-        )
+            )
+          }
 
   // ── en passant lifecycle ────────────────────────────────────────────────────
 
@@ -104,6 +102,3 @@ object ChessService:
       case MakeMove(move)     => applyMove(state, move)
       case Promote(pieceType) => applyPromotion(state, pieceType)
 
-  private def opponent(color: Color): Color = color match
-    case Color.White => Color.Black
-    case Color.Black => Color.White

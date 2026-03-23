@@ -128,3 +128,12 @@ class BoardSpec extends AnyFlatSpec with Matchers with EitherValues:
     Board.initial.pieceAt(sq("c8")) shouldBe Some(Piece(Color.Black, PieceType.Bishop))
     Board.initial.pieceAt(sq("f8")) shouldBe Some(Piece(Color.Black, PieceType.Bishop))
   }
+
+  // ── Board.constPos ─────────────────────────────────────────────────────────
+
+  "Board.constPos" should "throw AssertionError with a descriptive message for out-of-bounds coordinates" in {
+    val ex = intercept[AssertionError] {
+      Board.constPos(8, 0)
+    }
+    ex.getMessage should include("Invalid board constant: file=8 rank=0")
+  }

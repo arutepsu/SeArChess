@@ -43,18 +43,11 @@ object EnPassantValidator:
    *  - the capturable pawn is present and of the expected color at capturablePawnSquare
    */
   def validate(board: Board, move: Move, enPassant: EnPassantState): Either[DomainError, Unit] =
-    val capturer         = if enPassant.pawnColor == Color.White then Color.Black else Color.White
+    val capturer         = enPassant.pawnColor.opposite
     val forwardRankDelta = if capturer == Color.White then 1 else -1
-    val validDiagonal    =
+    val valid =
       math.abs(move.from.file - move.to.file) == 1 &&
-      move.to.rank - move.from.rank == forwardRankDelta
-    Either.cond(validDiagonal, (), DomainError.InvalidEnPassant)
-      .flatMap(_ => Either.cond(board.pieceAt(move.to).isEmpty, (), DomainError.InvalidEnPassant))
-      .flatMap(_ =>
-        Either.cond(
-          board.pieceAt(enPassant.capturablePawnSquare)
-            .contains(Piece(enPassant.pawnColor, PieceType.Pawn)),
-          (),
-          DomainError.InvalidEnPassant
-        )
-      )
+      move.to.rank - move.from.rank == forwardRankDelta &&
+      board.pieceAt(move.to).isEmpty &&
+      board.pieceAt(enPassant.capturablePawnSquare).contains(Piece(enPassant.pawnColor, PieceType.Pawn))
+    Either.cond(valid, (), DomainError.InvalidEnPassant)

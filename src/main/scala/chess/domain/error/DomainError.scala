@@ -2,50 +2,19 @@ package chess.domain.error
 
 import chess.domain.model.Position
 
-sealed trait DomainError
-
-object DomainError:
-  final case class OutOfBounds(file: Int, rank: Int)
-    extends DomainError
-
-  final case class InvalidPositionString(input: String)
-    extends DomainError
-
-  final case class EmptySourceSquare(position: Position)
-    extends DomainError
-
-  final case class IllegalMove(from: Position, to: Position)
-    extends DomainError
-
-  final case class BlockedPath(from: Position, to: Position)
-    extends DomainError
-
-  final case class OccupiedByOwnPiece(position: Position)
-    extends DomainError
-
-  case object SameSquare
-    extends DomainError
-
-  case object KingInCheck
-    extends DomainError
-
-  case object InvalidPromotionPiece
-    extends DomainError
-
-  case object InvalidPromotionState
-    extends DomainError
-
-  case object CastleNotAllowed
-    extends DomainError
-
-  case object MissingCastlingRook
-    extends DomainError
-
-  case object CastlePathBlocked
-    extends DomainError
-
-  case object CastleThroughCheck
-    extends DomainError
-
-  case object InvalidEnPassant
-    extends DomainError
+enum DomainError:
+  case OutOfBounds(file: Int, rank: Int)
+  case InvalidPositionString(input: String)
+  case EmptySourceSquare(position: Position)
+  case IllegalMove(from: Position, to: Position)
+  case BlockedPath(from: Position, to: Position)
+  case OccupiedByOwnPiece(position: Position)
+  case SameSquare
+  case KingInCheck
+  case InvalidPromotionPiece
+  case InvalidPromotionState
+  case CastleNotAllowed
+  case MissingCastlingRook
+  case CastlePathBlocked
+  case CastleThroughCheck
+  case InvalidEnPassant

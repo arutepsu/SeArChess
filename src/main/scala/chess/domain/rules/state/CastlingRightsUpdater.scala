@@ -15,14 +15,15 @@ import chess.domain.model.positionstate.CastlingRights
  */
 object CastlingRightsUpdater:
 
-  private def p(file: Int, rank: Int): Position = Position.from(file, rank).toOption.get
+  private[state] def constPos(file: Int, rank: Int): Position =
+    Position.from(file, rank).getOrElse(throw AssertionError(s"Invalid castling constant: file=$file rank=$rank"))
 
-  private val whiteKingStart     = p(4, 0)  // e1
-  private val blackKingStart     = p(4, 7)  // e8
-  private val whiteKingSideRook  = p(7, 0)  // h1
-  private val whiteQueenSideRook = p(0, 0)  // a1
-  private val blackKingSideRook  = p(7, 7)  // h8
-  private val blackQueenSideRook = p(0, 7)  // a8
+  private val whiteKingStart     = constPos(4, 0)  // e1
+  private val blackKingStart     = constPos(4, 7)  // e8
+  private val whiteKingSideRook  = constPos(7, 0)  // h1
+  private val whiteQueenSideRook = constPos(0, 0)  // a1
+  private val blackKingSideRook  = constPos(7, 7)  // h8
+  private val blackQueenSideRook = constPos(0, 7)  // a8
 
   def update(rights: CastlingRights, boardBefore: Board, move: Move): CastlingRights =
     val moving   = boardBefore.pieceAt(move.from)

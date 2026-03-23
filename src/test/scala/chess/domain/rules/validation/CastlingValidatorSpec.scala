@@ -192,3 +192,12 @@ class CastlingValidatorSpec extends AnyFlatSpec with Matchers with EitherValues:
     val result = CastlingValidator.validate(board, Color.White, Move(at("e1"), at("c1")), CastlingRights.full)
     result.left.value shouldBe DomainError.CastleThroughCheck
   }
+
+  // ── CastlingValidator.constPos ─────────────────────────────────────────────
+
+  "CastlingValidator.constPos" should "throw AssertionError with a descriptive message for out-of-bounds coordinates" in {
+    val ex = intercept[AssertionError] {
+      CastlingValidator.constPos(8, 0)
+    }
+    ex.getMessage should include("Invalid castling constant: file=8 rank=0")
+  }

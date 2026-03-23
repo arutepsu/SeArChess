@@ -144,3 +144,12 @@ class CastlingRightsUpdaterSpec extends AnyFlatSpec with Matchers with EitherVal
     val result = CastlingRightsUpdater.update(rights, board, Move(at("h4"), at("h5")))
     result shouldBe rights
   }
+
+  // ── CastlingRightsUpdater.constPos ─────────────────────────────────────────
+
+  "CastlingRightsUpdater.constPos" should "throw AssertionError with a descriptive message for out-of-bounds coordinates" in {
+    val ex = intercept[AssertionError] {
+      CastlingRightsUpdater.constPos(8, 0)
+    }
+    ex.getMessage should include("Invalid castling constant: file=8 rank=0")
+  }
