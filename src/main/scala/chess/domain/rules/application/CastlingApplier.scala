@@ -9,7 +9,8 @@ import chess.domain.rules.validation.CastlingValidator
  */
 object CastlingApplier:
 
-  private def p(file: Int, rank: Int): Position = Position.from(file, rank).toOption.get
+  private def p(file: Int, rank: Int): Position =
+    Position.from(file, rank).getOrElse(throw AssertionError(s"Invalid castling constant: file=$file rank=$rank"))
 
   def applyCastle(board: Board, color: Color, kingSide: Boolean): Board =
     val r       = if color == Color.White then 0 else 7
@@ -18,8 +19,8 @@ object CastlingApplier:
     val rookFrom = CastlingValidator.rookOrigin(color, kingSide)
     val rookTo   = CastlingValidator.rookDestination(color, kingSide)
 
-    val king = board.pieceAt(kingFrom).get  // guaranteed valid by CastlingValidator
-    val rook = board.pieceAt(rookFrom).get
+    val king = board.pieceAt(kingFrom).getOrElse(throw AssertionError("King missing after CastlingValidator"))
+    val rook = board.pieceAt(rookFrom).getOrElse(throw AssertionError("Rook missing after CastlingValidator"))
 
     board
       .remove(kingFrom).place(kingTo, king)

@@ -1,5 +1,7 @@
 package chess.adapter.textui
 
+import chess.domain.model.PieceType
+
 object InputParser:
 
   def parse(input: String): Either[InputParseError, TextUiCommand] =
@@ -16,10 +18,10 @@ object InputParser:
         case "move"    :: _                 => Left(InputParseError.WrongArgumentCount("move"))
         case "promote" :: token :: Nil      =>
           token.toLowerCase match
-            case "q" | "queen"  => Right(TextUiCommand.PromoteCmd("q"))
-            case "r" | "rook"   => Right(TextUiCommand.PromoteCmd("r"))
-            case "b" | "bishop" => Right(TextUiCommand.PromoteCmd("b"))
-            case "n" | "knight" => Right(TextUiCommand.PromoteCmd("n"))
+            case "q" | "queen"  => Right(TextUiCommand.PromoteCmd(PieceType.Queen))
+            case "r" | "rook"   => Right(TextUiCommand.PromoteCmd(PieceType.Rook))
+            case "b" | "bishop" => Right(TextUiCommand.PromoteCmd(PieceType.Bishop))
+            case "n" | "knight" => Right(TextUiCommand.PromoteCmd(PieceType.Knight))
             case _              => Left(InputParseError.InvalidPromotionToken(token))
         case "promote" :: _                 => Left(InputParseError.WrongArgumentCount("promote"))
         case cmd       :: _                 => Left(InputParseError.UnknownCommand(cmd))

@@ -18,14 +18,15 @@ import chess.domain.model.positionstate.CastlingRights
  */
 object CastlingValidator:
 
-  private def p(file: Int, rank: Int): Position = Position.from(file, rank).toOption.get
+  private[validation] def constPos(file: Int, rank: Int): Position =
+    Position.from(file, rank).getOrElse(throw AssertionError(s"Invalid castling constant: file=$file rank=$rank"))
 
-  private val whiteKingFrom    = p(4, 0)  // e1
-  private val blackKingFrom    = p(4, 7)  // e8
-  private val whiteKingSideTo  = p(6, 0)  // g1
-  private val whiteQueenSideTo = p(2, 0)  // c1
-  private val blackKingSideTo  = p(6, 7)  // g8
-  private val blackQueenSideTo = p(2, 7)  // c8
+  private val whiteKingFrom    = constPos(4, 0)  // e1
+  private val blackKingFrom    = constPos(4, 7)  // e8
+  private val whiteKingSideTo  = constPos(6, 0)  // g1
+  private val whiteQueenSideTo = constPos(2, 0)  // c1
+  private val blackKingSideTo  = constPos(6, 7)  // g8
+  private val blackQueenSideTo = constPos(2, 7)  // c8
 
   /** True if the move matches one of the four castling king moves. */
   def isCastlingMove(move: Move): Boolean =
@@ -40,7 +41,7 @@ object CastlingValidator:
       rights: CastlingRights
   ): Either[DomainError, Boolean] =
     val kingSide = move.to.file == 6   // g-file → king-side, c-file → queen-side
-    val opp      = if color == Color.White then Color.Black else Color.White
+    val opp      = color.opposite
     for
       _ <- checkRight(color, kingSide, rights)
       _ <- checkRook(board, color, kingSide)
@@ -93,21 +94,21 @@ object CastlingValidator:
   /** The rook's original square. */
   def rookOrigin(color: Color, kingSide: Boolean): Position =
     val r = rank(color)
-    if kingSide then p(7, r) else p(0, r)  // h or a file
+    if kingSide then constPos(7, r) else constPos(0, r)  // h or a file
 
   /** The rook's destination square after castling. */
   def rookDestination(color: Color, kingSide: Boolean): Position =
     val r = rank(color)
-    if kingSide then p(5, r) else p(3, r)  // f or d file
+    if kingSide then constPos(5, r) else constPos(3, r)  // f or d file
 
   /** Squares that must be empty between king and rook (inclusive of all intermediate files). */
   private def squaresBetween(color: Color, kingSide: Boolean): List[Position] =
     val r = rank(color)
-    if kingSide then List(p(5, r), p(6, r))           // f, g
-    else             List(p(1, r), p(2, r), p(3, r))  // b, c, d
+    if kingSide then List(constPos(5, r), constPos(6, r))           // f, g
+    else             List(constPos(1, r), constPos(2, r), constPos(3, r))  // b, c, d
 
   /** Squares the king passes through and lands on — must not be attacked. */
   private def kingTravelSquares(color: Color, kingSide: Boolean): List[Position] =
     val r = rank(color)
-    if kingSide then List(p(5, r), p(6, r))   // f, g
-    else             List(p(3, r), p(2, r))   // d, c  (b is empty-required but king doesn't cross it)
+    if kingSide then List(constPos(5, r), constPos(6, r))   // f, g
+    else             List(constPos(3, r), constPos(2, r))   // d, c  (b is empty-required but king doesn't cross it)

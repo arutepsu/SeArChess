@@ -1,7 +1,8 @@
 package chess.adapter.textui
 
-import chess.application.{ApplicationError, ChessService, GameState, MakeMove, Promote}
-import chess.domain.model.{Move, PieceType, Position}
+import chess.application.{ApplicationError, ChessService, GameState}
+import chess.application.ChessCommand.{MakeMove, Promote}
+import chess.domain.model.{Move, Position}
 import scala.annotation.tailrec
 
 final class TextUI(
@@ -55,12 +56,7 @@ final class TextUI(
               console.printLine(ConsoleRenderer.renderPromotionRequired())
             loop(newState)
 
-      case Right(TextUiCommand.PromoteCmd(choice)) =>
-        val pieceType = (choice: @unchecked) match
-          case "q" => PieceType.Queen
-          case "r" => PieceType.Rook
-          case "b" => PieceType.Bishop
-          case "n" => PieceType.Knight
+      case Right(TextUiCommand.PromoteCmd(pieceType)) =>
         ChessService.handleCommand(state, Promote(pieceType)) match
           case Left(err)       =>
             console.printLine(ConsoleRenderer.renderApplicationError(err))

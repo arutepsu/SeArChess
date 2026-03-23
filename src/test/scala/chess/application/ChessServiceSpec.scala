@@ -7,7 +7,7 @@ import chess.application.ApplicationError.*
 import chess.domain.error.DomainError
 import chess.domain.model.*
 import chess.domain.model.positionstate.{CastlingRights, EnPassantState}
-import chess.application.{Promote, PendingPromotion}
+import chess.application.ChessCommand.*
 
 class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
 

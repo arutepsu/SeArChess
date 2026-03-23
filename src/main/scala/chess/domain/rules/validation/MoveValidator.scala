@@ -108,7 +108,7 @@ object MoveValidator:
 
     else if dr == 2 * direction && df == 0 && move.from.rank == startRank then
       // double-square forward from starting rank: both squares must be empty
-      val mid = Position.from(move.from.file, move.from.rank + direction).toOption.get
+      val mid = pawnMidSquare(move.from.file, move.from.rank + direction)
       if board.pieceAt(mid).isDefined || board.pieceAt(move.to).isDefined then blocked(move) else ok
 
     else if dr == direction && math.abs(df) == 1 then
@@ -121,6 +121,12 @@ object MoveValidator:
       illegal(move)
 
   // ── helpers ────────────────────────────────────────────────────────────────
+
+  /** Compute the intermediate square for a pawn double-advance from known-valid coordinates.
+   *  Throws AssertionError if coordinates are out of bounds — unreachable under normal pawn rules.
+   */
+  private[validation] def pawnMidSquare(file: Int, rank: Int): Position =
+    Position.from(file, rank).getOrElse(throw AssertionError("Invalid pawn mid-square — unreachable for a pawn on its starting rank"))
 
   /** True if every square strictly between from and to is empty. */
   private def isPathClear(board: Board, move: Move): Boolean =

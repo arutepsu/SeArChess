@@ -11,7 +11,7 @@ import chess.domain.model.positionstate.EnPassantState
 object EnPassantApplier:
 
   def applyEnPassant(board: Board, move: Move, enPassant: EnPassantState): Board =
-    val capturingPawn = board.pieceAt(move.from).get  // guaranteed valid by EnPassantValidator
+    val capturingPawn = board.pieceAt(move.from).getOrElse(throw AssertionError("Capturing pawn missing after EnPassantValidator"))
     board
       .remove(move.from)
       .place(move.to, capturingPawn)

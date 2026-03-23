@@ -50,15 +50,12 @@ object MoveApplier:
         }
 
       case Some(capturingPiece) if EnPassantValidator.isEnPassantMove(board, move, enPassantState) =>
-        val ep = enPassantState.get  // safe: isEnPassantMove guarantees Some
-        EnPassantValidator.validate(board, move, ep).flatMap { _ =>
-          val newBoard = EnPassantApplier.applyEnPassant(board, move, ep)
-          Either.cond(
-            !CheckValidator.isKingInCheck(newBoard, capturingPiece.color),
-            MoveResult.Applied(newBoard),
-            DomainError.KingInCheck
-          )
-        }
+        for
+          ep       <- enPassantState.toRight(DomainError.InvalidEnPassant)
+          _        <- EnPassantValidator.validate(board, move, ep)
+          newBoard  = EnPassantApplier.applyEnPassant(board, move, ep)
+          _        <- Either.cond(!CheckValidator.isKingInCheck(newBoard, capturingPiece.color), (), DomainError.KingInCheck)
+        yield MoveResult.Applied(newBoard)
 
       case Some(piece) =>
         for
