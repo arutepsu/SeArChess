@@ -383,3 +383,36 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
     val afterBlack = ChessService.applyMove(afterWhite, Move(blackPawnPos, blackTarget)).value
     afterBlack.currentPlayer shouldBe Color.White
   }
+
+  // ── legalMovesFrom ─────────────────────────────────────────────────────────
+
+  "ChessService.legalMovesFrom" should "return the two forward squares for a pawn on its starting rank" in {
+    val state = ChessService.createNewGame()
+    val e2    = Position.fromAlgebraic("e2").value
+    val e3    = Position.fromAlgebraic("e3").value
+    val e4    = Position.fromAlgebraic("e4").value
+    ChessService.legalMovesFrom(state, e2) shouldBe Set(e3, e4)
+  }
+
+  it should "return an empty set for an empty square" in {
+    val state = ChessService.createNewGame()
+    val e4    = Position.fromAlgebraic("e4").value
+    ChessService.legalMovesFrom(state, e4) shouldBe empty
+  }
+
+  it should "return an empty set for an opponent's piece when it is not their turn" in {
+    val state = ChessService.createNewGame()   // White to move
+    val e7    = Position.fromAlgebraic("e7").value
+    ChessService.legalMovesFrom(state, e7) shouldBe empty
+  }
+
+  it should "return an empty set when promotion is pending" in {
+    val a8 = Position.fromAlgebraic("a8").value
+    val a7 = Position.fromAlgebraic("a7").value
+    val pending = PendingPromotion(a8, Color.White, Move(a7, a8))
+    val state = ChessService.createNewGame().copy(
+      board            = Board.empty.place(a8, Piece(Color.White, PieceType.Pawn)),
+      pendingPromotion = Some(pending)
+    )
+    ChessService.legalMovesFrom(state, a8) shouldBe empty
+  }
