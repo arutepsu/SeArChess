@@ -1,7 +1,7 @@
 // $COVERAGE-OFF$
 package chess.adapter.gui.render
 
-import chess.adapter.gui.assets.PieceSymbol
+import chess.adapter.gui.assets.{PieceVisualId, VisualResolver, VisualState}
 import chess.adapter.gui.input.InputAction
 import chess.adapter.gui.viewmodel.{GameViewModel, SquareViewModel}
 import chess.domain.model.{Color, Position}
@@ -92,11 +92,12 @@ object BoardRenderer:
 
     // Piece glyph — skipped when suppressed (drawn by the animation overlay instead)
     if !suppressed then sv.piece.foreach { (color, pieceType) =>
+      val descriptor = VisualResolver.resolve(PieceVisualId(color, pieceType, VisualState.Idle))
       val glyph = new Text:
-        text      = PieceSymbol.symbol(color, pieceType)
-        font      = Font("Segoe UI Symbol", SquareSize * 0.62)
-        fill      = if color == Color.White then FxColor.web("#fffffe") else FxColor.web("#1a1a1a")
-        stroke    = if color == Color.White then FxColor.web("#333333") else FxColor.web("#cccccc")
+        text        = descriptor.fallbackSymbol
+        font        = Font("Segoe UI Symbol", SquareSize * 0.62)
+        fill        = if color == Color.White then FxColor.web("#fffffe") else FxColor.web("#1a1a1a")
+        stroke      = if color == Color.White then FxColor.web("#333333") else FxColor.web("#cccccc")
         strokeWidth = 0.6
       pane.children.add(glyph)
     }

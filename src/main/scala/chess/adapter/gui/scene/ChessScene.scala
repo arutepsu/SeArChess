@@ -2,7 +2,7 @@
 package chess.adapter.gui.scene
 
 import chess.adapter.gui.animation.{AnimationPlan, AnimationPresentationMapper, AnimationRenderModel, AnimationRunner, AnimationState}
-import chess.adapter.gui.assets.PieceSymbol
+import chess.adapter.gui.assets.{PieceVisualId, VisualResolver, VisualState}
 import chess.adapter.gui.controller.GameController
 import chess.adapter.gui.input.InputAction
 import chess.adapter.gui.render.{BoardRenderer, PromotionOverlay, StatusRenderer}
@@ -117,18 +117,22 @@ class ChessScene:
 
     // Captured piece (fading out) — rendered first so it appears behind the mover.
     model.capturedPiece.foreach { info =>
-      val node = pieceNode(info)
+      val node = pieceNode(info, VisualState.Dead)
       animLayer.children.add(node)
     }
 
     // Moving piece — rendered on top of the captured piece.
-    animLayer.children.add(pieceNode(model.movingPiece))
+    animLayer.children.add(pieceNode(model.movingPiece, VisualState.Move))
 
-  /** Build a positioned, optionally semi-transparent [[StackPane]] for one [[PieceRenderInfo]]. */
-  private def pieceNode(info: chess.adapter.gui.animation.PieceRenderInfo): StackPane =
+  /** Build a positioned, optionally semi-transparent [[StackPane]] for one [[PieceRenderInfo]].
+   *
+   *  @param state the visual state that drives asset selection (e.g. [[VisualState.Move]]
+   *               for the travelling piece, [[VisualState.Dead]] for a fading capture). */
+  private def pieceNode(info: chess.adapter.gui.animation.PieceRenderInfo, state: VisualState): StackPane =
     val (color, pieceType) = info.piece
+    val descriptor = VisualResolver.resolve(PieceVisualId(color, pieceType, state))
     val glyph = new Text:
-      text        = PieceSymbol.symbol(color, pieceType)
+      text        = descriptor.fallbackSymbol
       font        = Font("Segoe UI Symbol", BoardRenderer.SquareSize * 0.62)
       fill        = if color == chess.domain.model.Color.White then FxColor.web("#fffffe") else FxColor.web("#1a1a1a")
       stroke      = if color == chess.domain.model.Color.White then FxColor.web("#333333") else FxColor.web("#cccccc")

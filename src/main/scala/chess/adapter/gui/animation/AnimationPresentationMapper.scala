@@ -36,16 +36,19 @@ object AnimationPresentationMapper:
     def squareX(file: Int): Double = file * squareSize
     def squareY(rank: Int): Double = (7 - rank) * squareSize
 
-    // Linear interpolation of the moving piece from source to destination.
+    // Delegate moving-piece position to the motion-style layer.
     val fromX = squareX(plan.from.file)
     val fromY = squareY(plan.from.rank)
     val toX   = squareX(plan.to.file)
     val toY   = squareY(plan.to.rank)
 
+    val style = MotionStyleResolver.resolve(plan.movingPiece._2)
+    val (currentX, currentY) = MotionInterpolator.interpolate(style, fromX, fromY, toX, toY, t)
+
     val movingInfo = PieceRenderInfo(
       piece = plan.movingPiece,
-      x     = fromX + (toX - fromX) * t,
-      y     = fromY + (toY - fromY) * t
+      x     = currentX,
+      y     = currentY
     )
 
     // Captured piece: fully visible at t=0, fades linearly to invisible at
