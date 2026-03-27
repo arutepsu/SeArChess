@@ -1,7 +1,7 @@
 // $COVERAGE-OFF$
 package chess.adapter.gui.render
 
-import chess.adapter.gui.assets.PieceSymbol
+import chess.adapter.gui.assets.{PieceVisualId, VisualResolver, VisualState}
 import chess.adapter.gui.input.InputAction
 import chess.adapter.gui.viewmodel.PromotionViewModel
 import scalafx.geometry.{Insets, Pos}
@@ -19,8 +19,9 @@ object PromotionOverlay:
 
   def create(vm: PromotionViewModel, dispatch: InputAction => Unit): VBox =
     val buttons = vm.choices.map { pt =>
+      val descriptor = VisualResolver.resolve(PieceVisualId(vm.promotingColor, pt, VisualState.Idle))
       val btn = new Button:
-        text     = PieceSymbol.symbol(vm.promotingColor, pt)
+        text     = descriptor.fallbackSymbol
         font     = Font("Segoe UI Symbol", 40)
         prefWidth  = 76
         prefHeight = 76
