@@ -4,10 +4,12 @@ import chess.domain.model.{Color, PieceType}
 
 /** Pure mapping from [[PieceVisualId]] to [[VisualDescriptor]].
  *
- *  This is the single authoritative place for all visual-asset policy:
+ *  This is the single authoritative place for asset-key policy:
  *  - asset key / resource path conventions
- *  - per-state frame counts (all 1 until real sprites are measured)
  *  - fallback glyph selection (delegated to [[PieceSymbol]])
+ *
+ *  Sprite-sheet structure (frame counts, frame sizes) lives in
+ *  [[SpriteMetadataRepository]], not here.
  *
  *  [[VisualResolver]] has no ScalaFX dependency and no mutable state.
  *  Renderers must not build asset keys or choose glyphs directly — they
@@ -48,9 +50,5 @@ object VisualResolver:
 
     VisualDescriptor(
       assetKey       = s"classic/${colorKey}_${pieceKey}_${stateKey}",
-      frameCount     = 1,
-      frameSize      = None,
-      displaySize    = None,
-      anchor         = None,
       fallbackSymbol = PieceSymbol.symbol(id.color, id.pieceType)
     )

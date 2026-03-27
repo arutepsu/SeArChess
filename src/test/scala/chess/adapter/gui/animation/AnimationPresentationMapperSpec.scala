@@ -152,3 +152,34 @@ class AnimationPresentationMapperSpec extends AnyFlatSpec with Matchers:
     model.movingPiece.x shouldBe mkPos(4, 4).file * S2
     model.movingPiece.y shouldBe (7 - mkPos(4, 4).rank) * S2
   }
+
+  // ── Frame indices — moving piece (white pawn, Move state, frameCount=4) ──
+
+  it should "assign frame 0 to the moving piece at t=0" in {
+    // white pawn + Move → frameCount=4; floor(0.0 × 4)=0
+    AnimationPresentationMapper.map(normalState(0.0), S).movingPiece.frameIndex shouldBe 0
+  }
+
+  it should "assign frame 3 (last) to the moving piece at t=1" in {
+    // floor(1.0 × 4)=4 → clamped to 3
+    AnimationPresentationMapper.map(normalState(1.0), S).movingPiece.frameIndex shouldBe 3
+  }
+
+  it should "assign a mid-range frame to the moving piece at t=0.5" in {
+    // floor(0.5 × 4)=2
+    AnimationPresentationMapper.map(normalState(0.5), S).movingPiece.frameIndex shouldBe 2
+  }
+
+  // ── Frame indices — captured piece (black pawn, Dead state, frameCount=8) ─
+
+  it should "assign frame 0 to the captured piece at t=0" in {
+    // black pawn + Dead → frameCount=8; floor(0.0 × 8)=0
+    val info = AnimationPresentationMapper.map(captureState(0.0), S).capturedPiece.get
+    info.frameIndex shouldBe 0
+  }
+
+  it should "assign a mid-range frame to the captured piece at t=0.5 (before threshold)" in {
+    // floor(0.5 × 8)=4
+    val info = AnimationPresentationMapper.map(captureState(0.5), S).capturedPiece.get
+    info.frameIndex shouldBe 4
+  }

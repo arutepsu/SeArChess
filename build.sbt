@@ -56,7 +56,9 @@ lazy val root = project
             ".*adapter.gui.ChessApp.*",
             ".*adapter.gui.scene.*",
             ".*adapter.gui.render.*",
-            ".*adapter.gui.animation.AnimationRunner.*"
+            ".*adapter.gui.animation.AnimationRunner.*",
+            ".*adapter.gui.assets.SpriteSheetLoader.*",
+            ".*adapter.gui.assets.PieceNodeFactory.*"
           ).mkString("|")
         )
       else Seq.empty

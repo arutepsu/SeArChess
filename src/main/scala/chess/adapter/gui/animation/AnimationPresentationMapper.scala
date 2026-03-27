@@ -1,5 +1,7 @@
 package chess.adapter.gui.animation
 
+import chess.adapter.gui.assets.{FrameSelectionPolicy, PieceVisualId, SpriteMetadataRepository, VisualResolver, VisualState}
+
 /** Pure mapping layer from [[AnimationState]] to the renderer-facing
  *  [[AnimationRenderModel]].
  *
@@ -46,9 +48,10 @@ object AnimationPresentationMapper:
     val (currentX, currentY) = MotionInterpolator.interpolate(style, fromX, fromY, toX, toY, t)
 
     val movingInfo = PieceRenderInfo(
-      piece = plan.movingPiece,
-      x     = currentX,
-      y     = currentY
+      piece      = plan.movingPiece,
+      x          = currentX,
+      y          = currentY,
+      frameIndex = frameIndexFor(plan.movingPiece, VisualState.Move, t)
     )
 
     // Captured piece: fully visible at t=0, fades linearly to invisible at
@@ -57,10 +60,11 @@ object AnimationPresentationMapper:
       if t < AnimationState.CaptureThreshold then
         val fade = 1.0 - t / AnimationState.CaptureThreshold
         Some(PieceRenderInfo(
-          piece   = captured,
-          x       = squareX(plan.to.file),
-          y       = squareY(plan.to.rank),
-          opacity = fade
+          piece      = captured,
+          x          = squareX(plan.to.file),
+          y          = squareY(plan.to.rank),
+          opacity    = fade,
+          frameIndex = frameIndexFor(captured, VisualState.Dead, t)
         ))
       else
         None
@@ -71,3 +75,17 @@ object AnimationPresentationMapper:
       capturedPiece    = capturedInfo,
       suppressedSquare = Some(plan.to)
     )
+
+  // ── Private helpers ──────────────────────────────────────────────────────────
+
+  /** Look up the sprite-sheet frame count for [[piece]] in [[state]], then
+   *  delegate to [[FrameSelectionPolicy]] to convert [[progress]] to an index.
+   *  Falls back to frame count 1 (→ frame 0) when metadata is absent. */
+  private def frameIndexFor(
+      piece:    (chess.domain.model.Color, chess.domain.model.PieceType),
+      state:    VisualState,
+      progress: Double
+  ): Int =
+    val assetKey   = VisualResolver.resolve(PieceVisualId(piece._1, piece._2, state)).assetKey
+    val frameCount = SpriteMetadataRepository.lookup(assetKey).map(_.frameCount).getOrElse(1)
+    FrameSelectionPolicy.select(state, frameCount, progress)

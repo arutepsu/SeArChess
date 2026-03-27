@@ -2,7 +2,7 @@
 package chess.adapter.gui.scene
 
 import chess.adapter.gui.animation.{AnimationPlan, AnimationPresentationMapper, AnimationRenderModel, AnimationRunner, AnimationState}
-import chess.adapter.gui.assets.{PieceVisualId, VisualResolver, VisualState}
+import chess.adapter.gui.assets.{PieceNodeFactory, PieceVisualId, SpriteSheetLoader, VisualState}
 import chess.adapter.gui.controller.GameController
 import chess.adapter.gui.input.InputAction
 import chess.adapter.gui.render.{BoardRenderer, PromotionOverlay, StatusRenderer}
@@ -10,8 +10,7 @@ import chess.adapter.gui.viewmodel.GameViewModel
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.Scene
 import scalafx.scene.layout.{BorderPane, Pane, StackPane}
-import scalafx.scene.paint.Color as FxColor
-import scalafx.scene.text.{Font, Text}
+
 
 /** Assembles the board, status bar, promotion overlay, and animation layer
  *  into a single [[Scene]].
@@ -30,6 +29,12 @@ import scalafx.scene.text.{Font, Text}
  */
 class ChessScene:
 
+  // ── Asset pipeline ────────────────────────────────────────────────────────
+
+  /** Shared loader + factory — the single asset path used by all rendering sites. */
+  private val spriteLoader = new SpriteSheetLoader
+  private val factory      = new PieceNodeFactory(spriteLoader)
+
   // ── Animation layer ───────────────────────────────────────────────────────
 
   /** Most-recently computed render model.  Used by [[refresh]] to supply the
@@ -45,7 +50,7 @@ class ChessScene:
 
   // ── Widgets ───────────────────────────────────────────────────────────────
 
-  private val boardGrid   = BoardRenderer.create(vm, handle)
+  private val boardGrid   = BoardRenderer.create(vm, handle, factory)
   private val statusLabel = StatusRenderer.create(vm)
 
   /** Transparent Pane covering the board.  Holds animated piece nodes. */
@@ -82,14 +87,14 @@ class ChessScene:
   private def refresh(newVm: GameViewModel): Unit =
     vm = newVm
     // Use the suppressed square from the current render model if animation is active.
-    BoardRenderer.update(boardGrid, newVm, handle, currentRenderModel.flatMap(_.suppressedSquare))
+    BoardRenderer.update(boardGrid, newVm, handle, factory, currentRenderModel.flatMap(_.suppressedSquare))
     StatusRenderer.update(statusLabel, newVm)
     updateOverlay(newVm)
 
   private def updateOverlay(newVm: GameViewModel): Unit =
     overlayContainer.children.clear()
     newVm.promotion.foreach { promoVm =>
-      overlayContainer.children.add(PromotionOverlay.create(promoVm, handle))
+      overlayContainer.children.add(PromotionOverlay.create(promoVm, handle, factory))
     }
 
   // ── Animation ─────────────────────────────────────────────────────────────
@@ -101,7 +106,7 @@ class ChessScene:
   private def onAnimationFrame(state: AnimationState): Unit =
     val model = AnimationPresentationMapper.map(state)
     currentRenderModel = Some(model)
-    BoardRenderer.update(boardGrid, vm, handle, model.suppressedSquare)
+    BoardRenderer.update(boardGrid, vm, handle, factory, model.suppressedSquare)
     renderAnimationLayer(model)
 
   private def onAnimationComplete(): Unit =
@@ -110,38 +115,23 @@ class ChessScene:
     controller.completeAnimation()
 
   /** Render the animation overlay from the pre-computed [[AnimationRenderModel]].
-   *  All positions, opacities, and visibility decisions come from the model — no
-   *  animation logic lives here. */
+   *  All positions, opacities, and visibility decisions come from the model.
+   *  All visual-asset decisions are delegated to [[PieceNodeFactory]] — no
+   *  rendering logic lives here. */
   private def renderAnimationLayer(model: AnimationRenderModel): Unit =
     animLayer.children.clear()
 
     // Captured piece (fading out) — rendered first so it appears behind the mover.
     model.capturedPiece.foreach { info =>
-      val node = pieceNode(info, VisualState.Dead)
-      animLayer.children.add(node)
+      val (color, pieceType) = info.piece
+      animLayer.children.add(
+        factory.positioned(PieceVisualId(color, pieceType, VisualState.Dead),
+          info.x, info.y, BoardRenderer.SquareSize, info.opacity, info.frameIndex))
     }
 
     // Moving piece — rendered on top of the captured piece.
-    animLayer.children.add(pieceNode(model.movingPiece, VisualState.Move))
-
-  /** Build a positioned, optionally semi-transparent [[StackPane]] for one [[PieceRenderInfo]].
-   *
-   *  @param state the visual state that drives asset selection (e.g. [[VisualState.Move]]
-   *               for the travelling piece, [[VisualState.Dead]] for a fading capture). */
-  private def pieceNode(info: chess.adapter.gui.animation.PieceRenderInfo, state: VisualState): StackPane =
-    val (color, pieceType) = info.piece
-    val descriptor = VisualResolver.resolve(PieceVisualId(color, pieceType, state))
-    val glyph = new Text:
-      text        = descriptor.fallbackSymbol
-      font        = Font("Segoe UI Symbol", BoardRenderer.SquareSize * 0.62)
-      fill        = if color == chess.domain.model.Color.White then FxColor.web("#fffffe") else FxColor.web("#1a1a1a")
-      stroke      = if color == chess.domain.model.Color.White then FxColor.web("#333333") else FxColor.web("#cccccc")
-      strokeWidth = 0.6
-    new StackPane:
-      alignment  = Pos.Center
-      prefWidth  = BoardRenderer.SquareSize
-      prefHeight = BoardRenderer.SquareSize
-      opacity    = info.opacity
-      layoutX    = info.x
-      layoutY    = info.y
-      children   = Seq(glyph)
+    val mover = model.movingPiece
+    val (mc, mpt) = mover.piece
+    animLayer.children.add(
+      factory.positioned(PieceVisualId(mc, mpt, VisualState.Move),
+        mover.x, mover.y, BoardRenderer.SquareSize, mover.opacity, mover.frameIndex))
