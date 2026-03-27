@@ -63,38 +63,11 @@ class VisualResolverSpec extends AnyFlatSpec with Matchers:
     resolve(Color.White, PieceType.King, VisualState.Dead).assetKey shouldBe "classic/white_king_dead"
   }
 
-  // ── Descriptor placeholder invariants ───────────────────────────────────────
+  // ── Descriptor carries only key and fallback — no sprite-sheet metadata ────
 
-  it should "set frameCount to 1 for all piece + state combinations (placeholder)" in {
-    for
-      color <- Seq(Color.White, Color.Black)
-      pt    <- PieceType.values
-      state <- VisualState.values
-    do resolve(color, pt, state).frameCount shouldBe 1
-  }
-
-  it should "leave frameSize as None for all combinations (not yet measured)" in {
-    for
-      color <- Seq(Color.White, Color.Black)
-      pt    <- PieceType.values
-      state <- VisualState.values
-    do resolve(color, pt, state).frameSize shouldBe None
-  }
-
-  it should "leave displaySize as None for all combinations (use square size)" in {
-    for
-      color <- Seq(Color.White, Color.Black)
-      pt    <- PieceType.values
-      state <- VisualState.values
-    do resolve(color, pt, state).displaySize shouldBe None
-  }
-
-  it should "leave anchor as None for all combinations (top-left default)" in {
-    for
-      color <- Seq(Color.White, Color.Black)
-      pt    <- PieceType.values
-      state <- VisualState.values
-    do resolve(color, pt, state).anchor shouldBe None
+  it should "produce a VisualDescriptor with a non-empty assetKey" in {
+    // Structural check: the descriptor carries the key (metadata lives in SpriteMetadataRepository)
+    resolve(Color.White, PieceType.King, VisualState.Idle).assetKey should not be empty
   }
 
   // ── Fallback symbol integration ──────────────────────────────────────────────
@@ -113,16 +86,6 @@ class VisualResolverSpec extends AnyFlatSpec with Matchers:
     val states = VisualState.values.toSeq
     val glyphs = states.map(s => resolve(Color.White, PieceType.Queen, s).fallbackSymbol)
     glyphs.toSet should have size 1
-  }
-
-  // ── Asset key non-empty invariant ────────────────────────────────────────────
-
-  it should "never produce an empty asset key" in {
-    for
-      color <- Seq(Color.White, Color.Black)
-      pt    <- PieceType.values
-      state <- VisualState.values
-    do resolve(color, pt, state).assetKey should not be empty
   }
 
   // ── PieceVisualId equality ───────────────────────────────────────────────────

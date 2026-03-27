@@ -1,15 +1,14 @@
 // $COVERAGE-OFF$
 package chess.adapter.gui.render
 
-import chess.adapter.gui.assets.{PieceVisualId, VisualResolver, VisualState}
+import chess.adapter.gui.assets.{PieceNodeFactory, PieceVisualId, VisualState}
 import chess.adapter.gui.input.InputAction
 import chess.adapter.gui.viewmodel.{GameViewModel, SquareViewModel}
-import chess.domain.model.{Color, Position}
+import chess.domain.model.Position
 import scalafx.geometry.Pos
 import scalafx.scene.layout.{GridPane, StackPane}
 import scalafx.scene.paint.{Color as FxColor}
 import scalafx.scene.shape.{Circle, Rectangle}
-import scalafx.scene.text.{Font, Text}
 
 /** Creates and updates the 8×8 board GridPane from a [[GameViewModel]].
  *
@@ -26,11 +25,11 @@ object BoardRenderer:
   private val TargetLight    = FxColor.web("#cdd16e")
   private val TargetDark     = FxColor.web("#aaa23a")
 
-  def create(vm: GameViewModel, onAction: InputAction => Unit): GridPane =
+  def create(vm: GameViewModel, onAction: InputAction => Unit, factory: PieceNodeFactory): GridPane =
     val grid = new GridPane
     grid.hgap = 0
     grid.vgap = 0
-    populate(grid, vm, onAction, None)
+    populate(grid, vm, onAction, factory, None)
     grid
 
   /** @param suppressPos when [[Some]], the piece on that square is not rendered —
@@ -39,26 +38,28 @@ object BoardRenderer:
       grid:        GridPane,
       vm:          GameViewModel,
       onAction:    InputAction => Unit,
+      factory:     PieceNodeFactory,
       suppressPos: Option[Position] = None
   ): Unit =
     grid.children.clear()
-    populate(grid, vm, onAction, suppressPos)
+    populate(grid, vm, onAction, factory, suppressPos)
 
   private def populate(
       grid:        GridPane,
       vm:          GameViewModel,
       onAction:    InputAction => Unit,
+      factory:     PieceNodeFactory,
       suppressPos: Option[Position]
   ): Unit =
     for sv <- vm.squares do
       val col        = sv.position.file
       val row        = 7 - sv.position.rank    // flip: rank 7 at top, rank 0 at bottom
       val suppressed = suppressPos.contains(sv.position)
-      grid.add(buildSquare(sv, onAction, suppressed), col, row)
+      grid.add(buildSquare(sv, onAction, factory, suppressed), col, row)
 
   // ── Square construction ─────────────────────────────────────────────────────
 
-  private def buildSquare(sv: SquareViewModel, onAction: InputAction => Unit, suppressed: Boolean = false): StackPane =
+  private def buildSquare(sv: SquareViewModel, onAction: InputAction => Unit, factory: PieceNodeFactory, suppressed: Boolean = false): StackPane =
     val isLight = (sv.position.file + sv.position.rank) % 2 != 0
     val bgColor = squareColor(isLight, sv.isSelected, sv.isLegalTarget)
 
@@ -90,16 +91,9 @@ object BoardRenderer:
           strokeWidth = SquareSize * 0.08
         pane.children.add(ring)
 
-    // Piece glyph — skipped when suppressed (drawn by the animation overlay instead)
+    // Piece visual — skipped when suppressed (drawn by the animation overlay instead)
     if !suppressed then sv.piece.foreach { (color, pieceType) =>
-      val descriptor = VisualResolver.resolve(PieceVisualId(color, pieceType, VisualState.Idle))
-      val glyph = new Text:
-        text        = descriptor.fallbackSymbol
-        font        = Font("Segoe UI Symbol", SquareSize * 0.62)
-        fill        = if color == Color.White then FxColor.web("#fffffe") else FxColor.web("#1a1a1a")
-        stroke      = if color == Color.White then FxColor.web("#333333") else FxColor.web("#cccccc")
-        strokeWidth = 0.6
-      pane.children.add(glyph)
+      pane.children.add(factory.content(PieceVisualId(color, pieceType, VisualState.Idle), SquareSize))
     }
 
     pane

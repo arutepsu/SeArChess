@@ -25,14 +25,18 @@ final case class AnimationRenderModel(
 
 /** Position and appearance of one piece for a single animation frame.
  *
- *  @param piece   colour and piece type
- *  @param x       top-left pixel x within the board area (0 = left edge, file 0)
- *  @param y       top-left pixel y within the board area (0 = top edge, rank 7)
- *  @param opacity 1.0 = fully opaque; decreases for the captured-piece fade-out
+ *  @param piece      colour and piece type
+ *  @param x          top-left pixel x within the board area (0 = left edge, file 0)
+ *  @param y          top-left pixel y within the board area (0 = top edge, rank 7)
+ *  @param opacity    1.0 = fully opaque; decreases for the captured-piece fade-out
+ *  @param frameIndex zero-based sprite-sheet frame to display; computed by
+ *                    [[chess.adapter.gui.assets.FrameSelectionPolicy]] in
+ *                    [[AnimationPresentationMapper]]; defaults to 0 for static pieces
  */
 final case class PieceRenderInfo(
-  piece:   (Color, PieceType),
-  x:       Double,
-  y:       Double,
-  opacity: Double = 1.0
+  piece:      (Color, PieceType),
+  x:          Double,
+  y:          Double,
+  opacity:    Double = 1.0,
+  frameIndex: Int    = 0
 )

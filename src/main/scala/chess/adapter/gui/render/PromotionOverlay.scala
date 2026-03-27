@@ -1,7 +1,7 @@
 // $COVERAGE-OFF$
 package chess.adapter.gui.render
 
-import chess.adapter.gui.assets.{PieceVisualId, VisualResolver, VisualState}
+import chess.adapter.gui.assets.{PieceNodeFactory, PieceVisualId, VisualState}
 import chess.adapter.gui.input.InputAction
 import chess.adapter.gui.viewmodel.PromotionViewModel
 import scalafx.geometry.{Insets, Pos}
@@ -17,16 +17,17 @@ import scalafx.scene.text.{Font, Text}
  */
 object PromotionOverlay:
 
-  def create(vm: PromotionViewModel, dispatch: InputAction => Unit): VBox =
+  /** Promotion button size — passed as `squareSize` to [[PieceNodeFactory.content]]. */
+  private val ButtonPieceSize = 64.0
+
+  def create(vm: PromotionViewModel, dispatch: InputAction => Unit, factory: PieceNodeFactory): VBox =
     val buttons = vm.choices.map { pt =>
-      val descriptor = VisualResolver.resolve(PieceVisualId(vm.promotingColor, pt, VisualState.Idle))
       val btn = new Button:
-        text     = descriptor.fallbackSymbol
-        font     = Font("Segoe UI Symbol", 40)
+        graphic    = factory.content(PieceVisualId(vm.promotingColor, pt, VisualState.Idle), ButtonPieceSize)
         prefWidth  = 76
         prefHeight = 76
-        style    = "-fx-background-color: #ffffffdd; -fx-border-color: #888; -fx-border-radius: 4; -fx-background-radius: 4;"
-        onAction = _ => dispatch(InputAction.PromotionPieceChosen(pt))
+        style      = "-fx-background-color: #ffffffdd; -fx-border-color: #888; -fx-border-radius: 4; -fx-background-radius: 4;"
+        onAction   = _ => dispatch(InputAction.PromotionPieceChosen(pt))
       btn
     }
 
