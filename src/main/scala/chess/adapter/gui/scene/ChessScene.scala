@@ -1,7 +1,7 @@
 // $COVERAGE-OFF$
 package chess.adapter.gui.scene
 
-import chess.adapter.gui.animation.{AnimationPlan, AnimationRunner, AnimationState}
+import chess.adapter.gui.animation.{AnimationPlan, AnimationPresentationMapper, AnimationRenderModel, AnimationRunner, AnimationState}
 import chess.adapter.gui.assets.PieceSymbol
 import chess.adapter.gui.controller.GameController
 import chess.adapter.gui.input.InputAction
@@ -9,49 +9,53 @@ import chess.adapter.gui.render.{BoardRenderer, PromotionOverlay, StatusRenderer
 import chess.adapter.gui.viewmodel.GameViewModel
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.Scene
-import scalafx.scene.layout.{BorderPane, Pane, StackPane, VBox}
+import scalafx.scene.layout.{BorderPane, Pane, StackPane}
 import scalafx.scene.paint.Color as FxColor
 import scalafx.scene.text.{Font, Text}
 
 /** Assembles the board, status bar, promotion overlay, and animation layer
- *  into a single Scene.
+ *  into a single [[Scene]].
  *
- *  The controller is wired here: every [[InputAction]] routes through
- *  [[GameController#handle]], which calls back into [[refresh]] with the new
- *  [[GameViewModel]].  When the controller detects an animatable move it also
- *  calls [[startAnimation]]; the [[AnimationRunner]] then fires frame callbacks
- *  that update [[animLayer]], and the completion callback returns to
- *  [[GameController#completeAnimation]].
+ *  Wiring:
+ *  - Every [[InputAction]] routes through [[GameController.handle]].
+ *  - The controller calls [[refresh]] on every state change.
+ *  - When an animatable move occurs the controller calls [[startAnimation]].
+ *  - [[AnimationRunner]] fires [[onAnimationFrame]] each FX tick; the frame
+ *    data is mapped to [[AnimationRenderModel]] by [[AnimationPresentationMapper]]
+ *    so this class contains no animation-presentation logic.
+ *  - On completion the runner calls [[onAnimationComplete]], which delegates
+ *    to [[GameController.completeAnimation]].
  *
- *  This class contains no chess logic.
+ *  This class contains no chess logic and no animation-presentation policy.
  */
 class ChessScene:
 
-  // ── Animation layer ──────────────────────────────────────────────────────
+  // ── Animation layer ───────────────────────────────────────────────────────
 
-  private var animState: Option[AnimationState] = None
+  /** Most-recently computed render model.  Used by [[refresh]] to supply the
+   *  correct suppressed square to the board renderer between animation frames. */
+  private var currentRenderModel: Option[AnimationRenderModel] = None
 
   private val runner = new AnimationRunner(onAnimationFrame, onAnimationComplete)
 
-  // ── Controller ───────────────────────────────────────────────────────────
+  // ── Controller ────────────────────────────────────────────────────────────
 
   private val controller = new GameController(refresh, startAnimation)
   private var vm: GameViewModel = controller.currentViewModel
 
-  // ── Widgets ──────────────────────────────────────────────────────────────
+  // ── Widgets ───────────────────────────────────────────────────────────────
 
   private val boardGrid   = BoardRenderer.create(vm, handle)
   private val statusLabel = StatusRenderer.create(vm)
 
-  // Transparent Pane overlaid on the board — holds the animated piece node(s).
+  /** Transparent Pane covering the board.  Holds animated piece nodes. */
   private val animLayer = new Pane:
     mouseTransparent = true
     prefWidth        = BoardRenderer.SquareSize * 8
     prefHeight       = BoardRenderer.SquareSize * 8
 
-  // Promotion chooser overlay
   private val overlayContainer = new StackPane:
-    alignment       = Pos.Center
+    alignment        = Pos.Center
     mouseTransparent = false
 
   private val boardStack = new StackPane:
@@ -67,19 +71,18 @@ class ChessScene:
 
   val scene: Scene = new Scene(root)
 
-  // Initial render
   refresh(vm)
 
-  // ── Wiring ───────────────────────────────────────────────────────────────
+  // ── Wiring ────────────────────────────────────────────────────────────────
 
-  private def handle(action: InputAction): Unit =
-    controller.handle(action)
+  private def handle(action: InputAction): Unit = controller.handle(action)
 
-  // ── Refresh (called by controller on every state change) ─────────────────
+  // ── Refresh ───────────────────────────────────────────────────────────────
 
   private def refresh(newVm: GameViewModel): Unit =
     vm = newVm
-    BoardRenderer.update(boardGrid, newVm, handle, animState.map(_.plan.to))
+    // Use the suppressed square from the current render model if animation is active.
+    BoardRenderer.update(boardGrid, newVm, handle, currentRenderModel.flatMap(_.suppressedSquare))
     StatusRenderer.update(statusLabel, newVm)
     updateOverlay(newVm)
 
@@ -89,65 +92,52 @@ class ChessScene:
       overlayContainer.children.add(PromotionOverlay.create(promoVm, handle))
     }
 
-  // ── Animation ────────────────────────────────────────────────────────────
+  // ── Animation ─────────────────────────────────────────────────────────────
 
   private def startAnimation(plan: AnimationPlan): Unit =
-    animState = None
+    currentRenderModel = None
     runner.start(plan)
 
   private def onAnimationFrame(state: AnimationState): Unit =
-    animState = Some(state)
-    BoardRenderer.update(boardGrid, vm, handle, Some(state.plan.to))
-    renderAnimationLayer(state)
+    val model = AnimationPresentationMapper.map(state)
+    currentRenderModel = Some(model)
+    BoardRenderer.update(boardGrid, vm, handle, model.suppressedSquare)
+    renderAnimationLayer(model)
 
   private def onAnimationComplete(): Unit =
-    animState = None
+    currentRenderModel = None
     animLayer.children.clear()
     controller.completeAnimation()
 
-  /** Render the animated piece (and optionally fading captured piece) in [[animLayer]]. */
-  private def renderAnimationLayer(state: AnimationState): Unit =
+  /** Render the animation overlay from the pre-computed [[AnimationRenderModel]].
+   *  All positions, opacities, and visibility decisions come from the model — no
+   *  animation logic lives here. */
+  private def renderAnimationLayer(model: AnimationRenderModel): Unit =
     animLayer.children.clear()
-    val S   = BoardRenderer.SquareSize
-    val t   = state.clampedProgress
-    val plan = state.plan
 
-    // Lerp the moving piece from the source to the destination square (top-left corner).
-    val fromX = plan.from.file * S
-    val fromY = (7 - plan.from.rank) * S
-    val toX   = plan.to.file * S
-    val toY   = (7 - plan.to.rank) * S
+    // Captured piece (fading out) — rendered first so it appears behind the mover.
+    model.capturedPiece.foreach { info =>
+      val node = pieceNode(info)
+      animLayer.children.add(node)
+    }
 
-    val currentX = fromX + (toX - fromX) * t
-    val currentY = fromY + (toY - fromY) * t
+    // Moving piece — rendered on top of the captured piece.
+    animLayer.children.add(pieceNode(model.movingPiece))
 
-    // Captured piece fades out in the first portion of the animation.
-    if plan.isCapture && t < AnimationState.CaptureThreshold then
-      val fade    = 1.0 - t / AnimationState.CaptureThreshold
-      val capNode = makePieceNode(plan.capturedPiece.get, S)
-      capNode.opacity  = fade
-      capNode.layoutX  = toX
-      capNode.layoutY  = toY
-      animLayer.children.add(capNode)
-
-    // Moving piece travels along the lerped path.
-    val movNode = makePieceNode(plan.movingPiece, S)
-    movNode.layoutX = currentX
-    movNode.layoutY = currentY
-    animLayer.children.add(movNode)
-
-  /** Build a StackPane the size of one square, containing the piece glyph,
-   *  positioned at the caller-supplied (layoutX, layoutY). */
-  private def makePieceNode(piece: (chess.domain.model.Color, chess.domain.model.PieceType), squareSize: Double): StackPane =
-    val (color, pieceType) = piece
+  /** Build a positioned, optionally semi-transparent [[StackPane]] for one [[PieceRenderInfo]]. */
+  private def pieceNode(info: chess.adapter.gui.animation.PieceRenderInfo): StackPane =
+    val (color, pieceType) = info.piece
     val glyph = new Text:
       text        = PieceSymbol.symbol(color, pieceType)
-      font        = Font("Segoe UI Symbol", squareSize * 0.62)
+      font        = Font("Segoe UI Symbol", BoardRenderer.SquareSize * 0.62)
       fill        = if color == chess.domain.model.Color.White then FxColor.web("#fffffe") else FxColor.web("#1a1a1a")
       stroke      = if color == chess.domain.model.Color.White then FxColor.web("#333333") else FxColor.web("#cccccc")
       strokeWidth = 0.6
     new StackPane:
       alignment  = Pos.Center
-      prefWidth  = squareSize
-      prefHeight = squareSize
+      prefWidth  = BoardRenderer.SquareSize
+      prefHeight = BoardRenderer.SquareSize
+      opacity    = info.opacity
+      layoutX    = info.x
+      layoutY    = info.y
       children   = Seq(glyph)
