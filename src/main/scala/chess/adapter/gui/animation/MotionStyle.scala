@@ -13,7 +13,7 @@ enum MotionStyle:
   /** Straight-line path with cubic smoothstep easing — fluid, light glide. */
   case Smooth
 
-  /** Straight-line path with quartic ease-in-out — more deliberate, weighty feel. */
+  /** Straight-line path with cubic ease-in-out — more deliberate, weighty feel. */
   case Heavy
 
   /** Parabolic arc — piece jumps upward (negative screen-y) along a curve.
@@ -22,3 +22,17 @@ enum MotionStyle:
    *                        distance (e.g. 0.5 → half the move distance lifted at peak)
    */
   case Arc(heightFraction: Double)
+
+  /** Two-phase attack lunge — piece drives past the destination then settles back.
+   *
+   *  Phase 1 `[0, LungePeakT]`: smoothstep from source to overshoot point.
+   *  Phase 2 `(LungePeakT, 1]`: smoothstep from overshoot back to destination.
+   *
+   *  The overshoot point lies along the normalized source→destination vector, a
+   *  distance of `overshootFraction × move distance` past the destination.
+   *  The final position at `t = 1` is exactly the destination.
+   *
+   *  @param overshootFraction fraction of the Euclidean move distance to overshoot
+   *                           (e.g. 0.15 → 15 % of move distance past destination)
+   */
+  case AttackLunge(overshootFraction: Double)

@@ -52,8 +52,8 @@ object BoardRenderer:
       suppressPos: Option[Position]
   ): Unit =
     for sv <- vm.squares do
-      val col        = sv.position.file
-      val row        = 7 - sv.position.rank    // flip: rank 7 at top, rank 0 at bottom
+      val col        = BoardProjection.toScreenCol(sv.position)
+      val row        = BoardProjection.toScreenRow(sv.position)
       val suppressed = suppressPos.contains(sv.position)
       grid.add(buildSquare(sv, onAction, factory, suppressed), col, row)
 
@@ -93,7 +93,8 @@ object BoardRenderer:
 
     // Piece visual — skipped when suppressed (drawn by the animation overlay instead)
     if !suppressed then sv.piece.foreach { (color, pieceType) =>
-      pane.children.add(factory.content(PieceVisualId(color, pieceType, VisualState.Idle), SquareSize))
+      pane.children.add(factory.content(PieceVisualId(color, pieceType, VisualState.Idle), SquareSize,
+        flipX = PieceFacingPolicy.flipX(color)))
     }
 
     pane

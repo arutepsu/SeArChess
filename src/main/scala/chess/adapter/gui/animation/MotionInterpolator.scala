@@ -50,6 +50,26 @@ object MotionInterpolator:
         val lift = 4.0 * heightFraction * dist * t * (1.0 - t)
         (baseX, baseY - lift)
 
+      case MotionStyle.AttackLunge(overshootFraction) =>
+        val dx   = toX - fromX
+        val dy   = toY - fromY
+        val dist = sqrt(dx * dx + dy * dy)
+        if dist == 0.0 then (toX, toY)
+        else
+          // Overshoot point: past the destination along the move direction.
+          val overshootDist = overshootFraction * dist
+          val osX = toX + (dx / dist) * overshootDist
+          val osY = toY + (dy / dist) * overshootDist
+          val impT = CaptureTiming.LungePeakT
+          if t <= impT then
+            // Phase 1: drive from source to overshoot.
+            val s = smoothstep(t / impT)
+            (lerp(fromX, osX, s), lerp(fromY, osY, s))
+          else
+            // Phase 2: settle from overshoot back to destination.
+            val s = smoothstep((t - impT) / (1.0 - impT))
+            (lerp(osX, toX, s), lerp(osY, toY, s))
+
   // ── Private easing helpers ───────────────────────────────────────────────
 
   /** Linear interpolation: `from + (to - from) * t`. */

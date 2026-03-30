@@ -14,6 +14,9 @@ package chess.adapter.gui.assets
  *
  *  @param assetKey    resource key matching the [[chess.adapter.gui.assets.VisualDescriptor]] produced by
  *                     [[chess.adapter.gui.assets.VisualResolver]] (e.g. `"classic/white_king_idle"`)
+ *  @param path        classpath-relative resource path to the PNG asset
+ *                     (e.g. `"assets/classic/pawn/white_pawn_idle.png"`); used by
+ *                     [[chess.adapter.gui.assets.SpriteSheetLoader]] to locate the file
  *  @param frameCount  total number of frames stacked vertically in the sprite sheet
  *  @param frameSize   native pixel dimensions of one frame `(width, height)`
  *  @param displaySize optional display-size override `(width, height)` in logical pixels;
@@ -23,6 +26,7 @@ package chess.adapter.gui.assets
  */
 final case class SpriteMetadata(
   assetKey:    String,
+  path:        String,
   frameCount:  Int,
   frameSize:   (Int, Int),
   displaySize: Option[(Double, Double)],

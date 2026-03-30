@@ -1,60 +1,48 @@
 package chess.adapter.gui.assets
 
-/** Static metadata repository for all known sprite-sheet assets.
+/** Repository of [[SpriteMetadata]] entries for all known sprite-sheet assets.
  *
- *  Holds authoritative [[SpriteMetadata]] for every `(color, pieceType, state)`
- *  combination supported by the current theme.  This is the single place where
- *  frame counts, frame sizes, and per-asset display overrides are declared.
+ *  In production use, instances are created via [[SpriteMetadataRepository.fromCatalog]]
+ *  which derives all metadata from the validated [[SpriteCatalog]].  Test code
+ *  may construct instances directly with an explicit entry map.
  *
- *  === Placeholder values ===
- *  Real PNG assets do not yet exist.  All frame sizes are set to a uniform
- *  placeholder of 64 × 64 px.  Frame counts vary by state to exercise the
- *  variable-count design that will be needed once real sprites are measured:
+ *  Frame counts, frame sizes, and resource paths come exclusively from the
+ *  catalog — no values are hardcoded here.
  *
- *  {{{
- *    Idle   → 1 frame   (standing still)
- *    Move   → 4 frames  (short travel cycle)
- *    Attack → 6 frames  (swing / shoot cycle)
- *    Hit    → 3 frames  (knockback flash)
- *    Dead   → 8 frames  (collapse animation)
- *  }}}
+ *  @param entries metadata map keyed by logical asset key
+ */
+final class SpriteMetadataRepository(private val entries: Map[String, SpriteMetadata]):
+
+  /** Return the [[SpriteMetadata]] for the given asset key, or [[None]] if
+   *  the key is not in the repository.
+   *
+   *  A [[None]] result is handled centrally by [[chess.adapter.gui.assets.PieceNodeFactory]]
+   *  via its glyph fallback path — callers do not need their own fallback.
+   */
+  def lookup(assetKey: String): Option[SpriteMetadata] = entries.get(assetKey)
+
+/** Companion providing the catalog-backed factory.
  *
- *  When real assets arrive, update [[frameCountByState]] and [[DefaultFrameSize]]
- *  (or add per-key overrides) here — no renderer changes are required.
- *
- *  === Lookup ===
- *  [[lookup]] returns [[None]] for any key that is not in the table.
- *  The centralized fallback in [[PieceNodeFactory]] handles missing entries.
+ *  All frame counts, frame sizes, and paths are resolved from the
+ *  [[SpriteCatalog]] produced by [[SpriteCatalogParser]].
  */
 object SpriteMetadataRepository:
 
-  /** Frame counts per visual state — uniform across piece types for this phase. */
-  private val frameCountByState: Map[String, Int] = Map(
-    "idle"   -> 1,
-    "move"   -> 4,
-    "attack" -> 6,
-    "hit"    -> 3,
-    "dead"   -> 8
-  )
-
-  /** Native frame pixel size placeholder — updated when real assets are measured. */
-  private val DefaultFrameSize: (Int, Int) = (64, 64)
-
-  private val metadata: Map[String, SpriteMetadata] = (
-    for
-      color     <- Seq("white", "black")
-      pieceType <- Seq("king", "queen", "rook", "bishop", "knight", "pawn")
-      state     <- Seq("idle", "move", "attack", "hit", "dead")
-    yield
-      val key = s"classic/${color}_${pieceType}_${state}"
+  /** Build a [[SpriteMetadataRepository]] from a validated [[SpriteCatalog]].
+   *
+   *  One [[SpriteMetadata]] entry is created for every entry in
+   *  `catalog.spriteSheets`, inlining the [[ClipSpecEntry]] data.
+   */
+  def fromCatalog(catalog: SpriteCatalog): SpriteMetadataRepository =
+    val entries = catalog.spriteSheets.map { (key, sheet) =>
+      val spec = sheet.clipSpec
       key -> SpriteMetadata(
         assetKey    = key,
-        frameCount  = frameCountByState(state),
-        frameSize   = DefaultFrameSize,
-        displaySize = None,
-        anchor      = None
+        path        = sheet.path,
+        frameCount  = spec.frameCount,
+        frameSize   = spec.frameSize,
+        displaySize = spec.displaySize,
+        anchor      = spec.anchor
       )
-  ).toMap
-
-  /** Return the [[SpriteMetadata]] for the given asset key, or [[None]] if unknown. */
-  def lookup(assetKey: String): Option[SpriteMetadata] = metadata.get(assetKey)
+    }
+    SpriteMetadataRepository(entries)

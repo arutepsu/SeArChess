@@ -1,115 +1,107 @@
 package chess.adapter.gui.assets
 
-import chess.domain.model.{Color, PieceType}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 class SpriteMetadataRepositorySpec extends AnyFlatSpec with Matchers:
 
-  // ── Helpers ─────────────────────────────────────────────────────────────────
+  // ── Test fixtures ─────────────────────────────────────────────────────────
 
-  private def lookupExpected(assetKey: String): SpriteMetadata =
-    SpriteMetadataRepository.lookup(assetKey)
-      .getOrElse(fail(s"Expected metadata for '$assetKey' but got None"))
+  private val knownMeta = SpriteMetadata(
+    assetKey    = "classic/white_pawn_move",
+    path        = "assets/classic/pawn/white_pawn_move.png",
+    frameCount  = 8,
+    frameSize   = (200, 200),
+    displaySize = None,
+    anchor      = None
+  )
 
-  // ── Successful lookup — asset key structure ──────────────────────────────────
+  private val repo = SpriteMetadataRepository(Map("classic/white_pawn_move" -> knownMeta))
 
-  "SpriteMetadataRepository.lookup" should "return Some for a known idle asset key" in {
-    val meta = lookupExpected("classic/white_king_idle")
-    meta.assetKey shouldBe "classic/white_king_idle"
+  // ── Lookup behaviour ──────────────────────────────────────────────────────
+
+  "SpriteMetadataRepository.lookup" should "return Some for a registered key" in {
+    repo.lookup("classic/white_pawn_move") shouldBe defined
   }
 
-  it should "return Some for a known move asset key" in {
-    SpriteMetadataRepository.lookup("classic/black_knight_move") shouldBe defined
+  it should "return the correct metadata for a registered key" in {
+    val meta = repo.lookup("classic/white_pawn_move").get
+    meta.assetKey   shouldBe "classic/white_pawn_move"
+    meta.path       shouldBe "assets/classic/pawn/white_pawn_move.png"
+    meta.frameCount shouldBe 8
+    meta.frameSize  shouldBe (200, 200)
   }
 
-  it should "return Some for a known attack asset key" in {
-    SpriteMetadataRepository.lookup("classic/white_pawn_attack") shouldBe defined
+  it should "return None for an unknown key" in {
+    repo.lookup("classic/white_pawn_flying") shouldBe None
   }
 
-  it should "return Some for a known hit asset key" in {
-    SpriteMetadataRepository.lookup("classic/black_rook_hit") shouldBe defined
+  // ── fromCatalog factory ───────────────────────────────────────────────────
+
+  "SpriteMetadataRepository.fromCatalog" should "build entries from all spriteSheet entries" in {
+    val clip    = ClipSpecEntry(4, (64, 64), None, None)
+    val sheet   = SpriteSheetEntry("classic/white_pawn_move", "assets/pawn/move.png", clip)
+    val catalog = SpriteCatalog("test", Map("classic/white_pawn_move" -> sheet), Map.empty)
+    val builtRepo = SpriteMetadataRepository.fromCatalog(catalog)
+    builtRepo.lookup("classic/white_pawn_move") shouldBe defined
   }
 
-  it should "return Some for a known dead asset key" in {
-    SpriteMetadataRepository.lookup("classic/white_queen_dead") shouldBe defined
+  it should "inline frameCount from the clipSpec" in {
+    val clip    = ClipSpecEntry(8, (200, 200), None, None)
+    val sheet   = SpriteSheetEntry("classic/white_pawn_move", "assets/pawn/move.png", clip)
+    val catalog = SpriteCatalog("test", Map("classic/white_pawn_move" -> sheet), Map.empty)
+    SpriteMetadataRepository.fromCatalog(catalog)
+      .lookup("classic/white_pawn_move").get.frameCount shouldBe 8
   }
 
-  it should "return None for an unknown asset key" in {
-    SpriteMetadataRepository.lookup("classic/white_king_flying") shouldBe None
+  it should "inline frameSize from the clipSpec" in {
+    val clip    = ClipSpecEntry(4, (200, 200), None, None)
+    val sheet   = SpriteSheetEntry("classic/white_pawn_move", "assets/pawn/move.png", clip)
+    val catalog = SpriteCatalog("test", Map("classic/white_pawn_move" -> sheet), Map.empty)
+    SpriteMetadataRepository.fromCatalog(catalog)
+      .lookup("classic/white_pawn_move").get.frameSize shouldBe (200, 200)
   }
 
-  // ── Frame counts vary by state ───────────────────────────────────────────────
-
-  it should "assign frameCount 1 to Idle assets" in {
-    lookupExpected("classic/white_king_idle").frameCount shouldBe 1
+  it should "use the sheet path as the SpriteMetadata path" in {
+    val clip    = ClipSpecEntry(4, (64, 64), None, None)
+    val sheet   = SpriteSheetEntry("classic/white_pawn_move", "assets/classic/pawn/white_pawn_move.png", clip)
+    val catalog = SpriteCatalog("test", Map("classic/white_pawn_move" -> sheet), Map.empty)
+    SpriteMetadataRepository.fromCatalog(catalog)
+      .lookup("classic/white_pawn_move").get.path shouldBe "assets/classic/pawn/white_pawn_move.png"
   }
 
-  it should "assign frameCount 4 to Move assets" in {
-    lookupExpected("classic/black_bishop_move").frameCount shouldBe 4
+  it should "propagate displaySize from the clipSpec" in {
+    val clip    = ClipSpecEntry(4, (64, 64), Some((72.0, 72.0)), None)
+    val sheet   = SpriteSheetEntry("classic/white_pawn_move", "assets/pawn/move.png", clip)
+    val catalog = SpriteCatalog("test", Map("classic/white_pawn_move" -> sheet), Map.empty)
+    SpriteMetadataRepository.fromCatalog(catalog)
+      .lookup("classic/white_pawn_move").get.displaySize shouldBe Some((72.0, 72.0))
   }
 
-  it should "assign frameCount 6 to Attack assets" in {
-    lookupExpected("classic/white_rook_attack").frameCount shouldBe 6
+  it should "propagate anchor from the clipSpec" in {
+    val clip    = ClipSpecEntry(4, (64, 64), None, Some((0.5, 0.5)))
+    val sheet   = SpriteSheetEntry("classic/white_pawn_move", "assets/pawn/move.png", clip)
+    val catalog = SpriteCatalog("test", Map("classic/white_pawn_move" -> sheet), Map.empty)
+    SpriteMetadataRepository.fromCatalog(catalog)
+      .lookup("classic/white_pawn_move").get.anchor shouldBe Some((0.5, 0.5))
   }
 
-  it should "assign frameCount 3 to Hit assets" in {
-    lookupExpected("classic/black_queen_hit").frameCount shouldBe 3
+  it should "produce an empty repository from an empty catalog" in {
+    val catalog = SpriteCatalog("test", Map.empty, Map.empty)
+    SpriteMetadataRepository.fromCatalog(catalog).lookup("anything") shouldBe None
   }
 
-  it should "assign frameCount 8 to Dead assets" in {
-    lookupExpected("classic/white_knight_dead").frameCount shouldBe 8
-  }
+  // ── Frame counts and sizes from real catalog data ─────────────────────────
 
-  // ── Frame size ───────────────────────────────────────────────────────────────
-
-  it should "assign a non-zero frameSize to all assets" in {
-    val meta = lookupExpected("classic/white_pawn_idle")
-    val (w, h) = meta.frameSize
-    w should be > 0
-    h should be > 0
-  }
-
-  it should "assign the same placeholder frameSize across different states" in {
-    val idleSize  = lookupExpected("classic/white_king_idle").frameSize
-    val moveSize  = lookupExpected("classic/white_king_move").frameSize
-    val attackSize = lookupExpected("classic/white_king_attack").frameSize
-    idleSize  shouldBe moveSize
-    moveSize  shouldBe attackSize
-  }
-
-  // ── Optional fields default to None ─────────────────────────────────────────
-
-  it should "leave displaySize as None for placeholder assets" in {
-    lookupExpected("classic/black_king_idle").displaySize shouldBe None
-  }
-
-  it should "leave anchor as None for placeholder assets" in {
-    lookupExpected("classic/black_queen_move").anchor shouldBe None
-  }
-
-  // ── Completeness — all 60 combinations must be present ───────────────────────
-
-  it should "contain metadata for every color + pieceType + state combination" in {
-    for
-      color <- Seq(Color.White, Color.Black)
-      pt    <- PieceType.values
-      state <- VisualState.values
-    do
-      val id  = PieceVisualId(color, pt, state)
-      val key = VisualResolver.resolve(id).assetKey
-      withClue(s"missing metadata for key '$key'") {
-        SpriteMetadataRepository.lookup(key) shouldBe defined
-      }
-  }
-
-  // ── Frame-count variety — at least two distinct counts exist ─────────────────
-
-  it should "expose more than one distinct frame count across all states" in {
-    val counts = VisualState.values.map { state =>
-      SpriteMetadataRepository.lookup(s"classic/white_king_${state.toString.toLowerCase}")
-        .map(_.frameCount)
-        .getOrElse(fail(s"Missing metadata for state $state"))
-    }.toSet
-    counts.size should be > 1
+  it should "expose distinct frame counts when built from a multi-entry catalog" in {
+    val c1 = ClipSpecEntry(1,  (64, 64), None, None)
+    val c4 = ClipSpecEntry(4,  (64, 64), None, None)
+    val entries = Map(
+      "classic/white_pawn_idle" -> SpriteSheetEntry("classic/white_pawn_idle", "p/idle.png", c1),
+      "classic/white_pawn_move" -> SpriteSheetEntry("classic/white_pawn_move", "p/move.png", c4)
+    )
+    val catalog = SpriteCatalog("test", entries, Map.empty)
+    val builtRepo = SpriteMetadataRepository.fromCatalog(catalog)
+    builtRepo.lookup("classic/white_pawn_idle").get.frameCount shouldBe 1
+    builtRepo.lookup("classic/white_pawn_move").get.frameCount shouldBe 4
   }
