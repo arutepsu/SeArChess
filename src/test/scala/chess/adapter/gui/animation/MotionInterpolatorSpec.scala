@@ -114,7 +114,7 @@ class MotionInterpolatorSpec extends AnyFlatSpec with Matchers:
   // ── AttackLunge ───────────────────────────────────────────────────────────
   // Horizontal test geometry: (0,0) → (400,0)  direction = (1,0)
   // overshootFraction=0.15 → overshootDist=60  osX=460, osY=0
-  // impactT = CaptureTiming.LungePeakT = 0.65
+  // impactT = AttackLungePeakT = 0.65 (private to MotionInterpolator)
 
   "MotionInterpolator.interpolate (AttackLunge)" should "place piece at source at t=0" in {
     val (x, y) = MotionInterpolator.interpolate(MotionStyle.AttackLunge(0.15), 0.0, 0.0, 400.0, 0.0, 0.0)
@@ -128,28 +128,28 @@ class MotionInterpolatorSpec extends AnyFlatSpec with Matchers:
 
   it should "overshoot past the destination at t=impactT (horizontal)" in {
     // At impactT the lunge reaches the overshoot point: osX=460 > toX=400
-    val impT   = CaptureTiming.LungePeakT
+    val impT   = 0.65
     val (x, _) = MotionInterpolator.interpolate(MotionStyle.AttackLunge(0.15), 0.0, 0.0, 400.0, 0.0, impT)
     x should be > 400.0
   }
 
   it should "overshoot to exactly the computed overshoot point at t=impactT" in {
     // smoothstep(1.0)=1.0 so position = overshoot = (460, 0)
-    val impT   = CaptureTiming.LungePeakT
+    val impT   = 0.65
     val (x, y) = MotionInterpolator.interpolate(MotionStyle.AttackLunge(0.15), 0.0, 0.0, 400.0, 0.0, impT)
     x shouldBe (460.0 +- eps); y shouldBe (0.0 +- eps)
   }
 
   it should "produce no overshoot when overshootFraction is 0" in {
     // With no overshoot the phase-1 endpoint equals the destination itself.
-    val impT   = CaptureTiming.LungePeakT
+    val impT   = 0.65
     val (x, y) = MotionInterpolator.interpolate(MotionStyle.AttackLunge(0.0), 0.0, 0.0, 400.0, 0.0, impT)
     x shouldBe (400.0 +- eps); y shouldBe (0.0 +- eps)
   }
 
   it should "overshoot vertically for a vertical capture" in {
     // (0,0) → (0,400), direction = (0,1), osY=460
-    val impT   = CaptureTiming.LungePeakT
+    val impT   = 0.65
     val (x, y) = MotionInterpolator.interpolate(MotionStyle.AttackLunge(0.15), 0.0, 0.0, 0.0, 400.0, impT)
     x shouldBe (0.0 +- eps)   // no horizontal overshoot
     y should be > 400.0        // overshoots vertically
@@ -158,7 +158,7 @@ class MotionInterpolatorSpec extends AnyFlatSpec with Matchers:
   it should "overshoot diagonally for a diagonal capture" in {
     // (0,0) → (300,400), dist=500, direction=(0.6,0.8)
     // osX = 300 + 0.15*500*0.6 = 345, osY = 400 + 0.15*500*0.8 = 460
-    val impT   = CaptureTiming.LungePeakT
+    val impT   = 0.65
     val (x, y) = MotionInterpolator.interpolate(MotionStyle.AttackLunge(0.15), 0.0, 0.0, 300.0, 400.0, impT)
     x should be > 300.0   // both axes overshoot
     y should be > 400.0

@@ -33,7 +33,7 @@ import scalafx.scene.text.{Font, Text}
  */
 class PieceNodeFactory(loader: SpriteSheetLoader, metaRepo: SpriteMetadataRepository):
 
-  private val StaticSpriteScale = 2.0
+  private val StaticSpriteScale = 2.3
 
   /** Build the visual content node for a piece.
    *
@@ -136,3 +136,8 @@ class PieceNodeFactory(loader: SpriteSheetLoader, metaRepo: SpriteMetadataReposi
       stroke            = if isWhite then FxColor.web("#333333") else FxColor.web("#cccccc")
       strokeWidth       = 0.6
       mouseTransparent  = true
+
+  def frameCountFor(id: PieceVisualId, assetKeyOverride: Option[String] = None): Int =
+    val descriptor  = VisualResolver.resolve(id)
+    val resolvedKey = assetKeyOverride.getOrElse(descriptor.assetKey)
+    metaRepo.lookup(resolvedKey).map(_.frameCount).getOrElse(1)

@@ -15,12 +15,12 @@
     "rook_hit":    { "frameCount": 4, "frameSize": { "width": 200, "height": 200 } },
     "rook_dead":   { "frameCount": 6, "frameSize": { "width": 200, "height": 200 } },
 
-    "knight_idle":   { "frameCount": 4, "frameSize": { "width": 104, "height": 104 } },
-    "knight_move":   { "frameCount": 8, "frameSize": { "width": 104, "height": 104 } },
-    "knight_attack": { "frameCount": 4, "frameSize": { "width": 104, "height": 104 } },
-    "knight_attack1":{ "frameCount": 4, "frameSize": { "width": 104, "height": 104 } },
-    "knight_hit":    { "frameCount": 4, "frameSize": { "width": 104, "height": 104 } },
-    "knight_dead":   { "frameCount": 4, "frameSize": { "width": 104, "height": 104 } },
+    "knight_idle":   { "frameCount": 4, "frameSize": { "width": 103, "height": 104 } },
+    "knight_move":   { "frameCount": 8, "frameSize": { "width": 103, "height": 104 } },
+    "knight_attack": { "frameCount": 4, "frameSize": { "width": 103, "height": 104 } },
+    "knight_attack1":{ "frameCount": 4, "frameSize": { "width": 103, "height": 104 } },
+    "knight_hit":    { "frameCount": 4, "frameSize": { "width": 103, "height": 104 } },
+    "knight_dead":   { "frameCount": 4, "frameSize": { "width": 103, "height": 104 } },
 
     "bishop_idle":   { "frameCount": 4, "frameSize": { "width": 93, "height": 93 } },
     "bishop_move":   { "frameCount": 8, "frameSize": { "width": 93, "height": 93 } },
