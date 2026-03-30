@@ -303,3 +303,25 @@ A good Claude contribution in this repo:
 - adds focused tests
 - avoids scope drift
 - leaves the codebase easier to reason about, not merely larger
+
+Always output changes in this exact format:
+
+[FILE] relative/path/to/file
+<full file content>
+[/FILE]
+
+Repeat for every changed file.
+
+[COMMIT]
+type(scope): short message
+[/COMMIT]
+
+[SUMMARY]
+Short explanation of what changed and why.
+[/SUMMARY]
+
+Rules:
+- Use only relative paths.
+- Output full file contents, not diffs.
+- Do not use markdown code fences.
+- Do not omit imports if a file is rewritten.
