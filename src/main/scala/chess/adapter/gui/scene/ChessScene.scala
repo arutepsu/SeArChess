@@ -109,7 +109,8 @@ class ChessScene:
           info.opacity,
           info.frameIndex,
           info.segmentAssetKey,
-          scale = info.scale
+          info.flipX,
+          info.scale
         )
       )
     }
