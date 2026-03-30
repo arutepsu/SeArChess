@@ -2,7 +2,7 @@
 package chess.adapter.gui.scene
 
 import chess.adapter.gui.animation.{AnimationPlan, AnimationPresentationMapper, AnimationRenderModel, AnimationRunner, AnimationState}
-import chess.adapter.gui.assets.{PieceNodeFactory, PieceVisualId, SpriteSheetLoader, VisualState}
+import chess.adapter.gui.assets.{PieceNodeFactory, PieceVisualId, SpriteCatalogLoader, SpriteMetadataRepository, SpriteSheetLoader, StatePlaybackRepository}
 import chess.adapter.gui.controller.GameController
 import chess.adapter.gui.input.InputAction
 import chess.adapter.gui.render.{BoardRenderer, PromotionOverlay, StatusRenderer}
@@ -31,9 +31,14 @@ class ChessScene:
 
   // ── Asset pipeline ────────────────────────────────────────────────────────
 
+  /** Catalog loaded once at construction — all asset facts come from here. */
+  private val catalog     = SpriteCatalogLoader.load()
+  private val metaRepo    = SpriteMetadataRepository.fromCatalog(catalog)
+  private val playbackRepo = StatePlaybackRepository.fromCatalog(catalog)
+
   /** Shared loader + factory — the single asset path used by all rendering sites. */
   private val spriteLoader = new SpriteSheetLoader
-  private val factory      = new PieceNodeFactory(spriteLoader)
+  private val factory      = new PieceNodeFactory(spriteLoader, metaRepo)
 
   // ── Animation layer ───────────────────────────────────────────────────────
 
@@ -41,6 +46,7 @@ class ChessScene:
    *  correct suppressed square to the board renderer between animation frames. */
   private var currentRenderModel: Option[AnimationRenderModel] = None
 
+  private val mapper = new AnimationPresentationMapper(metaRepo, playbackRepo)
   private val runner = new AnimationRunner(onAnimationFrame, onAnimationComplete)
 
   // ── Controller ────────────────────────────────────────────────────────────
@@ -61,7 +67,7 @@ class ChessScene:
 
   private val overlayContainer = new StackPane:
     alignment        = Pos.Center
-    mouseTransparent = false
+    mouseTransparent = true
 
   private val boardStack = new StackPane:
     alignment = Pos.Center
@@ -93,9 +99,12 @@ class ChessScene:
 
   private def updateOverlay(newVm: GameViewModel): Unit =
     overlayContainer.children.clear()
-    newVm.promotion.foreach { promoVm =>
-      overlayContainer.children.add(PromotionOverlay.create(promoVm, handle, factory))
-    }
+    newVm.promotion match
+      case Some(promoVm) =>
+        overlayContainer.mouseTransparent = false
+        overlayContainer.children.add(PromotionOverlay.create(promoVm, handle, factory))
+      case None =>
+        overlayContainer.mouseTransparent = true
 
   // ── Animation ─────────────────────────────────────────────────────────────
 
@@ -104,7 +113,7 @@ class ChessScene:
     runner.start(plan)
 
   private def onAnimationFrame(state: AnimationState): Unit =
-    val model = AnimationPresentationMapper.map(state)
+    val model = mapper.map(state)
     currentRenderModel = Some(model)
     BoardRenderer.update(boardGrid, vm, handle, factory, model.suppressedSquare)
     renderAnimationLayer(model)
@@ -125,13 +134,15 @@ class ChessScene:
     model.capturedPiece.foreach { info =>
       val (color, pieceType) = info.piece
       animLayer.children.add(
-        factory.positioned(PieceVisualId(color, pieceType, VisualState.Dead),
-          info.x, info.y, BoardRenderer.SquareSize, info.opacity, info.frameIndex))
+        factory.positioned(PieceVisualId(color, pieceType, info.visualState),
+          info.x, info.y, BoardRenderer.SquareSize, info.opacity, info.frameIndex,
+          info.segmentAssetKey, scale = info.scale))
     }
 
     // Moving piece — rendered on top of the captured piece.
     val mover = model.movingPiece
     val (mc, mpt) = mover.piece
     animLayer.children.add(
-      factory.positioned(PieceVisualId(mc, mpt, VisualState.Move),
-        mover.x, mover.y, BoardRenderer.SquareSize, mover.opacity, mover.frameIndex))
+      factory.positioned(PieceVisualId(mc, mpt, mover.visualState),
+        mover.x, mover.y, BoardRenderer.SquareSize, mover.opacity, mover.frameIndex,
+        mover.segmentAssetKey, mover.flipX, mover.scale))

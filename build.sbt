@@ -27,7 +27,8 @@ lazy val root = project
 
     libraryDependencies ++= Seq(
       "org.scalatest" %% "scalatest" % "3.2.19"      % Test,
-      "org.scalafx"   %% "scalafx"   % scalaFxVersion
+      "org.scalafx"   %% "scalafx"   % scalaFxVersion,
+      "com.lihaoyi"   %% "ujson"     % "4.0.2"
     ) ++ javaFxModules.map(m =>
       "org.openjfx" % s"javafx-$m" % javaFxVersion classifier osClassifier
     ),
@@ -58,7 +59,8 @@ lazy val root = project
             ".*adapter.gui.render.*",
             ".*adapter.gui.animation.AnimationRunner.*",
             ".*adapter.gui.assets.SpriteSheetLoader.*",
-            ".*adapter.gui.assets.PieceNodeFactory.*"
+            ".*adapter.gui.assets.PieceNodeFactory.*",
+            ".*adapter.gui.assets.SpriteCatalogLoader.*"
           ).mkString("|")
         )
       else Seq.empty

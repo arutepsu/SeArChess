@@ -1,70 +1,112 @@
 package chess.adapter.gui.animation
 
-import chess.adapter.gui.assets.{FrameSelectionPolicy, PieceVisualId, SpriteMetadataRepository, VisualResolver, VisualState}
+import chess.adapter.gui.assets.{FrameSelectionPolicy, PlaybackResolution, SpriteMetadataRepository, StatePlaybackRepository, VisualState}
+import chess.adapter.gui.render.BoardProjection
 
 /** Pure mapping layer from [[AnimationState]] to the renderer-facing
  *  [[AnimationRenderModel]].
  *
- *  This object owns all animation-presentation policy:
- *  - linear interpolation of the moving piece position
- *  - captured-piece visibility and fade-out
+ *  This class owns all animation-presentation policy:
+ *  - motion-style-driven interpolation of the moving piece position
+ *    (style and trajectory chosen by [[MotionStyleResolver]] / [[MotionInterpolator]])
+ *  - phased captured-piece presentation:
+ *    `[0, HitStart)` Idle → `[HitStart, DeadStart)` Hit → `[DeadStart, FadeEnd)` Dead/fade → hidden
  *  - static board suppression (which square the board renderer must skip)
  *
  *  It has no ScalaFX dependencies and no mutable state.
+ *
+ *  @param metaRepo     sprite metadata repository for frame-count lookup
+ *  @param playbackRepo state playback repository for segment/mode lookup
  */
-object AnimationPresentationMapper:
-
-  /** Board square size used when a [[squareSize]] override is not supplied.
-   *
-   *  Must be kept in sync with the board renderer's square size constant.
-   */
-  val DefaultSquareSize: Double = 72.0
+class AnimationPresentationMapper(
+    metaRepo:     SpriteMetadataRepository,
+    playbackRepo: StatePlaybackRepository
+):
 
   /** Map [[state]] to an [[AnimationRenderModel]] for the current frame.
    *
    *  @param state      current animation snapshot (progress in [0, 1])
    *  @param squareSize side length of one board square in pixels;
-   *                    defaults to [[DefaultSquareSize]]
+   *                    defaults to [[AnimationPresentationMapper.DefaultSquareSize]]
    */
   def map(
       state:      AnimationState,
-      squareSize: Double = DefaultSquareSize
+      squareSize: Double = AnimationPresentationMapper.DefaultSquareSize
   ): AnimationRenderModel =
     val t    = state.clampedProgress
     val plan = state.plan
 
-    // Board-local pixel coordinate helpers (top-left corner of a square).
-    // Rank 7 is at the top of the screen (y = 0); rank 0 is at the bottom.
-    def squareX(file: Int): Double = file * squareSize
-    def squareY(rank: Int): Double = (7 - rank) * squareSize
-
     // Delegate moving-piece position to the motion-style layer.
-    val fromX = squareX(plan.from.file)
-    val fromY = squareY(plan.from.rank)
-    val toX   = squareX(plan.to.file)
-    val toY   = squareY(plan.to.rank)
+    val fromX = BoardProjection.toPixelX(plan.from, squareSize)
+    val fromY = BoardProjection.toPixelY(plan.from, squareSize)
+    val toX   = BoardProjection.toPixelX(plan.to, squareSize)
+    val toY   = BoardProjection.toPixelY(plan.to, squareSize)
 
-    val style = MotionStyleResolver.resolve(plan.movingPiece._2)
-    val (currentX, currentY) = MotionInterpolator.interpolate(style, fromX, fromY, toX, toY, t)
+    val style   = MotionStyleResolver.resolve(plan.movingPiece._2, plan.isCapture)
+    val motionT = if plan.isCapture then CaptureTiming.remapCapture(t) else t
+    val (currentX, currentY) = MotionInterpolator.interpolate(style, fromX, fromY, toX, toY, motionT)
 
+    val dx    = toX - fromX
+    val flipX = if dx > 0 then false
+                else if dx < 0 then true
+                else plan.movingPiece._1 == chess.domain.model.Color.Black
+
+    val movingState      = if plan.isCapture then VisualState.Attack else VisualState.Move
+    val movingResolution = resolveSegmented(plan.movingPiece, movingState, t)
     val movingInfo = PieceRenderInfo(
-      piece      = plan.movingPiece,
-      x          = currentX,
-      y          = currentY,
-      frameIndex = frameIndexFor(plan.movingPiece, VisualState.Move, t)
+      piece           = plan.movingPiece,
+      x               = currentX,
+      y               = currentY,
+      visualState     = movingState,
+      frameIndex      = movingResolution.frameIndex,
+      segmentAssetKey = Some(movingResolution.segmentAssetKey),
+      flipX           = flipX
     )
 
-    // Captured piece: fully visible at t=0, fades linearly to invisible at
-    // CaptureThreshold, then disappears completely.
+    // Captured piece: three visual phases keyed by presentation thresholds.
+    //   [0, HitStart)      → Idle   (full opacity — defender not yet hit)
+    //   [HitStart, DeadStart) → Hit (full opacity — impact reaction)
+    //   [DeadStart, FadeEnd)  → Dead (linear fade — collapsing)
+    //   [FadeEnd, 1.0]     → hidden
     val capturedInfo = plan.capturedPiece.flatMap { captured =>
-      if t < AnimationState.CaptureThreshold then
-        val fade = 1.0 - t / AnimationState.CaptureThreshold
+      import CaptureTiming.{HitStart, DeadStart, FadeEnd}
+      val cx = BoardProjection.toPixelX(plan.to, squareSize)
+      val cy = BoardProjection.toPixelY(plan.to, squareSize)
+      if t < HitStart then
+        val res = resolveSegmented(captured, VisualState.Idle, t / HitStart)
         Some(PieceRenderInfo(
-          piece      = captured,
-          x          = squareX(plan.to.file),
-          y          = squareY(plan.to.rank),
-          opacity    = fade,
-          frameIndex = frameIndexFor(captured, VisualState.Dead, t)
+          piece           = captured,
+          x               = cx,
+          y               = cy,
+          visualState     = VisualState.Idle,
+          opacity         = 1.0,
+          frameIndex      = res.frameIndex,
+          segmentAssetKey = Some(res.segmentAssetKey)
+        ))
+      else if t < DeadStart then
+        val lp  = (t - HitStart) / (DeadStart - HitStart)
+        val res = resolveSegmented(captured, VisualState.Hit, lp)
+        Some(PieceRenderInfo(
+          piece           = captured,
+          x               = cx,
+          y               = cy,
+          visualState     = VisualState.Hit,
+          opacity         = 1.0,
+          frameIndex      = res.frameIndex,
+          segmentAssetKey = Some(res.segmentAssetKey),
+          scale           = hitPopScale(lp)
+        ))
+      else if t < FadeEnd then
+        val lp  = (t - DeadStart) / (FadeEnd - DeadStart)
+        val res = resolveSegmented(captured, VisualState.Dead, lp)
+        Some(PieceRenderInfo(
+          piece           = captured,
+          x               = cx,
+          y               = cy,
+          visualState     = VisualState.Dead,
+          opacity         = 1.0 - lp,
+          frameIndex      = res.frameIndex,
+          segmentAssetKey = Some(res.segmentAssetKey)
         ))
       else
         None
@@ -78,14 +120,54 @@ object AnimationPresentationMapper:
 
   // ── Private helpers ──────────────────────────────────────────────────────────
 
-  /** Look up the sprite-sheet frame count for [[piece]] in [[state]], then
-   *  delegate to [[FrameSelectionPolicy]] to convert [[progress]] to an index.
-   *  Falls back to frame count 1 (→ frame 0) when metadata is absent. */
-  private def frameIndexFor(
+  /** Look up the [[StatePlaybackRepository]] entry for [[piece]] + [[state]],
+   *  select the active segment via [[PlaybackPlanner]], then compute the frame
+   *  index via [[FrameSelectionPolicy]].
+   *
+   *  Falls back to a single-segment resolution at frame 0 using the primary
+   *  asset key when no metadata is found (unknown piece or state). */
+  private def resolveSegmented(
       piece:    (chess.domain.model.Color, chess.domain.model.PieceType),
       state:    VisualState,
       progress: Double
-  ): Int =
-    val assetKey   = VisualResolver.resolve(PieceVisualId(piece._1, piece._2, state)).assetKey
-    val frameCount = SpriteMetadataRepository.lookup(assetKey).map(_.frameCount).getOrElse(1)
-    FrameSelectionPolicy.select(state, frameCount, progress)
+  ): PlaybackResolution =
+    playbackRepo.lookup(piece._1, piece._2, state)
+      .map { meta =>
+        val planned    = PlaybackPlanner.plan(meta, progress)
+        val frameCount = metaRepo.lookup(planned.segmentAssetKey).map(_.frameCount).getOrElse(1)
+        PlaybackResolution(
+          planned.segmentAssetKey,
+          FrameSelectionPolicy.select(state, frameCount, planned.localProgress)
+        )
+      }
+      .getOrElse(PlaybackResolution(
+        s"classic/${piece._1.toString.toLowerCase}_${piece._2.toString.toLowerCase}_${state.toString.toLowerCase}",
+        0
+      ))
+
+  /** Parabolic scale pop for the Hit phase.
+   *
+   *  Returns `1.0 + HitPopPeak × 4 × lp × (1 − lp)`, which starts and ends
+   *  at `1.0` and peaks at `1.0 + HitPopPeak` when `lp = 0.5`.
+   *
+   *  @param lp phase-local progress in [0, 1]
+   */
+  private def hitPopScale(lp: Double): Double =
+    1.0 + AnimationPresentationMapper.HitPopPeak * 4.0 * lp * (1.0 - lp)
+
+/** Companion holding constants shared across the class and its tests. */
+object AnimationPresentationMapper:
+
+  /** Board square size used when a [[squareSize]] override is not supplied.
+   *
+   *  Must be kept in sync with the board renderer's square size constant.
+   */
+  val DefaultSquareSize: Double = 72.0
+
+  /** Peak scale added above `1.0` at the midpoint of the Hit phase.
+   *  Full pop magnitude = `1.0 + HitPopPeak` (e.g. `0.12` → scale reaches `1.12`).
+   *
+   *  Raised slightly from 0.10 because the Hit window is now shorter (17% vs 20%),
+   *  so the pop needs a touch more amplitude to remain readable.
+   */
+  val HitPopPeak: Double = 0.12

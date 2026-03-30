@@ -23,7 +23,8 @@ object PromotionOverlay:
   def create(vm: PromotionViewModel, dispatch: InputAction => Unit, factory: PieceNodeFactory): VBox =
     val buttons = vm.choices.map { pt =>
       val btn = new Button:
-        graphic    = factory.content(PieceVisualId(vm.promotingColor, pt, VisualState.Idle), ButtonPieceSize)
+        graphic    = factory.content(PieceVisualId(vm.promotingColor, pt, VisualState.Idle), ButtonPieceSize,
+          flipX = PieceFacingPolicy.flipX(vm.promotingColor))
         prefWidth  = 76
         prefHeight = 76
         style      = "-fx-background-color: #ffffffdd; -fx-border-color: #888; -fx-border-radius: 4; -fx-background-radius: 4;"
