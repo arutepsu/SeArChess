@@ -96,6 +96,25 @@ object ChessService:
         }
       case _ => None
 
+  /** All squares the piece at `from` can legally move to in the given state.
+   *  Returns an empty set if there is no current-player piece at `from`,
+   *  or if a promotion choice is still pending.
+   */
+  def legalMovesFrom(state: GameState, from: Position): Set[Position] =
+    if state.pendingPromotion.isDefined then Set.empty
+    else
+      state.board.pieceAt(from) match
+        case Some(piece) if piece.color == state.currentPlayer =>
+          (for
+            f   <- 0 to 7
+            r   <- 0 to 7
+            to  <- Position.from(f, r).toOption
+            if MoveApplier.applyMove(
+              state.board, Move(from, to), state.castlingRights, state.enPassantState
+            ).isRight
+          yield to).toSet
+        case _ => Set.empty
+
   def handleCommand(state: GameState, command: ChessCommand): Either[ApplicationError, GameState] =
     command match
       case NewGame            => Right(createNewGame())
