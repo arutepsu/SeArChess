@@ -102,8 +102,20 @@ class AnimationPlannerSpec extends AnyFlatSpec with Matchers:
 
   // ── Default duration ──────────────────────────────────────────────────────
 
-  it should "use the default animation duration" in {
+  it should "use the default animation duration for a normal move" in {
     val board = Board.empty.place(e2, whitePawn)
     val plan  = AnimationPlanner.plan(board, Move(e2, e4)).get
-    plan.durationMs shouldBe 220
+    plan.durationMs shouldBe 340
+  }
+
+  it should "use captureTimings.totalMs as durationMs for a capture move" in {
+    val board = Board.empty.place(e2, whitePawn).place(d5, blackPawn)
+    val plan  = AnimationPlanner.plan(board, Move(e2, d5)).get
+    plan.durationMs shouldBe plan.captureTimings.totalMs
+  }
+
+  it should "use a longer duration for a capture than for a normal move" in {
+    val normalPlan  = AnimationPlanner.plan(Board.empty.place(e2, whitePawn), Move(e2, e4)).get
+    val capturePlan = AnimationPlanner.plan(Board.empty.place(e2, whitePawn).place(d5, blackPawn), Move(e2, d5)).get
+    capturePlan.durationMs should be > normalPlan.durationMs
   }
