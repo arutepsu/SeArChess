@@ -461,3 +461,50 @@ class AnimationPresentationMapperSpec extends AnyFlatSpec with Matchers:
     mapper.map(captureState(1.0), S).movingPiece.x shouldBe (400.0 +- 1e-9)
     mapper.map(captureState(1.0), S).movingPiece.y shouldBe (300.0 +- 1e-9)
   }
+    // ── flipX orientation branch coverage ─────────────────────────────────────
+
+  it should "set flipX to true when the moving piece travels left (dx < 0)" in {
+    val fromLeft  = mkPos(4, 4) // x = 400
+    val toLeft    = mkPos(0, 0) // x = 0
+    val leftPlan  = AnimationPlan(
+      movingPiece   = whitePawn,
+      from          = fromLeft,
+      to            = toLeft,
+      capturedPiece = None
+    )
+    val model = mapper.map(AnimationState(leftPlan, 0.5), S)
+
+    model.movingPiece.flipX shouldBe true
+  }
+
+  it should "set flipX to false for a vertical move by a white piece (dx == 0)" in {
+    // same rank -> same screen x
+    val fromVertical = mkPos(0, 3)
+    val toVertical   = mkPos(4, 3)
+
+    val verticalPlan = AnimationPlan(
+      movingPiece   = whitePawn,
+      from          = fromVertical,
+      to            = toVertical,
+      capturedPiece = None
+    )
+    val model = mapper.map(AnimationState(verticalPlan, 0.5), S)
+
+    model.movingPiece.flipX shouldBe false
+  }
+
+  it should "set flipX to true for a vertical move by a black piece (dx == 0)" in {
+    // same rank -> same screen x
+    val fromVertical = mkPos(0, 3)
+    val toVertical   = mkPos(4, 3)
+
+    val verticalPlan = AnimationPlan(
+      movingPiece   = blackPawn,
+      from          = fromVertical,
+      to            = toVertical,
+      capturedPiece = None
+    )
+    val model = mapper.map(AnimationState(verticalPlan, 0.5), S)
+
+    model.movingPiece.flipX shouldBe true
+  }

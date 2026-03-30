@@ -483,3 +483,47 @@ class SpriteCatalogParserSpec extends AnyFlatSpec with Matchers:
     result shouldBe a[Left[_, _]]
     result.left.toOption.get should have size 2
   }
+
+  it should "return InvalidClipSpec when displaySize width is not a number" in {
+    val err = SpriteCatalogParser.parse(
+      singleCatalog(clipVal =
+        """{"frameCount": 4, "frameSize": {"width": 64, "height": 64},
+          | "displaySize": {"width": "wide", "height": 80.0}}""".stripMargin)
+    ).left.toOption.get.head
+
+    err shouldBe a[CatalogValidationError.InvalidClipSpec]
+    err.asInstanceOf[CatalogValidationError.InvalidClipSpec].reason should include("width is not a number")
+  }
+
+  it should "return InvalidClipSpec when displaySize height is missing" in {
+    val err = SpriteCatalogParser.parse(
+      singleCatalog(clipVal =
+        """{"frameCount": 4, "frameSize": {"width": 64, "height": 64},
+          | "displaySize": {"width": 80.0}}""".stripMargin)
+    ).left.toOption.get.head
+
+    err shouldBe a[CatalogValidationError.InvalidClipSpec]
+    err.asInstanceOf[CatalogValidationError.InvalidClipSpec].reason should include("missing height")
+  }
+
+  it should "return InvalidClipSpec when anchor x is missing" in {
+    val err = SpriteCatalogParser.parse(
+      singleCatalog(clipVal =
+        """{"frameCount": 4, "frameSize": {"width": 64, "height": 64},
+          | "anchor": {"y": 0.0}}""".stripMargin)
+    ).left.toOption.get.head
+
+    err shouldBe a[CatalogValidationError.InvalidClipSpec]
+    err.asInstanceOf[CatalogValidationError.InvalidClipSpec].reason should include("missing x")
+  }
+
+    it should "return InvalidClipSpec when anchor y is missing" in {
+    val err = SpriteCatalogParser.parse(
+      singleCatalog(clipVal =
+        """{"frameCount": 4, "frameSize": {"width": 64, "height": 64},
+          | "anchor": {"x": 0.5}}""".stripMargin)
+    ).left.toOption.get.head
+
+    err shouldBe a[CatalogValidationError.InvalidClipSpec]
+    err.asInstanceOf[CatalogValidationError.InvalidClipSpec].reason should include("missing y")
+  }
