@@ -1,0 +1,11 @@
+[FILE] test.txt
+hello from claude v3
+[/FILE]
+
+[COMMIT]
+chore: test claude auto-commit pipeline
+[/COMMIT]
+
+[SUMMARY]
+Initial test of Claude patch application script.
+[/SUMMARY]
