@@ -33,6 +33,8 @@ import scalafx.scene.text.{Font, Text}
  */
 class PieceNodeFactory(loader: SpriteSheetLoader, metaRepo: SpriteMetadataRepository):
 
+  private val StaticSpriteScale = 2.0
+
   /** Build the visual content node for a piece.
    *
    *  Returns an `ImageView` when the sprite asset is available, or a glyph
@@ -57,20 +59,25 @@ class PieceNodeFactory(loader: SpriteSheetLoader, metaRepo: SpriteMetadataReposi
       assetKeyOverride: Option[String] = None,
       flipX:            Boolean        = false
   ): Node =
-    val descriptor = VisualResolver.resolve(id)
+    val descriptor  = VisualResolver.resolve(id)
     val resolvedKey = assetKeyOverride.getOrElse(descriptor.assetKey)
-    val maybeImage = for
-      meta  <- metaRepo.lookup(resolvedKey)
-      image <- loader.loadFrame(resolvedKey, frameIndex, meta)
-    yield
-      val (dispW, dispH) = meta.displaySize.getOrElse((squareSize, squareSize))
-      new ImageView(new Image(image)):
-        fitWidth        = dispW
-        fitHeight       = dispH
-        preserveRatio   = false
-    val node = maybeImage.getOrElse(fallbackGlyph(descriptor, id, squareSize))
-    if flipX then node.scaleX = -1.0
-    node
+
+    metaRepo.lookup(resolvedKey)
+      .flatMap(meta => loader.loadFrame(resolvedKey, frameIndex, meta).map { image =>
+        val view = new ImageView(new Image(image)):
+          fitWidth         = squareSize
+          fitHeight        = squareSize
+          preserveRatio    = false
+          mouseTransparent = true
+        view.scaleX = (if flipX then -1.0 else 1.0) * StaticSpriteScale
+        view.scaleY = StaticSpriteScale
+        view
+      })
+      .getOrElse {
+        val glyph = fallbackGlyph(descriptor, id, squareSize)
+        glyph.scaleX = if flipX then -1.0 else 1.0
+        glyph
+      }
 
   /** Build a positioned, opacity-adjusted [[StackPane]] for the animation overlay.
    *
@@ -104,12 +111,10 @@ class PieceNodeFactory(loader: SpriteSheetLoader, metaRepo: SpriteMetadataReposi
       flipX:            Boolean        = false,
       scale:            Double         = 1.0
   ): StackPane =
-    // Build content before the StackPane block.  Set `opacity` after construction
-    // because both `id` and `opacity` are parameter names that clash with Node
-    // properties inherited inside anonymous class initializer blocks in ScalaFX.
-    val pieceContent = content(id, squareSize, frameIndex, assetKeyOverride)
-    pieceContent.scaleX = if flipX then -scale else scale
-    pieceContent.scaleY = scale
+    val pieceContent = content(id, squareSize, frameIndex, assetKeyOverride, flipX)
+    pieceContent.scaleX = pieceContent.scaleX() * scale
+    pieceContent.scaleY = pieceContent.scaleY() * scale
+
     val pane = new StackPane:
       alignment  = Pos.Center
       prefWidth  = squareSize
@@ -117,18 +122,17 @@ class PieceNodeFactory(loader: SpriteSheetLoader, metaRepo: SpriteMetadataReposi
       layoutX    = x
       layoutY    = y
       children   = Seq(pieceContent)
+
     pane.opacity = opacity
     pane
 
-  // ── Private ─────────────────────────────────────────────────────────────────
-
   /** Unicode glyph fallback — rendered when no sprite asset is available. */
   private def fallbackGlyph(descriptor: VisualDescriptor, id: PieceVisualId, squareSize: Double): Text =
-    // Capture `color` to avoid ambiguity with Node.id inside the ScalaFX initializer block.
     val isWhite = id.color == Color.White
     new Text:
-      text        = descriptor.fallbackSymbol
-      font        = Font("Segoe UI Symbol", squareSize * 0.62)
-      fill        = if isWhite then FxColor.web("#fffffe") else FxColor.web("#1a1a1a")
-      stroke      = if isWhite then FxColor.web("#333333") else FxColor.web("#cccccc")
-      strokeWidth = 0.6
+      text              = descriptor.fallbackSymbol
+      font              = Font("Segoe UI Symbol", squareSize * 0.62)
+      fill              = if isWhite then FxColor.web("#fffffe") else FxColor.web("#1a1a1a")
+      stroke            = if isWhite then FxColor.web("#333333") else FxColor.web("#cccccc")
+      strokeWidth       = 0.6
+      mouseTransparent  = true

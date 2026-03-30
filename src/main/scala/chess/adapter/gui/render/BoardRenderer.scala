@@ -1,7 +1,7 @@
 // $COVERAGE-OFF$
 package chess.adapter.gui.render
 
-import chess.adapter.gui.assets.{PieceNodeFactory, PieceVisualId, VisualState}
+import chess.adapter.gui.assets.PieceNodeFactory
 import chess.adapter.gui.input.InputAction
 import chess.adapter.gui.viewmodel.{GameViewModel, SquareViewModel}
 import chess.domain.model.Position
@@ -33,7 +33,9 @@ object BoardRenderer:
     grid
 
   /** @param suppressPos when [[Some]], the piece on that square is not rendered —
-   *                     it is instead drawn by the animation overlay. */
+   *                     kept for API compatibility with animation refresh flow.
+   *                     The board layer itself no longer renders pieces.
+   */
   def update(
       grid:        GridPane,
       vm:          GameViewModel,
@@ -52,50 +54,46 @@ object BoardRenderer:
       suppressPos: Option[Position]
   ): Unit =
     for sv <- vm.squares do
-      val col        = BoardProjection.toScreenCol(sv.position)
-      val row        = BoardProjection.toScreenRow(sv.position)
-      val suppressed = suppressPos.contains(sv.position)
-      grid.add(buildSquare(sv, onAction, factory, suppressed), col, row)
+      val col = BoardProjection.toScreenCol(sv.position)
+      val row = BoardProjection.toScreenRow(sv.position)
+      grid.add(buildSquare(sv, onAction), col, row)
 
-  // ── Square construction ─────────────────────────────────────────────────────
-
-  private def buildSquare(sv: SquareViewModel, onAction: InputAction => Unit, factory: PieceNodeFactory, suppressed: Boolean = false): StackPane =
+  private def buildSquare(
+      sv: SquareViewModel,
+      onAction: InputAction => Unit
+  ): StackPane =
     val isLight = (sv.position.file + sv.position.rank) % 2 != 0
     val bgColor = squareColor(isLight, sv.isSelected, sv.isLegalTarget)
 
     val bg = new Rectangle:
-      width  = SquareSize
-      height = SquareSize
-      fill   = bgColor
+      width            = SquareSize
+      height           = SquareSize
+      fill             = bgColor
+      mouseTransparent = false
+      onMouseClicked   = _ => onAction(InputAction.SquareClicked(sv.position))
 
     val pane = new StackPane:
       alignment  = Pos.Center
       prefWidth  = SquareSize
       prefHeight = SquareSize
-      onMouseClicked = _ => onAction(InputAction.SquareClicked(sv.position))
 
     pane.children.add(bg)
 
-    // Legal-target indicator: dot for empty squares, ring for capture squares
     if sv.isLegalTarget then
       if sv.piece.isEmpty then
         val dot = new Circle:
-          radius = SquareSize * 0.18
-          fill   = FxColor.web("#00000033")
+          radius           = SquareSize * 0.18
+          fill             = FxColor.web("#00000033")
+          mouseTransparent = true
         pane.children.add(dot)
       else
         val ring = new Circle:
-          radius      = SquareSize * 0.46
-          fill        = FxColor.Transparent
-          stroke      = FxColor.web("#00000055")
-          strokeWidth = SquareSize * 0.08
+          radius           = SquareSize * 0.46
+          fill             = FxColor.Transparent
+          stroke           = FxColor.web("#00000055")
+          strokeWidth      = SquareSize * 0.08
+          mouseTransparent = true
         pane.children.add(ring)
-
-    // Piece visual — skipped when suppressed (drawn by the animation overlay instead)
-    if !suppressed then sv.piece.foreach { (color, pieceType) =>
-      pane.children.add(factory.content(PieceVisualId(color, pieceType, VisualState.Idle), SquareSize,
-        flipX = PieceFacingPolicy.flipX(color)))
-    }
 
     pane
 

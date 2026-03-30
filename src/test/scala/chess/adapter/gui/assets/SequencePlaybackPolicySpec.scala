@@ -178,3 +178,10 @@ class SequencePlaybackPolicySpec extends AnyFlatSpec with Matchers:
     for p <- Seq(0.0, 0.25, 0.5, 0.75, 1.0) do
       resolve(twoSegLoop, p).frameIndex should be < 6
   }
+  
+  it should "fall back to the first segment when progress is NaN" in {
+    val r = resolve(twoSegClamp, Double.NaN)
+
+    r.segmentAssetKey shouldBe "classic/white_pawn_attack"
+    r.frameIndex      shouldBe 0
+  }
