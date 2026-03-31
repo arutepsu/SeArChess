@@ -2,7 +2,7 @@ package chess.domain.rules.validation
 
 import chess.domain.error.DomainError
 import chess.domain.model.*
-import chess.domain.model.positionstate.CastlingRights
+import chess.domain.state.CastlingRights
 
 /** Validates whether a king move is a legal castling move.
  *
