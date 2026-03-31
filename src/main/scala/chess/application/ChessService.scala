@@ -3,7 +3,7 @@ package chess.application
 import chess.application.ApplicationError.*
 import chess.application.ChessCommand.*
 import chess.domain.model.{Board, Color, GameStatus, Move, MoveResult, Piece, PieceType, Position}
-import chess.domain.model.positionstate.{CastlingRights, EnPassantState}
+import chess.domain.state.{CastlingRights, EnPassantState, GameState, PendingPromotion}
 import chess.domain.rules.application.{MoveApplier, PromotionApplier}
 import chess.domain.rules.evaluation.GameStatusEvaluator
 import chess.domain.rules.state.CastlingRightsUpdater

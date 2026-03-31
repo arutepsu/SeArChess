@@ -1,6 +1,6 @@
 package chess.adapter.gui.viewmodel
 
-import chess.application.GameState
+import chess.domain.state.GameState
 import chess.domain.model.{Color, GameStatus, Position}
 
 /** Pure mapper: builds a [[GameViewModel]] from application state and GUI state.

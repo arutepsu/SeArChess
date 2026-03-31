@@ -1,7 +1,6 @@
-package chess.application
+package chess.domain.state
 
 import chess.domain.model.{Board, Color, GameStatus, Move}
-import chess.domain.model.positionstate.{CastlingRights, EnPassantState}
 
 final case class GameState(
   board:            Board,

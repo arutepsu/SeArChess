@@ -5,7 +5,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.EitherValues
 import chess.domain.error.DomainError
 import chess.domain.model.*
-import chess.domain.model.positionstate.EnPassantState
+import chess.domain.state.EnPassantState
 
 class EnPassantValidatorSpec extends AnyFlatSpec with Matchers with EitherValues:
 

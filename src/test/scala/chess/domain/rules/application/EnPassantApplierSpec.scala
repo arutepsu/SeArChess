@@ -3,7 +3,7 @@ package chess.domain.rules.application
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import chess.domain.model.*
-import chess.domain.model.positionstate.EnPassantState
+import chess.domain.state.EnPassantState
 
 class EnPassantApplierSpec extends AnyFlatSpec with Matchers:
 
