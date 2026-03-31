@@ -37,10 +37,8 @@ object EventBuilder:
     val base: List[DomainEvent] = List(DomainEvent.MoveApplied(move))
     // PieceCaptured uses the correct square: move.to for regular, capturablePawnSquare for en passant.
     val captureEvt  = captureInfo.map(ci => DomainEvent.PieceCaptured(Piece(ci.color, ci.piece), ci.at)).toList
-    val checkEvt    = if nextStatus == GameStatus.Check
-                      then List(DomainEvent.CheckDeclared(nextPlayer)) else Nil
-    val statusEvt   = if nextStatus != prevStatus
-                      then List(DomainEvent.GameStatusChanged(nextStatus)) else Nil
+    val checkEvt    = Option.when(nextStatus == GameStatus.Check)(DomainEvent.CheckDeclared(nextPlayer)).toList
+    val statusEvt   = Option.when(nextStatus != prevStatus)(DomainEvent.GameStatusChanged(nextStatus)).toList
     val castling    = detectCastling(movedPiece, move)
     // MoveExecuted is appended last — stable position for callers that need
     // the self-contained replay record after all legacy events.
@@ -65,8 +63,8 @@ object EventBuilder:
       nextPlayer:    Color
   ): List[DomainEvent] =
     val promotedEvt: List[DomainEvent] = List(DomainEvent.Promoted(square, color, pieceType))
-    val checkEvt         = if nextStatus == GameStatus.Check then List(DomainEvent.CheckDeclared(nextPlayer)) else Nil
-    val statusEvt        = if nextStatus != prevStatus then List(DomainEvent.GameStatusChanged(nextStatus)) else Nil
+    val checkEvt         = Option.when(nextStatus == GameStatus.Check)(DomainEvent.CheckDeclared(nextPlayer)).toList
+    val statusEvt        = Option.when(nextStatus != prevStatus)(DomainEvent.GameStatusChanged(nextStatus)).toList
     val promotionCapture = capturedPiece.map(p => CaptureInfo(p.pieceType, p.color, move.to))
     // MoveExecuted is appended last, after all legacy events.
     val executedEvt      = List(buildMoveExecuted(
