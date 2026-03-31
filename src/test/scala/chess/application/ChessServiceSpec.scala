@@ -688,3 +688,29 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with 
     evt.capture.map(_.color)   shouldBe Some(Color.Black)
     evt.capture.map(_.at)      shouldBe Some(c8)
   }
+
+  it should "return Left(DomainError.InvalidPromotionState) when no promotion is pending" in {
+    val state = ChessService.createNewGame()  // pendingPromotion = None
+    ChessService.applyPromotionWithEvents(state, PieceType.Queen).left.value shouldBe
+      DomainError.InvalidPromotionState
+  }
+
+  it should "not emit GameStatusChanged when status does not change after promotion" in {
+    // Promote to Queen on a8 — black king on e5 is not on rank 8, file a, or the a8-h1 diagonal,
+    // so no check results and status remains Ongoing both before and after.
+    val a8      = Position.fromAlgebraic("a8").value
+    val a7      = Position.fromAlgebraic("a7").value
+    val e5      = Position.fromAlgebraic("e5").value
+    val pending = PendingPromotion(a8, Color.White, Move(a7, a8))
+    val state   = ChessService.createNewGame().copy(
+      board            = Board.empty
+        .place(a8, Piece(Color.White, PieceType.Pawn))
+        .place(a1, Piece(Color.White, PieceType.King))
+        .place(e5, Piece(Color.Black, PieceType.King)),
+      status           = GameStatus.Ongoing,
+      pendingPromotion = Some(pending)
+    )
+    val result = ChessService.applyPromotionWithEvents(state, PieceType.Queen).value
+    result.state.status shouldBe GameStatus.Ongoing
+    result.events.exists(_.isInstanceOf[DomainEvent.GameStatusChanged]) shouldBe false
+  }
