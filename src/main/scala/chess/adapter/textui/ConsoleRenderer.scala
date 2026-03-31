@@ -6,6 +6,16 @@ import chess.domain.model.{Color, GameStatus, Piece, PieceType, Position}
 
 object ConsoleRenderer:
 
+  // Beispiel: partially applied function für ein Präfix
+  val errorPrefix: String => String = withPrefix("[ERROR] ")
+
+  // Beispiel: partially applied function für Board-Rendering mit Symbolfunktion
+  val renderBoardStars: GameState => String = renderBoardWith(_ => "*")
+
+  // Beispiel: partially applied function für Status-Ausgabe mit fixem Spieler
+  def statusForPlayer(player: String): GameState => String =
+    (state: GameState) => s"Player: $player | Status: ${statusName(state.status)} | Moves: ${state.moveHistory.size}"
+
   // Beispiel für eine Closure: Funktion, die einen Zähler aus dem äußeren Scope verwendet
   def makeCountingRenderer(): GameState => String =
     var count = 0

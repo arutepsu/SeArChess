@@ -6,25 +6,37 @@ import chess.domain.model.{Move, Position}
 import scala.annotation.tailrec
 
 final class TextUI(
-
-      // Closure-Beispiel: Zählt, wie oft ein Kommando verarbeitet wurde
-      private def makeCommandCounter(): TextUiCommand => Unit =
-        var count = 0
-        (cmd: TextUiCommand) =>
-          count += 1
-          console.printLine(s"[Command count: $count] $cmd")
-
-      // Closure-Beispiel: Funktion, die ein Logging-Präfix aus dem Scope verwendet
-      private def makeLogger(prefix: String): String => Unit =
-        (msg: String) => console.printLine(s"$prefix$msg")
-
-      // Beispiel für Nutzung der Closures
-      private val commandCounter = makeCommandCounter()
-      private val infoLogger    = makeLogger("[INFO] ")
-
     console:      Console,
     initialState: GameState = ChessService.createNewGame()
 ):
+
+  // Closure-Beispiel: Funktion, die ein Logging-Präfix aus dem Scope verwendet
+  private def makeLogger(prefix: String): String => Unit =
+    (msg: String) => console.printLine(s"$prefix$msg")
+
+  // Partially applied function: Logger mit festem Präfix
+  private val warnLogger: String => Unit = makeLogger("[WARN] ")
+  private val infoLogger: String => Unit = makeLogger("[INFO] ")
+
+  // Closure-Beispiel: Zählt, wie oft ein Kommando verarbeitet wurde
+  private def makeCommandCounter(): TextUiCommand => Unit =
+    var count = 0
+    (cmd: TextUiCommand) =>
+      count += 1
+      console.printLine(s"[Command count: $count] $cmd")
+
+  // Beispiel für Nutzung der Closures
+  private val commandCounter = makeCommandCounter()
+
+  // Partially applied function: Kommandozähler für bestimmte Kategorie
+  private def makeCategoryCounter(category: String): TextUiCommand => Unit =
+    var count = 0
+    (cmd: TextUiCommand) =>
+      count += 1
+      console.printLine(s"[$category count: $count] $cmd")
+
+  // Beispiel für partielle Anwendung
+  private val moveCounter = makeCategoryCounter("MOVE")
 
   def run(): Unit =
     console.printLine(ConsoleRenderer.renderWelcome())
