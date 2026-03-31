@@ -91,13 +91,12 @@ object GameTransitionService:
    *  existing en passant availability.
    */
   private def computeEnPassantState(move: Move, boardBefore: Board): Option[EnPassantState] =
-    boardBefore.pieceAt(move.from) match
-      case Some(Piece(Color.White, PieceType.Pawn)) if move.from.rank == 1 && move.to.rank == 3 =>
-        Position.from(move.from.file, 2).toOption.map { target =>
-          EnPassantState(target, move.to, Color.White)
-        }
-      case Some(Piece(Color.Black, PieceType.Pawn)) if move.from.rank == 6 && move.to.rank == 4 =>
-        Position.from(move.from.file, 5).toOption.map { target =>
-          EnPassantState(target, move.to, Color.Black)
-        }
+    boardBefore.pieceAt(move.from).flatMap {
+      case Piece(color, PieceType.Pawn) =>
+        val (fromRank, toRank, passedRank) =
+          if color == Color.White then (1, 3, 2) else (6, 4, 5)
+        if move.from.rank == fromRank && move.to.rank == toRank then
+          Position.from(move.from.file, passedRank).toOption.map(EnPassantState(_, move.to, color))
+        else None
       case _ => None
+    }

@@ -37,13 +37,15 @@ object ChessService:
     else if state.board.pieceAt(move.from).exists(_.color != state.currentPlayer) then
       Left(NotPlayersTurn)
     else
-      GameTransitionService.applyMoveWithEvents(state, move).left.map(DomainFailure(_)).map(_.state)
+      toAppState(GameTransitionService.applyMoveWithEvents(state, move))
 
   def applyPromotion(state: GameState, pieceType: PieceType): Either[ApplicationError, GameState] =
     state.pendingPromotion match
-      case None => Left(NoPromotionPending)
-      case Some(_) =>
-        GameTransitionService.applyPromotionWithEvents(state, pieceType).left.map(DomainFailure(_)).map(_.state)
+      case None    => Left(NoPromotionPending)
+      case Some(_) => toAppState(GameTransitionService.applyPromotionWithEvents(state, pieceType))
+
+  private def toAppState(result: Either[DomainError, ApplyMoveResult]): Either[ApplicationError, GameState] =
+    result.left.map(DomainFailure(_)).map(_.state)
 
   /** All squares the piece at `from` can legally move to in the given state.
    *  Returns an empty set if there is no current-player piece at `from`,
