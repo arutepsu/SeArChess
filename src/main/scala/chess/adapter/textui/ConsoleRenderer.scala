@@ -6,6 +6,26 @@ import chess.domain.model.{Color, GameStatus, Piece, PieceType, Position}
 
 object ConsoleRenderer:
 
+  // Beispiel für Currying: Funktion, die ein Präfix und dann eine Nachricht nimmt
+  def withPrefix(prefix: String)(msg: String): String = s"$prefix$msg"
+
+  // Currying für Board-Rendering: Funktion, die ein Symbol-Mapping nimmt und dann das Board rendert
+  def renderBoardWith(symbolFn: Piece => String)(state: GameState): String =
+    val rows = (7 to 0 by -1).map { rank =>
+      val rankLabel = s"${rank + 1} "
+      val row = (0 to 7).map { file =>
+        Position.from(file, rank).toOption
+          .flatMap(state.board.pieceAt)
+          .map(symbolFn)
+          .getOrElse(".")
+      }.mkString(" ")
+      rankLabel + row
+    }
+    (rows :+ "  a b c d e f g h").mkString("\n")
+
+  // Beispiel für partielle Anwendung mit Currying
+  val renderBoardLowercase: GameState => String = renderBoardWith(piece => pieceSymbol(piece).toLowerCase)
+
   def renderBoard(state: GameState): String =
     val rows = (7 to 0 by -1).map { rank =>
       val rankLabel = s"${rank + 1} "

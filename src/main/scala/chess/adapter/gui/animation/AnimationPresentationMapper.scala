@@ -47,7 +47,7 @@ class AnimationPresentationMapper(
       else plan.movingPiece._1 == chess.domain.model.Color.Black
 
     if !plan.isCapture then
-      mapRegularMove(plan, t, fromX, fromY, toX, toY, flipX)
+      mapRegularMove(plan)(t)(fromX)(fromY)(toX)(toY)(flipX)
     else
       val phase = CaptureTiming.resolve(plan, t)
       mapCapture(plan, phase, fromX, fromY, toX, toY, flipX)
@@ -56,20 +56,18 @@ class AnimationPresentationMapper(
   private def defaultFlipX(piece: (chess.domain.model.Color, chess.domain.model.PieceType)): Boolean =
     piece._1 == chess.domain.model.Color.Black
     
-  private def mapRegularMove(
-      plan:  AnimationPlan,
-      t:     Double,
-      fromX: Double,
-      fromY: Double,
-      toX:   Double,
-      toY:   Double,
-      flipX: Boolean
-  ): AnimationRenderModel =
+  private def mapRegularMove(plan: AnimationPlan)
+                          (t: Double)
+                          (fromX: Double)
+                          (fromY: Double)
+                          (toX: Double)
+                          (toY: Double)
+                          (flipX: Boolean): AnimationRenderModel =
     val style = MotionStyleResolver.resolve(plan.movingPiece._2, false)
     val (currentX, currentY) =
       MotionInterpolator.interpolate(style, fromX, fromY, toX, toY, t)
 
-    val res = resolveSegmented(plan.movingPiece, VisualState.Move, t)
+    val res = resolveSegmented(plan.movingPiece)(VisualState.Move)(t)
 
     AnimationRenderModel(
       movingPiece = PieceRenderInfo(
@@ -104,7 +102,7 @@ class AnimationPresentationMapper(
           val style = MotionStyleResolver.resolve(plan.movingPiece._2, false)
           val (x, y) =
             MotionInterpolator.interpolate(style, fromX, fromY, toX, toY, phase.localProgress)
-          val res = resolveSegmented(plan.movingPiece, VisualState.Move, phase.localProgress)
+          val res = resolveSegmented(plan.movingPiece)(VisualState.Move)(phase.localProgress)
 
           PieceRenderInfo(
             piece           = plan.movingPiece,
@@ -117,12 +115,7 @@ class AnimationPresentationMapper(
           )
 
         case Phase.Attack =>
-          val res = resolveSpecificSegment(
-            plan.movingPiece,
-            VisualState.Attack,
-            phase.localProgress,
-            segmentIndex = 0
-          )
+          val res = resolveSpecificSegment(plan.movingPiece)(VisualState.Attack)(phase.localProgress)(0)
 
           PieceRenderInfo(
             piece           = plan.movingPiece,
@@ -135,12 +128,7 @@ class AnimationPresentationMapper(
           )
 
         case Phase.Attack1 =>
-          val res = resolveSpecificSegment(
-            plan.movingPiece,
-            VisualState.Attack,
-            phase.localProgress,
-            segmentIndex = 1
-          )
+          val res = resolveSpecificSegment(plan.movingPiece)(VisualState.Attack)(phase.localProgress)(1)
 
           PieceRenderInfo(
             piece           = plan.movingPiece,
@@ -153,12 +141,7 @@ class AnimationPresentationMapper(
           )
 
         case Phase.Dead | Phase.Fade =>
-          val res = resolveSpecificSegment(
-            plan.movingPiece,
-            VisualState.Attack,
-            1.0,
-            segmentIndex = 1
-          )
+          val res = resolveSpecificSegment(plan.movingPiece)(VisualState.Attack)(1.0)(1)
 
           PieceRenderInfo(
             piece           = plan.movingPiece,
@@ -174,7 +157,7 @@ class AnimationPresentationMapper(
       plan.capturedPiece.flatMap { captured =>
         phase.phase match
           case Phase.Approach | Phase.Attack | Phase.Attack1 =>
-            val res = resolveSegmented(captured, VisualState.Idle, 0.0)
+            val res = resolveSegmented(captured)(VisualState.Idle)(0.0)
             Some(PieceRenderInfo(
               piece           = captured,
               x               = toX,
@@ -187,7 +170,7 @@ class AnimationPresentationMapper(
             ))
 
           case Phase.Dead =>
-            val res = resolveSegmented(captured, VisualState.Dead, phase.localProgress)
+            val res = resolveSegmented(captured)(VisualState.Dead)(phase.localProgress)
             Some(PieceRenderInfo(
               piece           = captured,
               x               = toX,
@@ -200,7 +183,7 @@ class AnimationPresentationMapper(
             ))
 
           case Phase.Fade =>
-            val res = resolveSegmented(captured, VisualState.Dead, 1.0)
+            val res = resolveSegmented(captured)(VisualState.Dead)(1.0)
             Some(PieceRenderInfo(
               piece           = captured,
               x               = toX,
@@ -228,11 +211,9 @@ class AnimationPresentationMapper(
    *  Falls back to a single-segment resolution at frame 0 using the primary
    *  asset key when no metadata is found.
    */
-  private def resolveSegmented(
-      piece:    (chess.domain.model.Color, chess.domain.model.PieceType),
-      state:    VisualState,
-      progress: Double
-  ): PlaybackResolution =
+  private def resolveSegmented(piece: (chess.domain.model.Color, chess.domain.model.PieceType))
+                             (state: VisualState)
+                             (progress: Double): PlaybackResolution =
     playbackRepo.lookup(piece._1, piece._2, state)
       .map { meta =>
         val planned    = PlaybackPlanner.plan(meta, progress)
@@ -253,12 +234,10 @@ class AnimationPresentationMapper(
    *  Attack phase  -> first attack segment
    *  Attack1 phase -> second attack segment
    */
-  private def resolveSpecificSegment(
-      piece:        (chess.domain.model.Color, chess.domain.model.PieceType),
-      state:        VisualState,
-      progress:     Double,
-      segmentIndex: Int
-  ): PlaybackResolution =
+  private def resolveSpecificSegment(piece: (chess.domain.model.Color, chess.domain.model.PieceType))
+                                    (state: VisualState)
+                                    (progress: Double)
+                                    (segmentIndex: Int): PlaybackResolution =
     playbackRepo.lookup(piece._1, piece._2, state)
       .map { meta =>
         val idx        = segmentIndex.max(0).min(meta.segments.length - 1)

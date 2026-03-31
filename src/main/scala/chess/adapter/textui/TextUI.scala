@@ -22,6 +22,10 @@ final class TextUI(
     console.printLine(ConsoleRenderer.renderStatus(state))
     console.print("> ")
     val input = console.readLine()
+    if (input == null) {
+      console.printLine("Input was null (EOF). Exiting.")
+      return
+    }
     InputParser.parse(input) match
       case Left(err) =>
         console.printLine(ConsoleRenderer.renderParseError(err))

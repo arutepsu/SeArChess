@@ -59,6 +59,27 @@ class ChessScene:
 
   refresh(vm)
 
+
+  // Beispiel: Currying für Event-Handler mit Logging-Kontext
+  private def handleWithLog(log: String)(action: InputAction): Unit =
+    println(s"$log: $action")
+    controller.handle(action)
+
+  // Beispiel: Currying für Animation-Callback mit zusätzlichem Kontext
+  private def onAnimationFrameWithContext(ctx: String)(state: AnimationState): Unit =
+    println(s"[CTX=$ctx] AnimationFrame: $state")
+    val model = mapper.map(state)
+    currentRenderModel = Some(model)
+    BoardRenderer.update(boardGrid, vm, handle, factory, model.suppressedSquare)
+    StaticPieceOverlayRenderer.update(staticPieceOverlay, vm, factory, model.suppressedSquare)
+    renderAnimationLayer(model)
+
+  // Beispiel für partielle Anwendung: Handler mit festem Log-Präfix
+  private val debugHandle: InputAction => Unit = handleWithLog("DEBUG")
+
+  // Beispiel für partielle Anwendung: Animation-Frame-Callback mit Kontext
+  private val animFrameDev: AnimationState => Unit = onAnimationFrameWithContext("DEV")
+
   private def handle(action: InputAction): Unit = controller.handle(action)
 
   private def refresh(newVm: GameViewModel): Unit =
