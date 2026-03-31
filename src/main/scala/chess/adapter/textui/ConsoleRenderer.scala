@@ -6,6 +6,13 @@ import chess.domain.model.{Color, GameStatus, Piece, PieceType, Position}
 
 object ConsoleRenderer:
 
+  // Beispiel für eine Closure: Funktion, die einen Zähler aus dem äußeren Scope verwendet
+  def makeCountingRenderer(): GameState => String =
+    var count = 0
+    (state: GameState) =>
+      count += 1
+      s"[Render count: $count]\n" + renderBoard(state)
+
   // Beispiel für Currying: Funktion, die ein Präfix und dann eine Nachricht nimmt
   def withPrefix(prefix: String)(msg: String): String = s"$prefix$msg"
 

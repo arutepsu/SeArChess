@@ -6,6 +6,22 @@ import chess.domain.model.{Move, Position}
 import scala.annotation.tailrec
 
 final class TextUI(
+
+      // Closure-Beispiel: Zählt, wie oft ein Kommando verarbeitet wurde
+      private def makeCommandCounter(): TextUiCommand => Unit =
+        var count = 0
+        (cmd: TextUiCommand) =>
+          count += 1
+          console.printLine(s"[Command count: $count] $cmd")
+
+      // Closure-Beispiel: Funktion, die ein Logging-Präfix aus dem Scope verwendet
+      private def makeLogger(prefix: String): String => Unit =
+        (msg: String) => console.printLine(s"$prefix$msg")
+
+      // Beispiel für Nutzung der Closures
+      private val commandCounter = makeCommandCounter()
+      private val infoLogger    = makeLogger("[INFO] ")
+
     console:      Console,
     initialState: GameState = ChessService.createNewGame()
 ):
@@ -23,20 +39,25 @@ final class TextUI(
     console.print("> ")
     val input = console.readLine()
     if (input == null) {
-      console.printLine("Input was null (EOF). Exiting.")
+      infoLogger("Input was null (EOF). Exiting.")
       return
     }
     InputParser.parse(input) match
       case Left(err) =>
-        console.printLine(ConsoleRenderer.renderParseError(err))
+        infoLogger(ConsoleRenderer.renderParseError(err))
         loop(state)
 
-      case Right(TextUiCommand.Quit) =>
-        console.printLine("Goodbye!")
-
-      case Right(TextUiCommand.Help) =>
-        console.printLine(ConsoleRenderer.renderHelp())
-        loop(state)
+      case Right(cmd) =>
+        commandCounter(cmd)
+        cmd match
+          case TextUiCommand.Quit =>
+            infoLogger("Goodbye!")
+          case TextUiCommand.Help =>
+            infoLogger(ConsoleRenderer.renderHelp())
+            loop(state)
+          case _ =>
+            // ...bestehende Logik für andere Kommandos...
+            loop(state)
 
       case Right(TextUiCommand.Show) =>
         loop(state)

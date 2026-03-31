@@ -4,6 +4,10 @@ import chess.domain.model.PieceType
 
 object InputParser:
 
+  // Closure-Beispiel: Funktion, die ein erlaubtes Kommando-Set aus dem Scope verwendet
+  def makeCommandValidator(allowed: Set[String]): String => Boolean =
+    (cmd: String) => allowed.contains(cmd)
+
   def parse(input: String): Either[InputParseError, TextUiCommand] =
     val trimmed = input.trim
     if trimmed.isEmpty then Left(InputParseError.EmptyInput)
