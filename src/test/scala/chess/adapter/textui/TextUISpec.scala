@@ -1,6 +1,7 @@
 package chess.adapter.textui
 
-import chess.application.{ChessService, GameState, PendingPromotion}
+import chess.application.ChessService
+import chess.domain.state.{GameState, PendingPromotion}
 import chess.domain.model.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
