@@ -23,6 +23,7 @@ final class TextUI(
     console.printLine(ConsoleRenderer.renderStatus(state))
     console.print("> ")
     val input = console.readLine()
+    if input == null then { console.printLine("Goodbye!"); return }
     InputParser.parse(input) match
       case Left(err) =>
         console.printLine(ConsoleRenderer.renderParseError(err))
