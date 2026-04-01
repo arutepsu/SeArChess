@@ -1,7 +1,7 @@
 package chess.domain.rules.evaluation
 
 import chess.domain.model.*
-import chess.domain.model.positionstate.{CastlingRights, EnPassantState}
+import chess.domain.state.{CastlingRights, EnPassantState}
 import chess.domain.rules.application.MoveApplier
 import chess.domain.rules.validation.CheckValidator
 

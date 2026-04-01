@@ -1,6 +1,7 @@
 package chess.adapter.textui
 
-import chess.application.{ApplicationError, ChessService, GameState}
+import chess.application.{ApplicationError, ChessService}
+import chess.domain.state.GameState
 import chess.application.ChessCommand.{MakeMove, Promote}
 import chess.domain.model.{Move, Position}
 import scala.annotation.tailrec

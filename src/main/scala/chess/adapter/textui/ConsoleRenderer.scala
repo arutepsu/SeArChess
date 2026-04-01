@@ -1,6 +1,7 @@
 package chess.adapter.textui
 
-import chess.application.{ApplicationError, GameState}
+import chess.application.ApplicationError
+import chess.domain.state.GameState
 import chess.domain.error.DomainError
 import chess.domain.model.{Color, GameStatus, Piece, PieceType, Position}
 
