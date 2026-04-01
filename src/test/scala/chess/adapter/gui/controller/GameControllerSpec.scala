@@ -3,7 +3,8 @@ package chess.adapter.gui.controller
 import chess.adapter.gui.animation.AnimationPlan
 import chess.adapter.gui.input.InputAction
 import chess.adapter.gui.viewmodel.{GameViewModel, GameViewModelMapper, GuiState, PromotionViewModel}
-import chess.application.{ChessService, GameState, PendingPromotion}
+import chess.application.ChessService
+import chess.domain.state.{GameState, PendingPromotion}
 import chess.domain.model.{Board, Color, GameStatus, Move, Piece, PieceType, Position}
 import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
@@ -317,7 +318,7 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
       .place(e1, Piece(Color.White, PieceType.King))
       .place(h1, Piece(Color.White, PieceType.Rook))
       .place(e8, Piece(Color.Black, PieceType.King))
-    import chess.domain.model.positionstate.CastlingRights
+    import chess.domain.state.CastlingRights
     val state = freshState.copy(board = board, castlingRights = CastlingRights.full)
     val (_, vm1, _) = GameController.transition(state, freshVm(state), InputAction.SquareClicked(e1))
     val (_, vm2, plan) = GameController.transition(state, vm1, InputAction.SquareClicked(g1))
