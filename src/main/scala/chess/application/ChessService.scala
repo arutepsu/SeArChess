@@ -2,12 +2,23 @@ package chess.application
 
 import chess.application.ApplicationError.*
 import chess.application.ChessCommand.*
-import chess.domain.model.{Board, Color, GameStatus, Move, MoveResult, Piece, PieceType, Position}
-import chess.domain.model.positionstate.{CastlingRights, EnPassantState}
-import chess.domain.rules.application.{MoveApplier, PromotionApplier}
+import chess.domain.error.DomainError
+import chess.domain.model.{Board, Color, Move, PieceType, Position}
+import chess.domain.state.{CastlingRights, GameState}
+import chess.domain.rules.application.MoveApplier
 import chess.domain.rules.evaluation.GameStatusEvaluator
-import chess.domain.rules.state.CastlingRightsUpdater
 
+/** Application façade for the chess game.
+ *
+ *  Responsibilities:
+ *  - application-level guard checks (turn enforcement, pending promotion)
+ *  - command routing
+ *  - delegation to [[GameTransitionService]] for state transitions
+ *  - mapping [[DomainError]] to [[ApplicationError]]
+ *
+ *  Does NOT contain state-transition orchestration or event-building logic.
+ *  Those concerns live in [[GameTransitionService]] and [[EventBuilder]] respectively.
+ */
 object ChessService:
 
   def createNewGame(): GameState =
@@ -26,75 +37,15 @@ object ChessService:
     else if state.board.pieceAt(move.from).exists(_.color != state.currentPlayer) then
       Left(NotPlayersTurn)
     else
-      // nextRights is the same regardless of the move outcome, so compute it once.
-      val nextRights = CastlingRightsUpdater.update(state.castlingRights, state.board, move)
-      MoveApplier.applyMove(state.board, move, state.castlingRights, state.enPassantState)
-        .left.map(DomainFailure(_))
-        .flatMap {
-          case MoveResult.Applied(newBoard) =>
-            val nextEnPassant = computeEnPassantState(move, state.board)
-            val nextPlayer    = state.currentPlayer.opposite
-            val nextStatus    = GameStatusEvaluator.evaluate(newBoard, nextPlayer, nextRights, nextEnPassant)
-            Right(state.copy(
-              board            = newBoard,
-              currentPlayer    = nextPlayer,
-              moveHistory      = state.moveHistory :+ move,
-              status           = nextStatus,
-              castlingRights   = nextRights,
-              pendingPromotion = None,
-              enPassantState   = nextEnPassant
-            ))
-
-          // A pawn advancing to the promotion rank is a one-square move and
-          // can never create en passant availability, so clear it immediately.
-          case MoveResult.PromotionRequired(newBoard, square, color) =>
-            Right(state.copy(
-              board            = newBoard,
-              castlingRights   = nextRights,
-              pendingPromotion = Some(PendingPromotion(square, color, move)),
-              enPassantState   = None
-            ))
-        }
+      toAppState(GameTransitionService.applyMoveWithEvents(state, move))
 
   def applyPromotion(state: GameState, pieceType: PieceType): Either[ApplicationError, GameState] =
     state.pendingPromotion match
-      case None =>
-        Left(NoPromotionPending)
-      case Some(PendingPromotion(square, color, move)) =>
-        PromotionApplier.applyPromotion(state.board, square, color, pieceType)
-          .left.map(DomainFailure(_))
-          .map { promotedBoard =>
-            val nextPlayer = state.currentPlayer.opposite
-            val nextStatus = GameStatusEvaluator.evaluate(promotedBoard, nextPlayer, state.castlingRights)
-            state.copy(
-              board            = promotedBoard,
-              currentPlayer    = nextPlayer,
-              moveHistory      = state.moveHistory :+ move,
-              status           = nextStatus,
-              pendingPromotion = None,
-              enPassantState   = None
-            )
-          }
+      case None    => Left(NoPromotionPending)
+      case Some(_) => toAppState(GameTransitionService.applyPromotionWithEvents(state, pieceType))
 
-  // ── en passant lifecycle ────────────────────────────────────────────────────
-
-  /** Derive en passant state from a just-completed move.
-   *
-   *  A two-square pawn advance creates an EnPassantState for the opponent's
-   *  immediate reply.  Every other move produces None, which clears any
-   *  existing en passant availability.
-   */
-  private def computeEnPassantState(move: Move, boardBefore: Board): Option[EnPassantState] =
-    boardBefore.pieceAt(move.from) match
-      case Some(Piece(Color.White, PieceType.Pawn)) if move.from.rank == 1 && move.to.rank == 3 =>
-        Position.from(move.from.file, 2).toOption.map { target =>
-          EnPassantState(target, move.to, Color.White)
-        }
-      case Some(Piece(Color.Black, PieceType.Pawn)) if move.from.rank == 6 && move.to.rank == 4 =>
-        Position.from(move.from.file, 5).toOption.map { target =>
-          EnPassantState(target, move.to, Color.Black)
-        }
-      case _ => None
+  private def toAppState(result: Either[DomainError, ApplyMoveResult]): Either[ApplicationError, GameState] =
+    result.left.map(DomainFailure(_)).map(_.state)
 
   /** All squares the piece at `from` can legally move to in the given state.
    *  Returns an empty set if there is no current-player piece at `from`,
@@ -121,3 +72,22 @@ object ChessService:
       case MakeMove(move)     => applyMove(state, move)
       case Promote(pieceType) => applyPromotion(state, pieceType)
 
+  // ── Event-emitting move application ────────────────────────────────────────
+
+  /** Apply a move to the full [[GameState]] and return the updated state together
+   *  with the domain events that resulted from the transition.
+   *
+   *  Returns a [[DomainError]] directly (without wrapping in [[ApplicationError]])
+   *  so callers that only need the domain result can consume it cleanly.
+   *  Application-layer guards (turn checking, pending promotion) remain in
+   *  [[applyMove]] and are the caller's responsibility here.
+   *
+   *  Note: [[chess.domain.event.DomainEvent.PieceCaptured]] is emitted for both
+   *  regular captures and en passant captures.  For en passant the captured-pawn
+   *  square is used, not move.to.
+   */
+  def applyMoveWithEvents(state: GameState, move: Move): Either[DomainError, ApplyMoveResult] =
+    GameTransitionService.applyMoveWithEvents(state, move)
+
+  def applyPromotionWithEvents(state: GameState, pieceType: PieceType): Either[DomainError, ApplyMoveResult] =
+    GameTransitionService.applyPromotionWithEvents(state, pieceType)

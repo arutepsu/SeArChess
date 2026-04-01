@@ -1,4 +1,4 @@
-package chess.domain.model.positionstate
+package chess.domain.state
 
 import chess.domain.model.{Color, Position}
 

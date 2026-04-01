@@ -5,7 +5,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.EitherValues
 import chess.domain.error.DomainError
 import chess.domain.model.*
-import chess.domain.model.positionstate.CastlingRights
+import chess.domain.state.CastlingRights
 
 class CastlingValidatorSpec extends AnyFlatSpec with Matchers with EitherValues:
 
