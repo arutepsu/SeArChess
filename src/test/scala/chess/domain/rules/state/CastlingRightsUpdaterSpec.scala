@@ -4,7 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.EitherValues
 import chess.domain.model.*
-import chess.domain.model.positionstate.CastlingRights
+import chess.domain.state.CastlingRights
 
 class CastlingRightsUpdaterSpec extends AnyFlatSpec with Matchers with EitherValues:
 

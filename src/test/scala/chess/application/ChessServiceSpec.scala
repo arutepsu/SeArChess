@@ -2,14 +2,15 @@ package chess.application
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.EitherValues
+import org.scalatest.{EitherValues, OptionValues}
 import chess.application.ApplicationError.*
 import chess.domain.error.DomainError
 import chess.domain.model.*
-import chess.domain.model.positionstate.{CastlingRights, EnPassantState}
+import chess.domain.event.DomainEvent
+import chess.domain.state.{CastlingRights, EnPassantState, GameState, PendingPromotion}
 import chess.application.ChessCommand.*
 
-class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
+class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with OptionValues:
 
   private val a1        = Position.from(0, 0).value
   private val a2        = Position.from(0, 1).value
@@ -415,4 +416,301 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
       pendingPromotion = Some(pending)
     )
     ChessService.legalMovesFrom(state, a8) shouldBe empty
+  }
+
+  // ── applyMoveWithEvents ────────────────────────────────────────────────────
+
+  "ChessService.applyMoveWithEvents" should "return Right(ApplyMoveResult) for a legal move" in {
+    val state  = ChessService.createNewGame()
+    val e2     = Position.fromAlgebraic("e2").value
+    val e4     = Position.fromAlgebraic("e4").value
+    ChessService.applyMoveWithEvents(state, Move(e2, e4)).isRight shouldBe true
+  }
+
+  it should "return Left for an illegal move" in {
+    val state = ChessService.createNewGame()
+    val e2    = Position.fromAlgebraic("e2").value
+    val e5    = Position.fromAlgebraic("e5").value  // pawn can't jump three squares
+    ChessService.applyMoveWithEvents(state, Move(e2, e5)).isLeft shouldBe true
+  }
+
+  it should "update state fields the same way applyMove does" in {
+    val state  = ChessService.createNewGame()
+    val e2     = Position.fromAlgebraic("e2").value
+    val e4     = Position.fromAlgebraic("e4").value
+    val result = ChessService.applyMoveWithEvents(state, Move(e2, e4)).value
+    result.state.currentPlayer shouldBe Color.Black
+    result.state.moveHistory   shouldBe List(Move(e2, e4))
+    result.state.status        shouldBe GameStatus.Ongoing
+  }
+
+  it should "always emit MoveApplied as the first event" in {
+    val state  = ChessService.createNewGame()
+    val e2     = Position.fromAlgebraic("e2").value
+    val e4     = Position.fromAlgebraic("e4").value
+    val result = ChessService.applyMoveWithEvents(state, Move(e2, e4)).value
+    result.events.head shouldBe DomainEvent.MoveApplied(Move(e2, e4))
+  }
+
+  it should "emit MoveApplied and MoveExecuted (and nothing else) for a quiet move that leaves status Ongoing" in {
+    val state  = ChessService.createNewGame()
+    val e2     = Position.fromAlgebraic("e2").value
+    val e4     = Position.fromAlgebraic("e4").value
+    val move   = Move(e2, e4)
+    val result = ChessService.applyMoveWithEvents(state, move).value
+    result.events.count(_.isInstanceOf[DomainEvent.MoveApplied])  shouldBe 1
+    result.events.count(_.isInstanceOf[DomainEvent.MoveExecuted]) shouldBe 1
+    result.events should have size 2
+  }
+
+  it should "emit PieceCaptured when a piece is taken at the destination square" in {
+    val a5  = Position.fromAlgebraic("a5").value
+    val h1  = Position.fromAlgebraic("h1").value
+    val h8  = Position.fromAlgebraic("h8").value
+    val board = Board.empty
+      .place(a1,  Piece(Color.White, PieceType.Rook))
+      .place(a5,  Piece(Color.Black, PieceType.Pawn))
+      .place(h1,  Piece(Color.White, PieceType.King))
+      .place(h8,  Piece(Color.Black, PieceType.King))
+    val state  = GameState(board, Color.White, Nil, GameStatus.Ongoing, CastlingRights.none)
+    val result = ChessService.applyMoveWithEvents(state, Move(a1, a5)).value
+    result.events should contain (DomainEvent.PieceCaptured(Piece(Color.Black, PieceType.Pawn), a5))
+  }
+
+  it should "emit CheckDeclared and GameStatusChanged when the move gives check" in {
+    // White queen d1→d7 puts black king on d8 in check (clear d-file, no other pieces).
+    val d1  = Position.fromAlgebraic("d1").value
+    val d7  = Position.fromAlgebraic("d7").value
+    val d8  = Position.fromAlgebraic("d8").value
+    val board = Board.empty
+      .place(d1, Piece(Color.White, PieceType.Queen))
+      .place(d8, Piece(Color.Black, PieceType.King))
+      .place(a1, Piece(Color.White, PieceType.King))
+    val state  = GameState(board, Color.White, Nil, GameStatus.Ongoing, CastlingRights.none)
+    val result = ChessService.applyMoveWithEvents(state, Move(d1, d7)).value
+    result.events should contain (DomainEvent.CheckDeclared(Color.Black))
+    result.events should contain (DomainEvent.GameStatusChanged(GameStatus.Check))
+    result.state.status shouldBe GameStatus.Check
+  }
+
+  it should "emit MoveApplied and PromotionRequired when a pawn reaches the last rank" in {
+    val e7  = Position.fromAlgebraic("e7").value
+    val e8  = Position.fromAlgebraic("e8").value
+    val h8  = Position.fromAlgebraic("h8").value
+    val board = Board.empty
+      .place(e7, Piece(Color.White, PieceType.Pawn))
+      .place(a1, Piece(Color.White, PieceType.King))
+      .place(h8, Piece(Color.Black, PieceType.King))
+    val state  = GameState(board, Color.White, Nil, GameStatus.Ongoing, CastlingRights.none)
+    val result = ChessService.applyMoveWithEvents(state, Move(e7, e8)).value
+    result.events should contain (DomainEvent.MoveApplied(Move(e7, e8)))
+    result.events should contain (DomainEvent.PromotionRequired(e8, Color.White))
+    result.state.pendingPromotion shouldBe defined
+  }
+
+  // ── MoveExecuted ───────────────────────────────────────────────────────────
+
+  "ChessService.applyMoveWithEvents" should "emit MoveExecuted as the last event for a normal move" in {
+    val state  = ChessService.createNewGame()
+    val e2     = Position.fromAlgebraic("e2").value
+    val e4     = Position.fromAlgebraic("e4").value
+    val result = ChessService.applyMoveWithEvents(state, Move(e2, e4)).value
+    result.events.last shouldBe a [DomainEvent.MoveExecuted]
+  }
+
+  it should "populate core MoveExecuted fields correctly for a normal pawn advance" in {
+    val state  = ChessService.createNewGame()
+    val e2     = Position.fromAlgebraic("e2").value
+    val e4     = Position.fromAlgebraic("e4").value
+    val result = ChessService.applyMoveWithEvents(state, Move(e2, e4)).value
+    val evt    = result.events.collectFirst { case e: DomainEvent.MoveExecuted => e }.value
+    evt.piece     shouldBe PieceType.Pawn
+    evt.color     shouldBe Color.White
+    evt.from      shouldBe e2
+    evt.to        shouldBe e4
+    evt.capture   shouldBe None
+    evt.promotion shouldBe None
+    evt.check     shouldBe false
+    evt.checkmate shouldBe false
+    evt.stalemate shouldBe false
+  }
+
+  it should "populate capture in MoveExecuted when a piece is taken" in {
+    val a5   = Position.fromAlgebraic("a5").value
+    val h1   = Position.fromAlgebraic("h1").value
+    val h8   = Position.fromAlgebraic("h8").value
+    val board = Board.empty
+      .place(a1,  Piece(Color.White, PieceType.Rook))
+      .place(a5,  Piece(Color.Black, PieceType.Pawn))
+      .place(h1,  Piece(Color.White, PieceType.King))
+      .place(h8,  Piece(Color.Black, PieceType.King))
+    val state  = GameState(board, Color.White, Nil, GameStatus.Ongoing, CastlingRights.none)
+    val result = ChessService.applyMoveWithEvents(state, Move(a1, a5)).value
+    val evt    = result.events.collectFirst { case e: DomainEvent.MoveExecuted => e }.value
+    evt.capture shouldBe defined
+    evt.capture.map(_.piece) shouldBe Some(PieceType.Pawn)
+    evt.capture.map(_.color) shouldBe Some(Color.Black)
+  }
+
+  "ChessService.applyPromotionWithEvents" should "emit MoveExecuted as the last event on successful promotion" in {
+    val a8      = Position.fromAlgebraic("a8").value
+    val a7      = Position.fromAlgebraic("a7").value
+    val pending = PendingPromotion(a8, Color.White, Move(a7, a8))
+    val state   = ChessService.createNewGame().copy(
+      board            = Board.empty.place(a8, Piece(Color.White, PieceType.Pawn)),
+      pendingPromotion = Some(pending)
+    )
+    val result = ChessService.applyPromotionWithEvents(state, PieceType.Queen).value
+    result.events.last shouldBe a [DomainEvent.MoveExecuted]
+  }
+
+  it should "set promotion field in MoveExecuted to the chosen piece type" in {
+    val a8      = Position.fromAlgebraic("a8").value
+    val a7      = Position.fromAlgebraic("a7").value
+    val pending = PendingPromotion(a8, Color.White, Move(a7, a8))
+    val state   = ChessService.createNewGame().copy(
+      board            = Board.empty.place(a8, Piece(Color.White, PieceType.Pawn)),
+      pendingPromotion = Some(pending)
+    )
+    val result = ChessService.applyPromotionWithEvents(state, PieceType.Queen).value
+    val evt    = result.events.collectFirst { case e: DomainEvent.MoveExecuted => e }.value
+    evt.piece     shouldBe PieceType.Pawn
+    evt.color     shouldBe Color.White
+    evt.promotion shouldBe Some(PieceType.Queen)
+    evt.from      shouldBe a7
+    evt.to        shouldBe a8
+  }
+
+  it should "emit CheckDeclared before GameStatusChanged when promotion results in check" in {
+    // White queen on a8 promotes — we need a position where the new piece gives check.
+    // White pawn on b7 promotes to queen on b8, putting black king on d8 in check.
+    val b7  = Position.fromAlgebraic("b7").value
+    val b8  = Position.fromAlgebraic("b8").value
+    val d8  = Position.fromAlgebraic("d8").value
+    val pending = PendingPromotion(b8, Color.White, Move(b7, b8))
+    val state = ChessService.createNewGame().copy(
+      board            = Board.empty
+        .place(b8, Piece(Color.White, PieceType.Pawn))
+        .place(d8, Piece(Color.Black, PieceType.King))
+        .place(a1, Piece(Color.White, PieceType.King)),
+      pendingPromotion = Some(pending)
+    )
+    val result = ChessService.applyPromotionWithEvents(state, PieceType.Queen).value
+    result.state.status shouldBe GameStatus.Check
+    val checkIdx   = result.events.indexWhere(_.isInstanceOf[DomainEvent.CheckDeclared])
+    val statusIdx  = result.events.indexWhere(_.isInstanceOf[DomainEvent.GameStatusChanged])
+    checkIdx  should be >= 0
+    statusIdx should be >= 0
+    checkIdx  should be < statusIdx
+  }
+
+  // ── MoveExecuted enrichment: castling, en passant, promotion capture ────────
+
+  "ChessService.applyMoveWithEvents" should "set castling=KingSide in MoveExecuted for white kingside castling" in {
+    val e1 = Position.fromAlgebraic("e1").value
+    val g1 = Position.fromAlgebraic("g1").value
+    val h1 = Position.fromAlgebraic("h1").value
+    val e8 = Position.fromAlgebraic("e8").value
+    val board = Board.empty
+      .place(e1, Piece(Color.White, PieceType.King))
+      .place(h1, Piece(Color.White, PieceType.Rook))
+      .place(e8, Piece(Color.Black, PieceType.King))
+    val state  = ChessService.createNewGame().copy(board = board, castlingRights = CastlingRights.full)
+    val result = ChessService.applyMoveWithEvents(state, Move(e1, g1)).value
+    val evt    = result.events.collectFirst { case e: DomainEvent.MoveExecuted => e }.value
+    import chess.domain.event.CastlingSide
+    evt.castling shouldBe Some(CastlingSide.KingSide)
+  }
+
+  it should "set castling=QueenSide in MoveExecuted for black queenside castling" in {
+    val e8 = Position.fromAlgebraic("e8").value
+    val c8 = Position.fromAlgebraic("c8").value
+    val a8 = Position.fromAlgebraic("a8").value
+    val e1 = Position.fromAlgebraic("e1").value
+    val board = Board.empty
+      .place(e8, Piece(Color.Black, PieceType.King))
+      .place(a8, Piece(Color.Black, PieceType.Rook))
+      .place(e1, Piece(Color.White, PieceType.King))
+    val state  = ChessService.createNewGame().copy(board = board, currentPlayer = Color.Black, castlingRights = CastlingRights.full)
+    val result = ChessService.applyMoveWithEvents(state, Move(e8, c8)).value
+    val evt    = result.events.collectFirst { case e: DomainEvent.MoveExecuted => e }.value
+    import chess.domain.event.CastlingSide
+    evt.castling shouldBe Some(CastlingSide.QueenSide)
+  }
+
+  it should "emit PieceCaptured and set MoveExecuted.enPassant=true for an en passant capture" in {
+    val d4 = Position.fromAlgebraic("d4").value
+    val e4 = Position.fromAlgebraic("e4").value
+    val e3 = Position.fromAlgebraic("e3").value
+    val e8 = Position.fromAlgebraic("e8").value
+    val board = Board.empty
+      .place(d4, Piece(Color.Black, PieceType.Pawn))
+      .place(e4, Piece(Color.White, PieceType.Pawn))
+      .place(e8, Piece(Color.Black, PieceType.King))
+    val ep    = EnPassantState(e3, e4, Color.White)
+    val state = ChessService.createNewGame().copy(
+      board          = board,
+      currentPlayer  = Color.Black,
+      enPassantState = Some(ep)
+    )
+    val result = ChessService.applyMoveWithEvents(state, Move(d4, e3)).value
+    // PieceCaptured must be emitted at the captured pawn's actual square (e4, not e3)
+    result.events should contain (DomainEvent.PieceCaptured(Piece(Color.White, PieceType.Pawn), e4))
+    val evt = result.events.collectFirst { case e: DomainEvent.MoveExecuted => e }.value
+    evt.enPassant            shouldBe true
+    evt.capture              shouldBe defined
+    evt.capture.map(_.piece) shouldBe Some(PieceType.Pawn)
+    evt.capture.map(_.color) shouldBe Some(Color.White)
+    evt.capture.map(_.at)    shouldBe Some(e4)   // captured pawn's square, not move.to (e3)
+  }
+
+  "ChessService.applyPromotionWithEvents" should "set capture in MoveExecuted when the pawn promoted via a diagonal capture" in {
+    // White pawn on b7 captures black rook on c8 and promotes.
+    val b7  = Position.fromAlgebraic("b7").value
+    val c8  = Position.fromAlgebraic("c8").value
+    val e1  = Position.fromAlgebraic("e1").value
+    val e8  = Position.fromAlgebraic("e8").value
+    val capturedRook = Piece(Color.Black, PieceType.Rook)
+    // Simulate the intermediate state: pawn already on c8, capturedPiece recorded in PendingPromotion.
+    val pending = PendingPromotion(c8, Color.White, Move(b7, c8), Some(capturedRook))
+    val state = ChessService.createNewGame().copy(
+      board            = Board.empty
+        .place(c8, Piece(Color.White, PieceType.Pawn))
+        .place(e1, Piece(Color.White, PieceType.King))
+        .place(e8, Piece(Color.Black, PieceType.King)),
+      pendingPromotion = Some(pending)
+    )
+    val result = ChessService.applyPromotionWithEvents(state, PieceType.Queen).value
+    val evt    = result.events.collectFirst { case e: DomainEvent.MoveExecuted => e }.value
+    evt.promotion              shouldBe Some(PieceType.Queen)
+    evt.capture                shouldBe defined
+    evt.capture.map(_.piece)   shouldBe Some(PieceType.Rook)
+    evt.capture.map(_.color)   shouldBe Some(Color.Black)
+    evt.capture.map(_.at)      shouldBe Some(c8)
+  }
+
+  it should "return Left(DomainError.InvalidPromotionState) when no promotion is pending" in {
+    val state = ChessService.createNewGame()  // pendingPromotion = None
+    ChessService.applyPromotionWithEvents(state, PieceType.Queen).left.value shouldBe
+      DomainError.InvalidPromotionState
+  }
+
+  it should "not emit GameStatusChanged when status does not change after promotion" in {
+    // Promote to Queen on a8 — black king on e5 is not on rank 8, file a, or the a8-h1 diagonal,
+    // so no check results and status remains Ongoing both before and after.
+    val a8      = Position.fromAlgebraic("a8").value
+    val a7      = Position.fromAlgebraic("a7").value
+    val e5      = Position.fromAlgebraic("e5").value
+    val pending = PendingPromotion(a8, Color.White, Move(a7, a8))
+    val state   = ChessService.createNewGame().copy(
+      board            = Board.empty
+        .place(a8, Piece(Color.White, PieceType.Pawn))
+        .place(a1, Piece(Color.White, PieceType.King))
+        .place(e5, Piece(Color.Black, PieceType.King)),
+      status           = GameStatus.Ongoing,
+      pendingPromotion = Some(pending)
+    )
+    val result = ChessService.applyPromotionWithEvents(state, PieceType.Queen).value
+    result.state.status shouldBe GameStatus.Ongoing
+    result.events.exists(_.isInstanceOf[DomainEvent.GameStatusChanged]) shouldBe false
   }

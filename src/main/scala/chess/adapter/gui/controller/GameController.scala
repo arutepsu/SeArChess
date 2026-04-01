@@ -3,7 +3,8 @@ package chess.adapter.gui.controller
 import chess.adapter.gui.animation.{AnimationPlan, AnimationPlanner}
 import chess.adapter.gui.input.InputAction
 import chess.adapter.gui.viewmodel.*
-import chess.application.{ChessService, GameState, PendingPromotion}
+import chess.application.ChessService
+import chess.domain.state.{GameState, PendingPromotion}
 import chess.domain.model.{Color, GameStatus, Move, PieceType, Position}
 
 /** Mutable GUI controller.
