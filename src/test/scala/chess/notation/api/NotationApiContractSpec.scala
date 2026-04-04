@@ -18,6 +18,14 @@ import org.scalatest.OptionValues
  */
 class NotationApiContractSpec extends AnyFlatSpec with Matchers with EitherValues with OptionValues:
 
+  // A well-formed FEN used wherever a valid ParsedFen instance is needed.
+  private val InitialFenStr = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
+  /** Return a real [[ParsedNotation.ParsedFen]] for the initial position. */
+  private def aValidParsedFen: ParsedNotation.ParsedFen =
+    chess.notation.fen.FenParser.parse(InitialFenStr).value
+      .asInstanceOf[ParsedNotation.ParsedFen]
+
   // ── NotationFormat ──────────────────────────────────────────────────────────
 
   "NotationFormat" should "enumerate all expected formats" in {
@@ -38,7 +46,7 @@ class NotationApiContractSpec extends AnyFlatSpec with Matchers with EitherValue
   // ── ParsedNotation ──────────────────────────────────────────────────────────
 
   "ParsedNotation" should "hold raw input in every variant" in {
-    val fen  = ParsedNotation.ParsedFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+    val fen  = aValidParsedFen
     val pgn  = ParsedNotation.ParsedPgn("...", Map("Event" -> "Test"), "1. e4 e5")
     val pos  = ParsedNotation.ParsedJsonPosition("""{"type":"position"}""")
     val game = ParsedNotation.ParsedJsonGame("""{"type":"game"}""")
@@ -54,10 +62,10 @@ class NotationApiContractSpec extends AnyFlatSpec with Matchers with EitherValue
       case _: ParsedNotation.ParsedPgn          => "pgn"
       case _: ParsedNotation.ParsedJsonPosition => "json-position"
       case _: ParsedNotation.ParsedJsonGame     => "json-game"
-    describe(ParsedNotation.ParsedFen("x"))                          shouldBe "fen"
-    describe(ParsedNotation.ParsedPgn("x", Map.empty, ""))           shouldBe "pgn"
-    describe(ParsedNotation.ParsedJsonPosition("x"))                 shouldBe "json-position"
-    describe(ParsedNotation.ParsedJsonGame("x"))                     shouldBe "json-game"
+    describe(aValidParsedFen)                                      shouldBe "fen"
+    describe(ParsedNotation.ParsedPgn("x", Map.empty, ""))         shouldBe "pgn"
+    describe(ParsedNotation.ParsedJsonPosition("x"))               shouldBe "json-position"
+    describe(ParsedNotation.ParsedJsonGame("x"))                   shouldBe "json-game"
   }
 
   it should "carry PGN headers separately from move text" in {
@@ -71,10 +79,10 @@ class NotationApiContractSpec extends AnyFlatSpec with Matchers with EitherValue
   }
 
   it should "expose a kind discriminator matching the variant" in {
-    ParsedNotation.ParsedFen("x").kind          shouldBe ParsedNotationKind.Fen
-    ParsedNotation.ParsedPgn("x", Map.empty, "").kind shouldBe ParsedNotationKind.Pgn
-    ParsedNotation.ParsedJsonPosition("x").kind shouldBe ParsedNotationKind.JsonPosition
-    ParsedNotation.ParsedJsonGame("x").kind     shouldBe ParsedNotationKind.JsonGame
+    aValidParsedFen.kind                                        shouldBe ParsedNotationKind.Fen
+    ParsedNotation.ParsedPgn("x", Map.empty, "").kind           shouldBe ParsedNotationKind.Pgn
+    ParsedNotation.ParsedJsonPosition("x").kind                 shouldBe ParsedNotationKind.JsonPosition
+    ParsedNotation.ParsedJsonGame("x").kind                     shouldBe ParsedNotationKind.JsonGame
   }
 
   // ── ParsedNotationKind ──────────────────────────────────────────────────────
@@ -174,11 +182,13 @@ class NotationApiContractSpec extends AnyFlatSpec with Matchers with EitherValue
 
   // ── PositionImportMetadata ──────────────────────────────────────────────────
 
-  "PositionImportMetadata" should "default to no normalization and no dialect or version" in {
+  "PositionImportMetadata" should "default to no normalization, no dialect, version, or clock fields" in {
     val m = PositionImportMetadata()
     m.normalized    shouldBe false
     m.sourceDialect shouldBe None
     m.sourceVersion shouldBe None
+    m.halfmoveClock  shouldBe None
+    m.fullmoveNumber shouldBe None
   }
 
   it should "record optional dialect and version" in {
@@ -186,6 +196,12 @@ class NotationApiContractSpec extends AnyFlatSpec with Matchers with EitherValue
     m.normalized    shouldBe true
     m.sourceDialect shouldBe Some("Chess960")
     m.sourceVersion shouldBe Some("1.0")
+  }
+
+  it should "record optional clock fields" in {
+    val m = PositionImportMetadata(halfmoveClock = Some(3), fullmoveNumber = Some(7))
+    m.halfmoveClock  shouldBe Some(3)
+    m.fullmoveNumber shouldBe Some(7)
   }
 
   // ── GameImportMetadata ──────────────────────────────────────────────────────
@@ -285,7 +301,7 @@ class NotationApiContractSpec extends AnyFlatSpec with Matchers with EitherValue
     val format: NotationFormat = NotationFormat.FEN
     def parse(input: String): Either[ParseFailure, ParsedNotation] =
       if input.isEmpty then Left(ParseFailure.UnexpectedEndOfInput("empty input"))
-      else Right(ParsedNotation.ParsedFen(input))
+      else chess.notation.fen.FenParser.parse(input)
 
   "NotationParser (stub)" should "declare its format" in {
     StubFenParser.format shouldBe NotationFormat.FEN
@@ -322,20 +338,20 @@ class NotationApiContractSpec extends AnyFlatSpec with Matchers with EitherValue
           Left(ImportFailure.MappingError("unsupported combination"))
 
   "NotationImporter (stub)" should "return Right for a compatible parsed/target pair" in {
-    val fen    = ParsedNotation.ParsedFen("some-fen")
+    val fen    = aValidParsedFen
     val result = StubFenImporter.importNotation(fen, ImportTarget.PositionTarget)
     result.value shouldBe a[ImportResult.PositionImportResult[?]]
-    result.value.asInstanceOf[ImportResult.PositionImportResult[String]].data shouldBe "imported:some-fen"
+    result.value.asInstanceOf[ImportResult.PositionImportResult[String]].data shouldBe s"imported:$InitialFenStr"
   }
 
   it should "return Left(ImportFailure) for an incompatible target" in {
-    val fen    = ParsedNotation.ParsedFen("some-fen")
+    val fen    = aValidParsedFen
     val result = StubFenImporter.importNotation(fen, ImportTarget.GameTarget)
     result.left.value shouldBe a[ImportFailure.IncompatibleTarget]
   }
 
   it should "carry the correct parsedKind in IncompatibleTarget" in {
-    val fen    = ParsedNotation.ParsedFen("some-fen")
+    val fen    = aValidParsedFen
     val result = StubFenImporter.importNotation(fen, ImportTarget.GameTarget)
     result.left.value.asInstanceOf[ImportFailure.IncompatibleTarget].parsedKind shouldBe ParsedNotationKind.Fen
   }
@@ -367,7 +383,11 @@ class NotationApiContractSpec extends AnyFlatSpec with Matchers with EitherValue
   }
 
   it should "fail at import stage for incompatible target" in {
-    val result = StubFacade.parseAndImport(NotationFormat.FEN, "some-fen", ImportTarget.GameTarget)
+    val result = StubFacade.parseAndImport(
+      NotationFormat.FEN,
+      "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      ImportTarget.GameTarget
+    )
     result.left.value shouldBe a[ImportFailure.IncompatibleTarget]
   }
 
