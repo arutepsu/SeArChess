@@ -60,7 +60,7 @@ enum FenEnPassantTarget:
  *  matching the left-to-right field order in the FEN string.  Any reordering
  *  needed by the domain board model is the importer's responsibility.
  */
-final case class FenRecord(
+private[fen] final case class FenRecord(
   ranks:          Vector[Vector[FenSquare]],
   activeColor:    FenColor,
   castling:       FenCastlingAvailability,

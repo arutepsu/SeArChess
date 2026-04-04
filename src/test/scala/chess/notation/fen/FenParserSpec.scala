@@ -41,7 +41,7 @@ class FenParserSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   it should "return Right(ParsedFen) for the standard initial position" in {
     val result = FenParser.parse(InitialFen)
-    result.value shouldBe ParsedNotation.ParsedFen(InitialFen)
+    result.value shouldBe a[ParsedNotation.ParsedFen]
   }
 
   it should "preserve the exact raw input string in the result" in {

@@ -24,10 +24,10 @@ object ParsedNotation:
   /** IR for a FEN (Forsyth-Edwards Notation) string.
    *
    *  FEN encodes a single board position in six space-separated fields.
-   *  The `raw` field holds the complete FEN string; structured fields will
-   *  be added when the FEN parser is implemented.
+   *  `raw` holds the original input string; `data` carries the structured
+   *  parsed representation so importers never need to re-parse the raw text.
    */
-  final case class ParsedFen(raw: String) extends ParsedNotation:
+  final case class ParsedFen(raw: String, data: FenData) extends ParsedNotation:
     def kind: ParsedNotationKind = ParsedNotationKind.Fen
 
   /** IR for a PGN (Portable Game Notation) document.
