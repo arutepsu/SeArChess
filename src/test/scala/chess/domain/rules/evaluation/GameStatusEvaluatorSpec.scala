@@ -22,36 +22,36 @@ class GameStatusEvaluatorSpec extends AnyFlatSpec with Matchers with EitherValue
 
   // ── Ongoing ────────────────────────────────────────────────────────────────
 
-  "GameStatusEvaluator.evaluate" should "return Ongoing when not in check and has legal moves" in {
+  "GameStatusEvaluator.evaluate" should "return Ongoing(false) when not in check and has legal moves" in {
     // white king + pawn, black king far away — white not in check, pawn can move
     val board = boardWith("e1" -> wK, "e2" -> wP, "e8" -> bK)
-    GameStatusEvaluator.evaluate(board, Color.White) shouldBe GameStatus.Ongoing
+    GameStatusEvaluator.evaluate(board, Color.White) shouldBe GameStatus.Ongoing(false)
   }
 
   // ── Check ──────────────────────────────────────────────────────────────────
 
-  it should "return Check when king is in check but has an escape square" in {
+  it should "return Ongoing(true) when king is in check but has an escape square" in {
     // black rook on e8 checks white king on e1; king can escape to d1 or f1
     val board = boardWith("e1" -> wK, "e8" -> bR)
-    GameStatusEvaluator.evaluate(board, Color.White) shouldBe GameStatus.Check
+    GameStatusEvaluator.evaluate(board, Color.White) shouldBe GameStatus.Ongoing(true)
   }
 
   // ── Checkmate ──────────────────────────────────────────────────────────────
 
-  it should "return Checkmate when king is in check with no legal move" in {
+  it should "return Checkmate(White) when black king is in check with no legal move" in {
     // black king a8, white rook a1 (check on a-file), white queen b6 (covers a7, b7, b8)
     // escape squares: a7 (rook+queen), b7 (queen), b8 (queen) — all covered
     val board = boardWith("a8" -> bK, "a1" -> wR, "b6" -> wQ, "h1" -> wK)
-    GameStatusEvaluator.evaluate(board, Color.Black) shouldBe GameStatus.Checkmate
+    GameStatusEvaluator.evaluate(board, Color.Black) shouldBe GameStatus.Checkmate(Color.White)
   }
 
   // ── Stalemate ──────────────────────────────────────────────────────────────
 
-  it should "return Stalemate when king is not in check but has no legal move" in {
+  it should "return Draw(Stalemate) when king is not in check but has no legal move" in {
     // white king f6, white queen g6, black king h8
     // h8 not in check; escape squares: h7 (king f6), g7 (king f6 + queen g6), g8 (queen g6 via g-file)
     val board = boardWith("h8" -> bK, "f6" -> wK, "g6" -> wQ)
-    GameStatusEvaluator.evaluate(board, Color.Black) shouldBe GameStatus.Stalemate
+    GameStatusEvaluator.evaluate(board, Color.Black) shouldBe GameStatus.Draw(DrawReason.Stalemate)
   }
 
   // ── hasAnyLegalMove ────────────────────────────────────────────────────────
@@ -69,6 +69,15 @@ class GameStatusEvaluatorSpec extends AnyFlatSpec with Matchers with EitherValue
   it should "return false in a stalemate position" in {
     val board = boardWith("h8" -> bK, "f6" -> wK, "g6" -> wQ)
     GameStatusEvaluator.hasAnyLegalMove(board, Color.Black) shouldBe false
+  }
+
+  // ── evaluate(state) overload ───────────────────────────────────────────────
+
+  "GameStatusEvaluator.evaluate(state)" should "return the same result as the board/color overload" in {
+    import chess.domain.state.{CastlingRights, EnPassantState, GameState}
+    val board = boardWith("e1" -> wK, "e2" -> wP, "e8" -> bK)
+    val state = GameState(board, Color.White, Nil, GameStatus.Ongoing(false), CastlingRights.none)
+    GameStatusEvaluator.evaluate(state) shouldBe GameStatusEvaluator.evaluate(board, Color.White)
   }
 
   it should "include en passant moves when checking for legal moves" in {

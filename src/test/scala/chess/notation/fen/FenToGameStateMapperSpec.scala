@@ -4,7 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.EitherValues
 import chess.notation.api.ParsedNotation
-import chess.domain.model.{Color, GameStatus, Piece, PieceType, Position}
+import chess.domain.model.{Color, DrawReason, GameStatus, Piece, PieceType, Position}
 import chess.domain.state.{CastlingRights, EnPassantState}
 import org.scalatest.OptionValues
 
@@ -124,18 +124,32 @@ class FenToGameStateMapperSpec extends AnyFlatSpec with Matchers with EitherValu
     map("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").moveHistory shouldBe Nil
   }
 
-  it should "always produce None for pendingPromotion" in {
-    map("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").pendingPromotion shouldBe None
+  // ── Clock fields ─────────────────────────────────────────────────────────────
+
+  it should "thread halfmoveClock from FEN data into GameState" in {
+    map("8/7k/8/8/8/8/8/4K3 w - - 5 10").halfmoveClock shouldBe 5
+  }
+
+  it should "thread fullmoveNumber from FEN data into GameState" in {
+    map("8/7k/8/8/8/8/8/4K3 w - - 5 10").fullmoveNumber shouldBe 10
+  }
+
+  it should "set halfmoveClock to 0 for the initial position" in {
+    map("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").halfmoveClock shouldBe 0
+  }
+
+  it should "set fullmoveNumber to 1 for the initial position" in {
+    map("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").fullmoveNumber shouldBe 1
   }
 
   // ── Status derivation ────────────────────────────────────────────────────────
 
   it should "derive Ongoing status for the initial position" in {
-    map("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").status shouldBe GameStatus.Ongoing
+    map("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").status shouldBe GameStatus.Ongoing(false)
   }
 
   it should "derive Check status for a position where the king is in check" in {
     // White queen on e5 gives check to black king on e8
     val state = map("4k3/8/8/4Q3/8/8/8/4K3 b - - 0 1")
-    state.status shouldBe GameStatus.Check
+    state.status shouldBe GameStatus.Ongoing(true)
   }

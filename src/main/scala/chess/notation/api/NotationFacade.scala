@@ -2,13 +2,16 @@ package chess.notation.api
 
 /** Unified façade for the notation system.
  *
- *  Provides three entry points that cover the full pipeline from raw text to
- *  imported result.  Concrete implementations wire together one or more
- *  [[NotationParser]]s and [[NotationImporter]]s.
+ *  Provides entry points covering the full import pipeline (parse → import)
+ *  and the export pipeline (domain value → serialised text).
+ *  Concrete implementations wire together one or more [[NotationParser]]s,
+ *  [[NotationImporter]]s, and [[NotationExporter]]s.
  *
  *  All methods are pure (no side effects, no mutable state).
  */
 trait NotationFacade[A]:
+
+  // ── Import ──────────────────────────────────────────────────────────────────
 
   /** Parse `input` according to `format` and return the IR.
    *
@@ -39,3 +42,23 @@ trait NotationFacade[A]:
     target: ImportTarget
   ): Either[NotationFailure, ImportResult[A]] =
     parse(format, input).flatMap(executeImport(_, target))
+
+  // ── Export ──────────────────────────────────────────────────────────────────
+
+  /** Serialise `data` to the notation text described by `format`.
+   *
+   *  The default implementation returns [[ExportFailure.UnsupportedExportFormat]]
+   *  for every format, giving implementations a safe baseline to override
+   *  selectively as exporters become available.
+   *
+   *  Concrete implementations that support a given format should override this
+   *  and delegate to the appropriate [[NotationExporter]].
+   */
+  def executeExport(
+    data:   A,
+    format: NotationFormat
+  ): Either[NotationFailure, ExportResult] =
+    Left(ExportFailure.UnsupportedExportFormat(
+      format,
+      s"Export to ${format} is not yet implemented"
+    ))
