@@ -4,7 +4,7 @@ import chess.adapter.gui.animation.{AnimationPlan, AnimationPlanner}
 import chess.adapter.gui.input.InputAction
 import chess.adapter.gui.viewmodel.*
 import chess.application.ChessService
-import chess.domain.state.{GameState, PendingPromotion}
+import chess.domain.state.GameState
 import chess.domain.model.{Color, GameStatus, Move, PieceType, Position}
 
 /** Mutable GUI controller.
@@ -30,12 +30,41 @@ class GameController(
 
   def currentViewModel: GameViewModel = viewModel
 
+  /** The current authoritative [[GameState]].
+   *
+   *  Used by the notation sidebar's state provider so that export actions
+   *  always reflect the live game state.
+   */
+  def currentGameState: GameState = gameState
+
   def handle(action: InputAction): Unit =
     val (newState, newVm, animPlan) = GameController.transition(gameState, viewModel, action)
     gameState = newState
     viewModel = newVm
     onRefresh(newVm)
     animPlan.foreach(onAnimate)
+
+  /** Replace the current game state with an externally imported one.
+   *
+   *  Intended for notation import (FEN now, PGN later): the sidebar emits an
+   *  imported [[GameState]] upward and the scene calls this method to apply it.
+   *
+   *  Behaviour:
+   *  - assigns the imported state as the authoritative state
+   *  - resolves the settled [[GuiState]] (e.g. [[GuiState.WaitingForSelection]]
+   *    or [[GuiState.GameFinished]]) using the same logic as animation completion
+   *  - rebuilds [[viewModel]] from the imported state
+   *  - calls [[onRefresh]] with the new view model
+   *
+   *  Does NOT trigger animation.
+   *  Does NOT preserve stale selection, promotion, or animating UI state.
+   *  Does NOT treat the loaded state as a gameplay input.
+   */
+  def loadGameState(importedState: GameState): Unit =
+    gameState = importedState
+    val settled = GameController.resolveSettledGuiState(gameState)
+    viewModel   = GameViewModelMapper.build(gameState, settled)
+    onRefresh(viewModel)
 
   /** Called by the scene when the current animation completes.
    *
@@ -67,8 +96,8 @@ object GameController:
 
       case InputAction.PromotionPieceChosen(pt) =>
         vm.guiState match
-          case GuiState.AwaitingPromotion => submitPromotion(state, vm, pt)
-          case _                          => (state, vm, None)
+          case GuiState.AwaitingPromotion(from, to) => submitPromotion(state, vm, from, to, pt)
+          case _                                    => (state, vm, None)
 
   // ── Square click dispatch ──────────────────────────────────────────────────
 
@@ -78,7 +107,7 @@ object GameController:
       pos:   Position
   ): (GameState, GameViewModel, Option[AnimationPlan]) =
     vm.guiState match
-      case GuiState.GameFinished(_) | GuiState.AwaitingPromotion | GuiState.Animating =>
+      case GuiState.GameFinished(_) | GuiState.AwaitingPromotion(_, _) | GuiState.Animating =>
         (state, vm, None)   // input blocked
 
       case GuiState.PieceSelected(from, targets) =>
@@ -99,7 +128,7 @@ object GameController:
       vm:    GameViewModel,
       pos:   Position
   ): (GameState, GameViewModel, Option[AnimationPlan]) =
-    val targets = ChessService.legalMovesFrom(state, pos)
+    val targets = ChessService.legalTargetsFrom(state, pos)
     if targets.nonEmpty then
       val gs = GuiState.PieceSelected(pos, targets)
       (state, vm.copy(squares = GameViewModelMapper.buildSquares(state, gs), guiState = gs), None)
@@ -115,45 +144,56 @@ object GameController:
 
   // ── Move submission ────────────────────────────────────────────────────────
 
+  private def isPromotionMove(state: GameState, from: Position, to: Position): Boolean =
+    state.board.pieceAt(from).exists { piece =>
+      piece.pieceType == PieceType.Pawn && piece.color == state.currentPlayer &&
+        ((piece.color == Color.White && to.rank == 7) ||
+         (piece.color == Color.Black && to.rank == 0))
+    }
+
   private def submitMove(
       state: GameState,
       vm:    GameViewModel,
       from:  Position,
       to:    Position
   ): (GameState, GameViewModel, Option[AnimationPlan]) =
-    val prevBoard = state.board
-    ChessService.applyMove(state, Move(from, to)) match
-      case Left(_) =>
-        // Shouldn't happen for a target from legalMovesFrom; clear selection gracefully
-        clearSelection(state, vm)
+    if isPromotionMove(state, from, to) then
+      // Do not submit yet — wait for piece choice
+      val promotingColor = state.board.pieceAt(from).get.color
+      val gs      = GuiState.AwaitingPromotion(from, to)
+      val promoVm = GameViewModelMapper
+        .build(state, gs)
+        .copy(promotion = Some(PromotionViewModel(promotingColor, PromotionViewModel.standardChoices)))
+      (state, promoVm, None)
+    else
+      val prevBoard = state.board
+      ChessService.applyMove(state, Move(from, to)) match
+        case Left(_) =>
+          // Shouldn't happen for a target from legalMovesFrom; clear selection gracefully
+          clearSelection(state, vm)
 
-      case Right(newState) if newState.pendingPromotion.isDefined =>
-        val promotingColor = newState.pendingPromotion.get.color
-        val promoVm = GameViewModelMapper
-          .build(newState, GuiState.AwaitingPromotion)
-          .copy(promotion = Some(PromotionViewModel(promotingColor, PromotionViewModel.standardChoices)))
-        (newState, promoVm, None)   // no animation for promotion moves
-
-      case Right(newState) =>
-        // Try to build an animation plan; castling returns None (not animated yet).
-        val plan = AnimationPlanner.plan(prevBoard, Move(from, to))
-        plan match
-          case Some(p) =>
-            val animVm = GameViewModelMapper.build(newState, GuiState.Animating)
-            (newState, animVm, Some(p))
-          case None =>
-            // Castling or defensive fallback: settle immediately
-            val settled = resolveSettledGuiState(newState)
-            (newState, GameViewModelMapper.build(newState, settled), None)
+        case Right(newState) =>
+          // Try to build an animation plan; castling returns None (not animated yet).
+          val plan = AnimationPlanner.plan(prevBoard, Move(from, to))
+          plan match
+            case Some(p) =>
+              val animVm = GameViewModelMapper.build(newState, GuiState.Animating)
+              (newState, animVm, Some(p))
+            case None =>
+              // Castling or defensive fallback: settle immediately
+              val settled = resolveSettledGuiState(newState)
+              (newState, GameViewModelMapper.build(newState, settled), None)
 
   // ── Promotion submission ───────────────────────────────────────────────────
 
   private def submitPromotion(
       state: GameState,
       vm:    GameViewModel,
+      from:  Position,
+      to:    Position,
       pt:    PieceType
   ): (GameState, GameViewModel, Option[AnimationPlan]) =
-    ChessService.applyPromotion(state, pt) match
+    ChessService.applyMove(state, Move(from, to, Some(pt))) match
       case Left(_) =>
         (state, vm, None)   // invalid choice; overlay stays open
       case Right(newState) =>
@@ -164,5 +204,5 @@ object GameController:
 
   private[controller] def resolveSettledGuiState(state: GameState): GuiState =
     state.status match
-      case GameStatus.Checkmate | GameStatus.Stalemate => GuiState.GameFinished(state.status)
-      case _                                           => GuiState.WaitingForSelection
+      case _: GameStatus.Checkmate | _: GameStatus.Draw => GuiState.GameFinished(state.status)
+      case _                                            => GuiState.WaitingForSelection

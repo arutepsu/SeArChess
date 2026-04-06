@@ -15,8 +15,9 @@ import chess.domain.rules.evaluation.GameStatusEvaluator
  *  - `board`, `currentPlayer`, `castlingRights`, `enPassantState` — derived from FenData
  *  - `status`          — computed by [[GameStatusEvaluator]] to reflect the real
  *                        game state (check / checkmate / stalemate / ongoing)
+ *  - `halfmoveClock`   — threaded directly from FenData
+ *  - `fullmoveNumber`  — threaded directly from FenData
  *  - `moveHistory`     — always `Nil`; FEN does not encode game history
- *  - `pendingPromotion`— always `None`; FEN does not encode mid-move workflow state
  */
 object FenToGameStateMapper:
 
@@ -27,13 +28,14 @@ object FenToGameStateMapper:
     val enPassantState = mapEnPassant(data.enPassant, data.activeColor)
     val status         = GameStatusEvaluator.evaluate(board, currentPlayer, castlingRights, enPassantState)
     GameState(
-      board            = board,
-      currentPlayer    = currentPlayer,
-      moveHistory      = Nil,
-      status           = status,
-      castlingRights   = castlingRights,
-      pendingPromotion = None,
-      enPassantState   = enPassantState
+      board          = board,
+      currentPlayer  = currentPlayer,
+      moveHistory    = Nil,
+      status         = status,
+      castlingRights = castlingRights,
+      enPassantState = enPassantState,
+      halfmoveClock  = data.halfmoveClock,
+      fullmoveNumber = data.fullmoveNumber
     )
 
   // ── Board construction ───────────────────────────────────────────────────────

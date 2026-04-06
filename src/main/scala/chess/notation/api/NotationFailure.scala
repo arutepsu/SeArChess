@@ -9,6 +9,7 @@ package chess.notation.api
  *  - [[ParseFailure]]         — syntax / structural problems in the raw input
  *  - [[ValidationFailure]]    — input is syntactically valid but semantically wrong
  *  - [[ImportFailure]]        — parsed representation cannot be mapped to the target
+ *  - [[ExportFailure]]        — domain value cannot be serialised to the target format
  *  - [[CompatibilityFailure]] — format version or dialect not supported
  */
 sealed trait NotationFailure:
@@ -74,6 +75,31 @@ object ImportFailure:
     target:     ImportTarget,
     message:    String
   ) extends ImportFailure
+
+// ── Export failures ──────────────────────────────────────────────────────────
+
+/** A failure that occurs when a domain value cannot be serialised.
+ *
+ *  Export failures are semantically distinct from import failures:
+ *  they arise from problems converting a domain value *to* notation text,
+ *  not from problems parsing notation text *from* an external source.
+ */
+sealed trait ExportFailure extends NotationFailure
+
+object ExportFailure:
+  /** The domain value cannot be represented in the requested format.
+   *
+   *  @param format  the target [[NotationFormat]] that was requested
+   *  @param message human-readable explanation
+   */
+  final case class UnsupportedExportFormat(format: NotationFormat, message: String) extends ExportFailure
+
+  /** A field or concept in the domain value has no counterpart in the target format.
+   *
+   *  @param field   name of the domain field or concept that could not be mapped
+   *  @param message human-readable explanation
+   */
+  final case class SerializationError(field: String, message: String) extends ExportFailure
 
 // ── Compatibility failures ───────────────────────────────────────────────────
 

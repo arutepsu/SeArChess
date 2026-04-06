@@ -1,25 +1,24 @@
 package chess.application
 
 import chess.domain.event.{CaptureInfo, CastlingSide, DomainEvent, Monoid, |+|, given}
-import chess.domain.model.{Color, GameStatus, Move, Piece, PieceType, Position}
+import chess.domain.model.{Color, DrawReason, GameStatus, Move, Piece, PieceType, Position}
 import chess.domain.state.EnPassantState
 
-/** Assembles domain event lists for move and promotion transitions.
+/** Assembles domain event lists for move transitions.
  *
  *  This object only builds events from already-known facts.
  *  It does NOT perform chess rule validation, call rule engines, or query the board.
  *
  *  Event ordering is stable and must not change without a deliberate decision:
- *  - Move path:      MoveApplied → PieceCaptured? → CheckDeclared? → GameStatusChanged? → MoveExecuted
- *  - Promotion path: Promoted → CheckDeclared? → GameStatusChanged? → MoveExecuted
+ *  - Move path:  MoveApplied → Promoted? → PieceCaptured? → CheckDeclared? → GameStatusChanged? → MoveExecuted
  */
 object EventBuilder:
 
-  /** Build the full event list for a successfully applied (non-promotion) move. */
+  /** Build the full event list for a successfully applied move. */
   def buildMoveEvents(ctx: MoveTransitionContext): List[DomainEvent] =
     buildMoveEvents(ctx.move, ctx.movedPiece, ctx.captured, ctx.enPassantState, ctx.prevStatus, ctx.nextStatus, ctx.nextPlayer)
 
-  /** Build the full event list for a successfully applied (non-promotion) move. */
+  /** Build the full event list for a successfully applied move. */
   def buildMoveEvents(
       move:           Move,
       movedPiece:     Option[Piece],
@@ -35,42 +34,19 @@ object EventBuilder:
       s"Move $move has both a regular capture and an en passant capture — impossible in chess")
     val captureInfo = epCapture.orElse(captured.map(c => CaptureInfo(c.pieceType, c.color, move.to)))
     val base: List[DomainEvent] = List(DomainEvent.MoveApplied(move))
+    // Promoted event for inline promotion moves
+    val promotionEvt = detectPromotion(move, movedPiece).toList
     // PieceCaptured uses the correct square: move.to for regular, capturablePawnSquare for en passant.
     val captureEvt  = captureInfo.map(ci => DomainEvent.PieceCaptured(Piece(ci.color, ci.piece), ci.at)).toList
-    val checkEvt    = Option.when(nextStatus == GameStatus.Check)(DomainEvent.CheckDeclared(nextPlayer)).toList
+    val checkEvt    = Option.when(nextStatus == GameStatus.Ongoing(true))(DomainEvent.CheckDeclared(nextPlayer)).toList
     val statusEvt   = Option.when(nextStatus != prevStatus)(DomainEvent.GameStatusChanged(nextStatus)).toList
     val castling    = detectCastling(movedPiece, move)
     // MoveExecuted is appended last — stable position for callers that need
     // the self-contained replay record after all legacy events.
     val executedEvt = movedPiece.map { p =>
-      buildMoveExecuted(p, captureInfo, None, castling, epCapture.isDefined, nextStatus, move)
+      buildMoveExecuted(p, captureInfo, move.promotion, castling, epCapture.isDefined, nextStatus, move)
     }.toList
-    base |+| captureEvt |+| checkEvt |+| statusEvt |+| executedEvt
-
-  /** Build the full event list for a completed promotion. */
-  def buildPromotionEvents(ctx: PromotionTransitionContext): List[DomainEvent] =
-    buildPromotionEvents(ctx.square, ctx.color, ctx.move, ctx.capturedPiece, ctx.pieceType, ctx.prevStatus, ctx.nextStatus, ctx.nextPlayer)
-
-  /** Build the full event list for a completed promotion. */
-  def buildPromotionEvents(
-      square:        Position,
-      color:         Color,
-      move:          Move,
-      capturedPiece: Option[Piece],
-      pieceType:     PieceType,
-      prevStatus:    GameStatus,
-      nextStatus:    GameStatus,
-      nextPlayer:    Color
-  ): List[DomainEvent] =
-    val promotedEvt: List[DomainEvent] = List(DomainEvent.Promoted(square, color, pieceType))
-    val checkEvt         = Option.when(nextStatus == GameStatus.Check)(DomainEvent.CheckDeclared(nextPlayer)).toList
-    val statusEvt        = Option.when(nextStatus != prevStatus)(DomainEvent.GameStatusChanged(nextStatus)).toList
-    val promotionCapture = capturedPiece.map(p => CaptureInfo(p.pieceType, p.color, move.to))
-    // MoveExecuted is appended last, after all legacy events.
-    val executedEvt      = List(buildMoveExecuted(
-      Piece(color, PieceType.Pawn), promotionCapture, Some(pieceType), None, false, nextStatus, move
-    ))
-    promotedEvt |+| checkEvt |+| statusEvt |+| executedEvt
+    base |+| promotionEvt |+| captureEvt |+| checkEvt |+| statusEvt |+| executedEvt
 
   /** Assemble a [[DomainEvent.MoveExecuted]] from pre-computed data.
    *
@@ -97,10 +73,16 @@ object EventBuilder:
       promotion = promotion,
       castling  = castling,
       enPassant = enPassant,
-      check     = nextStatus == GameStatus.Check,
-      checkmate = nextStatus == GameStatus.Checkmate,
-      stalemate = nextStatus == GameStatus.Stalemate
+      check     = nextStatus == GameStatus.Ongoing(true),
+      checkmate = nextStatus.isInstanceOf[GameStatus.Checkmate],
+      stalemate = nextStatus == GameStatus.Draw(DrawReason.Stalemate)
     )
+
+  private def detectPromotion(move: Move, movedPiece: Option[Piece]): Option[DomainEvent.Promoted] =
+    for
+      pt    <- move.promotion
+      piece <- movedPiece if piece.pieceType == PieceType.Pawn
+    yield DomainEvent.Promoted(move.to, piece.color, pt)
 
   private def detectCastling(movedPiece: Option[Piece], move: Move): Option[CastlingSide] =
     if movedPiece.exists(_.pieceType == PieceType.King) && Math.abs(move.to.file - move.from.file) == 2

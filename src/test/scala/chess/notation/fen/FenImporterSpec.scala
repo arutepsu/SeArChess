@@ -63,10 +63,6 @@ class FenImporterSpec extends AnyFlatSpec with Matchers with EitherValues with O
     importState(InitialFen).moveHistory shouldBe Nil
   }
 
-  it should "always set pendingPromotion to None" in {
-    importState(InitialFen).pendingPromotion shouldBe None
-  }
-
   it should "import the correct board contents for the initial position" in {
     val board = importState(InitialFen).board
     board.pieceAt(pos(4, 0)) shouldBe Some(Piece(Color.White, PieceType.King))
@@ -77,8 +73,8 @@ class FenImporterSpec extends AnyFlatSpec with Matchers with EitherValues with O
     board.pieceAt(pos(0, 7)) shouldBe Some(Piece(Color.Black, PieceType.Rook))
   }
 
-  it should "derive Ongoing status for the initial position" in {
-    importState(InitialFen).status shouldBe GameStatus.Ongoing
+  it should "derive Ongoing(false) status for the initial position" in {
+    importState(InitialFen).status shouldBe GameStatus.Ongoing(false)
   }
 
   it should "import Black as the current player and set en passant state after 1.e4" in {

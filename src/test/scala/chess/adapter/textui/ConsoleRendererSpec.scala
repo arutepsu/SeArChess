@@ -2,7 +2,7 @@ package chess.adapter.textui
 
 import chess.application.{ApplicationError, ChessService}
 import chess.domain.error.DomainError
-import chess.domain.model.{Color, GameStatus, Position}
+import chess.domain.model.{Color, DrawReason, GameStatus, Position}
 import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -62,15 +62,15 @@ class ConsoleRendererSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   it should "show Check status" in {
-    ConsoleRenderer.renderStatus(newGame.copy(status = GameStatus.Check)) should include("Check!")
+    ConsoleRenderer.renderStatus(newGame.copy(status = GameStatus.Ongoing(true))) should include("Check!")
   }
 
   it should "show Checkmate status" in {
-    ConsoleRenderer.renderStatus(newGame.copy(status = GameStatus.Checkmate)) should include("Checkmate!")
+    ConsoleRenderer.renderStatus(newGame.copy(status = GameStatus.Checkmate(Color.White))) should include("Checkmate!")
   }
 
   it should "show Stalemate status" in {
-    ConsoleRenderer.renderStatus(newGame.copy(status = GameStatus.Stalemate)) should include("Stalemate")
+    ConsoleRenderer.renderStatus(newGame.copy(status = GameStatus.Draw(DrawReason.Stalemate))) should include("Stalemate")
   }
 
   it should "show move count" in {
@@ -158,12 +158,9 @@ class ConsoleRendererSpec extends AnyFlatSpec with Matchers with EitherValues:
     ConsoleRenderer.renderApplicationError(err) should include("zz")
   }
 
-  it should "render PromotionChoiceRequired" in {
-    ConsoleRenderer.renderApplicationError(ApplicationError.PromotionChoiceRequired) should not be empty
-  }
-
-  it should "render NoPromotionPending" in {
-    ConsoleRenderer.renderApplicationError(ApplicationError.NoPromotionPending) should not be empty
+  it should "render DomainFailure wrapping MissingPromotionChoice" in {
+    val err = ApplicationError.DomainFailure(DomainError.MissingPromotionChoice)
+    ConsoleRenderer.renderApplicationError(err) should not be empty
   }
 
   it should "render DomainFailure wrapping InvalidPromotionPiece" in {
