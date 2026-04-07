@@ -129,15 +129,18 @@ class NotationSidebarControllerSpec extends AnyFlatSpec with Matchers:
     }
   }
 
-  // ── FEN export: unavailable ────────────────────────────────────────────────
+  // ── FEN export: success ───────────────────────────────────────────────────
 
-  it should "return UnavailableFeature failure and no outputText for FenExport" in {
+  it should "populate outputText and return no importedState for FenExport" in {
     val (next, importedOpt) = transit(action = request(NotationActionId.FenExport))
     importedOpt     shouldBe None
-    next.outputText shouldBe None
-    next.feedback should matchPattern {
-      case Some(SidebarFeedback.Failure(_, _, FailureCategory.UnavailableFeature)) =>
-    }
+    next.outputText should not be empty
+    next.feedback   shouldBe None
+  }
+
+  it should "produce the standard starting-position FEN for a fresh game" in {
+    val (next, _) = transit(action = request(NotationActionId.FenExport))
+    next.outputText shouldBe Some("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
   }
 
   it should "obtain the current game state from the provider for export" in {
@@ -270,4 +273,30 @@ class NotationSidebarControllerSpec extends AnyFlatSpec with Matchers:
       api          = api
     )
     importFenCalled shouldBe true
+  }
+
+  // ── Defensive branches: structurally impossible outcomes ───────────────────
+
+  "NotationSidebarController.handleImport (defensive)" should
+      "return unchanged state and None when outcome is ExportSuccess" in {
+    val priorState = blankState.copy(
+      inputText  = "some-input",
+      feedback   = Some(SidebarFeedback.Success("prior")),
+      outputText = Some("prior-output")
+    )
+    val (next, imported) = NotationSidebarController
+      .handleImport(priorState, GuiNotationOutcome.ExportSuccess("unexpected-text"))
+    next     shouldBe priorState
+    imported shouldBe None
+  }
+
+  "NotationSidebarController.handleExport (defensive)" should
+      "return unchanged state when outcome is ImportSuccess" in {
+    val priorState = blankState.copy(
+      inputText = "some-input",
+      feedback  = Some(SidebarFeedback.Success("prior"))
+    )
+    val next = NotationSidebarController
+      .handleExport(priorState, GuiNotationOutcome.ImportSuccess(freshGame))
+    next shouldBe priorState
   }

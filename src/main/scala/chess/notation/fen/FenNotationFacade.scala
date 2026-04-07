@@ -2,19 +2,17 @@ package chess.notation.fen
 
 import chess.domain.state.GameState
 import chess.notation.api.{
-  ImportResult, ImportTarget, NotationFacade, NotationFailure,
-  NotationFormat, ParsedNotation, ParseFailure
+  ExportFailure, ExportResult, ImportResult, ImportTarget, NotationFacade,
+  NotationFailure, NotationFormat, ParsedNotation, ParseFailure
 }
 
-/** Concrete [[NotationFacade]] wiring [[FenParser]] and [[FenImporter]].
+/** Concrete [[NotationFacade]] wiring [[FenParser]], [[FenImporter]], and [[FenSerializer]].
  *
- *  This is the canonical pre-assembled facade for position-level FEN
- *  import operations.  It handles only [[NotationFormat.FEN]]; all other
- *  formats fail at the parse stage with a structured [[ParseFailure]].
+ *  Handles [[NotationFormat.FEN]] for both import and export.
+ *  All other formats fail with a structured error at the earliest applicable stage.
  *
  *  Placed in `chess.notation.fen` because it composes notation-internal
- *  objects ([[FenParser]], [[FenImporter]]) and does not belong in any
- *  adapter or application layer.
+ *  objects and does not belong in any adapter or application layer.
  */
 object FenNotationFacade extends NotationFacade[GameState]:
 
@@ -28,3 +26,9 @@ object FenNotationFacade extends NotationFacade[GameState]:
       target: ImportTarget
   ): Either[NotationFailure, ImportResult[GameState]] =
     FenImporter.importNotation(parsed, target)
+
+  override def executeExport(
+      data:   GameState,
+      format: NotationFormat
+  ): Either[NotationFailure, ExportResult] =
+    FenSerializer.exportNotation(data, format)

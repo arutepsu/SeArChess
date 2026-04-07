@@ -3,7 +3,7 @@ package chess.adapter.gui.notation
 
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.control.{Button, Label, TextArea}
-import scalafx.scene.layout.{HBox, Priority, VBox}
+import scalafx.scene.layout.VBox
 import scalafx.scene.text.Font
 
 /** ScalaFX notation sidebar widget.
@@ -58,16 +58,14 @@ class NotationSidebar(
       maxWidth  = Double.MaxValue
       onAction  = _ => controller.handle(SidebarAction.NotationActionRequested(descriptor.id))
 
-  private def makeActionRow(kind: ActionKind): HBox =
+  private def makeActionColumn(kind: ActionKind): VBox =
     val buttons = descriptors.filter(_.kind == kind).map(makeActionButton)
-    val row = new HBox:
-      spacing  = 6
+    new VBox:
+      spacing  = 4
       children = buttons
-    buttons.foreach(b => HBox.setHgrow(b, Priority.Always))
-    row
 
-  private val importRow: HBox = makeActionRow(ActionKind.Import)
-  private val exportRow: HBox = makeActionRow(ActionKind.Export)
+  private val importRow: VBox = makeActionColumn(ActionKind.Import)
+  private val exportRow: VBox = makeActionColumn(ActionKind.Export)
 
   // ── Output area ─────────────────────────────────────────────────────────────
 
