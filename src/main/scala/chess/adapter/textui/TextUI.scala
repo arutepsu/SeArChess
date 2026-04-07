@@ -1,8 +1,9 @@
 package chess.adapter.textui
 
 import chess.application.{ApplicationError, ChessService, ObservableGame}
+import chess.domain.error.DomainError
 import chess.domain.state.GameState
-import chess.application.ChessCommand.{MakeMove, Promote}
+import chess.application.ChessCommand.MakeMove
 import chess.domain.model.{Move, Position}
 import scala.annotation.tailrec
 
@@ -37,11 +38,12 @@ final class TextUI(
     val input = console.readLine()
     val state = game.getState
     
+    if input == null then { console.printLine("Goodbye!"); return }
     InputParser.parse(input) match
       case Left(err) =>
         console.printLine(ConsoleRenderer.renderParseError(err))
         console.print("> ")
-        loop()
+        loop(, pendingMove)
 
       case Right(TextUiCommand.Quit) =>
         console.printLine("Goodbye!")
@@ -49,18 +51,18 @@ final class TextUI(
       case Right(TextUiCommand.Help) =>
         console.printLine(ConsoleRenderer.renderHelp())
         console.print("> ")
-        loop()
+        loop(, pendingMove)
 
       case Right(TextUiCommand.Show) =>
         console.printLine("")
         console.printLine(ConsoleRenderer.renderBoard(state))
         console.printLine(ConsoleRenderer.renderStatus(state))
         console.print("> ")
-        loop()
+        loop(, pendingMove)
 
       case Right(TextUiCommand.New) =>
         console.printLine("New game started.")
-        game.updateState(ChessService.createNewGame())
+        game.updateState(ChessService.createNewGame(), None)
         loop()
 
       case Right(TextUiCommand.MoveCmd(fromStr, toStr)) =>

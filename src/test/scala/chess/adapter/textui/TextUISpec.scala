@@ -14,12 +14,18 @@ class TextUISpec extends AnyFlatSpec with Matchers:
     private val queue  = mutable.Queue(inputs*)
     private val buffer = mutable.ListBuffer.empty[String]
 
-    def readLine(): String            = queue.dequeue()
+    def readLine(): String            = if queue.isEmpty then null else queue.dequeue()
     def print(text: String): Unit     = buffer += text
     def printLine(text: String): Unit = buffer += text
     def printed: String               = buffer.mkString("\n")
 
   "TextUI" should "print Goodbye on quit" in {
+    val c = TestConsole(List("quit"))
+    TextUI(c, new ObservableGame()).run()
+    c.printed should include("Goodbye!")
+  }
+
+  it should "print Goodbye on quit" in {
     val c = TestConsole(List("quit"))
     TextUI(c, new ObservableGame()).run()
     c.printed should include("Goodbye!")
@@ -98,56 +104,52 @@ class TextUISpec extends AnyFlatSpec with Matchers:
 
   // ── Promotion workflow ─────────────────────────────────────────────────────
 
-  /** A minimal board with a white pawn already at the promotion square (h8),
-   *  ready for the promote command.  White king at a1, black king at a8.
-   *  After promoting to Queen, Black is in check (White Queen on h8 covers rank 8).
-   */
   private def pos(alg: String): Position =
     Position.fromAlgebraic(alg).getOrElse(throw AssertionError(s"Invalid algebraic position in test constant: $alg"))
 
-  private def promotionPendingState: GameState =
-    val h8 = pos("h8")
-    val a1 = pos("a1")
-    val a8 = pos("a8")
-    val h7 = pos("h7")
+  /** Board with a white pawn at a7, ready to promote by moving to a8. */
+  private def promotionReadyState: GameState =
     val board = Board.empty
-      .place(h8, Piece(Color.White, PieceType.Pawn))
-      .place(a1, Piece(Color.White, PieceType.King))
-      .place(a8, Piece(Color.Black, PieceType.King))
-    ChessService.createNewGame().copy(
-      board            = board,
-      currentPlayer    = Color.White,
-      pendingPromotion = Some(PendingPromotion(h8, Color.White, Move(h7, h8)))
-    )
+      .place(pos("a7"), Piece(Color.White, PieceType.Pawn))
+      .place(pos("a1"), Piece(Color.White, PieceType.King))
+      .place(pos("e8"), Piece(Color.Black, PieceType.King))
+    ChessService.createNewGame().copy(board = board, currentPlayer = Color.White)
 
-  it should "show NoPromotionPending error when promote is used on a fresh game" in {
+  it should "show 'No pawn promotion' message when promote is used on a fresh game" in {
     val c = TestConsole(List("promote q", "quit"))
     TextUI(c, new ObservableGame()).run()
     c.printed should include("No promotion")
     c.printed should include("Goodbye!")
   }
 
-  it should "show NoPromotionPending error for 'promote r' with no pending promotion" in {
+  it should "show 'No pawn promotion' message for 'promote r' with no pending promotion" in {
     val c = TestConsole(List("promote r", "quit"))
     TextUI(c, new ObservableGame()).run()
     c.printed should include("No promotion")
   }
 
-  it should "show NoPromotionPending error for 'promote b' with no pending promotion" in {
+  it should "show 'No pawn promotion' message for 'promote b' with no pending promotion" in {
     val c = TestConsole(List("promote b", "quit"))
     TextUI(c, new ObservableGame()).run()
     c.printed should include("No promotion")
   }
 
-  it should "show NoPromotionPending error for 'promote n' with no pending promotion" in {
+  it should "show 'No pawn promotion' message for 'promote n' with no pending promotion" in {
     val c = TestConsole(List("promote n", "quit"))
     TextUI(c, new ObservableGame()).run()
     c.printed should include("No promotion")
   }
 
-  it should "resolve a pending promotion successfully and continue" in {
-    val c = TestConsole(List("promote q", "quit"))
-    TextUI(c, new ObservableGame(promotionPendingState)).run()
+  it should "show the promotion prompt after a pawn-to-last-rank move" in {
+    val c = TestConsole(List("move a7 a8", "quit"))
+    TextUI(c, promotionReadyState).run()
+    c.printed should include("promotion")
+    c.printed should include("Goodbye!")
+  }
+
+  it should "resolve a pending promotion successfully after move then promote" in {
+    val c = TestConsole(List("move a7 a8", "promote q", "quit"))
+    TextUI(c, new ObservableGame(promotionReadyState)).run()
     c.printed should include("Goodbye!")
     // Board should show the queen (Q promoted from pawn)
     c.printed should include("Q")
@@ -170,5 +172,31 @@ class TextUISpec extends AnyFlatSpec with Matchers:
     val c = TestConsole(List("move a7 a8", "promote q", "quit"))
     TextUI(c, new ObservableGame(state)).run()
     c.printed should include("promotion")
+    c.printed should include("Goodbye!")
+  }
+
+  it should "show an InvalidPromotionToken error for 'promote k'" in {
+    val c = TestConsole(List("promote k", "quit"))
+    TextUI(c).run()
+    c.printed should include("k")
+    c.printed should include("Goodbye!")
+  }
+
+  it should "show an application error and keep the pending promotion when promotion resolution fails" in {
+    val c = TestConsole(List("promote q", "quit"))
+    val ui = TextUI(c)
+
+    val pendingPromotionMove = Move(pos("a7"), pos("a8"))
+    val inconsistentState = ChessService.createNewGame()
+
+    val loopMethod = classOf[TextUI]
+      .getDeclaredMethods
+      .find(_.getName.contains("loop"))
+      .getOrElse(fail("Could not find private loop method via reflection"))
+
+    loopMethod.setAccessible(true)
+    loopMethod.invoke(ui, inconsistentState, Some(pendingPromotionMove))
+
+    c.printed should not include("No pawn promotion is pending.")
     c.printed should include("Goodbye!")
   }

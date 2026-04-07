@@ -25,6 +25,6 @@ object ChessApp extends JFXApp3:
     stage = new PrimaryStage:
       title  = "Searchess"
       scene  = sceneController.scene
-      width  = 620
+      width  = 900
       height = 680
-      resizable = false
+      resizable = true
