@@ -157,7 +157,11 @@ final class GuiNotationApi(importFacade: NotationFacade[GameState]):
         GuiNotationOutcome.Failure(f.message, category = FailureCategory.SemanticError)
 
       case f: ImportFailure =>
-        GuiNotationOutcome.Failure(f.message, category = FailureCategory.SemanticError)
+        f match
+          case ImportFailure.MappingError(msg) if msg == "PGN import is not implemented" =>
+            GuiNotationOutcome.Failure(f.message, category = FailureCategory.UnavailableFeature)
+          case _ =>
+            GuiNotationOutcome.Failure(f.message, category = FailureCategory.SemanticError)
 
       case f: CompatibilityFailure =>
         GuiNotationOutcome.Failure(f.message, category = FailureCategory.UnsupportedInput)
