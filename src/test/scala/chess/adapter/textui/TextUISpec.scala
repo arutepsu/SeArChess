@@ -1,7 +1,7 @@
 package chess.adapter.textui
 
 import chess.application.{ChessService, ObservableGame}
-import chess.domain.state.{GameState, PendingPromotion}
+import chess.domain.state.GameState
 import chess.domain.model.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -142,7 +142,7 @@ class TextUISpec extends AnyFlatSpec with Matchers:
 
   it should "show the promotion prompt after a pawn-to-last-rank move" in {
     val c = TestConsole(List("move a7 a8", "quit"))
-    TextUI(c, promotionReadyState).run()
+    TextUI(c, new ObservableGame()).run()
     c.printed should include("promotion")
     c.printed should include("Goodbye!")
   }
@@ -177,14 +177,14 @@ class TextUISpec extends AnyFlatSpec with Matchers:
 
   it should "show an InvalidPromotionToken error for 'promote k'" in {
     val c = TestConsole(List("promote k", "quit"))
-    TextUI(c).run()
+    TextUI(c, new ObservableGame()).run()
     c.printed should include("k")
     c.printed should include("Goodbye!")
   }
 
   it should "show an application error and keep the pending promotion when promotion resolution fails" in {
     val c = TestConsole(List("promote q", "quit"))
-    val ui = TextUI(c)
+    val ui = TextUI(c, new ObservableGame())
 
     val pendingPromotionMove = Move(pos("a7"), pos("a8"))
     val inconsistentState = ChessService.createNewGame()

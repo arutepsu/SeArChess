@@ -24,7 +24,7 @@ class JsonNotationFacadeSpec extends AnyFunSuite {
     assert(parsed.isRight)
     val imported = JsonNotationFacade.executeImport(parsed.toOption.get, ImportTarget.GameTarget)
     assert(imported.isRight)
-    val roundtrip = imported.toOption.get.data
+    val roundtrip = imported.toOption.get.asInstanceOf[ImportResult.GameImportResult[GameState]].data
     assert(roundtrip == gs)
   }
 }
