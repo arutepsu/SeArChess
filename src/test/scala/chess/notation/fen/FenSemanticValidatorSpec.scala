@@ -109,6 +109,36 @@ class FenSemanticValidatorSpec extends AnyFlatSpec with Matchers with EitherValu
 
   // ── En passant rank ──────────────────────────────────────────────────────────
 
+  it should "accept only K right when white king is on e1 and king-side rook is on h1" in {
+    // whiteKingSide = true → validateCastlingRight runs and passes;
+    // other three rights are absent → else Right(()) path; yield () reached
+    val d = data("8/7k/8/8/8/8/8/4K2R w K - 0 1")
+    FenSemanticValidator.validate(d) shouldBe Right(())
+  }
+
+  it should "accept only Q right when white king is on e1 and queen-side rook is on a1" in {
+    val d = data("8/7k/8/8/8/8/8/R3K3 w Q - 0 1")
+    FenSemanticValidator.validate(d) shouldBe Right(())
+  }
+
+  it should "accept only k right when black king is on e8 and king-side rook is on h8" in {
+    val d = data("4k2r/8/8/8/8/8/8/4K3 b k - 0 1")
+    FenSemanticValidator.validate(d) shouldBe Right(())
+  }
+
+  it should "accept only q right when black king is on e8 and queen-side rook is on a8" in {
+    val d = data("r3k3/8/8/8/8/8/8/4K3 b q - 0 1")
+    FenSemanticValidator.validate(d) shouldBe Right(())
+  }
+
+  it should "accept Kk rights (white and black king-side) when all required pieces are present" in {
+    // white king e1, white rook h1, black king e8, black rook h8
+    val d = data("4k2r/8/8/8/8/8/8/4K2R w Kk - 0 1")
+    FenSemanticValidator.validate(d) shouldBe Right(())
+  }
+
+  // ── En passant rank ──────────────────────────────────────────────────────────
+
   it should "accept en passant on rank 6 when White is active" in {
     // After Black's two-square pawn advance; target on rank '6' (0-based rank 5)
     val d = data("4k3/8/8/8/8/8/8/4K3 w - d6 0 1")

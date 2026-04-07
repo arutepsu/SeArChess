@@ -260,6 +260,27 @@ class FenSerializerSpec extends AnyFlatSpec with Matchers with EitherValues:
     result.left.value.asInstanceOf[ExportFailure.UnsupportedExportFormat].format shouldBe NotationFormat.PGN
   }
 
+  // ── FenNotationFacade.parse: non-FEN format rejection ──────────────────────
+
+  "FenNotationFacade.parse" should "succeed for NotationFormat.FEN" in {
+    val result = FenNotationFacade.parse(NotationFormat.FEN, InitialFen)
+    result.value should not be null
+  }
+
+  it should "return Left(StructuralError) for NotationFormat.PGN" in {
+    import chess.notation.api.ParseFailure
+    val result = FenNotationFacade.parse(NotationFormat.PGN, "1. e4 e5 *")
+    result.left.value shouldBe a[ParseFailure.StructuralError]
+    result.left.value.message should include("PGN")
+  }
+
+  it should "return Left(StructuralError) for NotationFormat.JSON" in {
+    import chess.notation.api.ParseFailure
+    val result = FenNotationFacade.parse(NotationFormat.JSON, "{}")
+    result.left.value shouldBe a[ParseFailure.StructuralError]
+    result.left.value.message should include("JSON")
+  }
+
   // ── FenNotationFacade.executeExport ─────────────────────────────────────────
 
   "FenNotationFacade.executeExport" should "succeed for NotationFormat.FEN and return non-empty text" in {

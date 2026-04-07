@@ -281,6 +281,30 @@ class NotationSidebarSpec extends AnyFlatSpec with Matchers with BeforeAndAfterA
 
   // ── Custom descriptors ───────────────────────────────────────────────────────
 
+  "NotationSidebar default descriptors" should "use NotationActionDescriptor.defaults when constructed without explicit descriptors" in {
+    val ctrl    = makeController()
+    val sidebar = onFx { new NotationSidebar(ctrl) }
+    onFx {
+      val expectedImports = NotationActionDescriptor.defaults.count(_.kind == ActionKind.Import)
+      val expectedExports = NotationActionDescriptor.defaults.count(_.kind == ActionKind.Export)
+      buttons(importVBox(sidebar)) should have size expectedImports
+      buttons(exportVBox(sidebar)) should have size expectedExports
+    }
+  }
+
+  it should "show the default button labels when constructed without explicit descriptors" in {
+    val ctrl    = makeController()
+    val sidebar = onFx { new NotationSidebar(ctrl) }
+    onFx {
+      val importLabels = buttons(importVBox(sidebar)).map(_.getText)
+      val exportLabels = buttons(exportVBox(sidebar)).map(_.getText)
+      importLabels should contain("Import FEN")
+      importLabels should contain("Import PGN")
+      exportLabels should contain("Export FEN")
+      exportLabels should contain("Export PGN")
+    }
+  }
+
   "NotationSidebar with custom descriptors" should "render only the provided descriptors" in {
     val ctrl    = makeController()
     val sidebar = onFx {
