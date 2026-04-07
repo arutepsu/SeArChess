@@ -33,7 +33,13 @@ lazy val root = project
       "org.openjfx" % s"javafx-$m" % javaFxVersion classifier osClassifier
     ),
 
-    // Fork run so JavaFX has a proper application thread
+    // Single entry point for `sbt run`; avoids the "multiple main classes" prompt.
+    Compile / mainClass := Some("chess.Main"),
+    run     / mainClass := Some("chess.Main"),
+
+    // Fork run so JavaFX has a proper application thread.
+    // NOTE: forked processes do not inherit sbt's stdin, so the TUI will
+    // receive immediate EOF and exit.  The GUI is designed to survive this.
     run / fork := true,
 
     // scoverage settings
@@ -60,7 +66,10 @@ lazy val root = project
             ".*adapter.gui.animation.AnimationRunner.*",
             ".*adapter.gui.assets.SpriteSheetLoader.*",
             ".*adapter.gui.assets.PieceNodeFactory.*",
-            ".*adapter.gui.assets.SpriteCatalogLoader.*"
+            ".*adapter.gui.assets.SpriteCatalogLoader.*",
+            ".*adapter.textui.TuiRunner.*",
+            ".*chess.Main.*",
+            ".*adapter.textui.Console.*"
           ).mkString("|")
         )
       else Seq.empty
