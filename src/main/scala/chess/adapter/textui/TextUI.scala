@@ -79,3 +79,8 @@ final class TextUI(
           case Right(newState) =>
             game.updateState(newState)
         loop()
+
+      case Right(TextUiCommand.PromoteCmd(_)) =>
+        console.printLine("No promotion is pending.")
+        console.print("> ")
+        loop()
