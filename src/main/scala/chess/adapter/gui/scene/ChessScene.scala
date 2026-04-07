@@ -5,14 +5,16 @@ import chess.adapter.gui.animation.{AnimationPlan, AnimationPresentationMapper, 
 import chess.adapter.gui.assets.{PieceNodeFactory, PieceVisualId, SpriteCatalogLoader, SpriteMetadataRepository, SpriteSheetLoader, StatePlaybackRepository}
 import chess.adapter.gui.controller.GameController
 import chess.adapter.gui.input.InputAction
+import chess.adapter.gui.notation.{GuiNotationApi, NotationSidebar, NotationSidebarController}
 import chess.adapter.gui.render.{BoardRenderer, PromotionOverlay, StaticPieceOverlayRenderer, StatusRenderer}
 import chess.adapter.gui.viewmodel.GameViewModel
+import chess.domain.state.GameState
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.Scene
 import scalafx.scene.layout.{BorderPane, Pane, StackPane}
 
-/** Assembles the board, status bar, promotion overlay, and animation layer
- *  into a single [[Scene]].
+/** Assembles the board, status bar, promotion overlay, animation layer,
+ *  and notation sidebar into a single [[Scene]].
  */
 class ChessScene:
 
@@ -48,9 +50,32 @@ class ChessScene:
     alignment = Pos.Center
     children  = Seq(boardGrid, staticPieceOverlay, overlayContainer, animLayer)
 
+  // ── Notation sidebar ────────────────────────────────────────────────────────
+
+  private val notationApi = GuiNotationApi.default
+
+  // Break the sidebarController ↔ sidebar cycle: use a var to forward the
+  // refresh callback after both objects exist.
+  private var sidebarRefresh: chess.adapter.gui.notation.NotationSidebarState => Unit = _ => ()
+
+  private val sidebarController = new NotationSidebarController(
+    api             = notationApi,
+    stateProvider   = () => controller.currentGameState,
+    onImportedState = applyImportedState,
+    onRefresh       = state => sidebarRefresh(state)
+  )
+
+  private val sidebar = new NotationSidebar(sidebarController)
+
+  // Wire the real refresh now that sidebar exists
+  sidebarRefresh = sidebar.refresh
+
+  // ── Root layout ─────────────────────────────────────────────────────────────
+
   private val root = new BorderPane:
     center = boardStack
     bottom = statusLabel
+    right  = sidebar.root
     style  = "-fx-background-color: #312e2b;"
     BorderPane.setMargin(boardStack, Insets(16))
     BorderPane.setAlignment(statusLabel, Pos.Center)
@@ -77,6 +102,22 @@ class ChessScene:
         overlayContainer.children.add(PromotionOverlay.create(promoVm, handle, factory))
       case None =>
         overlayContainer.mouseTransparent = true
+
+  // ── Imported-state application ──────────────────────────────────────────────
+
+  /** Apply an imported [[GameState]] received from the notation sidebar.
+   *
+   *  Clears transient animation and overlay visuals that do not belong to the
+   *  imported state, then delegates to [[GameController.loadGameState]].
+   *  The existing [[refresh]] callback drives the board/status/overlay update.
+   */
+  private def applyImportedState(importedState: GameState): Unit =
+    // Clear transient animation state first so stale pieces do not remain
+    runner.stop()
+    currentRenderModel = None
+    animLayer.children.clear()
+    // Delegate; this triggers onRefresh → refresh(newVm) above
+    controller.loadGameState(importedState)
 
   private def startAnimation(plan: AnimationPlan): Unit =
     currentRenderModel = None

@@ -1,8 +1,7 @@
 package chess.application
 
-import chess.domain.model.{Move, PieceType}
+import chess.domain.model.Move
 
 enum ChessCommand:
   case NewGame
   case MakeMove(move: Move)
-  case Promote(pieceType: PieceType)
