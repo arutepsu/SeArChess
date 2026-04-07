@@ -7,6 +7,7 @@ import chess.notation.api.{
   ParseFailure, ValidationFailure
 }
 import chess.notation.fen.FenNotationFacade
+import chess.notation.pgn.PgnNotationFacade
 
 /** GUI-facing notation API.
  *
@@ -47,14 +48,13 @@ final class GuiNotationApi(importFacade: NotationFacade[GameState]):
 
   /** Import a PGN string.
    *
-   *  Not yet implemented.  Returns a structured [[GuiNotationOutcome.Failure]]
-   *  with [[FailureCategory.UnavailableFeature]].
+   *  Delegates to [[PgnNotationFacade.parseAndImport]] with [[NotationFormat.PGN]] and
+   *  maps the structured result to a GUI-facing outcome.
    */
   def importPgn(text: String): GuiNotationOutcome =
-    GuiNotationOutcome.Failure(
-      message  = "PGN import is not available yet.",
-      category = FailureCategory.UnavailableFeature
-    )
+    PgnNotationFacade.parseAndImport(NotationFormat.PGN, text, ImportTarget.GameTarget) match
+      case Right(result) => toImportSuccess(result)
+      case Left(failure) => toFailure(failure)
 
   // ── Export ──────────────────────────────────────────────────────────────────
 
@@ -70,14 +70,13 @@ final class GuiNotationApi(importFacade: NotationFacade[GameState]):
 
   /** Export the current game state as a PGN string.
    *
-   *  Not yet implemented.  Returns a structured [[GuiNotationOutcome.Failure]]
-   *  with [[FailureCategory.UnavailableFeature]].
+   *  Delegates to [[PgnNotationFacade.executeExport]] with [[NotationFormat.PGN]] and
+   *  maps the structured result to a GUI-facing outcome.
    */
   def exportPgn(state: GameState): GuiNotationOutcome =
-    GuiNotationOutcome.Failure(
-      message  = "PGN export is not available yet.",
-      category = FailureCategory.UnavailableFeature
-    )
+    PgnNotationFacade.executeExport(state, NotationFormat.PGN) match
+      case Right(result) => GuiNotationOutcome.ExportSuccess(result.text)
+      case Left(failure) => toFailure(failure)
 
   // ── Result extraction ────────────────────────────────────────────────────────
 
