@@ -162,6 +162,23 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
     plan                       shouldBe None
   }
 
+  it should "transition to AwaitingPromotion when a Black pawn reaches rank 1" in {
+    val a2 = pos(0, 1)
+    val a1 = pos(0, 0)
+    val state = freshState.copy(
+      board         = Board.empty.place(a2, Piece(Color.Black, PieceType.Pawn)),
+      currentPlayer = Color.Black
+    )
+    val (_, vm1, _)    = GameController.transition(state, freshVm(state), InputAction.SquareClicked(a2))
+    val (_, vm2, plan) = GameController.transition(state, vm1, InputAction.SquareClicked(a1))
+    vm2.guiState match
+      case GuiState.AwaitingPromotion(from, to) =>
+        from shouldBe a2
+        to   shouldBe a1
+      case other => fail(s"Expected AwaitingPromotion, got $other")
+    plan shouldBe None
+  }
+
   it should "ignore PromotionPieceChosen when not in AwaitingPromotion state" in {
     val state = freshState
     val (s2, vm2, plan) = GameController.transition(state, freshVm(state), InputAction.PromotionPieceChosen(PieceType.Queen))

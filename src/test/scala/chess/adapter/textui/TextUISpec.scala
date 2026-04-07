@@ -14,12 +14,19 @@ class TextUISpec extends AnyFlatSpec with Matchers:
     private val queue  = mutable.Queue(inputs*)
     private val buffer = mutable.ListBuffer.empty[String]
 
-    def readLine(): String            = queue.dequeue()
+    def readLine(): String            = if queue.isEmpty then null else queue.dequeue()
     def print(text: String): Unit     = buffer += text
     def printLine(text: String): Unit = buffer += text
     def printed: String               = buffer.mkString("\n")
 
-  "TextUI" should "print Goodbye on quit" in {
+  "TextUI" should "print Goodbye and stop when EOF is signalled (null input)" in {
+    // Empty queue simulates stdin closing — readLine() returns null
+    val c = TestConsole(List())
+    TextUI(c).run()
+    c.printed should include("Goodbye!")
+  }
+
+  it should "print Goodbye on quit" in {
     val c = TestConsole(List("quit"))
     TextUI(c).run()
     c.printed should include("Goodbye!")
