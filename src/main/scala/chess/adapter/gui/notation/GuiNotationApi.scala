@@ -2,7 +2,7 @@ package chess.adapter.gui.notation
 
 import chess.domain.state.GameState
 import chess.notation.api.{
-  CompatibilityFailure, ImportFailure, ImportResult, ImportTarget,
+  CompatibilityFailure, ExportFailure, ImportFailure, ImportResult, ImportTarget,
   NotationFailure, NotationFacade, NotationFormat, NotationWarning,
   ParseFailure, ValidationFailure
 }
@@ -60,14 +60,13 @@ final class GuiNotationApi(importFacade: NotationFacade[GameState]):
 
   /** Export the current game state as a FEN string.
    *
-   *  Not yet implemented.  Returns a structured [[GuiNotationOutcome.Failure]]
-   *  with [[FailureCategory.UnavailableFeature]].
+   *  Delegates to [[importFacade.executeExport]] with [[NotationFormat.FEN]] and
+   *  maps the structured result to a GUI-facing outcome.
    */
   def exportFen(state: GameState): GuiNotationOutcome =
-    GuiNotationOutcome.Failure(
-      message  = "FEN export is not available yet.",
-      category = FailureCategory.UnavailableFeature
-    )
+    importFacade.executeExport(state, NotationFormat.FEN) match
+      case Right(result) => GuiNotationOutcome.ExportSuccess(result.text)
+      case Left(failure) => toFailure(failure)
 
   /** Export the current game state as a PGN string.
    *
@@ -114,10 +113,12 @@ final class GuiNotationApi(importFacade: NotationFacade[GameState]):
   /** Map a notation-layer [[NotationFailure]] to a GUI-facing [[GuiNotationOutcome.Failure]].
    *
    *  Mapping rules:
-   *  - [[ParseFailure]]         → [[FailureCategory.InvalidInput]]       (syntax / structure)
-   *  - [[ValidationFailure]]    → [[FailureCategory.SemanticError]]      (semantically illegal)
-   *  - [[ImportFailure]]        → [[FailureCategory.SemanticError]]      (mapping / target mismatch)
-   *  - [[CompatibilityFailure]] → [[FailureCategory.UnsupportedInput]]   (dialect / version)
+   *  - [[ParseFailure]]                        → [[FailureCategory.InvalidInput]]       (syntax / structure)
+   *  - [[ValidationFailure]]                   → [[FailureCategory.SemanticError]]      (semantically illegal)
+   *  - [[ImportFailure]]                       → [[FailureCategory.SemanticError]]      (mapping / target mismatch)
+   *  - [[ExportFailure.UnsupportedExportFormat]] → [[FailureCategory.UnavailableFeature]] (format not implemented)
+   *  - [[ExportFailure.SerializationError]]    → [[FailureCategory.SemanticError]]      (domain value cannot be serialised)
+   *  - [[CompatibilityFailure]]                → [[FailureCategory.UnsupportedInput]]   (dialect / version)
    */
   private def toFailure(failure: NotationFailure): GuiNotationOutcome.Failure =
     failure match
@@ -139,6 +140,12 @@ final class GuiNotationApi(importFacade: NotationFacade[GameState]):
 
       case f: CompatibilityFailure =>
         GuiNotationOutcome.Failure(f.message, category = FailureCategory.UnsupportedInput)
+
+      case _: ExportFailure.UnsupportedExportFormat =>
+        GuiNotationOutcome.Failure(failure.message, category = FailureCategory.UnavailableFeature)
+
+      case _: ExportFailure.SerializationError =>
+        GuiNotationOutcome.Failure(failure.message, category = FailureCategory.SemanticError)
 
 /** Default wiring of [[GuiNotationApi]] for normal application usage.
  *

@@ -92,7 +92,7 @@ object NotationSidebarController:
    *  On success: update feedback, preserve warnings, signal the imported state.
    *  On failure: update feedback, clear warnings and output, do not signal.
    */
-  private def handleImport(
+  private[notation] def handleImport(
       state:   NotationSidebarState,
       outcome: GuiNotationOutcome
   ): (NotationSidebarState, Option[GameState]) =
@@ -124,7 +124,7 @@ object NotationSidebarController:
    *  On success: populate output text, clear feedback.
    *  On failure: populate feedback with readable message, clear output text.
    */
-  private def handleExport(
+  private[notation] def handleExport(
       state:   NotationSidebarState,
       outcome: GuiNotationOutcome
   ): NotationSidebarState =
