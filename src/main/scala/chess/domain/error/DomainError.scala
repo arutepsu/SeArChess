@@ -13,6 +13,7 @@ enum DomainError:
   case KingInCheck
   case InvalidPromotionPiece
   case InvalidPromotionState
+  case MissingPromotionChoice
   case CastleNotAllowed
   case MissingCastlingRook
   case CastlePathBlocked

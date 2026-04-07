@@ -3,7 +3,7 @@ package chess.adapter.textui
 import chess.application.ApplicationError
 import chess.domain.state.GameState
 import chess.domain.error.DomainError
-import chess.domain.model.{Color, GameStatus, Piece, PieceType, Position}
+import chess.domain.model.{Color, DrawReason, GameStatus, Piece, PieceType, Position}
 
 object ConsoleRenderer:
 
@@ -49,10 +49,8 @@ object ConsoleRenderer:
     case InputParseError.InvalidPromotionToken(token)=> s"Invalid promotion choice: '$token'. Use: q r b n"
 
   def renderApplicationError(err: ApplicationError): String = err match
-    case ApplicationError.NotPlayersTurn         => "It is not your turn."
-    case ApplicationError.PromotionChoiceRequired => "Promotion required. Enter: promote q | r | b | n"
-    case ApplicationError.NoPromotionPending      => "No promotion is pending."
-    case ApplicationError.DomainFailure(de)       => renderDomainError(de)
+    case ApplicationError.NotPlayersTurn   => "It is not your turn."
+    case ApplicationError.DomainFailure(de) => renderDomainError(de)
 
   private def renderDomainError(err: DomainError): String = err match
     case DomainError.EmptySourceSquare(pos)    => s"No piece at $pos."
@@ -65,6 +63,7 @@ object ConsoleRenderer:
     case DomainError.InvalidPositionString(s)  => s"Invalid position: '$s'."
     case DomainError.InvalidPromotionPiece     => "Invalid promotion piece. Choose: q r b n"
     case DomainError.InvalidPromotionState     => "No promotable pawn at the expected square."
+    case DomainError.MissingPromotionChoice    => "Promotion required. Enter: promote q | r | b | n"
     case DomainError.CastleNotAllowed          => "Castling is no longer allowed on that side."
     case DomainError.MissingCastlingRook       => "Rook is not on its original square."
     case DomainError.CastlePathBlocked         => "Castling path is blocked."
@@ -76,10 +75,10 @@ object ConsoleRenderer:
     case Color.Black => "Black"
 
   private def statusName(status: GameStatus): String = status match
-    case GameStatus.Ongoing   => "Ongoing"
-    case GameStatus.Check     => "Check!"
-    case GameStatus.Checkmate => "Checkmate!"
-    case GameStatus.Stalemate => "Stalemate"
+    case GameStatus.Ongoing(false) => "Ongoing"
+    case GameStatus.Ongoing(true)  => "Check!"
+    case GameStatus.Checkmate(_)   => "Checkmate!"
+    case GameStatus.Draw(_)        => "Stalemate"
 
   private def pieceSymbol(piece: Piece): String =
     val ch = piece.pieceType match

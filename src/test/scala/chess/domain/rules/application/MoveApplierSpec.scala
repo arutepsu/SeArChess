@@ -81,6 +81,25 @@ class MoveApplierSpec extends AnyFlatSpec with Matchers with EitherValues:
     col shouldBe Color.Black
   }
 
+  it should "return Applied with the promoted piece when a white pawn reaches rank 8 with promotion piece specified" in {
+    val a7 = Position.from(0, 6).value
+    val a8 = Position.from(0, 7).value
+    val board = Board.empty.place(a7, Piece(Color.White, PieceType.Pawn))
+    val result = MoveApplier.applyMove(board, Move(a7, a8, Some(PieceType.Queen))).value
+    result shouldBe a[MoveResult.Applied]
+    val MoveResult.Applied(newBoard) = result: @unchecked
+    newBoard.pieceAt(a8) shouldBe Some(Piece(Color.White, PieceType.Queen))
+    newBoard.pieceAt(a7) shouldBe None
+  }
+
+  it should "return Left(InvalidPromotionPiece) when a pawn reaches the last rank with King as promotion piece" in {
+    val a7 = Position.from(0, 6).value
+    val a8 = Position.from(0, 7).value
+    val board = Board.empty.place(a7, Piece(Color.White, PieceType.Pawn))
+    MoveApplier.applyMove(board, Move(a7, a8, Some(PieceType.King))).left.value shouldBe
+      chess.domain.error.DomainError.InvalidPromotionPiece
+  }
+
   it should "return Applied for a non-pawn move to the last rank" in {
     val a1 = Position.from(0, 0).value
     val a8 = Position.from(0, 7).value

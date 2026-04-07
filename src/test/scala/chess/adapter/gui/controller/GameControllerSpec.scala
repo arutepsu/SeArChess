@@ -4,8 +4,8 @@ import chess.adapter.gui.animation.AnimationPlan
 import chess.adapter.gui.input.InputAction
 import chess.adapter.gui.viewmodel.{GameViewModel, GameViewModelMapper, GuiState, PromotionViewModel}
 import chess.application.ChessService
-import chess.domain.state.{GameState, PendingPromotion}
-import chess.domain.model.{Board, Color, GameStatus, Move, Piece, PieceType, Position}
+import chess.domain.state.GameState
+import chess.domain.model.{Board, Color, DrawReason, GameStatus, Move, Piece, PieceType, Position}
 import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -131,7 +131,11 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
     val state = freshState.copy(board = Board.empty.place(a7, Piece(Color.White, PieceType.Pawn)))
     val (_, vm1, _) = GameController.transition(state, freshVm(state), InputAction.SquareClicked(a7))
     val (_, vm2, plan) = GameController.transition(state, vm1, InputAction.SquareClicked(a8))
-    vm2.guiState  shouldBe GuiState.AwaitingPromotion
+    vm2.guiState match
+      case GuiState.AwaitingPromotion(from, to) =>
+        from shouldBe a7
+        to   shouldBe a8
+      case other => fail(s"Expected AwaitingPromotion, got $other")
     vm2.promotion shouldBe defined
     plan          shouldBe None   // promotion moves are not animated
   }
@@ -141,15 +145,14 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
     val a7 = pos(0, 6)
     val e1 = algPos("e1")
     val e8 = algPos("e8")
-    val pending = PendingPromotion(a8, Color.White, Move(a7, a8))
+    // Set up state with pawn at a7 ready to promote; king positions for legality
     val state = freshState.copy(
       board = Board.empty
-        .place(a8, Piece(Color.White, PieceType.Pawn))
+        .place(a7, Piece(Color.White, PieceType.Pawn))
         .place(e1, Piece(Color.White, PieceType.King))
-        .place(e8, Piece(Color.Black, PieceType.King)),
-      pendingPromotion = Some(pending)
+        .place(e8, Piece(Color.Black, PieceType.King))
     )
-    val vm = GameViewModelMapper.build(state, GuiState.AwaitingPromotion).copy(
+    val vm = GameViewModelMapper.build(state, GuiState.AwaitingPromotion(a7, a8)).copy(
       promotion = Some(PromotionViewModel(Color.White, PromotionViewModel.standardChoices))
     )
     val (newState, newVm, plan) = GameController.transition(state, vm, InputAction.PromotionPieceChosen(PieceType.Queen))
@@ -157,6 +160,23 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
     newState.currentPlayer     shouldBe Color.Black
     newState.board.pieceAt(a8) shouldBe Some(Piece(Color.White, PieceType.Queen))
     plan                       shouldBe None
+  }
+
+  it should "transition to AwaitingPromotion when a Black pawn reaches rank 1" in {
+    val a2 = pos(0, 1)
+    val a1 = pos(0, 0)
+    val state = freshState.copy(
+      board         = Board.empty.place(a2, Piece(Color.Black, PieceType.Pawn)),
+      currentPlayer = Color.Black
+    )
+    val (_, vm1, _)    = GameController.transition(state, freshVm(state), InputAction.SquareClicked(a2))
+    val (_, vm2, plan) = GameController.transition(state, vm1, InputAction.SquareClicked(a1))
+    vm2.guiState match
+      case GuiState.AwaitingPromotion(from, to) =>
+        from shouldBe a2
+        to   shouldBe a1
+      case other => fail(s"Expected AwaitingPromotion, got $other")
+    plan shouldBe None
   }
 
   it should "ignore PromotionPieceChosen when not in AwaitingPromotion state" in {
@@ -181,22 +201,22 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
   it should "ignore SquareClicked when in AwaitingPromotion state" in {
     val a8 = pos(0, 7)
     val a7 = pos(0, 6)
-    val pending = PendingPromotion(a8, Color.White, Move(a7, a8))
     val state = freshState.copy(
-      board = Board.empty.place(a8, Piece(Color.White, PieceType.Pawn)),
-      pendingPromotion = Some(pending)
+      board = Board.empty.place(a7, Piece(Color.White, PieceType.Pawn))
     )
-    val vm = GameViewModelMapper.build(state, GuiState.AwaitingPromotion)
+    val vm = GameViewModelMapper.build(state, GuiState.AwaitingPromotion(a7, a8))
     val (s2, vm2, _) = GameController.transition(state, vm, InputAction.SquareClicked(a8))
-    vm2.guiState shouldBe GuiState.AwaitingPromotion
-    s2           shouldBe state
+    vm2.guiState match
+      case GuiState.AwaitingPromotion(_, _) => // expected
+      case other => fail(s"Expected AwaitingPromotion, got $other")
+    s2 shouldBe state
   }
 
   it should "ignore SquareClicked when in GameFinished state" in {
     val state = freshState
-    val vm    = GameViewModelMapper.build(state, GuiState.GameFinished(GameStatus.Checkmate))
+    val vm    = GameViewModelMapper.build(state, GuiState.GameFinished(GameStatus.Checkmate(Color.White)))
     val (s2, vm2, _) = GameController.transition(state, vm, InputAction.SquareClicked(algPos("e2")))
-    vm2.guiState shouldBe GuiState.GameFinished(GameStatus.Checkmate)
+    vm2.guiState shouldBe GuiState.GameFinished(GameStatus.Checkmate(Color.White))
     s2           shouldBe state
   }
 
@@ -218,7 +238,7 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
     val (_, vmSel, _) = GameController.transition(state, freshVm(state), InputAction.SquareClicked(b8))
     val (matedState, animVm, plan) = GameController.transition(state, vmSel, InputAction.SquareClicked(a8))
     animVm.guiState    shouldBe GuiState.Animating
-    matedState.status  shouldBe GameStatus.Checkmate
+    matedState.status  shouldBe GameStatus.Checkmate(Color.White)
     plan               shouldBe defined
   }
 
@@ -240,12 +260,17 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
   // ── submitPromotion Left branch ───────────────────────────────────────────
 
   it should "keep AwaitingPromotion state when submitPromotion returns Left" in {
-    val state = freshState   // no pendingPromotion
-    val vm    = GameViewModelMapper.build(state, GuiState.AwaitingPromotion)
+    val a8 = pos(0, 7)
+    val a7 = pos(0, 6)
+    // State with no pawn at a7 — promotion move will fail validation
+    val state = freshState
+    val vm    = GameViewModelMapper.build(state, GuiState.AwaitingPromotion(a7, a8))
     val (s2, vm2, plan) = GameController.transition(state, vm, InputAction.PromotionPieceChosen(PieceType.Queen))
-    vm2.guiState shouldBe GuiState.AwaitingPromotion
-    s2           shouldBe state
-    plan         shouldBe None
+    vm2.guiState match
+      case GuiState.AwaitingPromotion(_, _) => // expected
+      case other => fail(s"Expected AwaitingPromotion, got $other")
+    s2   shouldBe state
+    plan shouldBe None
   }
 
   // ── GameController class (mutable wrapper) ────────────────────────────────
@@ -305,7 +330,7 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
     val (matedState, animVm, _) = GameController.transition(state, vmSel, InputAction.SquareClicked(a8))
     animVm.guiState   shouldBe GuiState.Animating
     val settled = GameController.resolveSettledGuiState(matedState)
-    settled shouldBe GuiState.GameFinished(GameStatus.Checkmate)
+    settled shouldBe GuiState.GameFinished(GameStatus.Checkmate(Color.White))
   }
 
   // ── Castling: no animation, immediate settle ──────────────────────────────
@@ -325,4 +350,88 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
     val (_, vm2, plan) = GameController.transition(state, vm1, InputAction.SquareClicked(g1))
     plan           shouldBe None                        // castling not animated
     vm2.guiState   shouldBe GuiState.WaitingForSelection  // settled immediately
+  }
+
+  // ── currentGameState ───────────────────────────────────────────────────────
+
+  "GameController.currentGameState" should "initially return a new-game state" in {
+    val controller = new GameController(_ => (), _ => ())
+    controller.currentGameState.currentPlayer shouldBe Color.White
+    controller.currentGameState.board         shouldBe Board.initial
+  }
+
+  it should "reflect the state after loadGameState" in {
+    val imported   = freshState.copy(currentPlayer = Color.Black)
+    val controller = new GameController(_ => (), _ => ())
+    controller.loadGameState(imported)
+    controller.currentGameState.currentPlayer shouldBe Color.Black
+  }
+
+  // ── loadGameState ──────────────────────────────────────────────────────────
+
+  "GameController.loadGameState" should "replace internal state with the imported GameState" in {
+    val imported   = freshState.copy(currentPlayer = Color.Black)
+    val controller = new GameController(_ => (), _ => ())
+    controller.loadGameState(imported)
+    controller.currentGameState shouldBe imported
+  }
+
+  it should "rebuild currentViewModel from the imported state" in {
+    val imported   = freshState.copy(currentPlayer = Color.Black)
+    val controller = new GameController(_ => (), _ => ())
+    controller.loadGameState(imported)
+    // ViewModel must reflect Black to move, not the initial White-to-move state
+    controller.currentViewModel.statusText should include("Black")
+  }
+
+  it should "call onRefresh with the rebuilt view model" in {
+    var refreshed: Option[GameViewModel] = None
+    val controller = new GameController(vm => refreshed = Some(vm), _ => ())
+    val imported   = freshState.copy(currentPlayer = Color.Black)
+    controller.loadGameState(imported)
+    refreshed            should not be empty
+    refreshed.get.statusText should include("Black")
+  }
+
+  it should "not call onAnimate during loadGameState" in {
+    var animateCalled = false
+    val controller = new GameController(_ => (), _ => { animateCalled = true })
+    controller.loadGameState(freshState)
+    animateCalled shouldBe false
+  }
+
+  it should "settle to WaitingForSelection for an Ongoing imported state" in {
+    val controller = new GameController(_ => (), _ => ())
+    controller.loadGameState(freshState)
+    controller.currentViewModel.guiState shouldBe GuiState.WaitingForSelection
+  }
+
+  it should "settle to GameFinished when the imported state is a Checkmate" in {
+    val wK = Piece(Color.White, PieceType.King)
+    val wQ = Piece(Color.White, PieceType.Queen)
+    val wR = Piece(Color.White, PieceType.Rook)
+    val bK = Piece(Color.Black, PieceType.King)
+    val board = Board.empty
+      .place(algPos("a8"), bK)
+      .place(algPos("a1"), wR)
+      .place(algPos("b6"), wQ)
+      .place(algPos("h1"), wK)
+    val checkmateState = freshState.copy(
+      board         = board,
+      currentPlayer = Color.Black,
+      status        = GameStatus.Checkmate(Color.White)
+    )
+    val controller = new GameController(_ => (), _ => ())
+    controller.loadGameState(checkmateState)
+    controller.currentViewModel.guiState shouldBe GuiState.GameFinished(GameStatus.Checkmate(Color.White))
+  }
+
+  it should "clear stale PieceSelected GUI state when loading new state mid-selection" in {
+    // Start a game, select a piece to enter PieceSelected state, then load new state
+    val controller = new GameController(_ => (), _ => ())
+    controller.handle(InputAction.SquareClicked(algPos("e2")))
+    controller.currentViewModel.guiState shouldBe a[GuiState.PieceSelected]
+    // Now load a fresh imported state — selection must be gone
+    controller.loadGameState(freshState)
+    controller.currentViewModel.guiState shouldBe GuiState.WaitingForSelection
   }
