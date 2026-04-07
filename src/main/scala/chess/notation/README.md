@@ -95,7 +95,7 @@ Not allowed:
 ![Variants](notation_variants.png)
 
 
-## 7. . Import/Export Results
+## 7. Import/Export Results
 
 ### Import Meaning
 
