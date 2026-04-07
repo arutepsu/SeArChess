@@ -1,4 +1,6 @@
+
 package chess.adapter.gui.notation
+import chess.notation.json.JsonNotationFacade
 
 import chess.domain.state.GameState
 import chess.notation.api.{
@@ -33,6 +35,26 @@ import chess.notation.pgn.PgnNotationFacade
  *  @param importFacade the notation facade used for all import operations
  */
 final class GuiNotationApi(importFacade: NotationFacade[GameState]):
+
+  /** Import a JSON string as a game.
+   *
+   *  Delegates to [[JsonNotationFacade.parseAndImport]] with [[NotationFormat.JSON]] and
+   *  maps the structured result to a GUI-facing outcome.
+   */
+  def importJson(text: String): GuiNotationOutcome =
+    JsonNotationFacade.parseAndImport(NotationFormat.JSON, text, ImportTarget.GameTarget) match
+      case Right(result) => toImportSuccess(result)
+      case Left(failure) => toFailure(failure)
+
+  /** Export the current game state as a JSON string.
+   *
+   *  Delegates to [[JsonNotationFacade.executeExport]] with [[NotationFormat.JSON]] and
+   *  maps the structured result to a GUI-facing outcome.
+   */
+  def exportJson(state: GameState): GuiNotationOutcome =
+    JsonNotationFacade.executeExport(state, NotationFormat.JSON) match
+      case Right(result) => GuiNotationOutcome.ExportSuccess(result.text)
+      case Left(failure) => toFailure(failure)
 
   // ── Import ──────────────────────────────────────────────────────────────────
 
@@ -162,5 +184,7 @@ object GuiNotationApi:
 
   def importFen(text: String): GuiNotationOutcome       = default.importFen(text)
   def importPgn(text: String): GuiNotationOutcome       = default.importPgn(text)
+  def importJson(text: String): GuiNotationOutcome      = default.importJson(text)
   def exportFen(state: GameState): GuiNotationOutcome   = default.exportFen(state)
   def exportPgn(state: GameState): GuiNotationOutcome   = default.exportPgn(state)
+  def exportJson(state: GameState): GuiNotationOutcome  = default.exportJson(state)
