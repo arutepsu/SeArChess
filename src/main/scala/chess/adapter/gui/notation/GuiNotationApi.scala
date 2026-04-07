@@ -1,4 +1,6 @@
+
 package chess.adapter.gui.notation
+import chess.notation.json.JsonNotationFacade
 
 import chess.domain.state.GameState
 import chess.notation.api.{
@@ -7,6 +9,7 @@ import chess.notation.api.{
   ParseFailure, ValidationFailure
 }
 import chess.notation.fen.FenNotationFacade
+import chess.notation.pgn.PgnNotationFacade
 
 /** GUI-facing notation API.
  *
@@ -33,6 +36,26 @@ import chess.notation.fen.FenNotationFacade
  */
 final class GuiNotationApi(importFacade: NotationFacade[GameState]):
 
+  /** Import a JSON string as a game.
+   *
+   *  Delegates to [[JsonNotationFacade.parseAndImport]] with [[NotationFormat.JSON]] and
+   *  maps the structured result to a GUI-facing outcome.
+   */
+  def importJson(text: String): GuiNotationOutcome =
+    JsonNotationFacade.parseAndImport(NotationFormat.JSON, text, ImportTarget.GameTarget) match
+      case Right(result) => toImportSuccess(result)
+      case Left(failure) => toFailure(failure)
+
+  /** Export the current game state as a JSON string.
+   *
+   *  Delegates to [[JsonNotationFacade.executeExport]] with [[NotationFormat.JSON]] and
+   *  maps the structured result to a GUI-facing outcome.
+   */
+  def exportJson(state: GameState): GuiNotationOutcome =
+    JsonNotationFacade.executeExport(state, NotationFormat.JSON) match
+      case Right(result) => GuiNotationOutcome.ExportSuccess(result.text)
+      case Left(failure) => toFailure(failure)
+
   // ── Import ──────────────────────────────────────────────────────────────────
 
   /** Import a FEN string and return the corresponding [[GameState]].
@@ -47,14 +70,13 @@ final class GuiNotationApi(importFacade: NotationFacade[GameState]):
 
   /** Import a PGN string.
    *
-   *  Not yet implemented.  Returns a structured [[GuiNotationOutcome.Failure]]
-   *  with [[FailureCategory.UnavailableFeature]].
+   *  Delegates to [[PgnNotationFacade.parseAndImport]] with [[NotationFormat.PGN]] and
+   *  maps the structured result to a GUI-facing outcome.
    */
   def importPgn(text: String): GuiNotationOutcome =
-    GuiNotationOutcome.Failure(
-      message  = "PGN import is not available yet.",
-      category = FailureCategory.UnavailableFeature
-    )
+    PgnNotationFacade.parseAndImport(NotationFormat.PGN, text, ImportTarget.GameTarget) match
+      case Right(result) => toImportSuccess(result)
+      case Left(failure) => toFailure(failure)
 
   // ── Export ──────────────────────────────────────────────────────────────────
 
@@ -70,14 +92,13 @@ final class GuiNotationApi(importFacade: NotationFacade[GameState]):
 
   /** Export the current game state as a PGN string.
    *
-   *  Not yet implemented.  Returns a structured [[GuiNotationOutcome.Failure]]
-   *  with [[FailureCategory.UnavailableFeature]].
+   *  Delegates to [[PgnNotationFacade.executeExport]] with [[NotationFormat.PGN]] and
+   *  maps the structured result to a GUI-facing outcome.
    */
   def exportPgn(state: GameState): GuiNotationOutcome =
-    GuiNotationOutcome.Failure(
-      message  = "PGN export is not available yet.",
-      category = FailureCategory.UnavailableFeature
-    )
+    PgnNotationFacade.executeExport(state, NotationFormat.PGN) match
+      case Right(result) => GuiNotationOutcome.ExportSuccess(result.text)
+      case Left(failure) => toFailure(failure)
 
   // ── Result extraction ────────────────────────────────────────────────────────
 
@@ -136,7 +157,11 @@ final class GuiNotationApi(importFacade: NotationFacade[GameState]):
         GuiNotationOutcome.Failure(f.message, category = FailureCategory.SemanticError)
 
       case f: ImportFailure =>
-        GuiNotationOutcome.Failure(f.message, category = FailureCategory.SemanticError)
+        f match
+          case ImportFailure.MappingError(msg) if msg == "PGN import is not implemented" =>
+            GuiNotationOutcome.Failure(f.message, category = FailureCategory.UnavailableFeature)
+          case _ =>
+            GuiNotationOutcome.Failure(f.message, category = FailureCategory.SemanticError)
 
       case f: CompatibilityFailure =>
         GuiNotationOutcome.Failure(f.message, category = FailureCategory.UnsupportedInput)
@@ -163,5 +188,7 @@ object GuiNotationApi:
 
   def importFen(text: String): GuiNotationOutcome       = default.importFen(text)
   def importPgn(text: String): GuiNotationOutcome       = default.importPgn(text)
+  def importJson(text: String): GuiNotationOutcome      = default.importJson(text)
   def exportFen(state: GameState): GuiNotationOutcome   = default.exportFen(state)
   def exportPgn(state: GameState): GuiNotationOutcome   = default.exportPgn(state)
+  def exportJson(state: GameState): GuiNotationOutcome  = default.exportJson(state)

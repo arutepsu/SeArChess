@@ -67,7 +67,9 @@ lazy val root = project
             ".*adapter.gui.assets.SpriteSheetLoader.*",
             ".*adapter.gui.assets.PieceNodeFactory.*",
             ".*adapter.gui.assets.SpriteCatalogLoader.*",
-            ".*adapter.textui.TuiRunner.*"
+            ".*adapter.textui.TuiRunner.*",
+            ".*chess.Main.*",
+            ".*adapter.textui.Console.*"
           ).mkString("|")
         )
       else Seq.empty
