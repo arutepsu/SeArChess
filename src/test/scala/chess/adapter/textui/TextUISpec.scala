@@ -141,7 +141,7 @@ class TextUISpec extends AnyFlatSpec with Matchers:
 
   it should "show the promotion prompt after a pawn-to-last-rank move" in {
     val c = TestConsole(List("move a7 a8", "quit"))
-    TextUI(c, new ObservableGame()).run()
+    new TextUI(c, new ObservableGame()).run()
     c.printed should include("promotion")
     c.printed should include("Goodbye!")
   }

@@ -33,16 +33,13 @@ object ParsedNotation:
   /** IR for a PGN (Portable Game Notation) document.
    *
    *  PGN consists of a header section (tag pairs) followed by a move-text
-   *  section.  Both are preserved as-is at this layer.
+   *  section.  `data` carries the structured content extracted by the parser;
+   *  `raw` preserves the original input for diagnostics.
    *
-   *  @param headers   key/value tag pairs from the PGN header (e.g. "Event", "White")
-   *  @param moveText  the raw move-text section including result token
+   *  @param raw   the original input string that was parsed
+   *  @param data  structured PGN content: headers, move tokens, and result token
    */
-  final case class ParsedPgn(
-    raw:      String,
-    headers:  Map[String, String],
-    moveText: String
-  ) extends ParsedNotation:
+  final case class ParsedPgn(raw: String, data: PgnData) extends ParsedNotation:
     def kind: ParsedNotationKind = ParsedNotationKind.Pgn
 
   /** IR for a JSON document representing a single board position. */
