@@ -14,7 +14,7 @@ import scalafx.scene.layout.{BorderPane, Pane, StackPane}
 /** Assembles the board, status bar, promotion overlay, and animation layer
  *  into a single [[Scene]].
  */
-class ChessScene:
+class ChessScene(game: chess.application.ObservableGame) :
 
   private val catalog      = SpriteCatalogLoader.load()
   private val metaRepo     = SpriteMetadataRepository.fromCatalog(catalog)
@@ -28,7 +28,7 @@ class ChessScene:
   private val mapper = new AnimationPresentationMapper(metaRepo, playbackRepo)
   private val runner = new AnimationRunner(onAnimationFrame, onAnimationComplete)
 
-  private val controller = new GameController(refresh, startAnimation)
+  private val controller = new GameController(game, refresh, startAnimation)
   private var vm: GameViewModel = controller.currentViewModel
 
   private val boardGrid          = BoardRenderer.create(vm, handle, factory)

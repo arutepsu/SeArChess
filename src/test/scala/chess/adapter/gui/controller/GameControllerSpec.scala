@@ -251,7 +251,7 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
   // ── GameController class (mutable wrapper) ────────────────────────────────
 
   "GameController class" should "expose the initial view model via currentViewModel" in {
-    val ctrl = new GameController(_ => (), _ => ())
+    val ctrl = new GameController(new chess.application.ObservableGame(), _ => (), _ => ())
     ctrl.currentViewModel.guiState shouldBe GuiState.WaitingForSelection
     ctrl.currentViewModel.squares  should have size 64
   }
@@ -260,6 +260,7 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
     var refreshCount = 0
     var capturedPlan: Option[AnimationPlan] = None
     val ctrl = new GameController(
+      new chess.application.ObservableGame(),
       _ => refreshCount += 1,
       p => capturedPlan = Some(p)
     )
@@ -274,7 +275,7 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   it should "settle to WaitingForSelection after completeAnimation" in {
     var lastVm: Option[GameViewModel] = None
-    val ctrl = new GameController(vm => lastVm = Some(vm), _ => ())
+    val ctrl = new GameController(new chess.application.ObservableGame(), vm => lastVm = Some(vm), _ => ())
     ctrl.handle(InputAction.SquareClicked(algPos("e2")))
     ctrl.handle(InputAction.SquareClicked(algPos("e4")))
     ctrl.currentViewModel.guiState shouldBe GuiState.Animating
@@ -294,7 +295,7 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
       .place(g6, Piece(Color.White, PieceType.Queen))
       .place(b8, Piece(Color.White, PieceType.Rook))
       .place(h8, Piece(Color.Black, PieceType.King))
-    val ctrl = new GameController(_ => (), _ => ())
+    val ctrl = new GameController(new chess.application.ObservableGame(), _ => (), _ => ())
     // Manually set up by reaching the right state through the real game service:
     // We can't inject state directly, but we can drive the controller via handle.
     // Instead, create a controller that starts with the prepared board.
