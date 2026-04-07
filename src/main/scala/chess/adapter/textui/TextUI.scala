@@ -37,13 +37,13 @@ final class TextUI(
   private def loop(): Unit =
     val input = console.readLine()
     val state = game.getState
-    
+
     if input == null then { console.printLine("Goodbye!"); return }
     InputParser.parse(input) match
       case Left(err) =>
         console.printLine(ConsoleRenderer.renderParseError(err))
         console.print("> ")
-        loop(, pendingMove)
+        loop()
 
       case Right(TextUiCommand.Quit) =>
         console.printLine("Goodbye!")
@@ -51,18 +51,18 @@ final class TextUI(
       case Right(TextUiCommand.Help) =>
         console.printLine(ConsoleRenderer.renderHelp())
         console.print("> ")
-        loop(, pendingMove)
+        loop()
 
       case Right(TextUiCommand.Show) =>
         console.printLine("")
         console.printLine(ConsoleRenderer.renderBoard(state))
         console.printLine(ConsoleRenderer.renderStatus(state))
         console.print("> ")
-        loop(, pendingMove)
+        loop()
 
       case Right(TextUiCommand.New) =>
         console.printLine("New game started.")
-        game.updateState(ChessService.createNewGame(), None)
+        game.updateState(ChessService.createNewGame())
         loop()
 
       case Right(TextUiCommand.MoveCmd(fromStr, toStr)) =>
@@ -71,24 +71,11 @@ final class TextUI(
           to       <- Position.fromAlgebraic(toStr).left.map(ApplicationError.DomainFailure(_))
           newState <- ChessService.handleCommand(state, MakeMove(Move(from, to)))
         yield newState
-        
+
         result match
           case Left(err) =>
             console.printLine(ConsoleRenderer.renderApplicationError(err))
             console.print("> ")
           case Right(newState) =>
-            if newState.pendingPromotion.isDefined then
-              console.printLine(ConsoleRenderer.renderPromotionRequired()) // Optional helper line
             game.updateState(newState)
-            
-        loop()
-
-      case Right(TextUiCommand.PromoteCmd(pieceType)) =>
-        ChessService.handleCommand(state, Promote(pieceType)) match
-          case Left(err) =>
-            console.printLine(ConsoleRenderer.renderApplicationError(err))
-            console.print("> ")
-          case Right(newState) =>
-            game.updateState(newState)
-            
         loop()
