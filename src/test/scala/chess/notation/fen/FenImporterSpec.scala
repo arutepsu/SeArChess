@@ -7,7 +7,7 @@ import org.scalatest.OptionValues
 import chess.notation.api.{
   ImportFailure, ImportResult, ImportTarget,
   NotationFormat, ParsedNotation, ParsedNotationKind,
-  PositionImportMetadata, ValidationFailure
+  PgnData, PositionImportMetadata, ValidationFailure
 }
 import chess.domain.model.{Color, GameStatus, Piece, PieceType, Position}
 import chess.domain.state.{CastlingRights, GameState}
@@ -113,7 +113,7 @@ class FenImporterSpec extends AnyFlatSpec with Matchers with EitherValues with O
   }
 
   it should "return IncompatibleTarget with Pgn kind for ParsedPgn and PositionTarget" in {
-    val pgn    = ParsedNotation.ParsedPgn("...", Map.empty, "1. e4 e5")
+    val pgn    = ParsedNotation.ParsedPgn("...", PgnData(Map.empty, Vector("e4", "e5"), None))
     val result = FenImporter.importNotation(pgn, ImportTarget.PositionTarget)
     val err    = result.left.value.asInstanceOf[ImportFailure.IncompatibleTarget]
     err.parsedKind shouldBe ParsedNotationKind.Pgn

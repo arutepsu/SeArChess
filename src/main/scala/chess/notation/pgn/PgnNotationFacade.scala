@@ -1,22 +1,29 @@
 package chess.notation.pgn
 
 import chess.domain.state.GameState
-import chess.domain.model.Move
 import chess.notation.api._
 
-/** Concrete NotationFacade for PGN import/export (export only for now). */
+/** The single canonical entry point for all PGN notation operations.
+ *
+ *  All callers must go through this facade rather than using any internal
+ *  helpers directly.  Internal objects (`PgnParser`) are `private[pgn]`
+ *  and not part of the public API.
+ *
+ *  Current implementation status:
+ *  - `parse`         — fully implemented: extracts headers, move tokens, and
+ *                      result token into [[ParsedNotation.ParsedPgn]]
+ *  - `executeImport` — fully implemented: replays the SAN mainline from the
+ *                      standard starting position via [[PgnImporter]]
+ *  - `executeExport` — fully implemented: serialises [[chess.domain.state.GameState]]
+ *                      move history to PGN movetext via [[PgnExporter]];
+ *                      no headers are emitted (GameState carries no game metadata)
+ */
 object PgnNotationFacade extends NotationFacade[GameState]:
 
   override def parse(format: NotationFormat, input: String): Either[ParseFailure, ParsedNotation] =
     format match
       case NotationFormat.PGN =>
-        // Minimal: keine Header, nur Züge
-        val movesSection = input
-        Right(ParsedNotation.ParsedPgn(
-          raw = input,
-          headers = Map.empty,
-          moveText = movesSection
-        ))
+        PgnParser.parse(input).map(data => ParsedNotation.ParsedPgn(raw = input, data = data))
       case other =>
         Left(ParseFailure.StructuralError(s"No parser for format: $other"))
 
@@ -24,12 +31,10 @@ object PgnNotationFacade extends NotationFacade[GameState]:
     parsed: ParsedNotation,
     target: ImportTarget
   ): Either[NotationFailure, ImportResult[GameState]] =
-    // Always return unavailable for PGN import (feature unavailable)
-    Left(ImportFailure.MappingError("PGN import is not implemented"))
+    PgnImporter.importNotation(parsed, target)
 
   override def executeExport(
-    data: GameState,
+    data:   GameState,
     format: NotationFormat
   ): Either[NotationFailure, ExportResult] =
-    // Always return unsupported for PGN export (feature unavailable)
-    Left(ExportFailure.UnsupportedExportFormat(format, s"Export to $format is not implemented"))
+    PgnExporter.exportNotation(data, format)
