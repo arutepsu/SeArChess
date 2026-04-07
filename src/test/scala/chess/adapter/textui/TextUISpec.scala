@@ -176,6 +176,6 @@ class TextUISpec extends AnyFlatSpec with Matchers:
 
   it should "work with an explicit ObservableGame" in {
     val c = TestConsole(List("move a7 a8", "promote q", "quit"))
-    TextUI(c, new ObservableGame(promotionReadyState)).run()
+    new TextUI(c, new ObservableGame(promotionReadyState)).run()
     c.printed should include("Q")
   }
