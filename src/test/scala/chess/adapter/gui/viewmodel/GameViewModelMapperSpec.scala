@@ -1,7 +1,7 @@
 package chess.adapter.gui.viewmodel
 
 import chess.application.ChessService
-import chess.domain.model.{Board, Color, GameStatus, Piece, PieceType, Position}
+import chess.domain.model.{Board, Color, DrawReason, GameStatus, Piece, PieceType, Position}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -28,8 +28,10 @@ class GameViewModelMapperSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "include the provided promotion view model" in {
+    val from    = algPos("a7")
+    val to      = algPos("a8")
     val promoVm = PromotionViewModel(Color.White, PromotionViewModel.standardChoices)
-    val vm = GameViewModelMapper.build(freshState, GuiState.AwaitingPromotion, Some(promoVm))
+    val vm = GameViewModelMapper.build(freshState, GuiState.AwaitingPromotion(from, to), Some(promoVm))
     vm.promotion shouldBe Some(promoVm)
   }
 
@@ -78,17 +80,20 @@ class GameViewModelMapperSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "include CHECK when the current player is in check" in {
-    val state = freshState.copy(status = GameStatus.Check)
+    val state = freshState.copy(status = GameStatus.Ongoing(true))
     GameViewModelMapper.renderStatus(state) should include("CHECK")
   }
 
-  it should "indicate Checkmate with winner name" in {
-    val whiteToMove = freshState.copy(currentPlayer = Color.White, status = GameStatus.Checkmate)
+  it should "indicate Checkmate with winner name — Black wins when White is mated" in {
+    val whiteToMove = freshState.copy(currentPlayer = Color.White, status = GameStatus.Checkmate(Color.Black))
     GameViewModelMapper.renderStatus(whiteToMove) should (include("Checkmate") and include("Black wins"))
-    val blackToMove = freshState.copy(currentPlayer = Color.Black, status = GameStatus.Checkmate)
+  }
+
+  it should "indicate Checkmate with winner name — White wins when Black is mated" in {
+    val blackToMove = freshState.copy(currentPlayer = Color.Black, status = GameStatus.Checkmate(Color.White))
     GameViewModelMapper.renderStatus(blackToMove) should (include("Checkmate") and include("White wins"))
   }
 
   it should "indicate Stalemate as a draw" in {
-    GameViewModelMapper.renderStatus(freshState.copy(status = GameStatus.Stalemate)) should include("draw")
+    GameViewModelMapper.renderStatus(freshState.copy(status = GameStatus.Draw(DrawReason.Stalemate))) should include("draw")
   }

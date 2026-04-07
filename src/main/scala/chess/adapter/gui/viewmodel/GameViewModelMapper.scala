@@ -1,7 +1,7 @@
 package chess.adapter.gui.viewmodel
 
 import chess.domain.state.GameState
-import chess.domain.model.{Color, GameStatus, Position}
+import chess.domain.model.{Color, DrawReason, GameStatus, Position}
 
 /** Pure mapper: builds a [[GameViewModel]] from application state and GUI state.
  *
@@ -44,7 +44,9 @@ object GameViewModelMapper:
   def renderStatus(state: GameState): String =
     val player = if state.currentPlayer == Color.White then "White" else "Black"
     state.status match
-      case GameStatus.Ongoing   => s"$player to move"
-      case GameStatus.Check     => s"$player is in CHECK!"
-      case GameStatus.Checkmate => s"Checkmate — ${if player == "White" then "Black" else "White"} wins!"
-      case GameStatus.Stalemate => "Stalemate — it's a draw!"
+      case GameStatus.Ongoing(false)    => s"$player to move"
+      case GameStatus.Ongoing(true)     => s"$player is in CHECK!"
+      case GameStatus.Checkmate(winner) =>
+        val winnerName = if winner == Color.White then "White" else "Black"
+        s"Checkmate — $winnerName wins!"
+      case GameStatus.Draw(DrawReason.Stalemate) => "Stalemate — it's a draw!"

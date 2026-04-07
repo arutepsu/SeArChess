@@ -12,8 +12,10 @@ object MoveApplier:
    *  Returns:
    *    - Right(Applied(board))                          — move completed normally
    *    - Right(PromotionRequired(board, square, color)) — pawn reached the last
-   *      rank; the board has the pawn at the promotion square but the caller
-   *      must still choose a promotion piece
+   *      rank but `move.promotion` is None; caller must supply a promotion piece
+   *
+   *  When `move.promotion` is defined and a pawn reaches the last rank the
+   *  promotion is applied inline and Applied is returned directly.
    *
    *  Fails with:
    *    - EmptySourceSquare   — no piece at the source
@@ -27,6 +29,7 @@ object MoveApplier:
    *    - CastlePathBlocked   — squares between king and rook are occupied
    *    - CastleThroughCheck  — king starts, passes through, or lands on attacked square
    *    - InvalidEnPassant    — en passant preconditions not met
+   *    - InvalidPromotionPiece — promotion piece is King or Pawn
    *
    *  Branch dispatch order:
    *    1. empty source
@@ -66,9 +69,16 @@ object MoveApplier:
                         (),
                         DomainError.KingInCheck
                       )
-        yield
-          val promotionRank = if piece.color == Color.White then 7 else 0
-          if piece.pieceType == PieceType.Pawn && move.to.rank == promotionRank then
-            MoveResult.PromotionRequired(newBoard, move.to, piece.color)
-          else
-            MoveResult.Applied(newBoard)
+          result   <- {
+            val promotionRank = if piece.color == Color.White then 7 else 0
+            if piece.pieceType == PieceType.Pawn && move.to.rank == promotionRank then
+              move.promotion match
+                case Some(pt) =>
+                  PromotionApplier.applyPromotion(newBoard, move.to, piece.color, pt)
+                    .map(MoveResult.Applied(_))
+                case None =>
+                  Right(MoveResult.PromotionRequired(newBoard, move.to, piece.color))
+            else
+              Right(MoveResult.Applied(newBoard))
+          }
+        yield result

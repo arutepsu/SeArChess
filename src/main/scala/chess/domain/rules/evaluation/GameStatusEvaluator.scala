@@ -1,11 +1,11 @@
 package chess.domain.rules.evaluation
 
 import chess.domain.model.*
-import chess.domain.state.{CastlingRights, EnPassantState}
+import chess.domain.state.{CastlingRights, EnPassantState, GameState}
 import chess.domain.rules.application.MoveApplier
 import chess.domain.rules.validation.CheckValidator
 
-/** Evaluates the game status (ongoing / check / checkmate / stalemate)
+/** Evaluates the game status (ongoing / checkmate / draw by stalemate)
  *  for the side to move on a given board.
  *
  *  Legality is determined entirely by MoveApplier so that there is one
@@ -22,10 +22,13 @@ object GameStatusEvaluator:
     val inCheck = CheckValidator.isKingInCheck(board, currentPlayer)
     val hasMove = hasAnyLegalMove(board, currentPlayer, castlingRights, enPassantState)
     (inCheck, hasMove) match
-      case (false, true)  => GameStatus.Ongoing
-      case (true,  true)  => GameStatus.Check
-      case (true,  false) => GameStatus.Checkmate
-      case (false, false) => GameStatus.Stalemate
+      case (false, true)  => GameStatus.Ongoing(false)
+      case (true,  true)  => GameStatus.Ongoing(true)
+      case (true,  false) => GameStatus.Checkmate(currentPlayer.opposite)
+      case (false, false) => GameStatus.Draw(DrawReason.Stalemate)
+
+  def evaluate(state: GameState): GameStatus =
+    evaluate(state.board, state.currentPlayer, state.castlingRights, state.enPassantState)
 
   /** True if `color` has at least one legal move (including castling and en passant).
    *  Short-circuits on the first success.
