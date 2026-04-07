@@ -5,6 +5,7 @@ import chess.adapter.gui.scene.ChessScene
 import scalafx.application.JFXApp3
 import scalafx.application.JFXApp3.PrimaryStage
 import scalafx.scene.paint.Color as FxColor
+import chess.application.ObservableGame
 
 /** ScalaFX application entry point.
  *
@@ -13,12 +14,17 @@ import scalafx.scene.paint.Color as FxColor
  */
 object ChessApp extends JFXApp3:
 
+  var sharedGame: ObservableGame = null
+
   override def start(): Unit =
-    val chess = new ChessScene
+    // Fallback to a local game if none provided (e.g. if run directly)
+    if sharedGame == null then sharedGame = new ObservableGame()
+
+    val sceneController = new ChessScene(sharedGame)
 
     stage = new PrimaryStage:
       title  = "Searchess"
-      scene  = chess.scene
+      scene  = sceneController.scene
       width  = 620
       height = 680
       resizable = false

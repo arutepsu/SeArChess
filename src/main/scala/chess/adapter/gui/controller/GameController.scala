@@ -21,21 +21,42 @@ import chess.domain.model.{Color, GameStatus, Move, PieceType, Position}
  *  @param onAnimate  called with an [[AnimationPlan]] when a move animation should start
  */
 class GameController(
+    game:      chess.application.ObservableGame,
     onRefresh: GameViewModel  => Unit,
     onAnimate: AnimationPlan  => Unit
 ):
-  private var gameState: GameState    = ChessService.createNewGame()
+  private var gameState: GameState    = game.getState
   private var viewModel: GameViewModel =
     GameViewModelMapper.build(gameState, GuiState.WaitingForSelection)
+
+  // Listen to external state changes (e.g., from TUI)
+  game.addObserver { newState =>
+    val action = () => {
+      if newState != gameState then 
+        gameState = newState
+        val settled = GameController.resolveSettledGuiState(newState)
+        viewModel = GameViewModelMapper.build(newState, settled)
+        onRefresh(viewModel)
+    }
+    try
+      scalafx.application.Platform.runLater { action() }
+    catch
+      case _: IllegalStateException => action() // Fallback when FX Toolkit isn't initialized (e.g. tests)
+  }
 
   def currentViewModel: GameViewModel = viewModel
 
   def handle(action: InputAction): Unit =
     val (newState, newVm, animPlan) = GameController.transition(gameState, viewModel, action)
+    val stateChanged = newState != gameState
+
     gameState = newState
     viewModel = newVm
     onRefresh(newVm)
     animPlan.foreach(onAnimate)
+
+    // Notify others if we made a move or changed the domain state
+    if stateChanged then game.updateState(newState)
 
   /** Called by the scene when the current animation completes.
    *
