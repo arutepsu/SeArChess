@@ -47,7 +47,7 @@ class NotationApiContractSpec extends AnyFlatSpec with Matchers with EitherValue
 
   "ParsedNotation" should "hold raw input in every variant" in {
     val fen  = aValidParsedFen
-    val pgn  = ParsedNotation.ParsedPgn("...", Map("Event" -> "Test"), "1. e4 e5")
+    val pgn  = ParsedNotation.ParsedPgn("...", PgnData(Map("Event" -> "Test"), Vector("e4", "e5"), None))
     val pos  = ParsedNotation.ParsedJsonPosition("""{"type":"position"}""")
     val game = ParsedNotation.ParsedJsonGame("""{"type":"game"}""")
     fen.raw  should not be empty
@@ -62,27 +62,27 @@ class NotationApiContractSpec extends AnyFlatSpec with Matchers with EitherValue
       case _: ParsedNotation.ParsedPgn          => "pgn"
       case _: ParsedNotation.ParsedJsonPosition => "json-position"
       case _: ParsedNotation.ParsedJsonGame     => "json-game"
-    describe(aValidParsedFen)                                      shouldBe "fen"
-    describe(ParsedNotation.ParsedPgn("x", Map.empty, ""))         shouldBe "pgn"
-    describe(ParsedNotation.ParsedJsonPosition("x"))               shouldBe "json-position"
-    describe(ParsedNotation.ParsedJsonGame("x"))                   shouldBe "json-game"
+    describe(aValidParsedFen)                                                                shouldBe "fen"
+    describe(ParsedNotation.ParsedPgn("x", PgnData(Map.empty, Vector.empty, None)))         shouldBe "pgn"
+    describe(ParsedNotation.ParsedJsonPosition("x"))                                         shouldBe "json-position"
+    describe(ParsedNotation.ParsedJsonGame("x"))                                             shouldBe "json-game"
   }
 
-  it should "carry PGN headers separately from move text" in {
+  it should "carry PGN headers, move tokens, and result in PgnData" in {
     val pgn = ParsedNotation.ParsedPgn(
-      raw      = "[White \"Alice\"]\n1. e4 e5 *",
-      headers  = Map("White" -> "Alice"),
-      moveText = "1. e4 e5 *"
+      raw  = "[White \"Alice\"]\n1. e4 e5 *",
+      data = PgnData(headers = Map("White" -> "Alice"), moveTokens = Vector("e4", "e5"), result = Some("*"))
     )
-    pgn.headers("White") shouldBe "Alice"
-    pgn.moveText         shouldBe "1. e4 e5 *"
+    pgn.data.headers("White") shouldBe "Alice"
+    pgn.data.moveTokens       shouldBe Vector("e4", "e5")
+    pgn.data.result           shouldBe Some("*")
   }
 
   it should "expose a kind discriminator matching the variant" in {
-    aValidParsedFen.kind                                        shouldBe ParsedNotationKind.Fen
-    ParsedNotation.ParsedPgn("x", Map.empty, "").kind           shouldBe ParsedNotationKind.Pgn
-    ParsedNotation.ParsedJsonPosition("x").kind                 shouldBe ParsedNotationKind.JsonPosition
-    ParsedNotation.ParsedJsonGame("x").kind                     shouldBe ParsedNotationKind.JsonGame
+    aValidParsedFen.kind                                                                       shouldBe ParsedNotationKind.Fen
+    ParsedNotation.ParsedPgn("x", PgnData(Map.empty, Vector.empty, None)).kind                shouldBe ParsedNotationKind.Pgn
+    ParsedNotation.ParsedJsonPosition("x").kind                                                shouldBe ParsedNotationKind.JsonPosition
+    ParsedNotation.ParsedJsonGame("x").kind                                                    shouldBe ParsedNotationKind.JsonGame
   }
 
   // ── ParsedNotationKind ──────────────────────────────────────────────────────

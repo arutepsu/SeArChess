@@ -6,17 +6,17 @@ import chess.adapter.gui.assets.{PieceNodeFactory, PieceVisualId, SpriteCatalogL
 import chess.adapter.gui.controller.GameController
 import chess.adapter.gui.input.InputAction
 import chess.adapter.gui.notation.{GuiNotationApi, NotationSidebar, NotationSidebarController}
-import chess.adapter.gui.render.{BoardRenderer, PromotionOverlay, StaticPieceOverlayRenderer, StatusRenderer}
-import chess.adapter.gui.viewmodel.GameViewModel
+import chess.adapter.gui.render.{BoardRenderer, MoveHistoryPanel, PromotionOverlay, StaticPieceOverlayRenderer, StatusRenderer}
+import chess.adapter.gui.viewmodel.{GameViewModel, MoveHistoryViewModelMapper}
 import chess.domain.state.GameState
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.Scene
 import scalafx.scene.layout.{BorderPane, Pane, StackPane}
 
 /** Assembles the board, status bar, promotion overlay, animation layer,
- *  and notation sidebar into a single [[Scene]].
+ *  and right-side tools panel (notation + move history) into a single [[Scene]].
  */
-class ChessScene(game: chess.application.ObservableGame) :
+class ChessScene(game: chess.application.ObservableGame):
 
   private val catalog      = SpriteCatalogLoader.load()
   private val metaRepo     = SpriteMetadataRepository.fromCatalog(catalog)
@@ -70,12 +70,17 @@ class ChessScene(game: chess.application.ObservableGame) :
   // Wire the real refresh now that sidebar exists
   sidebarRefresh = sidebar.refresh
 
+  // ── History panel + composed side panel ─────────────────────────────────────
+
+  private val historyPanel = new MoveHistoryPanel
+  private val sidePanel    = new GameSidePanel(sidebar, historyPanel)
+
   // ── Root layout ─────────────────────────────────────────────────────────────
 
   private val root = new BorderPane:
     center = boardStack
     bottom = statusLabel
-    right  = sidebar.root
+    right  = sidePanel.root
     style  = "-fx-background-color: #312e2b;"
     BorderPane.setMargin(boardStack, Insets(16))
     BorderPane.setAlignment(statusLabel, Pos.Center)
@@ -93,6 +98,7 @@ class ChessScene(game: chess.application.ObservableGame) :
     StaticPieceOverlayRenderer.update(staticPieceOverlay, newVm, factory, suppressed)
     StatusRenderer.update(statusLabel, newVm)
     updateOverlay(newVm)
+    sidePanel.refreshHistory(MoveHistoryViewModelMapper.map(controller.currentGameState))
 
   private def updateOverlay(newVm: GameViewModel): Unit =
     overlayContainer.children.clear()
@@ -109,7 +115,8 @@ class ChessScene(game: chess.application.ObservableGame) :
    *
    *  Clears transient animation and overlay visuals that do not belong to the
    *  imported state, then delegates to [[GameController.loadGameState]].
-   *  The existing [[refresh]] callback drives the board/status/overlay update.
+   *  The existing [[refresh]] callback drives the board/status/overlay update
+   *  and also refreshes the history panel.
    */
   private def applyImportedState(importedState: GameState): Unit =
     // Clear transient animation state first so stale pieces do not remain
