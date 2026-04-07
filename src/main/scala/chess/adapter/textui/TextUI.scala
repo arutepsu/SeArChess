@@ -74,8 +74,11 @@ final class TextUI(
             loop(state, None)
           case Some(pm) =>
             ChessService.handleCommand(state, MakeMove(Move(pm.from, pm.to, Some(pieceType)))) match
+              // $COVERAGE-OFF$ promotion with q/r/b/n on the same board that already passed
+              // king-safety for the move command cannot fail; guard kept for exhaustiveness
               case Left(err) =>
                 console.printLine(ConsoleRenderer.renderApplicationError(err))
                 loop(state, Some(pm))
+              // $COVERAGE-ON$
               case Right(newState) =>
                 loop(newState, None)

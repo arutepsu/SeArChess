@@ -137,6 +137,13 @@ class FenSemanticValidatorSpec extends AnyFlatSpec with Matchers with EitherValu
     FenSemanticValidator.validate(d) shouldBe Right(())
   }
 
+  it should "accept Kk rights combined with a valid en passant target" in {
+    // Exercises validateCastlingRights yield () (line 62) then validateEnPassant with valid target.
+    // Black to move: en passant target e3 (rank 3) is valid; K/k castling rights are consistent.
+    val d = data("4k2r/8/8/8/4P3/8/8/4K2R b Kk e3 0 1")
+    FenSemanticValidator.validate(d) shouldBe Right(())
+  }
+
   // ── En passant rank ──────────────────────────────────────────────────────────
 
   it should "accept en passant on rank 6 when White is active" in {

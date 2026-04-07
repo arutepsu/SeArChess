@@ -5,7 +5,7 @@ import javafx.application.Platform
 import javafx.scene.control.{Button => JButton, Label => JLabel, TextArea => JTextArea}
 import javafx.scene.layout.{VBox => JVBox}
 import java.util.concurrent.{CountDownLatch, TimeUnit}
-import org.scalatest.BeforeAndAfterAll
+import org.scalatest.{BeforeAndAfterAll, Canceled, Outcome}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import chess.application.ChessService
@@ -24,11 +24,22 @@ class NotationSidebarSpec extends AnyFlatSpec with Matchers with BeforeAndAfterA
 
   // ── JavaFX Platform lifecycle ────────────────────────────────────────────────
 
+  private var displayAvailable = true
+
   override def beforeAll(): Unit =
     val latch = new CountDownLatch(1)
-    try Platform.startup(() => latch.countDown())
-    catch case _: IllegalStateException => latch.countDown() // already started
-    assert(latch.await(10, TimeUnit.SECONDS), "JavaFX Platform failed to start")
+    try
+      try Platform.startup(() => latch.countDown())
+      catch case _: IllegalStateException => latch.countDown() // already started
+      assert(latch.await(10, TimeUnit.SECONDS), "JavaFX Platform failed to start")
+    catch
+      case _: UnsupportedOperationException =>
+        displayAvailable = false // headless environment — tests will be canceled
+
+  /** Cancel any test when no display is available rather than aborting the suite. */
+  override def withFixture(test: NoArgTest): Outcome =
+    if !displayAvailable then Canceled("No display available; JavaFX tests skipped")
+    else super.withFixture(test)
 
   /** Run `body` on the FX Application Thread and return its result. */
   private def onFx[A](body: => A): A =

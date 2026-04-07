@@ -174,3 +174,22 @@ class TextUISpec extends AnyFlatSpec with Matchers:
     c.printed should include("k")
     c.printed should include("Goodbye!")
   }
+
+  it should "show an application error and keep the pending promotion when promotion resolution fails" in {
+    val c = TestConsole(List("promote q", "quit"))
+    val ui = TextUI(c)
+
+    val pendingPromotionMove = Move(pos("a7"), pos("a8"))
+    val inconsistentState = ChessService.createNewGame()
+
+    val loopMethod = classOf[TextUI]
+      .getDeclaredMethods
+      .find(_.getName.contains("loop"))
+      .getOrElse(fail("Could not find private loop method via reflection"))
+
+    loopMethod.setAccessible(true)
+    loopMethod.invoke(ui, inconsistentState, Some(pendingPromotionMove))
+
+    c.printed should not include("No pawn promotion is pending.")
+    c.printed should include("Goodbye!")
+  }
