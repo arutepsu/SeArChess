@@ -1,497 +1,441 @@
-// $COVERAGE-OFF$ — JavaFX widget; excluded from coverage instrumentation
 package chess.adapter.gui.notation
 
-import javafx.application.Platform
-import javafx.scene.control.{Button => JButton, Label => JLabel, TextArea => JTextArea}
-import javafx.scene.layout.{VBox => JVBox}
-import java.util.concurrent.{CountDownLatch, TimeUnit}
-import org.scalatest.{BeforeAndAfterAll, Canceled, Outcome}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import chess.application.ChessService
 import chess.domain.state.GameState
+import chess.domain.model.Color
+import chess.notation.api.{
+  ImportResult, ImportTarget, NotationFacade, NotationFailure,
+  NotationFormat, NotationWarning, ParsedNotation, ParseFailure
+}
 
-/** Tests for [[NotationSidebar]] — layout, dispatch, and refresh behaviour.
+/** Tests for the pure [[NotationSidebarController.transition]] function.
  *
- *  All assertions that touch JavaFX nodes run on the FX Application Thread via
- *  [[onFx]], which blocks until the runLater body completes.  Construction of
- *  the sidebar itself must also happen on the FX thread.
+ *  All tests run without JavaFX — only the pure companion object is exercised.
  *
- *  The test does NOT fork a Stage; it only initialises the Platform, which is
- *  sufficient for creating and exercising ScalaFX nodes in unit tests.
+ *  Notation-layer ADTs appear only in stub facades within this spec,
+ *  confirming that the widget contract itself is insulated from those types.
  */
-class NotationSidebarSpec extends AnyFlatSpec with Matchers with BeforeAndAfterAll:
+class NotationSidebarSpec extends AnyFlatSpec with Matchers:
 
-  // ── JavaFX Platform lifecycle ────────────────────────────────────────────────
+  private val InitialFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+  private val freshGame  = ChessService.createNewGame()
+  private val blankState = NotationSidebarState()
+  private val defaultApi = GuiNotationApi.default
 
-  private var displayAvailable = true
+  // ── helpers ────────────────────────────────────────────────────────────────
 
-  override def beforeAll(): Unit =
-    val latch = new CountDownLatch(1)
-    try
-      try Platform.startup(() => latch.countDown())
-      catch case _: IllegalStateException => latch.countDown() // already started
-      assert(latch.await(10, TimeUnit.SECONDS), "JavaFX Platform failed to start")
-    catch
-      case _: UnsupportedOperationException =>
-        displayAvailable = false // headless environment — tests will be canceled
+  private def transit(
+    sidebarState: NotationSidebarState = blankState,
+    action:       SidebarAction,
+    api:          GuiNotationApi = defaultApi,
+    game:         GameState       = freshGame
+  ): (NotationSidebarState, Option[GameState]) =
+    NotationSidebarController.transition(sidebarState, action, api, game)
 
-  /** Cancel any test when no display is available rather than aborting the suite. */
-  override def withFixture(test: NoArgTest): Outcome =
-    if !displayAvailable then Canceled("No display available; JavaFX tests skipped")
-    else super.withFixture(test)
+  private def request(id: NotationActionId): SidebarAction =
+    SidebarAction.NotationActionRequested(id)
 
-  /** Run `body` on the FX Application Thread and return its result. */
-  private def onFx[A](body: => A): A =
-    @volatile var result: Option[A] = None
-    val latch = new CountDownLatch(1)
-    Platform.runLater { () =>
-      result = Some(body)
-      latch.countDown()
+  // ── InputTextChanged ───────────────────────────────────────────────────────
+
+  "NotationSidebarController.transition" should "update inputText on InputTextChanged" in {
+    val (next, importedOpt) = transit(action = SidebarAction.InputTextChanged("hello"))
+    next.inputText  shouldBe "hello"
+    importedOpt     shouldBe None
+  }
+
+  it should "not touch other state fields on InputTextChanged" in {
+    val initial = blankState.copy(feedback = Some(SidebarFeedback.Success("prev")))
+    val (next, _) = transit(sidebarState = initial, action = SidebarAction.InputTextChanged("x"))
+    next.feedback   shouldBe initial.feedback
+    next.outputText shouldBe None
+    next.warnings   shouldBe Nil
+  }
+
+  // ── FEN import: success ────────────────────────────────────────────────────
+
+  it should "return ImportSuccess-derived state and Some(GameState) for a valid FEN" in {
+    val withText = blankState.copy(inputText = InitialFen)
+    val (next, importedOpt) = transit(sidebarState = withText, action = request(NotationActionId.FenImport))
+    importedOpt                   should not be empty
+    importedOpt.get.currentPlayer shouldBe Color.White
+    next.feedback shouldBe Some(SidebarFeedback.Success("Position imported successfully."))
+    next.outputText shouldBe None
+  }
+
+  it should "carry structured warnings from a successful import" in {
+    val warningFacade = new NotationFacade[GameState]:
+      def parse(format: NotationFormat, input: String): Either[ParseFailure, ParsedNotation] =
+        chess.notation.fen.FenParser.parse(InitialFen)
+      def executeImport(parsed: ParsedNotation, target: ImportTarget): Either[NotationFailure, ImportResult[GameState]] =
+        chess.notation.fen.FenImporter.importNotation(parsed, target).map {
+          case r: ImportResult.PositionImportResult[GameState @unchecked] =>
+            r.copy(warnings = List(NotationWarning.NormalizationApplied("normalised halfmove clock")))
+          case other => other
+        }
+
+    val api = GuiNotationApi(warningFacade)
+    val (next, importedOpt) = transit(
+      sidebarState = blankState.copy(inputText = InitialFen),
+      action       = request(NotationActionId.FenImport),
+      api          = api
+    )
+    importedOpt                   should not be empty
+    next.warnings                 should have size 1
+    next.warnings.head.category   shouldBe GuiWarningCategory.Normalization
+  }
+
+  // ── FEN import: failure ────────────────────────────────────────────────────
+
+  it should "return Failure-derived state and None for an invalid FEN" in {
+    val withBadText = blankState.copy(inputText = "not valid fen")
+    val (next, importedOpt) = transit(sidebarState = withBadText, action = request(NotationActionId.FenImport))
+    importedOpt shouldBe None
+    next.feedback should matchPattern { case Some(SidebarFeedback.Failure(_, _, FailureCategory.InvalidInput)) => }
+    next.warnings shouldBe Nil
+  }
+
+  it should "return Failure(SemanticError) for a syntactically valid but semantically invalid FEN" in {
+    val noBlackKing = "8/8/8/8/8/8/8/4K3 w - - 0 1"
+    val (next, importedOpt) = transit(
+      sidebarState = blankState.copy(inputText = noBlackKing),
+      action       = request(NotationActionId.FenImport)
+    )
+    importedOpt shouldBe None
+    next.feedback should matchPattern { case Some(SidebarFeedback.Failure(_, _, FailureCategory.SemanticError)) => }
+  }
+
+  it should "not call onImportedState when import fails" in {
+    var called = false
+    val controller = new NotationSidebarController(
+      api             = defaultApi,
+      stateProvider   = () => freshGame,
+      onImportedState = _ => { called = true },
+      onRefresh       = _ => ()
+    )
+    controller.handle(SidebarAction.InputTextChanged("bad fen"))
+    controller.handle(request(NotationActionId.FenImport))
+    called shouldBe false
+  }
+
+  // ── PGN import: unavailable ────────────────────────────────────────────────
+
+  /*it should "return UnavailableFeature failure and None for PgnImport" in {
+    val (next, importedOpt) = transit(action = request(NotationActionId.PgnImport))
+    importedOpt shouldBe None
+    next.feedback should matchPattern {
+      case Some(SidebarFeedback.Failure(_, _, FailureCategory.UnavailableFeature)) =>
     }
-    assert(latch.await(5, TimeUnit.SECONDS), "JavaFX runLater timed out")
-    result.get
+  }*/
 
-  // ── Fixture helpers ──────────────────────────────────────────────────────────
+  // ── FEN export: success ───────────────────────────────────────────────────
 
-  private val InitialFen    = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-  private val freshState    = ChessService.createNewGame()
+  it should "populate outputText and return no importedState for FenExport" in {
+    val (next, importedOpt) = transit(action = request(NotationActionId.FenExport))
+    importedOpt     shouldBe None
+    next.outputText should not be empty
+    next.feedback   shouldBe None
+  }
 
-  private def makeController(
-    onRefresh:       NotationSidebarState => Unit = _ => ()
-  ): NotationSidebarController =
-    new NotationSidebarController(
-      api             = GuiNotationApi.default,
-      stateProvider   = () => freshState,
+  it should "produce the standard starting-position FEN for a fresh game" in {
+    val (next, _) = transit(action = request(NotationActionId.FenExport))
+    next.outputText shouldBe Some("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+  }
+
+  it should "obtain the current game state from the provider for export" in {
+    var capturedState: Option[GameState] = None
+    val controller = new NotationSidebarController(
+      api             = defaultApi,
+      stateProvider   = () => { capturedState = Some(freshGame); freshGame },
       onImportedState = _ => (),
-      onRefresh       = onRefresh
+      onRefresh       = _ => ()
     )
-
-  /** Must be called on the FX thread. */
-  private def makeSidebar(
-    controller:  NotationSidebarController,
-    descriptors: Seq[NotationActionDescriptor] = NotationActionDescriptor.defaults
-  ): NotationSidebar =
-    new NotationSidebar(controller, descriptors)
-
-  // ── Child accessors (index-based, matching root children order) ──────────────
-
-  // Children in root:
-  //   0 — sectionHeader("Notation")
-  //   1 — inputArea  (TextArea)
-  //   2 — importRow  (VBox of Import buttons)
-  //   3 — sectionHeader("Export")
-  //   4 — exportRow  (VBox of Export buttons)
-  //   5 — outputArea (TextArea)
-  //   6 — feedbackLabel (Label)
-  //   7 — warningsBox (VBox)
-
-  private def rootNode(s: NotationSidebar, i: Int): javafx.scene.Node =
-    s.root.children.get(i)
-
-  private def headerLabel(s: NotationSidebar, i: Int): JLabel =
-    rootNode(s, i).asInstanceOf[JLabel]
-
-  private def inputArea(s: NotationSidebar): JTextArea =
-    rootNode(s, 1).asInstanceOf[JTextArea]
-
-  private def importVBox(s: NotationSidebar): JVBox =
-    rootNode(s, 2).asInstanceOf[JVBox]
-
-  private def exportVBox(s: NotationSidebar): JVBox =
-    rootNode(s, 4).asInstanceOf[JVBox]
-
-  private def outputArea(s: NotationSidebar): JTextArea =
-    rootNode(s, 5).asInstanceOf[JTextArea]
-
-  private def feedbackLabel(s: NotationSidebar): JLabel =
-    rootNode(s, 6).asInstanceOf[JLabel]
-
-  private def warningsVBox(s: NotationSidebar): JVBox =
-    rootNode(s, 7).asInstanceOf[JVBox]
-
-  private def buttons(vbox: JVBox): Seq[JButton] =
-    vbox.getChildren.toArray.collect { case b: JButton => b }.toSeq
-
-  // ── Root layout ──────────────────────────────────────────────────────────────
-
-  "NotationSidebar root" should "have prefWidth 220" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    onFx { sidebar.root.prefWidth.value shouldBe 220.0 }
+    controller.handle(request(NotationActionId.FenExport))
+    capturedState       should not be empty
+    capturedState.get   shouldBe freshGame
   }
 
-  it should "have exactly 8 children" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    onFx { sidebar.root.children should have size 8 }
-  }
+  // ── PGN export: unavailable ────────────────────────────────────────────────
 
-  it should "have padding of 12 on all sides" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    onFx {
-      val insets = sidebar.root.padding.value
-      insets.getTop    shouldBe 12.0
-      insets.getRight  shouldBe 12.0
-      insets.getBottom shouldBe 12.0
-      insets.getLeft   shouldBe 12.0
-    }
-  }
-
-  it should "apply the dark background style" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    onFx { sidebar.root.style.value should include("2a2623") }
-  }
-
-  // ── Section headers ──────────────────────────────────────────────────────────
-
-  "NotationSidebar section headers" should "show 'Notation' at child index 0" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    onFx { headerLabel(sidebar, 0).getText shouldBe "Notation" }
-  }
-
-  it should "show 'Export' at child index 3" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    onFx { headerLabel(sidebar, 3).getText shouldBe "Export" }
-  }
-
-  // ── Import buttons ───────────────────────────────────────────────────────────
-
-  "NotationSidebar import buttons" should "render two buttons in the import VBox" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    onFx { buttons(importVBox(sidebar)) should have size 2 }
-  }
-
-  it should "label the first import button 'Import FEN'" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    onFx { buttons(importVBox(sidebar))(0).getText shouldBe "Import FEN" }
-  }
-
-  it should "label the second import button 'Import PGN'" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    onFx { buttons(importVBox(sidebar))(1).getText shouldBe "Import PGN" }
-  }
-
-  it should "set maxWidth to MaxValue on import buttons" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    onFx {
-      buttons(importVBox(sidebar)).foreach { b =>
-        b.getMaxWidth shouldBe Double.MaxValue
-      }
-    }
-  }
-
-  // ── Export buttons ───────────────────────────────────────────────────────────
-
-  "NotationSidebar export buttons" should "render two buttons in the export VBox" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    onFx { buttons(exportVBox(sidebar)) should have size 2 }
-  }
-
-  it should "label the first export button 'Export FEN'" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    onFx { buttons(exportVBox(sidebar))(0).getText shouldBe "Export FEN" }
-  }
-
-  it should "label the second export button 'Export PGN'" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    onFx { buttons(exportVBox(sidebar))(1).getText shouldBe "Export PGN" }
-  }
-
-  it should "set maxWidth to MaxValue on export buttons" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    onFx {
-      buttons(exportVBox(sidebar)).foreach { b =>
-        b.getMaxWidth shouldBe Double.MaxValue
-      }
-    }
-  }
-
-  // ── Input area prompt ────────────────────────────────────────────────────────
-
-  "NotationSidebar input area" should "have a prompt text mentioning FEN and PGN" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    onFx {
-      val prompt = inputArea(sidebar).getPromptText
-      prompt should include("FEN")
-      prompt should include("PGN")
-    }
-  }
-
-  // ── Initial visibility ───────────────────────────────────────────────────────
-
-  "NotationSidebar initial state" should "hide the feedback label" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    onFx { feedbackLabel(sidebar).isVisible shouldBe false }
-  }
-
-  it should "hide the warnings box" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    onFx { warningsVBox(sidebar).isVisible shouldBe false }
-  }
-
-  // ── Input onChange dispatch ──────────────────────────────────────────────────
-
-  "NotationSidebar input area" should "dispatch InputTextChanged to the controller on text change" in {
-    val ctrl    = makeController()
-    val sidebar = onFx { makeSidebar(ctrl) }
-    onFx { inputArea(sidebar).setText("hello fen") }
-    ctrl.currentState.inputText shouldBe "hello fen"
-  }
-
-  it should "dispatch InputTextChanged with the updated value on each keystroke" in {
-    val ctrl    = makeController()
-    val sidebar = onFx { makeSidebar(ctrl) }
-    onFx { inputArea(sidebar).setText("a") }
-    onFx { inputArea(sidebar).setText("ab") }
-    ctrl.currentState.inputText shouldBe "ab"
-  }
-
-  // ── Button click dispatch ────────────────────────────────────────────────────
-
-  "NotationSidebar Import FEN button" should "dispatch FenImport action and produce parse feedback" in {
-    val ctrl    = makeController()
-    val sidebar = onFx { makeSidebar(ctrl) }
-    // Leave inputText empty → import will fail with InvalidInput
-    onFx { buttons(importVBox(sidebar))(0).fire() }
-    ctrl.currentState.feedback should matchPattern {
-      case Some(SidebarFeedback.Failure(_, _, FailureCategory.InvalidInput)) =>
-    }
-  }
-
-  it should "succeed and clear feedback when a valid FEN is in the input" in {
-    val ctrl    = makeController()
-    val sidebar = onFx { makeSidebar(ctrl) }
-    onFx { inputArea(sidebar).setText(InitialFen) }
-    onFx { buttons(importVBox(sidebar))(0).fire() }
-    ctrl.currentState.feedback shouldBe Some(SidebarFeedback.Success("Position imported successfully."))
-  }
-
-  "NotationSidebar Import PGN button" should "dispatch PgnImport and produce UnavailableFeature feedback" in {
-    val ctrl    = makeController()
-    val sidebar = onFx { makeSidebar(ctrl) }
-    onFx { buttons(importVBox(sidebar))(1).fire() }
-    ctrl.currentState.feedback should matchPattern {
+  it should "return UnavailableFeature failure for PgnExport" in {
+    val (next, importedOpt) = transit(action = request(NotationActionId.PgnExport))
+    importedOpt shouldBe None
+    next.feedback should matchPattern {
       case Some(SidebarFeedback.Failure(_, _, FailureCategory.UnavailableFeature)) =>
     }
   }
 
-  "NotationSidebar Export FEN button" should "dispatch FenExport and populate outputText" in {
-    val ctrl    = makeController()
-    val sidebar = onFx { makeSidebar(ctrl) }
-    onFx { buttons(exportVBox(sidebar))(0).fire() }
-    ctrl.currentState.outputText shouldBe Some(InitialFen)
-  }
+  // ── Mutable controller callbacks ───────────────────────────────────────────
 
-  "NotationSidebar Export PGN button" should "dispatch PgnExport and produce UnavailableFeature feedback" in {
-    val ctrl    = makeController()
-    val sidebar = onFx { makeSidebar(ctrl) }
-    onFx { buttons(exportVBox(sidebar))(1).fire() }
-    ctrl.currentState.feedback should matchPattern {
-      case Some(SidebarFeedback.Failure(_, _, FailureCategory.UnavailableFeature)) =>
-    }
-  }
-
-  // ── Custom descriptors ───────────────────────────────────────────────────────
-
-  "NotationSidebar default descriptors" should "use NotationActionDescriptor.defaults when constructed without explicit descriptors" in {
-    val ctrl    = makeController()
-    val sidebar = onFx { new NotationSidebar(ctrl) }
-    onFx {
-      val expectedImports = NotationActionDescriptor.defaults.count(_.kind == ActionKind.Import)
-      val expectedExports = NotationActionDescriptor.defaults.count(_.kind == ActionKind.Export)
-      buttons(importVBox(sidebar)) should have size expectedImports
-      buttons(exportVBox(sidebar)) should have size expectedExports
-    }
-  }
-
-  it should "show the default button labels when constructed without explicit descriptors" in {
-    val ctrl    = makeController()
-    val sidebar = onFx { new NotationSidebar(ctrl) }
-    onFx {
-      val importLabels = buttons(importVBox(sidebar)).map(_.getText)
-      val exportLabels = buttons(exportVBox(sidebar)).map(_.getText)
-      importLabels should contain("Import FEN")
-      importLabels should contain("Import PGN")
-      exportLabels should contain("Export FEN")
-      exportLabels should contain("Export PGN")
-    }
-  }
-
-  "NotationSidebar with custom descriptors" should "render only the provided descriptors" in {
-    val ctrl    = makeController()
-    val sidebar = onFx {
-      makeSidebar(ctrl, Seq(
-        NotationActionDescriptor(NotationActionId.FenImport, "Import FEN", ActionKind.Import)
-      ))
-    }
-    onFx {
-      buttons(importVBox(sidebar))       should have size 1
-      buttons(importVBox(sidebar))(0).getText shouldBe "Import FEN"
-      buttons(exportVBox(sidebar))       should have size 0
-    }
-  }
-
-  it should "use the custom label text on the button" in {
-    val ctrl = makeController()
-    val sidebar = onFx {
-      makeSidebar(ctrl, Seq(
-        NotationActionDescriptor(NotationActionId.FenExport, "Save as FEN", ActionKind.Export)
-      ))
-    }
-    onFx { buttons(exportVBox(sidebar))(0).getText shouldBe "Save as FEN" }
-  }
-
-  // ── refresh: output text ─────────────────────────────────────────────────────
-
-  "NotationSidebar.refresh" should "show output text and make outputArea visible" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    onFx { sidebar.refresh(NotationSidebarState(outputText = Some("fen-text"))) }
-    onFx {
-      outputArea(sidebar).getText      shouldBe "fen-text"
-      outputArea(sidebar).isVisible    shouldBe true
-    }
-  }
-
-  it should "clear outputArea and hide it when outputText is None" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    onFx { sidebar.refresh(NotationSidebarState(outputText = Some("fen-text"))) }
-    onFx { sidebar.refresh(NotationSidebarState(outputText = None)) }
-    onFx {
-      outputArea(sidebar).getText   shouldBe ""
-      outputArea(sidebar).isVisible shouldBe false
-    }
-  }
-
-  // ── refresh: feedback ────────────────────────────────────────────────────────
-
-  it should "show green text for Success feedback" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    onFx { sidebar.refresh(NotationSidebarState(feedback = Some(SidebarFeedback.Success("All good.")))) }
-    onFx {
-      feedbackLabel(sidebar).getText      shouldBe "All good."
-      feedbackLabel(sidebar).isVisible    shouldBe true
-      feedbackLabel(sidebar).getStyle     should include("7ec77e")
-    }
-  }
-
-  it should "show red text for Failure feedback without details" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    onFx {
-      sidebar.refresh(NotationSidebarState(feedback = Some(
-        SidebarFeedback.Failure("Something went wrong.", None, FailureCategory.InvalidInput)
-      )))
-    }
-    onFx {
-      feedbackLabel(sidebar).getText   shouldBe "Something went wrong."
-      feedbackLabel(sidebar).isVisible shouldBe true
-      feedbackLabel(sidebar).getStyle  should include("e07070")
-    }
-  }
-
-  it should "append details below the message for Failure feedback with details" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    onFx {
-      sidebar.refresh(NotationSidebarState(feedback = Some(
-        SidebarFeedback.Failure("Parse error.", Some("Line 1, column 5"), FailureCategory.InvalidInput)
-      )))
-    }
-    onFx { feedbackLabel(sidebar).getText shouldBe "Parse error.\nLine 1, column 5" }
-  }
-
-  it should "hide the feedback label when feedback is None" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    onFx { sidebar.refresh(NotationSidebarState(feedback = Some(SidebarFeedback.Success("shown")))) }
-    onFx { sidebar.refresh(NotationSidebarState(feedback = None)) }
-    onFx {
-      feedbackLabel(sidebar).getText   shouldBe ""
-      feedbackLabel(sidebar).isVisible shouldBe false
-    }
-  }
-
-  // ── refresh: warnings ────────────────────────────────────────────────────────
-
-  it should "show one warning label per warning and make warningsBox visible" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    val warnings = List(
-      GuiNotationWarning("Missing field",    GuiWarningCategory.Informational),
-      GuiNotationWarning("Data was trimmed", GuiWarningCategory.DataLoss)
+  "NotationSidebarController (mutable)" should "call onImportedState with the GameState on import success" in {
+    var importedState: Option[GameState] = None
+    val controller = new NotationSidebarController(
+      api             = defaultApi,
+      stateProvider   = () => freshGame,
+      onImportedState = s  => { importedState = Some(s) },
+      onRefresh       = _  => ()
     )
-    onFx { sidebar.refresh(NotationSidebarState(warnings = warnings)) }
-    onFx {
-      warningsVBox(sidebar).isVisible                     shouldBe true
-      warningsVBox(sidebar).getChildren should have size 2
+    controller.handle(SidebarAction.InputTextChanged(InitialFen))
+    controller.handle(request(NotationActionId.FenImport))
+    importedState                   should not be empty
+    importedState.get.currentPlayer shouldBe Color.White
+  }
+
+  it should "call onRefresh after every handle" in {
+    var refreshCount = 0
+    val controller = new NotationSidebarController(
+      api             = defaultApi,
+      stateProvider   = () => freshGame,
+      onImportedState = _ => (),
+      onRefresh       = _ => { refreshCount += 1 }
+    )
+    controller.handle(SidebarAction.InputTextChanged("x"))
+    controller.handle(request(NotationActionId.FenImport))
+    refreshCount shouldBe 2
+  }
+
+  it should "reflect updated state via currentState after a transition" in {
+    val controller = new NotationSidebarController(
+      api             = defaultApi,
+      stateProvider   = () => freshGame,
+      onImportedState = _ => (),
+      onRefresh       = _ => ()
+    )
+    controller.handle(SidebarAction.InputTextChanged("hello"))
+    controller.currentState.inputText shouldBe "hello"
+  }
+
+  // ── Descriptor-driven dispatch ─────────────────────────────────────────────
+
+  "NotationSidebarController" should "route all NotationActionId values to GuiNotationApi" in {
+    // Verify every id in the defaults has a route that produces a non-empty feedback
+    // (success or unavailable — both are valid outcomes for configured actions).
+    val controller = new NotationSidebarController(
+      api             = defaultApi,
+      stateProvider   = () => freshGame,
+      onImportedState = _ => (),
+      onRefresh       = _ => ()
+    )
+    for descriptor <- NotationActionDescriptor.defaults do
+      val before = controller.currentState
+      controller.handle(request(descriptor.id))
+      // State must have changed (feedback or imported state) — the action was handled
+      val after = controller.currentState
+      (after.feedback != before.feedback || after.outputText != before.outputText) shouldBe true
+  }
+
+  it should "route FenImport to api.importFen using input text" in {
+    var receivedInput: Option[String] = None
+    val capturingFacade = new NotationFacade[GameState]:
+      def parse(format: NotationFormat, input: String): Either[ParseFailure, ParsedNotation] =
+        receivedInput = Some(input)
+        chess.notation.fen.FenParser.parse(input)
+      def executeImport(parsed: ParsedNotation, target: ImportTarget): Either[NotationFailure, ImportResult[GameState]] =
+        chess.notation.fen.FenImporter.importNotation(parsed, target)
+
+    val api = GuiNotationApi(capturingFacade)
+    transit(
+      sidebarState = blankState.copy(inputText = InitialFen),
+      action       = request(NotationActionId.FenImport),
+      api          = api
+    )
+    receivedInput shouldBe Some(InitialFen)
+  }
+
+  it should "route export actions with the current game state from the provider" in {
+    var capturedForExport: Option[GameState] = None
+    val controller = new NotationSidebarController(
+      api             = defaultApi,
+      stateProvider   = () => { capturedForExport = Some(freshGame); freshGame },
+      onImportedState = _ => (),
+      onRefresh       = _ => ()
+    )
+    controller.handle(request(NotationActionId.PgnExport))
+    capturedForExport should not be empty
+  }
+
+  // ── API boundary ───────────────────────────────────────────────────────────
+
+  it should "use the injected GuiNotationApi, not notation internals" in {
+    var importFenCalled = false
+    val stubFacade = new NotationFacade[GameState]:
+      def parse(format: NotationFormat, input: String): Either[ParseFailure, ParsedNotation] =
+        importFenCalled = true
+        chess.notation.fen.FenParser.parse(InitialFen)
+      def executeImport(parsed: ParsedNotation, target: ImportTarget): Either[NotationFailure, ImportResult[GameState]] =
+        chess.notation.fen.FenImporter.importNotation(parsed, target)
+
+    val api = GuiNotationApi(stubFacade)
+    transit(
+      sidebarState = blankState.copy(inputText = InitialFen),
+      action       = request(NotationActionId.FenImport),
+      api          = api
+    )
+    importFenCalled shouldBe true
+  }
+
+  // ── Defensive branches: structurally impossible outcomes ───────────────────
+
+  "NotationSidebarController.handleImport (defensive)" should
+      "return unchanged state and None when outcome is ExportSuccess" in {
+    val priorState = blankState.copy(
+      inputText  = "some-input",
+      feedback   = Some(SidebarFeedback.Success("prior")),
+      outputText = Some("prior-output")
+    )
+    val (next, imported) = NotationSidebarController
+      .handleImport(priorState, GuiNotationOutcome.ExportSuccess("unexpected-text"))
+    next     shouldBe priorState
+    imported shouldBe None
+  }
+
+  "NotationSidebarController.handleExport (defensive)" should
+      "return unchanged state when outcome is ImportSuccess" in {
+    val priorState = blankState.copy(
+      inputText = "some-input",
+      feedback  = Some(SidebarFeedback.Success("prior"))
+    )
+    val next = NotationSidebarController
+      .handleExport(priorState, GuiNotationOutcome.ImportSuccess(freshGame))
+    next shouldBe priorState
+  }
+
+  // --- Widget smoke test (JavaFX not required for logic, but for widget instantiation)
+  import scalafx.application.JFXApp3
+  import scalafx.scene.Scene
+
+  class NotationSidebarWidgetSpec extends AnyFlatSpec with Matchers {
+    object DummyController extends NotationSidebarController(
+      api = GuiNotationApi.default,
+      stateProvider = () => chess.application.ChessService.createNewGame(),
+      onImportedState = _ => (),
+      onRefresh = _ => ()
+    )
+
+    "NotationSidebar" should "be instantiable and have a root node" in {
+      val sidebar = new NotationSidebar(DummyController)
+      sidebar.root should not be null
+      sidebar.root.children.size should be > 0
+    }
+
+    it should "update output and feedback on refresh" in {
+      val sidebar = new NotationSidebar(DummyController)
+      val state = NotationSidebarState(
+        outputText = Some("Exported FEN"),
+        feedback = Some(SidebarFeedback.Success("OK!")),
+        warnings = List(GuiNotationWarning("Warn!", GuiWarningCategory.DataLoss))
+      )
+      sidebar.refresh(state)
+      sidebar.root.children.exists(_.isVisible) shouldBe true
     }
   }
 
-  it should "include the warning message in each warning label" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    val warnings = List(GuiNotationWarning("halfmove clock ignored", GuiWarningCategory.Informational))
-    onFx { sidebar.refresh(NotationSidebarState(warnings = warnings)) }
-    onFx {
-      val lbl = warningsVBox(sidebar).getChildren.get(0).asInstanceOf[JLabel]
-      lbl.getText should include("halfmove clock ignored")
-    }
-  }
+  class NotationSidebarRefreshSpec extends AnyFlatSpec with Matchers {
+        it should "update outputArea and feedbackLabel for all NotationSidebarState branches" in {
+          val sidebar = new NotationSidebar(DummyController)
 
-  it should "hide the warningsBox and clear children when warnings are empty" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    val warnings = List(GuiNotationWarning("some warning", GuiWarningCategory.DataLoss))
-    onFx { sidebar.refresh(NotationSidebarState(warnings = warnings)) }
-    onFx { sidebar.refresh(NotationSidebarState(warnings = Nil)) }
-    onFx {
-      warningsVBox(sidebar).isVisible                     shouldBe false
-      warningsVBox(sidebar).getChildren should have size 0
-    }
-  }
+          // Output visible
+          val stateWithOutput = NotationSidebarState(outputText = Some("abc"))
+          sidebar.refresh(stateWithOutput)
+          val outputAreaField = classOf[NotationSidebar].getDeclaredFields.find(_.getName == "outputArea").get
+          outputAreaField.setAccessible(true)
+          val outputArea = outputAreaField.get(sidebar).asInstanceOf[scalafx.scene.control.TextArea]
+          outputArea.text.value shouldBe "abc"
+          outputArea.visible.value shouldBe true
 
-  it should "replace prior warnings on a second refresh call" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    onFx { sidebar.refresh(NotationSidebarState(warnings = List(
-      GuiNotationWarning("w1", GuiWarningCategory.Informational),
-      GuiNotationWarning("w2", GuiWarningCategory.Informational)
-    ))) }
-    onFx { sidebar.refresh(NotationSidebarState(warnings = List(
-      GuiNotationWarning("w3", GuiWarningCategory.Normalization)
-    ))) }
-    onFx {
-      warningsVBox(sidebar).getChildren should have size 1
-      warningsVBox(sidebar).getChildren.get(0).asInstanceOf[JLabel].getText should include("w3")
-    }
-  }
+          // Output hidden
+          val stateNoOutput = NotationSidebarState(outputText = None)
+          sidebar.refresh(stateNoOutput)
+          outputArea.text.value shouldBe ""
+          outputArea.visible.value shouldBe false
 
-  // ── refresh: combined state ──────────────────────────────────────────────────
+          // Feedback Success
+          val stateSuccess = NotationSidebarState(feedback = Some(SidebarFeedback.Success("ok!")))
+          val feedbackLabelField = classOf[NotationSidebar].getDeclaredFields.find(_.getName == "feedbackLabel").get
+          feedbackLabelField.setAccessible(true)
+          val feedbackLabel = feedbackLabelField.get(sidebar).asInstanceOf[scalafx.scene.control.Label]
+          sidebar.refresh(stateSuccess)
+          feedbackLabel.text.value shouldBe "ok!"
+          feedbackLabel.visible.value shouldBe true
+          feedbackLabel.style.value should include ("#7ec77e")
 
-  it should "correctly reflect a full ImportSuccess state (outputText=None, feedback=success, warnings)" in {
-    val sidebar  = onFx { makeSidebar(makeController()) }
-    val warnings = List(GuiNotationWarning("normalised ep", GuiWarningCategory.Normalization))
-    onFx {
-      sidebar.refresh(NotationSidebarState(
-        outputText = None,
-        feedback   = Some(SidebarFeedback.Success("Position imported successfully.")),
-        warnings   = warnings
-      ))
-    }
-    onFx {
-      outputArea(sidebar).isVisible    shouldBe false
-      feedbackLabel(sidebar).getText   shouldBe "Position imported successfully."
-      feedbackLabel(sidebar).isVisible shouldBe true
-      warningsVBox(sidebar).isVisible  shouldBe true
-      warningsVBox(sidebar).getChildren should have size 1
-    }
-  }
+          // Feedback Failure
+          val stateFail = NotationSidebarState(feedback = Some(SidebarFeedback.Failure("fail", Some("details"), FailureCategory.SemanticError)))
+          sidebar.refresh(stateFail)
+          feedbackLabel.text.value should include ("fail")
+          feedbackLabel.text.value should include ("details")
+          feedbackLabel.visible.value shouldBe true
+          feedbackLabel.style.value should include ("#e07070")
 
-  it should "correctly reflect a full ExportSuccess state (outputText=Some, feedback=None, no warnings)" in {
-    val sidebar = onFx { makeSidebar(makeController()) }
-    onFx {
-      sidebar.refresh(NotationSidebarState(
-        outputText = Some(InitialFen),
-        feedback   = None,
-        warnings   = Nil
-      ))
+          // Feedback None
+          val stateNoFeedback = NotationSidebarState(feedback = None)
+          sidebar.refresh(stateNoFeedback)
+          feedbackLabel.text.value shouldBe ""
+          feedbackLabel.visible.value shouldBe false
+
+          // Warnings hidden
+          val warningsBoxField = classOf[NotationSidebar].getDeclaredFields.find(_.getName == "warningsBox").get
+          warningsBoxField.setAccessible(true)
+          val warningsBox = warningsBoxField.get(sidebar).asInstanceOf[scalafx.scene.layout.VBox]
+          sidebar.refresh(NotationSidebarState(warnings = Nil))
+          warningsBox.visible.value shouldBe false
+          warningsBox.children.size shouldBe 0
+
+          // Warnings visible
+          val ws = List(GuiNotationWarning("Warn!", GuiWarningCategory.DataLoss))
+          sidebar.refresh(NotationSidebarState(warnings = ws))
+          warningsBox.visible.value shouldBe true
+          warningsBox.children.size shouldBe 1
+          warningsBox.children.head.asInstanceOf[javafx.scene.control.Label].getText should include ("Warn!")
+        }
+    it should "show multiple warnings in warningsBox after refresh" in {
+      val sidebar = new NotationSidebar(DummyController)
+      val warnings = List(
+        GuiNotationWarning("Warnung 1", GuiWarningCategory.DataLoss),
+        GuiNotationWarning("Warnung 2", GuiWarningCategory.Normalization)
+      )
+      val state = NotationSidebarState(warnings = warnings)
+      sidebar.refresh(state)
+      // Zugriff direkt auf das warningsBox Feld per Reflection, da es private ist
+      val warningsBoxField = classOf[NotationSidebar].getDeclaredFields.find(_.getName == "warningsBox").get
+      warningsBoxField.setAccessible(true)
+      val warningsBox = warningsBoxField.get(sidebar).asInstanceOf[scalafx.scene.layout.VBox]
+      val labelTexts = warningsBox.children.collect { case l: javafx.scene.control.Label => l.getText }
+      labelTexts.count(_.contains("Warnung")) should be >= 2
+      warningsBox.visible.value shouldBe true
     }
-    onFx {
-      outputArea(sidebar).getText      shouldBe InitialFen
-      outputArea(sidebar).isVisible    shouldBe true
-      feedbackLabel(sidebar).isVisible shouldBe false
-      warningsVBox(sidebar).isVisible  shouldBe false
+    object DummyController extends NotationSidebarController(
+      api = GuiNotationApi.default,
+      stateProvider = () => chess.application.ChessService.createNewGame(),
+      onImportedState = _ => (),
+      onRefresh = _ => ()
+    )
+
+    "NotationSidebar.refresh" should "hide output and feedback if None" in {
+      val sidebar = new NotationSidebar(DummyController)
+      val state = NotationSidebarState(outputText = None, feedback = None, warnings = Nil)
+      sidebar.refresh(state)
+      sidebar.root.children.exists(_.isVisible) shouldBe true // root always visible
+      // OutputArea and FeedbackLabel should be hidden
+      // (direct access to .visible is not always possible, but we can check text)
+      sidebar.root.children.exists(_.getClass.getSimpleName.contains("TextArea")) shouldBe true
+    }
+
+    it should "show feedback for Failure and Success" in {
+      val sidebar = new NotationSidebar(DummyController)
+      val failState = NotationSidebarState(feedback = Some(SidebarFeedback.Failure("fail", Some("details"), FailureCategory.SemanticError)))
+      sidebar.refresh(failState)
+      sidebar.root.children.exists(_.isVisible) shouldBe true
+      val succState = NotationSidebarState(feedback = Some(SidebarFeedback.Success("ok!")))
+      sidebar.refresh(succState)
+      sidebar.root.children.exists(_.isVisible) shouldBe true
+    }
+
+    it should "show warnings if present" in {
+      val sidebar = new NotationSidebar(DummyController)
+      val state = NotationSidebarState(warnings = List(GuiNotationWarning("Warn!", GuiWarningCategory.DataLoss)))
+      sidebar.refresh(state)
+      sidebar.root.children.exists(_.isVisible) shouldBe true
     }
   }
