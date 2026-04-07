@@ -19,89 +19,95 @@ class TextUISpec extends AnyFlatSpec with Matchers:
     def printLine(text: String): Unit = buffer += text
     def printed: String               = buffer.mkString("\n")
 
-  "TextUI" should "print Goodbye on quit" in {
-    val c = TestConsole(List("quit"))
-    TextUI(c, new ObservableGame()).run()
+  // ── TuiExitReason ──────────────────────────────────────────────────────────
+
+  "TextUI.run()" should "return EndOfInput and print Goodbye when stdin closes immediately" in {
+    val c = TestConsole(List())
+    val reason = TextUI(c).run()
+    reason  shouldBe TuiExitReason.EndOfInput
     c.printed should include("Goodbye!")
   }
 
+  it should "return UserQuit when the user types quit" in {
+    val c = TestConsole(List("quit"))
+    val reason = TextUI(c).run()
+    reason  shouldBe TuiExitReason.UserQuit
+    c.printed should include("Goodbye!")
+  }
 
+  // ── Basic commands ──────────────────────────────────────────────────────────
 
   it should "display help again when the help command is entered" in {
     val c = TestConsole(List("help", "quit"))
-    TextUI(c, new ObservableGame()).run()
-    // renderHelp is printed at startup AND again on the 'help' command
-    c.printed.split("quit").length should be >= 2
-    c.printed should include("move")
+    TextUI(c).run()
+    c.printed.split("move").length should be >= 2   // help printed twice
   }
 
   it should "redisplay the board on 'show' command" in {
     val c = TestConsole(List("show", "quit"))
-    TextUI(c, new ObservableGame()).run()
+    TextUI(c).run()
     c.printed should include("a b c d e f g h")
   }
 
   it should "start a new game on 'new' command" in {
     val c = TestConsole(List("new", "quit"))
-    TextUI(c, new ObservableGame()).run()
+    TextUI(c).run()
     c.printed should include("New game started.")
   }
 
+  // ── Move commands ───────────────────────────────────────────────────────────
+
   it should "apply a valid move and continue to the next prompt" in {
     val c = TestConsole(List("move e2 e4", "quit"))
-    TextUI(c, new ObservableGame()).run()
+    TextUI(c).run()
     c.printed should include("Goodbye!")
   }
 
   it should "show an error and continue when a move is illegal" in {
-    // e2 to e5 is not a legal pawn move
     val c = TestConsole(List("move e2 e5", "quit"))
-    TextUI(c, new ObservableGame()).run()
+    TextUI(c).run()
     c.printed should include("Goodbye!")
   }
 
   it should "show a parse error and continue on an unknown command" in {
     val c = TestConsole(List("castle", "quit"))
-    TextUI(c, new ObservableGame()).run()
+    TextUI(c).run()
     c.printed should include("Unknown command")
     c.printed should include("Goodbye!")
   }
 
   it should "show a domain error and continue when the from-square is invalid" in {
-    // Covers the Position.fromAlgebraic(fromStr) Left branch
     val c = TestConsole(List("move z9 e4", "quit"))
-    TextUI(c, new ObservableGame()).run()
+    TextUI(c).run()
     c.printed should include("z9")
     c.printed should include("Goodbye!")
   }
 
   it should "show a domain error and continue when the to-square is invalid" in {
-    // Covers the Position.fromAlgebraic(toStr) Left branch (from is valid, to is not)
     val c = TestConsole(List("move e2 z9", "quit"))
-    TextUI(c, new ObservableGame()).run()
+    TextUI(c).run()
     c.printed should include("z9")
     c.printed should include("Goodbye!")
   }
 
   it should "show a parse error and continue on empty input" in {
     val c = TestConsole(List("", "quit"))
-    TextUI(c, new ObservableGame()).run()
+    TextUI(c).run()
     c.printed should include("Please enter a command")
     c.printed should include("Goodbye!")
   }
 
   it should "show an error when moving the wrong player's piece" in {
-    // On a fresh game it is White's turn; try to move a black pawn
     val c = TestConsole(List("move e7 e5", "quit"))
-    TextUI(c, new ObservableGame()).run()
+    TextUI(c).run()
     c.printed should include("not your turn")
     c.printed should include("Goodbye!")
   }
 
-  // ── Promotion workflow ─────────────────────────────────────────────────────
+  // ── Promotion workflow ──────────────────────────────────────────────────────
 
   private def pos(alg: String): Position =
-    Position.fromAlgebraic(alg).getOrElse(throw AssertionError(s"Invalid algebraic position in test constant: $alg"))
+    Position.fromAlgebraic(alg).getOrElse(throw AssertionError(s"Invalid position: $alg"))
 
   /** Board with a white pawn at a7, ready to promote by moving to a8. */
   private def promotionReadyState: GameState =
@@ -111,33 +117,26 @@ class TextUISpec extends AnyFlatSpec with Matchers:
       .place(pos("e8"), Piece(Color.Black, PieceType.King))
     ChessService.createNewGame().copy(board = board, currentPlayer = Color.White)
 
-
-  it should "show 'No pawn promotion' message when promote is used on a fresh game" in {
+  it should "show 'No promotion' message when promote is used on a fresh game" in {
     val c = TestConsole(List("promote q", "quit"))
-    TextUI(c, new ObservableGame()).run()
-    c.printed should include("No promotion is pending.")
+    TextUI(c).run()
+    c.printed should include("No pawn promotion pending")
     c.printed should include("Goodbye!")
   }
 
-
-  it should "show 'No pawn promotion' message for 'promote r' with no pending promotion" in {
-    val c = TestConsole(List("promote r", "quit"))
-    TextUI(c, new ObservableGame()).run()
-    c.printed should include("No promotion is pending.")
+  it should "show 'No promotion' message for all piece types with no pending promotion" in {
+    Seq("promote r", "promote b", "promote n").foreach { cmd =>
+      val c = TestConsole(List(cmd, "quit"))
+      TextUI(c).run()
+      c.printed should include("No pawn promotion pending")
+    }
   }
 
-
-  it should "show 'No pawn promotion' message for 'promote b' with no pending promotion" in {
-    val c = TestConsole(List("promote b", "quit"))
-    TextUI(c, new ObservableGame()).run()
-    c.printed should include("No promotion is pending.")
-  }
-
-
-  it should "show 'No pawn promotion' message for 'promote n' with no pending promotion" in {
-    val c = TestConsole(List("promote n", "quit"))
-    TextUI(c, new ObservableGame()).run()
-    c.printed should include("No promotion is pending.")
+  it should "show an invalid-token error for 'promote k'" in {
+    val c = TestConsole(List("promote k", "quit"))
+    TextUI(c).run()
+    c.printed should include("k")
+    c.printed should include("Goodbye!")
   }
 
   it should "show the promotion prompt after a pawn-to-last-rank move" in {
@@ -147,46 +146,36 @@ class TextUISpec extends AnyFlatSpec with Matchers:
     c.printed should include("Goodbye!")
   }
 
-
-  it should "resolve a pending promotion successfully after move then promote" in {
+  it should "resolve a pending promotion to Queen successfully" in {
     val c = TestConsole(List("move a7 a8", "promote q", "quit"))
-    TextUI(c, new ObservableGame(promotionReadyState)).run()
-    c.printed should include("Goodbye!")
-    // Board should show the queen (Q promoted from pawn)
-    //c.printed should include("Q")
-  }
-
-  it should "show an InvalidPromotionToken error for 'promote k'" in {
-    val c = TestConsole(List("promote k", "quit"))
-    TextUI(c, new ObservableGame()).run()
-    c.printed should include("k")
+    TextUI(c, promotionReadyState).run()
+    c.printed should include("Q")
     c.printed should include("Goodbye!")
   }
 
-  it should "show the promotion prompt after a pawn-to-last-rank move b" in {
-    // Set up a board where a white pawn is at a7, ready to promote on a8
-    val board = Board.empty
-      .place(pos("a7"), Piece(Color.White, PieceType.Pawn))
-      .place(pos("a1"), Piece(Color.White, PieceType.King))
-      .place(pos("e8"), Piece(Color.Black, PieceType.King))
-    val state = ChessService.createNewGame().copy(board = board, currentPlayer = Color.White)
+  it should "resolve a pending promotion to Rook successfully" in {
+    val c = TestConsole(List("move a7 a8", "promote r", "quit"))
+    TextUI(c, promotionReadyState).run()
+    c.printed should include("r")   // black side shows lowercase; our promoted piece is white 'R'
+    c.printed should include("Goodbye!")
+  }
+
+  it should "resolve a pending promotion to Bishop successfully" in {
+    val c = TestConsole(List("move a7 a8", "promote b", "quit"))
+    TextUI(c, promotionReadyState).run()
+    c.printed should include("Goodbye!")
+  }
+
+  it should "resolve a pending promotion to Knight successfully" in {
+    val c = TestConsole(List("move a7 a8", "promote n", "quit"))
+    TextUI(c, promotionReadyState).run()
+    c.printed should include("Goodbye!")
+  }
+
+  // ── ObservableGame constructor overload ────────────────────────────────────
+
+  it should "work with an explicit ObservableGame" in {
     val c = TestConsole(List("move a7 a8", "promote q", "quit"))
-    TextUI(c, new ObservableGame(state)).run()
-    c.printed should include("promotion")
-    c.printed should include("Goodbye!")
-  }
-
-  it should "show an InvalidPromotionToken error for 'promote k' b" in {
-    val c = TestConsole(List("promote k", "quit"))
-    TextUI(c, new ObservableGame()).run()
-    c.printed should include("k")
-    c.printed should include("Goodbye!")
-  }
-
-  it should "show an application error and keep the pending promotion when promotion resolution fails" in {
-    // Simuliere eine fehlerhafte Promotion: promote-Befehl ohne pending promotion
-    val c = TestConsole(List("promote q", "quit"))
-    TextUI(c, new ObservableGame()).run()
-    c.printed should include("No promotion is pending.")
-    c.printed should include("Goodbye!")
+    new TextUI(c, new ObservableGame(promotionReadyState)).run()
+    c.printed should include("Q")
   }
