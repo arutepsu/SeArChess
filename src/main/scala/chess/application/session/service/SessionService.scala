@@ -71,6 +71,23 @@ class SessionService(repository: SessionRepository):
       _       <- save(updated)
     yield updated
 
+  /** Signal that the session is paused waiting for a promotion piece choice.
+   *
+   *  Call this when the application detects that the current player's pawn has
+   *  reached the back rank and no promotion piece has been chosen yet.
+   *  Transitions the session from [[SessionLifecycle.Active]] to
+   *  [[SessionLifecycle.AwaitingPromotion]] and persists the change.
+   *
+   *  The transition is validated by [[chess.application.session.policy.SessionLifecyclePolicy]];
+   *  calling this from a non-[[SessionLifecycle.Active]] session will return
+   *  [[SessionError.InvalidLifecycleTransition]].
+   */
+  def preparePromotion(
+    sessionId: SessionId,
+    now:       Instant = Instant.now()
+  ): Either[SessionError, GameSession] =
+    updateLifecycle(sessionId, SessionLifecycle.AwaitingPromotion, now)
+
   /** Return the [[SideController]] responsible for the given [[Color]].
    *
    *  Pure lookup — does not touch the repository.
@@ -142,10 +159,17 @@ class SessionService(repository: SessionRepository):
     if ActorControlPolicy.canAct(session, requesting, sideToMove) then Right(())
     else Left(SessionMoveError.UnauthorizedController(requesting, sideToMove))
 
-  /** After a successful move, auto-transition to Finished if the game ended.
-   *  Otherwise return the session unchanged.  Lifecycle management for
-   *  non-terminal transitions (e.g. Active → AwaitingPromotion) is the
-   *  caller's responsibility.
+  /** After a successful move, determine and persist the correct next lifecycle phase.
+   *
+   *  Transition table:
+   *  - Any lifecycle  + terminal game (checkmate/draw)  → [[SessionLifecycle.Finished]]
+   *  - [[SessionLifecycle.Created]]          + non-terminal → [[SessionLifecycle.Active]]
+   *    (first move activates the session)
+   *  - [[SessionLifecycle.AwaitingPromotion]] + non-terminal → [[SessionLifecycle.Active]]
+   *    (promotion choice was just supplied; resume normal play)
+   *  - [[SessionLifecycle.Active]]           + non-terminal → no change (no persist needed)
+   *
+   *  All transitions are validated by [[SessionLifecyclePolicy]] inside [[updateLifecycle]].
    */
   private def persistPostMoveLifecycle(
     session:   GameSession,
@@ -156,8 +180,15 @@ class SessionService(repository: SessionRepository):
       case GameStatus.Checkmate(_) | GameStatus.Draw(_) => true
       case _                                            => false
 
-    if !isTerminal then Right((nextState, session))
-    else
-      updateLifecycle(session.sessionId, SessionLifecycle.Finished, now)
-        .left.map(SessionMoveError.PersistenceFailed(_))
-        .map(finished => (nextState, finished))
+    val nextLifecycle: Option[SessionLifecycle] = (session.lifecycle, isTerminal) match
+      case (_, true)                                   => Some(SessionLifecycle.Finished)
+      case (SessionLifecycle.Created, false)           => Some(SessionLifecycle.Active)
+      case (SessionLifecycle.AwaitingPromotion, false) => Some(SessionLifecycle.Active)
+      case _                                           => None  // Active → Active: no change needed
+
+    nextLifecycle match
+      case None       => Right((nextState, session))
+      case Some(next) =>
+        updateLifecycle(session.sessionId, next, now)
+          .left.map(SessionMoveError.PersistenceFailed(_))
+          .map(updated => (nextState, updated))

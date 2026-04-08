@@ -8,6 +8,10 @@ import chess.adapter.gui.input.InputAction
 import chess.adapter.gui.notation.{GuiNotationApi, NotationSidebar, NotationSidebarController}
 import chess.adapter.gui.render.{BoardRenderer, MoveHistoryPanel, PromotionOverlay, StaticPieceOverlayRenderer, StatusRenderer}
 import chess.adapter.gui.viewmodel.{GameViewModel, MoveHistoryViewModelMapper}
+import chess.adapter.repository.InMemorySessionRepository
+import chess.application.session.model.{SessionMode, SideController}
+import chess.application.session.model.SessionIds.GameId
+import chess.application.session.service.SessionService
 import chess.domain.state.GameState
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.Scene
@@ -30,7 +34,23 @@ class ChessScene(game: chess.application.ObservableGame):
   private val mapper = new AnimationPresentationMapper(metaRepo, playbackRepo)
   private val runner = new AnimationRunner(onAnimationFrame, onAnimationComplete)
 
-  private val controller = new GameController(game, refresh, startAnimation)
+  // ── Session infrastructure for local GUI play ───────────────────────────────
+  //  Composed here; not pushed into the domain or application layers.
+  //  InMemorySessionRepository is intentionally local — replace with a durable
+  //  adapter when persistence across restarts becomes a requirement.
+
+  private val sessionRepo = new InMemorySessionRepository
+  private val sessionSvc  = new SessionService(sessionRepo)
+
+  /** Initial session for the current game, always in [[chess.application.session.model.SessionLifecycle.Created]].
+   *  Failure is unexpected from an in-memory store; we surface it immediately
+   *  rather than silently degrading to the session-unaware path.
+   */
+  private val initialSession = sessionSvc
+    .createSession(GameId.random(), SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal)
+    .fold(err => throw RuntimeException(s"[ChessScene] Failed to create initial session: $err"), identity)
+
+  private val controller = new GameController(game, refresh, startAnimation, Some(sessionSvc), Some(initialSession))
   private var vm: GameViewModel = controller.currentViewModel
 
   private val boardGrid          = BoardRenderer.create(vm, handle, factory)
