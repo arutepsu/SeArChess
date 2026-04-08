@@ -185,20 +185,20 @@ class PgnImporterSpec extends AnyFlatSpec with Matchers with EitherValues with O
 
   // ── SAN capture enforcement ───────────────────────────────────────────────────
 
-  // After 1.e4 e5 2.Nf3 Nc6 3.Bc4 Nf6 4.Ng5, the only white piece that can
-  // reach h7 is Ng5 — and that move IS a capture (black pawn on h7).
+  // After 1.e4 e5 2.Nf3 Nc6 3.Bc4 Nf6 4.Ng5 d5 (8 tokens), it is White's turn.
+  // White's knight on g5 can reach h7 only as a capture (Black h-pawn is there).
   // SAN without 'x' must therefore be rejected; SAN with 'x' must succeed.
 
   it should "reject a non-capture SAN token when the only legal move to that square is a capture" in {
-    // Build position: 1. e4 e5 2. Nf3 Nc6 3. Bc4 Nf6 4. Ng5 (Fried Liver Attack setup)
-    val setupTokens = Vector("e4", "e5", "Nf3", "Nc6", "Bc4", "Nf6", "Ng5")
+    // 8 tokens → White's 5th move. Ng5 to h7 is a capture-only move.
+    val setupTokens = Vector("e4", "e5", "Nf3", "Nc6", "Bc4", "Nf6", "Ng5", "d5")
     val pgn = ParsedNotation.ParsedPgn("", PgnData(Map.empty, setupTokens :+ "Nh7", None))
     val result = PgnNotationFacade.executeImport(pgn, ImportTarget.GameTarget)
     result.left.value shouldBe a[ValidationFailure]
   }
 
   it should "accept the capture SAN token when the move is a genuine capture" in {
-    val tokens = Vector("e4", "e5", "Nf3", "Nc6", "Bc4", "Nf6", "Ng5", "Nxh7")
+    val tokens = Vector("e4", "e5", "Nf3", "Nc6", "Bc4", "Nf6", "Ng5", "d5", "Nxh7")
     val pgn    = ParsedNotation.ParsedPgn("", PgnData(Map.empty, tokens, None))
     val result = PgnNotationFacade.executeImport(pgn, ImportTarget.GameTarget)
     result.value shouldBe a[ImportResult.GameImportResult[?]]

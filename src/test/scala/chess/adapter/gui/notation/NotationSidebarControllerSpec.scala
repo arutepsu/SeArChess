@@ -119,14 +119,23 @@ class NotationSidebarControllerSpec extends AnyFlatSpec with Matchers:
     called shouldBe false
   }
 
-  // ── PGN import: unavailable ────────────────────────────────────────────────
+  // ── PGN import ───────────────────────────────────────────────────────────────
 
-  it should "return UnavailableFeature failure and None for PgnImport" in {
+  it should "return InvalidInput failure and None for PgnImport with empty text" in {
+    // blankState has inputText = "" — PGN parsing fails with ParseFailure
     val (next, importedOpt) = transit(action = request(NotationActionId.PgnImport))
     importedOpt shouldBe None
     next.feedback should matchPattern {
-      case Some(SidebarFeedback.Failure(_, _, FailureCategory.UnavailableFeature)) =>
+      case Some(SidebarFeedback.Failure(_, _, FailureCategory.InvalidInput)) =>
     }
+  }
+
+  it should "return Some(GameState) and success feedback for a valid PGN import" in {
+    val withPgn = blankState.copy(inputText = "1. e4 e5 *")
+    val (next, importedOpt) = transit(sidebarState = withPgn, action = request(NotationActionId.PgnImport))
+    importedOpt should not be empty
+    importedOpt.get.currentPlayer shouldBe Color.White
+    next.feedback shouldBe Some(SidebarFeedback.Success("Position imported successfully."))
   }
 
   // ── FEN export: success ───────────────────────────────────────────────────
@@ -156,14 +165,18 @@ class NotationSidebarControllerSpec extends AnyFlatSpec with Matchers:
     capturedState.get   shouldBe freshGame
   }
 
-  // ── PGN export: unavailable ────────────────────────────────────────────────
+  // ── PGN export ───────────────────────────────────────────────────────────────
 
-  it should "return UnavailableFeature failure for PgnExport" in {
+  it should "populate outputText and return no feedback for PgnExport" in {
     val (next, importedOpt) = transit(action = request(NotationActionId.PgnExport))
-    importedOpt shouldBe None
-    next.feedback should matchPattern {
-      case Some(SidebarFeedback.Failure(_, _, FailureCategory.UnavailableFeature)) =>
-    }
+    importedOpt          shouldBe None
+    next.outputText      should not be empty
+    next.feedback        shouldBe None
+  }
+
+  it should "produce '*' result token for PgnExport of a new game" in {
+    val (next, _) = transit(action = request(NotationActionId.PgnExport))
+    next.outputText shouldBe Some("*")
   }
 
   // ── Mutable controller callbacks ───────────────────────────────────────────
