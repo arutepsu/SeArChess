@@ -142,13 +142,19 @@ class NotationSidebar(
         feedbackLabel.text    = ""
         feedbackLabel.visible = false
 
-    if state.warnings.isEmpty then
+    NotationSidebar.updateWarningsBox(warningsBox, state.warnings)
+
+
+object NotationSidebar:
+  // Workaround für Coverage: extrahiere das Warning-UI-Handling
+  private[notation] def updateWarningsBox(warningsBox: scalafx.scene.layout.VBox, warnings: List[GuiNotationWarning]): Unit =
+    if warnings.isEmpty then
       warningsBox.children.clear()
       warningsBox.visible = false
     else
       warningsBox.children.clear()
-      state.warnings.foreach { w =>
-        val lbl = new Label(s"⚠ ${w.message}"):
+      warnings.foreach { w =>
+        val lbl = new scalafx.scene.control.Label(s"⚠ ${w.message}"):
           wrapText = true
           maxWidth = Double.MaxValue
           style    = "-fx-font-size: 11; -fx-text-fill: #d4b44a;"

@@ -59,6 +59,65 @@ class JsonNotationFacadeSpec extends AnyFunSuite {
     assert(typeRes.isLeft && typeRes.left.get.contains("Unknown GameStatus type"))
   }
 
+  test("fromJsonEnPassantState wirft Exception bei fehlenden Feldern (getCause)") {
+    val fromJsonEnPassantStateMeth = JsonNotationFacade.getClass.getDeclaredMethod("fromJsonEnPassantState", classOf[ujson.Value])
+    fromJsonEnPassantStateMeth.setAccessible(true)
+    val json = ujson.Obj() // keine Felder
+    val thrown = intercept[java.lang.reflect.InvocationTargetException] {
+      fromJsonEnPassantStateMeth.invoke(JsonNotationFacade, json)
+    }
+    assert(thrown.getCause.isInstanceOf[NoSuchElementException])
+  }
+
+  test("fromJsonEnPassantState gibt Fehler bei ungültigem pawnColor") {
+    val fromJsonEnPassantStateMeth = JsonNotationFacade.getClass.getDeclaredMethod("fromJsonEnPassantState", classOf[ujson.Value])
+    fromJsonEnPassantStateMeth.setAccessible(true)
+    val json = ujson.Obj(
+      "targetSquare" -> ujson.Obj("file" -> 1, "rank" -> 2),
+      "capturablePawnSquare" -> ujson.Obj("file" -> 1, "rank" -> 3),
+      "pawnColor" -> "NoColor"
+    )
+    val res = fromJsonEnPassantStateMeth.invoke(JsonNotationFacade, json).asInstanceOf[Either[String, _]]
+    assert(res.isLeft)
+    assert(res.left.get.contains("Invalid pawnColor"))
+  }
+
+  test("PieceType.values.find: promotion None bei ungültigem promotion") {
+    val fromJsonMoveMeth = JsonNotationFacade.getClass.getDeclaredMethod("fromJsonMove", classOf[ujson.Value])
+    fromJsonMoveMeth.setAccessible(true)
+    val json = ujson.Obj(
+      "from" -> ujson.Obj("file" -> 1, "rank" -> 2),
+      "to" -> ujson.Obj("file" -> 1, "rank" -> 3),
+      "promotion" -> "NoPiece"
+    )
+    val res = fromJsonMoveMeth.invoke(JsonNotationFacade, json)
+    // Sollte ein Move mit promotion=None sein
+    assert(res.isInstanceOf[Right[_, _]])
+    val move = res.asInstanceOf[Right[_, chess.domain.model.Move]].value
+    assert(move.promotion.isEmpty)
+  }
+
+  test("Exception-Branch in fromJsonPosition wird abgedeckt") {
+    val fromJsonPositionMeth = JsonNotationFacade.getClass.getDeclaredMethod("fromJsonPosition", classOf[ujson.Value])
+    fromJsonPositionMeth.setAccessible(true)
+    val json = ujson.Obj("file" -> "notAnInt", "rank" -> 2)
+    val res = fromJsonPositionMeth.invoke(JsonNotationFacade, json).asInstanceOf[Either[String, _]]
+    assert(res.isLeft)
+    assert(res.left.get.contains("notAnInt"))
+  }
+
+  test("Fehleraggregation bei mehreren Fehlern (mindestens zwei)") {
+    val fromJsonBoardMeth = JsonNotationFacade.getClass.getDeclaredMethod("fromJsonBoard", classOf[ujson.Value])
+    fromJsonBoardMeth.setAccessible(true)
+    val arr = ujson.Arr(
+      ujson.Obj("pos" -> ujson.Obj("file" -> 1, "rank" -> 2), "piece" -> ujson.Obj("color" -> "NoColor", "pieceType" -> "NoPiece")),
+      ujson.Obj("pos" -> ujson.Obj("file" -> 1, "rank" -> 3), "piece" -> ujson.Obj("color" -> "NoColor", "pieceType" -> "NoPiece"))
+    )
+    val res = fromJsonBoardMeth.invoke(JsonNotationFacade, arr).asInstanceOf[Either[String, _]]
+    assert(res.isLeft)
+    assert(res.left.get.contains(", ")) // mehrere Fehler zusammengeführt
+  }
+
     test("parse returns error for unsupported format") {
       val res = JsonNotationFacade.parse(NotationFormat.PGN, "{}")
       assert(res.isLeft)
