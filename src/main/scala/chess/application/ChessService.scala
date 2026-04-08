@@ -3,7 +3,7 @@ package chess.application
 import chess.application.ApplicationError.*
 import chess.application.ChessCommand.*
 import chess.domain.error.DomainError
-import chess.domain.model.{Move, Position}
+import chess.domain.model.{Color, Move, PieceType, Position}
 import chess.domain.rules.GameStateRules
 import chess.domain.state.{GameState, GameStateFactory}
 
@@ -37,6 +37,24 @@ object ChessService:
    */
   def legalTargetsFrom(state: GameState, from: Position): Set[Position] =
     GameStateRules.legalTargetsFrom(state, from)
+
+  /** Returns `true` when the piece at `from` is a pawn belonging to the current
+   *  player that would reach the back rank by moving to `to`, requiring a
+   *  promotion piece before the move can be committed to the domain.
+   *
+   *  This is an application-layer fact derived from [[GameState]] structure.
+   *  It exists here so adapters and session services can detect the promotion-
+   *  pending condition without duplicating the rank/color check.
+   *
+   *  Does NOT call the domain rules engine; the check is a pure structural read.
+   */
+  def isPromotionPending(state: GameState, from: Position, to: Position): Boolean =
+    state.board.pieceAt(from).exists { piece =>
+      piece.pieceType == PieceType.Pawn &&
+        piece.color   == state.currentPlayer &&
+        ((piece.color == Color.White && to.rank == 7) ||
+         (piece.color == Color.Black && to.rank == 0))
+    }
 
   def handleCommand(state: GameState, command: ChessCommand): Either[ApplicationError, GameState] =
     command match

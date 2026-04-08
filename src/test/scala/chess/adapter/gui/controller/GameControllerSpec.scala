@@ -3,7 +3,11 @@ package chess.adapter.gui.controller
 import chess.adapter.gui.animation.AnimationPlan
 import chess.adapter.gui.input.InputAction
 import chess.adapter.gui.viewmodel.{GameViewModel, GameViewModelMapper, GuiState, PromotionViewModel}
+import chess.adapter.repository.InMemorySessionRepository
 import chess.application.{ChessService, ObservableGame}
+import chess.application.session.model.{SessionLifecycle, SessionMode, SideController}
+import chess.application.session.model.SessionIds.GameId
+import chess.application.session.service.SessionService
 import chess.domain.state.GameState
 import chess.domain.model.{Board, Color, DrawReason, GameStatus, Move, Piece, PieceType, Position}
 import org.scalatest.EitherValues
@@ -434,4 +438,89 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
     // Now load a fresh imported state — selection must be gone
     controller.loadGameState(freshState)
     controller.currentViewModel.guiState shouldBe GuiState.WaitingForSelection
+  }
+
+  // ── Session-aware path ─────────────────────────────────────────────────────
+
+  /** Build a session-aware GameController backed by an InMemorySessionRepository. */
+  private def sessionAwareController(): GameController =
+    val repo    = new InMemorySessionRepository
+    val service = new SessionService(repo)
+    val session = service
+      .createSession(GameId.random(), SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal)
+      .value
+    new GameController(new ObservableGame(), _ => (), _ => (), Some(service), Some(session))
+
+  "GameController (session-aware)" should "reset game state and view model on ResetClicked" in {
+    val ctrl = sessionAwareController()
+    // Advance to mid-game so state is non-initial
+    ctrl.handle(InputAction.SquareClicked(algPos("e2")))
+    ctrl.handle(InputAction.SquareClicked(algPos("e4")))
+    ctrl.completeAnimation()
+    ctrl.currentGameState.currentPlayer shouldBe Color.Black
+
+    ctrl.handle(InputAction.ResetClicked)
+    ctrl.currentGameState.currentPlayer shouldBe Color.White
+    ctrl.currentGameState.board         shouldBe Board.initial
+    ctrl.currentViewModel.guiState      shouldBe GuiState.WaitingForSelection
+  }
+
+  it should "allow moves after a session-aware reset" in {
+    val ctrl = sessionAwareController()
+    ctrl.handle(InputAction.ResetClicked)
+    // First move of the fresh game must go through the session-aware path
+    ctrl.handle(InputAction.SquareClicked(algPos("e2")))
+    ctrl.handle(InputAction.SquareClicked(algPos("e4")))
+    // Animating = move was accepted (not silently dropped)
+    ctrl.currentViewModel.guiState shouldBe GuiState.Animating
+  }
+
+  it should "route moves through session service and update game state" in {
+    val ctrl = sessionAwareController()
+    ctrl.handle(InputAction.SquareClicked(algPos("d2")))
+    ctrl.handle(InputAction.SquareClicked(algPos("d4")))
+    ctrl.completeAnimation()
+    ctrl.currentGameState.currentPlayer shouldBe Color.Black
+  }
+
+  // ── loadGameState: session-aware import ───────────────────────────────────
+
+  it should "allow moves after loadGameState with a non-terminal imported state" in {
+    val ctrl = sessionAwareController()
+    // Import a non-initial but ongoing position
+    val midGame = freshState.copy(currentPlayer = Color.Black)
+    ctrl.loadGameState(midGame)
+    ctrl.currentViewModel.guiState shouldBe GuiState.WaitingForSelection
+    // A Black move should be accepted (Active session, Black to move)
+    ctrl.handle(InputAction.SquareClicked(algPos("e7")))
+    ctrl.currentViewModel.guiState shouldBe a[GuiState.PieceSelected]
+  }
+
+  it should "settle to GameFinished after loadGameState with a terminal imported state" in {
+    val ctrl  = sessionAwareController()
+    val wK    = Piece(Color.White, PieceType.King)
+    val wQ    = Piece(Color.White, PieceType.Queen)
+    val wR    = Piece(Color.White, PieceType.Rook)
+    val bK    = Piece(Color.Black, PieceType.King)
+    val checkmateState = freshState.copy(
+      board         = Board.empty
+                        .place(algPos("a8"), bK)
+                        .place(algPos("a1"), wR)
+                        .place(algPos("b6"), wQ)
+                        .place(algPos("h1"), wK),
+      currentPlayer = Color.Black,
+      status        = GameStatus.Checkmate(Color.White)
+    )
+    ctrl.loadGameState(checkmateState)
+    ctrl.currentViewModel.guiState shouldBe GuiState.GameFinished(GameStatus.Checkmate(Color.White))
+  }
+
+  it should "allow moves after loadGameState followed by reset in session-aware mode" in {
+    val ctrl = sessionAwareController()
+    ctrl.loadGameState(freshState.copy(currentPlayer = Color.Black))
+    ctrl.handle(InputAction.ResetClicked)
+    ctrl.currentGameState.currentPlayer shouldBe Color.White
+    ctrl.handle(InputAction.SquareClicked(algPos("e2")))
+    ctrl.handle(InputAction.SquareClicked(algPos("e4")))
+    ctrl.currentViewModel.guiState shouldBe GuiState.Animating
   }
