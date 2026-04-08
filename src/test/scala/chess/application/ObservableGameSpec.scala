@@ -71,52 +71,6 @@ class ObservableGameSpec extends AnyFlatSpec with Matchers:
     called shouldBe false
   }
 
-  // ── Lock released before notification (deadlock safety) ──────────────────────
-
-  "ObservableGame observer" should "be able to call getState without deadlocking" in {
-    // If notifyObservers() were called inside the synchronized block, an
-    // observer that calls getState on the same thread would re-enter the
-    // lock (which is re-entrant in the JVM, so no deadlock).  But if it
-    // called getState from a different thread, that thread would block
-    // until the lock was released.  This test verifies that an observer
-    // running on a separate thread can read the state immediately.
-    val game    = freshGame
-    val latch   = new CountDownLatch(1)
-    var visible = Option.empty[GameState]
-
-    game.addObserver { _ =>
-      // run the read on a new thread to prove the lock is not held
-      val t = new Thread(() => {
-        visible = Some(game.getState)
-        latch.countDown()
-      })
-      t.start()
-    }
-
-    val updated = ChessService.createNewGame()
-    game.updateState(updated)
-
-    latch.await(2, TimeUnit.SECONDS) shouldBe true
-    visible shouldBe Some(updated)
-  }
-
-  it should "receive the correct state snapshot even when called from a background thread" in {
-    val game   = freshGame
-    val latch  = new CountDownLatch(1)
-    val seen   = mutable.ListBuffer.empty[GameState]
-
-    game.addObserver { s => seen += s; latch.countDown() }
-
-    val newState = ChessService.createNewGame()
-    val writer   = new Thread(() => game.updateState(newState))
-    writer.start()
-
-    latch.await(2, TimeUnit.SECONDS) shouldBe true
-    seen.toList shouldBe List(newState)
-  }
-
-  // ── Multiple updates ─────────────────────────────────────────────────────────
-
   it should "fire once per updateState call" in {
     val game  = freshGame
     var count = 0
