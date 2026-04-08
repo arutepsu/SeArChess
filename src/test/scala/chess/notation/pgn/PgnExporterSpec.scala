@@ -127,9 +127,10 @@ class PgnExporterSpec extends AnyFlatSpec with Matchers with EitherValues with O
   // ── Check and checkmate suffixes ───────────────────────────────────────────────
 
   it should "append '+' for a move that gives check" in {
-    // Scholars mate attempt: 1.e4 e5 2.Bc4 Nc6 3.Qh5 — Qh5+ is check
-    val text = roundTripText("1. e4 e5 2. Bc4 Nc6 3. Qh5")
-    text should include("Qh5+")
+    // 1.e4 e5 2.Nf3 Nc6 3.Bc4 Nf6 4.Ng5 d5 5.exd5 Na5 6.Bb5+
+    // After Na5 the c6-d7 diagonal is clear; Bb5 attacks the Black king on e8.
+    val text = roundTripText("1. e4 e5 2. Nf3 Nc6 3. Bc4 Nf6 4. Ng5 d5 5. exd5 Na5 6. Bb5")
+    text should include("Bb5+")
   }
 
   it should "append '#' for the final move of fool's mate" in {
@@ -153,18 +154,18 @@ class PgnExporterSpec extends AnyFlatSpec with Matchers with EitherValues with O
   // ── Disambiguation ────────────────────────────────────────────────────────────
 
   it should "disambiguate by file when two same-type pieces can reach the same square" in {
-    // After e4 e5 Nf3 Nc6 Nc3 Nf6 d4 exd4 Nxd4 Bb4 (black), white has Nd4 and Nc3.
-    // Both can reach e2: Nde2 (from d4) or Nce2 (from c3).
-    // The import of "Nde2" must round-trip with the file disambiguator present.
+    // After 1.e4 e5 2.Nf3 d6 3.Nc3 Nf6 4.d4 exd4 5.Nxd4 Nc6 (10 tokens),
+    // White has Nd4 and Nc3 — both can legally reach b5 (no pins involved).
+    // "Ndb5" or "Ncb5" must appear in the export.
     val tokens = Vector(
-      "e4", "e5", "Nf3", "Nc6", "Nc3", "Nf6", "d4", "exd4", "Nxd4", "Bb4", "Nde2"
+      "e4", "e5", "Nf3", "d6", "Nc3", "Nf6", "d4", "exd4", "Nxd4", "Nc6", "Ndb5"
     )
     val pgn   = ParsedNotation.ParsedPgn("", PgnData(Map.empty, tokens, None))
     val state = PgnNotationFacade.executeImport(pgn, ImportTarget.GameTarget).value
       .asInstanceOf[ImportResult.GameImportResult[GameState]].data
     val text  = PgnNotationFacade.executeExport(state, NotationFormat.PGN).value.text
     // The last white move must carry a file disambiguator
-    text should (include("Nde2") or include("Nce2"))
+    text should (include("Ndb5") or include("Ncb5"))
   }
 
   // ── Round-trip correctness ────────────────────────────────────────────────────

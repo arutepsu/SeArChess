@@ -26,12 +26,6 @@ import chess.notation.pgn.PgnNotationFacade
  *  Implemented now:
  *  - FEN import (delegates to the provided [[NotationFacade]])
  *
- *  Not yet implemented (returns a structured [[GuiNotationOutcome.Failure]]
- *  with [[FailureCategory.UnavailableFeature]] rather than crashing):
- *  - PGN import
- *  - FEN export
- *  - PGN export
- *
  *  @param importFacade the notation facade used for all import operations
  */
 final class GuiNotationApi(importFacade: NotationFacade[GameState]):
@@ -68,7 +62,7 @@ final class GuiNotationApi(importFacade: NotationFacade[GameState]):
       case Right(result) => toImportSuccess(result)
       case Left(failure) => toFailure(failure)
 
-  /** Import a PGN string.
+  /** Import a PGN string and replay the mainline move sequence.
    *
    *  Delegates to [[PgnNotationFacade.parseAndImport]] with [[NotationFormat.PGN]] and
    *  maps the structured result to a GUI-facing outcome.
@@ -90,7 +84,7 @@ final class GuiNotationApi(importFacade: NotationFacade[GameState]):
       case Right(result) => GuiNotationOutcome.ExportSuccess(result.text)
       case Left(failure) => toFailure(failure)
 
-  /** Export the current game state as a PGN string.
+  /** Export the current game state as a PGN movetext string.
    *
    *  Delegates to [[PgnNotationFacade.executeExport]] with [[NotationFormat.PGN]] and
    *  maps the structured result to a GUI-facing outcome.
@@ -157,11 +151,7 @@ final class GuiNotationApi(importFacade: NotationFacade[GameState]):
         GuiNotationOutcome.Failure(f.message, category = FailureCategory.SemanticError)
 
       case f: ImportFailure =>
-        f match
-          case ImportFailure.MappingError(msg) if msg == "PGN import is not implemented" =>
-            GuiNotationOutcome.Failure(f.message, category = FailureCategory.UnavailableFeature)
-          case _ =>
-            GuiNotationOutcome.Failure(f.message, category = FailureCategory.SemanticError)
+        GuiNotationOutcome.Failure(f.message, category = FailureCategory.SemanticError)
 
       case f: CompatibilityFailure =>
         GuiNotationOutcome.Failure(f.message, category = FailureCategory.UnsupportedInput)

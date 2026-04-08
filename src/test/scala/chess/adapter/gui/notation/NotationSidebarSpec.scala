@@ -156,14 +156,13 @@ class NotationSidebarSpec extends AnyFlatSpec with Matchers:
     capturedState.get   shouldBe freshGame
   }
 
-  // ── PGN export: unavailable ────────────────────────────────────────────────
+  // ── PGN export ───────────────────────────────────────────────────────────────
 
-  it should "return UnavailableFeature failure for PgnExport" in {
+  it should "populate outputText and return no feedback for PgnExport" in {
     val (next, importedOpt) = transit(action = request(NotationActionId.PgnExport))
-    importedOpt shouldBe None
-    next.feedback should matchPattern {
-      case Some(SidebarFeedback.Failure(_, _, FailureCategory.UnavailableFeature)) =>
-    }
+    importedOpt          shouldBe None
+    next.outputText      should not be empty
+    next.feedback        shouldBe None
   }
 
   // ── Mutable controller callbacks ───────────────────────────────────────────

@@ -102,17 +102,29 @@ class GuiNotationApiSpec extends AnyFlatSpec with Matchers:
     outcome.asInstanceOf[GuiNotationOutcome.Failure].category shouldBe FailureCategory.SemanticError
   }
 
-  // ── PGN import: unavailable ────────────────────────────────────────────────
+  // ── PGN import: success ───────────────────────────────────────────────────
 
-  "GuiNotationApi.importPgn" should "return Failure(UnavailableFeature) without crashing" in {
+  "GuiNotationApi.importPgn" should "return ImportSuccess for a valid PGN game" in {
     val outcome = GuiNotationApi.importPgn("1. e4 e5 2. Nf3 Nc6 *")
-    outcome shouldBe a[GuiNotationOutcome.Failure]
-    outcome.asInstanceOf[GuiNotationOutcome.Failure].category shouldBe FailureCategory.UnavailableFeature
+    outcome shouldBe a[GuiNotationOutcome.ImportSuccess]
   }
 
-  it should "include a non-empty message explaining the feature is unavailable" in {
-    val outcome = GuiNotationApi.importPgn("any pgn").asInstanceOf[GuiNotationOutcome.Failure]
-    outcome.message should not be empty
+  it should "produce the correct final player after replay" in {
+    val outcome = GuiNotationApi.importPgn("1. e4 e5 2. Nf3 Nc6 *")
+      .asInstanceOf[GuiNotationOutcome.ImportSuccess]
+    outcome.state.currentPlayer shouldBe Color.White
+  }
+
+  it should "return Failure(InvalidInput) for syntactically invalid PGN" in {
+    val outcome = GuiNotationApi.importPgn("")
+    outcome shouldBe a[GuiNotationOutcome.Failure]
+    outcome.asInstanceOf[GuiNotationOutcome.Failure].category shouldBe FailureCategory.InvalidInput
+  }
+
+  it should "return Failure(SemanticError) for an illegal SAN token" in {
+    val outcome = GuiNotationApi.importPgn("1. e5")
+    outcome shouldBe a[GuiNotationOutcome.Failure]
+    outcome.asInstanceOf[GuiNotationOutcome.Failure].category shouldBe FailureCategory.SemanticError
   }
 
   // ── FEN export: success ───────────────────────────────────────────────────
@@ -137,17 +149,21 @@ class GuiNotationApiSpec extends AnyFlatSpec with Matchers:
     outcome.text.split(' ') should have length 6
   }
 
-  // ── PGN export: unavailable ────────────────────────────────────────────────
+  // ── PGN export: success ───────────────────────────────────────────────────
 
-  "GuiNotationApi.exportPgn" should "return Failure(UnavailableFeature) without crashing" in {
+  "GuiNotationApi.exportPgn" should "return ExportSuccess for a valid GameState" in {
     val outcome = GuiNotationApi.exportPgn(freshState)
-    outcome shouldBe a[GuiNotationOutcome.Failure]
-    outcome.asInstanceOf[GuiNotationOutcome.Failure].category shouldBe FailureCategory.UnavailableFeature
+    outcome shouldBe a[GuiNotationOutcome.ExportSuccess]
   }
 
-  it should "include a non-empty message explaining the feature is unavailable" in {
-    val outcome = GuiNotationApi.exportPgn(freshState).asInstanceOf[GuiNotationOutcome.Failure]
-    outcome.message should not be empty
+  it should "produce a non-empty PGN string" in {
+    val outcome = GuiNotationApi.exportPgn(freshState).asInstanceOf[GuiNotationOutcome.ExportSuccess]
+    outcome.text should not be empty
+  }
+
+  it should "produce '*' result token for an ongoing game with no moves" in {
+    val outcome = GuiNotationApi.exportPgn(freshState).asInstanceOf[GuiNotationOutcome.ExportSuccess]
+    outcome.text shouldBe "*"
   }
 
   // ── Dependency injection / wiring boundary ─────────────────────────────────
@@ -201,15 +217,10 @@ class GuiNotationApiSpec extends AnyFlatSpec with Matchers:
     failure.category shouldBe FailureCategory.UnsupportedInput
   }
 
-  it should "map not-implemented operations to Failure(UnavailableFeature)" in {
-    // importPgn / exportPgn remain unavailable; exportFen is now implemented
+  it should "succeed for importPgn and exportPgn now that they are fully implemented" in {
     val api = GuiNotationApi.default
-    List(
-      api.importPgn("1. e4 *"),
-      api.exportPgn(freshState)
-    ).foreach { outcome =>
-      outcome.asInstanceOf[GuiNotationOutcome.Failure].category shouldBe FailureCategory.UnavailableFeature
-    }
+    api.importPgn("1. e4 e5 *") shouldBe a[GuiNotationOutcome.ImportSuccess]
+    api.exportPgn(freshState)   shouldBe a[GuiNotationOutcome.ExportSuccess]
   }
 
   // ── Structured warnings ────────────────────────────────────────────────────
