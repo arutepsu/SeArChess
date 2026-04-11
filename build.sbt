@@ -26,9 +26,12 @@ lazy val root = project
     scalaVersion := scala3Version,
 
     libraryDependencies ++= Seq(
-      "org.scalatest" %% "scalatest" % "3.2.19"      % Test,
-      "org.scalafx"   %% "scalafx"   % scalaFxVersion,
-      "com.lihaoyi"   %% "ujson"     % "4.0.2"
+      "org.scalatest"       %% "scalatest"     % "3.2.19"  % Test,
+      "org.scalafx"         %% "scalafx"       % scalaFxVersion,
+      "com.lihaoyi"         %% "ujson"         % "4.0.2",
+      // Embeddable WebSocket server — zero transitive compile deps beyond slf4j-api.
+      // Used only by adapter.websocket; REST adapter is unchanged.
+      "org.java-websocket"  %  "Java-WebSocket" % "1.5.7"
     ) ++ javaFxModules.map(m =>
       "org.openjfx" % s"javafx-$m" % javaFxVersion classifier osClassifier
     ),
@@ -71,7 +74,10 @@ lazy val root = project
             ".*chess.Main.*",
             ".*adapter.textui.Console.*",
             ".*adapter.rest.RestServer.*",
-            ".*adapter.rest.route.*"
+            ".*adapter.rest.route.*",
+            // WebSocket files that require live network connections to test
+            ".*adapter.websocket.ChessWebSocketServer.*",
+            ".*adapter.websocket.JavaWebSocketConnection.*"
           ).mkString("|")
         )
       else Seq.empty
