@@ -1,6 +1,9 @@
 package chess.application.session.service
 
 import chess.application.ChessService
+import chess.application.event.AppEvent
+import chess.adapter.event.NoOpEventPublisher
+import chess.application.port.event.EventPublisher
 import chess.application.port.repository.{RepositoryError, SessionRepository}
 import chess.application.session.model.{GameSession, SessionLifecycle, SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
@@ -18,6 +21,7 @@ import java.time.Instant
  *  - answer which [[SideController]] is responsible for a given [[Color]]
  *  - provide a session-aware move entry point that checks controller ownership
  *    before delegating to the chess engine
+ *  - publish [[AppEvent]]s via [[EventPublisher]] after successful state changes
  *
  *  Does NOT:
  *  - validate chess move legality (that belongs in [[chess.domain.rules.GameStateRules]])
@@ -25,11 +29,16 @@ import java.time.Instant
  *  - hold or mutate [[GameState]] directly
  *
  *  @param repository outbound port for session persistence
+ *  @param publisher  outbound port for application-layer event publication;
+ *                    defaults to [[NoOpEventPublisher]] so existing callers
+ *                    require no change
  */
-class SessionService(repository: SessionRepository):
+class SessionService(repository: SessionRepository, publisher: EventPublisher = NoOpEventPublisher):
 
   /** Create a new [[GameSession]] in the [[SessionLifecycle.Created]] phase
    *  and persist it immediately.
+   *
+   *  Publishes [[AppEvent.SessionCreated]] on success.
    *
    *  The caller must supply a [[GameId]] obtained from wherever the underlying
    *  game state is initialised (e.g. `ChessService.createNewGame`).
@@ -42,7 +51,11 @@ class SessionService(repository: SessionRepository):
     now:             Instant = Instant.now()
   ): Either[SessionError, GameSession] =
     val session = GameSession.create(gameId, mode, whiteController, blackController, now)
-    save(session)
+    save(session).map { saved =>
+      publisher.publish(AppEvent.SessionCreated(
+        saved.sessionId, saved.gameId, saved.mode, saved.whiteController, saved.blackController))
+      saved
+    }
 
   /** Retrieve a session by its [[SessionId]]. */
   def getSession(id: SessionId): Either[SessionError, GameSession] =
@@ -78,6 +91,8 @@ class SessionService(repository: SessionRepository):
    *  Transitions the session from [[SessionLifecycle.Active]] to
    *  [[SessionLifecycle.AwaitingPromotion]] and persists the change.
    *
+   *  Publishes [[AppEvent.PromotionPending]] on success.
+   *
    *  The transition is validated by [[chess.application.session.policy.SessionLifecyclePolicy]];
    *  calling this from a non-[[SessionLifecycle.Active]] session will return
    *  [[SessionError.InvalidLifecycleTransition]].
@@ -86,7 +101,10 @@ class SessionService(repository: SessionRepository):
     sessionId: SessionId,
     now:       Instant = Instant.now()
   ): Either[SessionError, GameSession] =
-    updateLifecycle(sessionId, SessionLifecycle.AwaitingPromotion, now)
+    updateLifecycle(sessionId, SessionLifecycle.AwaitingPromotion, now).map { updated =>
+      publisher.publish(AppEvent.PromotionPending(updated.sessionId, updated.gameId))
+      updated
+    }
 
   /** Retrieve the session associated with a given [[GameId]].
    *
@@ -146,15 +164,29 @@ class SessionService(repository: SessionRepository):
     requestingController: SideController,
     now:                  Instant = Instant.now()
   ): Either[SessionMoveError, (GameState, GameSession)] =
-    for
-      _         <- rejectIfFinished(session)
-      _         <- checkController(session, requestingController, state.currentPlayer)
-      nextState <- ChessService.applyMove(state, move)
-                     .left.map(SessionMoveError.DomainRejection(_))
-      result    <- persistPostMoveLifecycle(session, nextState, now)
-    yield result
+    val outcome =
+      for
+        _         <- rejectIfFinished(session)
+        _         <- checkController(session, requestingController, state.currentPlayer)
+        nextState <- ChessService.applyMove(state, move)
+                       .left.map(SessionMoveError.DomainRejection(_))
+        result    <- persistPostMoveLifecycle(session, nextState, now)
+      yield result
+    outcome.foreach { (nextState, updatedSession) =>
+      publisher.publish(AppEvent.MoveApplied(session.sessionId, session.gameId, move, state.currentPlayer))
+      if isTerminalStatus(nextState.status) then
+        publisher.publish(AppEvent.GameFinished(session.sessionId, session.gameId, nextState.status))
+      if updatedSession.lifecycle != session.lifecycle then
+        publisher.publish(AppEvent.SessionLifecycleChanged(
+          session.sessionId, session.gameId, session.lifecycle, updatedSession.lifecycle))
+    }
+    outcome
 
   // ── private helpers ────────────────────────────────────────────────────────
+
+  private def isTerminalStatus(status: GameStatus): Boolean = status match
+    case GameStatus.Checkmate(_) | GameStatus.Draw(_) => true
+    case _                                            => false
 
   private def save(session: GameSession): Either[SessionError, GameSession] =
     repository.save(session)
