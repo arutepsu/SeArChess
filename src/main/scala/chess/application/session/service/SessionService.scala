@@ -88,6 +88,20 @@ class SessionService(repository: SessionRepository):
   ): Either[SessionError, GameSession] =
     updateLifecycle(sessionId, SessionLifecycle.AwaitingPromotion, now)
 
+  /** Retrieve the session associated with a given [[GameId]].
+   *
+   *  Useful when the caller knows the game id (e.g. from a REST path segment)
+   *  but has not yet resolved the session id.  Delegates to
+   *  [[SessionRepository.loadByGameId]].
+   *
+   *  Returns [[SessionError.GameSessionNotFound]] when no session references
+   *  that game, keeping the "not found" distinction clean for callers.
+   */
+  def getSessionByGameId(gameId: GameId): Either[SessionError, GameSession] =
+    repository.loadByGameId(gameId).left.map:
+      case RepositoryError.NotFound(_)         => SessionError.GameSessionNotFound(gameId)
+      case err: RepositoryError.StorageFailure => SessionError.PersistenceFailed(err)
+
   /** Return the [[SideController]] responsible for the given [[Color]].
    *
    *  Pure lookup — does not touch the repository.
