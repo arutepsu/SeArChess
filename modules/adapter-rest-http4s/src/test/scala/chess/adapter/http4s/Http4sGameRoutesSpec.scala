@@ -41,7 +41,7 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     fs2.Stream.emits(s.getBytes("UTF-8")).covary[IO]
 
   /** Create a fresh session; return the gameId string. */
-  private def createSession(sessRoutes: Kleisli[IO, Request[IO], Response[IO]]): String =
+  private def createSession(sessRoutes: HttpApp[IO]): String =
     val req  = Request[IO](Method.POST, uri"/sessions").withBodyStream(jsonBody("{}"))
     val json = bodyJson(run(sessRoutes, req))
     json("session")("gameId").str

@@ -64,14 +64,17 @@ lazy val application = project
 lazy val adapterPersistence = project
   .in(file("modules/adapter-persistence"))
   .settings(commonSettings)
-  .dependsOn(application)
+  // adapterEvent is only needed for test fixtures (CollectingEventPublisher).
+  .dependsOn(application, adapterEvent % Test)
 
 // ── Module: adapter-ai ────────────────────────────────────────────────────────
 
 lazy val adapterAi = project
   .in(file("modules/adapter-ai"))
   .settings(commonSettings)
-  .dependsOn(application)
+  // adapterPersistence and adapterEvent are only needed for test fixtures
+  // (InMemorySessionRepository, CollectingEventPublisher).
+  .dependsOn(application, adapterPersistence % Test, adapterEvent % Test)
 
 // ── Module: adapter-event ─────────────────────────────────────────────────────
 
@@ -193,15 +196,89 @@ lazy val main = project
   .dependsOn(adapterGui, adapterTui, adapterRestHttp4s, adapterRestJdk,
              adapterWebsocket, adapterAi, adapterEvent)
 
-// ── Root aggregate ────────────────────────────────────────────────────────────
+// ── Aliases ───────────────────────────────────────────────────────────────────
+//
+// Full-project workflow (unchanged):
+//   build    — compile everything
+//   rebuild  — clean + compile everything
+//   check    — compile + test everything
+//   report   — clean + test + coverage report (local)
+//   ci       — clean + test + coverage report + coveralls (CI)
+//
+// Per-module test aliases:
+//   testDomain              testNotation            testApplication
+//   testAdapterPersistence  testAdapterAi           testAdapterEvent
+//   testAdapterRestShared   testAdapterRestJdk      testAdapterRestHttp4s
+//   testAdapterWebsocket    testAdapterGui          testAdapterTui
+//   testMain
+//
+// Grouped aliases by architectural concern:
+//   testCore         — domain + notation + application
+//   testInfra        — adapter-persistence + adapter-event + adapter-ai + adapter-websocket
+//   testRest         — adapter-rest-shared + adapter-rest-jdk + adapter-rest-http4s
+//   testUi           — adapter-gui + adapter-tui
+//   testAllAdapters  — all adapter modules
+//
+// Compile slice aliases:
+//   compileCore      — domain + notation + application
+//   compileRest      — adapter-rest-shared + adapter-rest-jdk + adapter-rest-http4s
+//   compileUi        — adapter-gui + adapter-tui
+
+// ── Full-project ──────────────────────────────────────────────────────────────
 
 addCommandAlias("build",   "compile")
 addCommandAlias("rebuild", ";clean;compile")
 addCommandAlias("check",   ";compile;test")
 addCommandAlias("report",
-  ";set ThisBuild/coverageEnabled := true;clean;test;coverageReport;set ThisBuild/coverageEnabled := false")
+  ";set ThisBuild/coverageEnabled := true;clean;test;coverageAggregate;set ThisBuild/coverageEnabled := false")
 addCommandAlias("ci",
-  ";set ThisBuild/coverageEnabled := true;clean;test;coverageReport;coveralls;set ThisBuild/coverageEnabled := false")
+  ";set ThisBuild/coverageEnabled := true;clean;test;coverageAggregate;coveralls;set ThisBuild/coverageEnabled := false")
+
+// ── Per-module test ───────────────────────────────────────────────────────────
+
+addCommandAlias("testDomain",             "domain/test")
+addCommandAlias("testNotation",           "notation/test")
+addCommandAlias("testApplication",        "application/test")
+addCommandAlias("testAdapterPersistence", "adapterPersistence/test")
+addCommandAlias("testAdapterAi",          "adapterAi/test")
+addCommandAlias("testAdapterEvent",       "adapterEvent/test")
+addCommandAlias("testAdapterRestShared",  "adapterRestShared/test")
+addCommandAlias("testAdapterRestJdk",     "adapterRestJdk/test")
+addCommandAlias("testAdapterRestHttp4s",  "adapterRestHttp4s/test")
+addCommandAlias("testAdapterWebsocket",   "adapterWebsocket/test")
+addCommandAlias("testAdapterGui",         "adapterGui/test")
+addCommandAlias("testAdapterTui",         "adapterTui/test")
+addCommandAlias("testMain",               "main/test")
+
+// ── Grouped test: by architectural concern ────────────────────────────────────
+
+addCommandAlias("testCore",
+  ";domain/test;notation/test;application/test")
+
+addCommandAlias("testInfra",
+  ";adapterPersistence/test;adapterEvent/test;adapterAi/test;adapterWebsocket/test")
+
+addCommandAlias("testRest",
+  ";adapterRestShared/test;adapterRestJdk/test;adapterRestHttp4s/test")
+
+addCommandAlias("testUi",
+  ";adapterGui/test;adapterTui/test")
+
+addCommandAlias("testAllAdapters",
+  ";adapterPersistence/test;adapterEvent/test;adapterAi/test;adapterWebsocket/test" +
+  ";adapterRestShared/test;adapterRestJdk/test;adapterRestHttp4s/test" +
+  ";adapterGui/test;adapterTui/test")
+
+// ── Compile slices ────────────────────────────────────────────────────────────
+
+addCommandAlias("compileCore",
+  ";domain/compile;notation/compile;application/compile")
+
+addCommandAlias("compileRest",
+  ";adapterRestShared/compile;adapterRestJdk/compile;adapterRestHttp4s/compile")
+
+addCommandAlias("compileUi",
+  ";adapterGui/compile;adapterTui/compile")
 
 lazy val root = project
   .in(file("."))

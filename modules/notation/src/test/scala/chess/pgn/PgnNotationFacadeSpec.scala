@@ -4,7 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.EitherValues
 import org.scalatest.OptionValues
-import chess.application.ChessService
+import chess.domain.state.GameStateFactory
 import chess.notation.api._
 
 /** Specification for [[PgnNotationFacade]] as the canonical PGN boundary.
@@ -20,7 +20,7 @@ class PgnNotationFacadeSpec extends AnyFlatSpec with Matchers with EitherValues 
   // ── Stage 1: canonical boundary ──────────────────────────────────────────────
 
   "PgnNotationFacade" should "return an ExportResult for PGN export of a new game" in {
-    val state  = ChessService.createNewGame()
+    val state  = GameStateFactory.initial()
     val result = PgnNotationFacade.executeExport(state, NotationFormat.PGN)
     result.value shouldBe a[ExportResult]
     result.value.format shouldBe NotationFormat.PGN

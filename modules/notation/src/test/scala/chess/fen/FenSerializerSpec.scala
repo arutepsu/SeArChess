@@ -3,9 +3,8 @@ package chess.notation.fen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.EitherValues
-import chess.application.ChessService
 import chess.domain.model.{Board, Color, GameStatus, Move, Piece, PieceType, Position}
-import chess.domain.state.{CastlingRights, EnPassantState, GameState}
+import chess.domain.state.{CastlingRights, EnPassantState, GameState, GameStateFactory}
 import chess.notation.api.{ExportFailure, ExportResult, NotationFormat}
 
 /** Tests for [[FenSerializer]] and the export path through [[FenNotationFacade]].
@@ -17,7 +16,7 @@ import chess.notation.api.{ExportFailure, ExportResult, NotationFormat}
 class FenSerializerSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   private val InitialFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-  private val freshState = ChessService.createNewGame()
+  private val freshState = GameStateFactory.initial()
 
   private def pos(file: Int, rank: Int): Position =
     Position.from(file, rank).getOrElse(throw AssertionError(s"Bad pos: ($file, $rank)"))
