@@ -3,15 +3,14 @@ package chess.domain.rules
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import chess.domain.model.{Board, Color, Move, Piece, PieceType, Position}
-import chess.domain.state.CastlingRights
-import chess.application.ChessService
+import chess.domain.state.{CastlingRights, GameStateFactory}
 
 class LegalMoveGeneratorSpec extends AnyFlatSpec with Matchers:
 
   private def algPos(alg: String): Position =
     Position.fromAlgebraic(alg).getOrElse(throw AssertionError(s"Bad algebraic: $alg"))
 
-  private def freshState = ChessService.createNewGame()
+  private def freshState = GameStateFactory.initial()
 
   // ── legalTargetsFrom ──────────────────────────────────────────────────────
 

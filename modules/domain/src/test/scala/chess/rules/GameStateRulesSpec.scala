@@ -5,15 +5,14 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.EitherValues
 import chess.domain.error.DomainError
 import chess.domain.model.{Board, Color, GameStatus, Move, Piece, PieceType, Position}
-import chess.domain.state.{CastlingRights, GameState}
-import chess.application.ChessService
+import chess.domain.state.{CastlingRights, GameState, GameStateFactory}
 
 class GameStateRulesSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   private def algPos(alg: String): Position =
     Position.fromAlgebraic(alg).getOrElse(throw AssertionError(s"Bad algebraic: $alg"))
 
-  private def freshState: GameState = ChessService.createNewGame()
+  private def freshState: GameState = GameStateFactory.initial()
 
   // ── legalTargetsFrom ───────────────────────────────────────────────────────
 
