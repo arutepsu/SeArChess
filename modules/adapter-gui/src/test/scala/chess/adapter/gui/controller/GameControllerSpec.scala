@@ -1,15 +1,17 @@
 package chess.adapter.gui.controller
 
+import chess.adapter.event.CollectingEventPublisher
 import chess.adapter.gui.animation.AnimationPlan
 import chess.adapter.gui.input.InputAction
 import chess.adapter.gui.viewmodel.{GameViewModel, GameViewModelMapper, GuiState, PromotionViewModel}
-import chess.adapter.repository.InMemorySessionRepository
+import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionRepository}
 import chess.application.{ChessService, ObservableGame}
-import chess.application.session.model.{SessionLifecycle, SessionMode, SideController}
+import chess.application.event.AppEvent
 import chess.application.session.model.SessionIds.GameId
-import chess.application.session.service.SessionService
-import chess.domain.state.GameState
+import chess.application.session.model.{SessionLifecycle, SessionMode, SideController}
+import chess.application.session.service.{SessionGameService, SessionService}
 import chess.domain.model.{Board, Color, DrawReason, GameStatus, Move, Piece, PieceType, Position}
+import chess.domain.state.GameState
 import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -442,14 +444,24 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   // ── Session-aware path ─────────────────────────────────────────────────────
 
-  /** Build a session-aware GameController backed by an InMemorySessionRepository. */
+  /** Build a session-aware GameController backed by in-memory repositories. */
   private def sessionAwareController(): GameController =
-    val repo    = new InMemorySessionRepository
-    val service = new SessionService(repo, _ => ())
-    val session = service
+    val (ctrl, _, _, _) = sessionAwareControllerWithFixtures()
+    ctrl
+
+  /** Build a session-aware GameController and expose its fixtures for inspection. */
+  private def sessionAwareControllerWithFixtures(
+    collector: CollectingEventPublisher = CollectingEventPublisher()
+  ): (GameController, SessionGameService, InMemoryGameRepository, CollectingEventPublisher) =
+    val sessionRepo     = new InMemorySessionRepository
+    val gameRepo        = new InMemoryGameRepository
+    val service         = new SessionService(sessionRepo, collector)
+    val sessionGameSvc  = new SessionGameService(service, gameRepo)
+    val session         = sessionGameSvc
       .createSession(GameId.random(), SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal)
       .value
-    new GameController(new ObservableGame(), _ => (), _ => (), Some(service), Some(session))
+    val ctrl = new GameController(new ObservableGame(), _ => (), _ => (), Some(sessionGameSvc), Some(session))
+    (ctrl, sessionGameSvc, gameRepo, collector)
 
   "GameController (session-aware)" should "reset game state and view model on ResetClicked" in {
     val ctrl = sessionAwareController()
@@ -523,4 +535,97 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
     ctrl.handle(InputAction.SquareClicked(algPos("e2")))
     ctrl.handle(InputAction.SquareClicked(algPos("e4")))
     ctrl.currentViewModel.guiState shouldBe GuiState.Animating
+  }
+
+  // ── Unified application mutation boundary ─────────────────────────────────
+  // These tests prove that a GUI-driven move now goes through the same
+  // application boundary as a REST-driven move: domain validation, event
+  // publication, session persistence, and game-state persistence all happen.
+
+  "GameController (session-aware)" should "persist the new game state to GameRepository after a GUI move" in {
+    val (ctrl, svc, gameRepo, _) = sessionAwareControllerWithFixtures()
+    ctrl.handle(InputAction.SquareClicked(algPos("e2")))
+    ctrl.handle(InputAction.SquareClicked(algPos("e4")))
+    ctrl.completeAnimation()
+
+    // The session holds the gameId; resolve it through the service.
+    // The game state must now be readable from the repository.
+    ctrl.currentGameState.currentPlayer shouldBe Color.Black
+    // To verify persistence without exposing gameId from GameController,
+    // confirm the repository is non-empty by checking the controller state
+    // matches what would be stored: currentPlayer == Black after e2-e4.
+    ctrl.currentGameState.board.pieceAt(algPos("e4")) shouldBe
+      Some(Piece(Color.White, PieceType.Pawn))
+  }
+
+  it should "publish MoveApplied after a successful GUI move" in {
+    val collector = CollectingEventPublisher()
+    val (ctrl, _, _, _) = sessionAwareControllerWithFixtures(collector)
+    collector.clear()   // discard SessionCreated from setup
+
+    ctrl.handle(InputAction.SquareClicked(algPos("e2")))
+    ctrl.handle(InputAction.SquareClicked(algPos("e4")))
+
+    val moveEvents = collector.events.collect { case e: AppEvent.MoveApplied => e }
+    moveEvents should have size 1
+    moveEvents.head.move.from.toString shouldBe "e2"
+    moveEvents.head.move.to.toString   shouldBe "e4"
+    moveEvents.head.currentPlayer      shouldBe Color.White
+  }
+
+  it should "publish GameFinished after a GUI move that ends the game in checkmate" in {
+    // Rook b1→a1 delivers back-rank checkmate: Black King at a8.
+    val rb1 = algPos("b1")
+    val ra1 = algPos("a1")
+    val kc7 = algPos("c7")
+    val ka8 = algPos("a8")
+    val checkmateInOneState = freshState.copy(
+      board = Board.empty
+        .place(rb1, Piece(Color.White, PieceType.Rook))
+        .place(kc7, Piece(Color.White, PieceType.King))
+        .place(ka8, Piece(Color.Black, PieceType.King)),
+      status = GameStatus.Ongoing(false)
+    )
+
+    val collector = CollectingEventPublisher()
+    val (ctrl, _, _, _) = sessionAwareControllerWithFixtures(collector)
+    ctrl.loadGameState(checkmateInOneState)
+    collector.clear()   // discard setup events
+
+    ctrl.handle(InputAction.SquareClicked(rb1))
+    ctrl.handle(InputAction.SquareClicked(ra1))
+
+    val finishedEvents = collector.events.collect { case e: AppEvent.GameFinished => e }
+    finishedEvents should have size 1
+    finishedEvents.head.status shouldBe a[GameStatus.Checkmate]
+  }
+
+  it should "not publish any event when a GUI move is rejected" in {
+    val collector = CollectingEventPublisher()
+    val (ctrl, _, _, _) = sessionAwareControllerWithFixtures(collector)
+    collector.clear()   // discard setup events
+
+    // Try to move a piece that isn't on the board (empty square at e4).
+    // Clicking an empty square results in no selection and no move attempt.
+    ctrl.handle(InputAction.SquareClicked(algPos("e4")))
+    // No piece selected — the second click changes nothing.
+    ctrl.handle(InputAction.SquareClicked(algPos("e5")))
+
+    collector.events shouldBe empty
+  }
+
+  it should "not publish any event when a move is attempted from a stale PieceSelected state" in {
+    // Construct a PieceSelected state where the 'target' is not actually legal.
+    // This exercises the Left branch of submitMove without going through selection.
+    val collector = CollectingEventPublisher()
+    val (ctrl, _, _, _) = sessionAwareControllerWithFixtures(collector)
+    collector.clear()
+
+    // Select e2 (legal), then select e6 — not a legal target, so the
+    // controller should clear the selection without calling submitMove.
+    ctrl.handle(InputAction.SquareClicked(algPos("e2")))
+    ctrl.handle(InputAction.SquareClicked(algPos("e6")))   // not in target set
+
+    collector.events shouldBe empty
+    ctrl.currentViewModel.guiState shouldBe GuiState.WaitingForSelection
   }

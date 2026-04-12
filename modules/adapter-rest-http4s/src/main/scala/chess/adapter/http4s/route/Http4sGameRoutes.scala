@@ -6,6 +6,7 @@ import chess.adapter.rest.dto.{GameResponse, SubmitMoveRequest, SubmitMoveRespon
 import chess.adapter.rest.mapper.{GameMapper, MoveMapper, SessionMapper}
 import chess.application.ApplicationError
 import chess.application.port.repository.{GameRepository, RepositoryError}
+import chess.domain.error.DomainError
 import chess.application.session.model.SessionIds.GameId
 import chess.application.session.model.SideController
 import chess.application.session.service.{SessionError, SessionMoveError, SessionService}
@@ -99,13 +100,16 @@ class Http4sGameRoutes(
 
   private def moveErrToHttpErr(err: SessionMoveError): (Status, String, String) = err match
     case SessionMoveError.SessionFinished =>
-      (Status.Conflict, "SESSION_FINISHED",
-        "Session is already finished; no further moves are accepted")
+      (Status.Conflict, "GAME_FINISHED",
+        "Game is already finished; no further moves are accepted")
     case SessionMoveError.UnauthorizedController(req, side) =>
       (Status.Forbidden, "UNAUTHORIZED_CONTROLLER",
         s"Controller '$req' is not authorized to move for $side")
     case SessionMoveError.DomainRejection(ApplicationError.NotPlayersTurn) =>
       (Status.UnprocessableEntity, "NOT_YOUR_TURN", "It is not your turn")
+    case SessionMoveError.DomainRejection(ApplicationError.DomainFailure(DomainError.MissingPromotionChoice)) =>
+      (Status.UnprocessableEntity, "PROMOTION_REQUIRED",
+        "A promotion piece must be specified for this move")
     case SessionMoveError.DomainRejection(ApplicationError.DomainFailure(err)) =>
       (Status.UnprocessableEntity, "ILLEGAL_MOVE", s"Illegal move: $err")
     case SessionMoveError.PersistenceFailed(cause) =>
