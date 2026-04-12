@@ -6,7 +6,7 @@ import chess.adapter.gui.viewmodel.*
 import chess.application.ChessService
 import chess.application.session.model.{GameSession, SessionLifecycle, SideController}
 import chess.application.session.model.SessionIds.GameId
-import chess.application.session.service.SessionService
+import chess.application.session.service.SessionGameService
 import chess.domain.state.GameState
 import chess.domain.model.{Color, GameStatus, Move, PieceType, Position}
 
@@ -21,29 +21,32 @@ import chess.domain.model.{Color, GameStatus, Move, PieceType, Position}
  *  runner finishes, the scene calls [[completeAnimation]] to settle the GUI state.
  *
  *  === Session-aware mode ===
- *  When `sessionService` and `initialSession` are supplied, move submission is
- *  routed through [[SessionService.applyMove]] instead of [[ChessService.applyMove]]
- *  directly.  Session lifecycle is tracked automatically:
+ *  When `sessionGameService` and `initialSession` are supplied, move submission is
+ *  routed through [[SessionGameService.submitMove]] — the single application mutation
+ *  boundary — instead of [[ChessService.applyMove]] directly.  That boundary
+ *  validates the move, publishes application events, persists session lifecycle, and
+ *  persists the new [[chess.domain.state.GameState]].  Session lifecycle is tracked
+ *  automatically:
  *  - first move transitions [[chess.application.session.model.SessionLifecycle.Created]] → Active
  *  - promotion detection transitions Active → AwaitingPromotion before the overlay opens
  *  - promotion completion transitions AwaitingPromotion → Active (or Finished if checkmate)
  *  - terminal game positions transition any lifecycle → Finished
  *
- *  When neither parameter is supplied (default), behavior is identical to the
- *  pre-Phase-4 path and all existing callers continue to work unchanged.
+ *  When neither parameter is supplied (default), behavior falls back to the pure
+ *  [[chess.application.ChessService.applyMove]] path (no persistence, no events).
  *
- *  @param onRefresh      called with the new [[GameViewModel]] after every state change
- *  @param onAnimate      called with an [[AnimationPlan]] when a move animation should start
- *  @param sessionService optional session service for session-aware move routing
- *  @param initialSession optional starting [[GameSession]]; must already be persisted
- *                        in the repository backing [[sessionService]]
+ *  @param onRefresh          called with the new [[GameViewModel]] after every state change
+ *  @param onAnimate          called with an [[AnimationPlan]] when a move animation should start
+ *  @param sessionGameService optional unified application mutation boundary
+ *  @param initialSession     optional starting [[GameSession]]; must already be persisted
+ *                            in the repository backing [[sessionGameService]]
  */
 class GameController(
-    game:           chess.application.ObservableGame,
-    onRefresh:      GameViewModel  => Unit,
-    onAnimate:      AnimationPlan  => Unit,
-    sessionService: Option[SessionService] = None,
-    initialSession: Option[GameSession]    = None
+    game:               chess.application.ObservableGame,
+    onRefresh:          GameViewModel     => Unit,
+    onAnimate:          AnimationPlan     => Unit,
+    sessionGameService: Option[SessionGameService] = None,
+    initialSession:     Option[GameSession]        = None
 ):
   private var gameState: GameState     = game.getState
   private var viewModel: GameViewModel =
@@ -78,7 +81,7 @@ class GameController(
 
   def handle(action: InputAction): Unit =
     val (newState, newVm, animPlan) =
-      if sessionService.isDefined && currentSession.isDefined then
+      if sessionGameService.isDefined && currentSession.isDefined then
         sessionAwareHandle(action)
       else
         GameController.transition(gameState, viewModel, action)
@@ -114,7 +117,7 @@ class GameController(
   def loadGameState(importedState: GameState): Unit =
     // Session-aware: provision a fresh session matching the imported state's lifecycle.
     for
-      service <- sessionService
+      service <- sessionGameService
       session <- currentSession
     do
       val targetLifecycle = importedState.status match
@@ -142,20 +145,21 @@ class GameController(
 
   // ── Session-aware move handling ─────────────────────────────────────────────
 
-  /** Routes move-submission actions through [[SessionService.applyMove]] when
-   *  session context is present.  Selection, reset, and all non-move actions
-   *  fall through to the standard pure [[GameController.transition]] path.
+  /** Routes move-submission actions through [[SessionGameService.submitMove]] — the
+   *  single application mutation boundary — when session context is present.
+   *  Selection, reset, and all non-move actions fall through to the standard pure
+   *  [[GameController.transition]] path.
    *
    *  Promotion flow:
    *  1. When a pawn reaches the back rank ([[ChessService.isPromotionPending]]),
    *     the session is transitioned to [[chess.application.session.model.SessionLifecycle.AwaitingPromotion]]
    *     before the promotion overlay is shown.  No domain state change occurs yet.
-   *  2. When the promotion piece is chosen, [[SessionService.applyMove]] commits
+   *  2. When the promotion piece is chosen, [[SessionGameService.submitMove]] commits
    *     the complete move (with promotion) and transitions the session back to Active
    *     (or Finished if the game ends).
    */
   private def sessionAwareHandle(action: InputAction): (GameState, GameViewModel, Option[AnimationPlan]) =
-    val service = sessionService.get
+    val service = sessionGameService.get
     val session = currentSession.get
 
     action match
@@ -174,8 +178,10 @@ class GameController(
                 .copy(promotion = Some(PromotionViewModel(promotingColor, PromotionViewModel.standardChoices)))
               (gameState, promoVm, None)
             else
-              // Regular move through session service.
-              service.applyMove(session, gameState, Move(from, pos), SideController.HumanLocal) match
+              // Regular move through the unified application mutation boundary.
+              // submitMove validates, applies, publishes events, and persists both
+              // the session lifecycle and the new GameState before returning.
+              service.submitMove(session, gameState, Move(from, pos), SideController.HumanLocal) match
                 case Left(_) =>
                   // Illegal move (shouldn't happen for targets from legalTargetsFrom); clear selection.
                   val gs = GuiState.WaitingForSelection
@@ -198,9 +204,9 @@ class GameController(
       case InputAction.PromotionPieceChosen(pt) =>
         viewModel.guiState match
           case GuiState.AwaitingPromotion(from, to) =>
-            // Commit the complete promotion move through the session service.
+            // Commit the complete promotion move through the unified application boundary.
             // Session lifecycle: AwaitingPromotion → Active (or Finished).
-            service.applyMove(session, gameState, Move(from, to, Some(pt)), SideController.HumanLocal) match
+            service.submitMove(session, gameState, Move(from, to, Some(pt)), SideController.HumanLocal) match
               case Left(_) =>
                 (gameState, viewModel, None)  // invalid choice; overlay stays open
               case Right((newState, newSess)) =>
@@ -211,18 +217,16 @@ class GameController(
             (gameState, viewModel, None)
 
       case InputAction.ResetClicked =>
-        // Reset domain state and provision a fresh session for the new game.
-        // The old session is abandoned; a new one starts in Created lifecycle.
-        // Best-effort: if session creation fails, currentSession becomes stale
-        // but gameplay still resets correctly via the pure domain path.
-        val fresh   = ChessService.createNewGame()
-        val freshVm = GameViewModelMapper.build(fresh, GuiState.WaitingForSelection)
-        service.createSession(
-          GameId.random(), session.mode, session.whiteController, session.blackController
-        ) match
-          case Right(newSess) => currentSession = Some(newSess)
-          case Left(_)        => ()
-        (fresh, freshVm, None)
+        // Provision a fresh session and persist the initial game state atomically.
+        // Best-effort: if newGame fails, fall back to the pure domain reset so
+        // gameplay continues correctly; currentSession becomes stale in that case.
+        service.newGame(session.mode, session.whiteController, session.blackController) match
+          case Right((fresh, newSess)) =>
+            currentSession = Some(newSess)
+            (fresh, GameViewModelMapper.build(fresh, GuiState.WaitingForSelection), None)
+          case Left(_) =>
+            val fresh = ChessService.createNewGame()
+            (fresh, GameViewModelMapper.build(fresh, GuiState.WaitingForSelection), None)
 
       case _ =>
         // Remaining non-move actions (selection, etc.) use the pure path.

@@ -2,12 +2,12 @@ package chess.application.ai.service
 
 import chess.adapter.ai.FirstLegalMoveProvider
 import chess.adapter.event.CollectingEventPublisher
-import chess.adapter.repository.InMemorySessionRepository
+import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionRepository}
 import chess.application.event.AppEvent
 import chess.application.port.ai.{AIError, AIProvider, AIResponse}
 import chess.application.session.model.{SessionMode, SideController}
 import chess.application.session.model.SessionIds.GameId
-import chess.application.session.service.SessionService
+import chess.application.session.service.{SessionGameService, SessionService}
 import chess.domain.model.{Move, Position}
 import chess.domain.state.GameStateFactory
 import org.scalatest.{EitherValues, OptionValues}
@@ -18,16 +18,17 @@ class AITurnServiceEventSpec extends AnyFlatSpec with Matchers with EitherValues
 
   private def freshSetup(provider: AIProvider = FirstLegalMoveProvider()) =
     val collector      = CollectingEventPublisher()
-    val repo           = InMemorySessionRepository()
-    val sessionService = SessionService(repo, _ => ())
-    val session        = sessionService.createSession(
+    val sessionRepo    = InMemorySessionRepository()
+    val sessionService = SessionService(sessionRepo, _ => ())
+    val svc            = SessionGameService(sessionService, InMemoryGameRepository())
+    val session        = svc.createSession(
       gameId          = GameId.random(),
       mode            = SessionMode.HumanVsAI,
       whiteController = SideController.AI(),
       blackController = SideController.HumanLocal
     ).value
     val state     = GameStateFactory.initial()
-    val aiService = AITurnService(provider, sessionService, collector)
+    val aiService = AITurnService(provider, svc, collector)
     (aiService, collector, session, state)
 
   // ── AITurnRequested ────────────────────────────────────────────────────────
@@ -44,16 +45,17 @@ class AITurnServiceEventSpec extends AnyFlatSpec with Matchers with EitherValues
 
   it should "NOT publish AITurnRequested when the guard fails (not AI turn)" in {
     val collector      = CollectingEventPublisher()
-    val repo           = InMemorySessionRepository()
-    val sessionService = SessionService(repo, _ => ())
-    val humanSession   = sessionService.createSession(
+    val sessionRepo    = InMemorySessionRepository()
+    val sessionService = SessionService(sessionRepo, _ => ())
+    val svc            = SessionGameService(sessionService, InMemoryGameRepository())
+    val humanSession   = svc.createSession(
       gameId          = GameId.random(),
       mode            = SessionMode.HumanVsHuman,
       whiteController = SideController.HumanLocal,
       blackController = SideController.HumanLocal
     ).value
     val state     = GameStateFactory.initial()
-    val aiService = AITurnService(FirstLegalMoveProvider(), sessionService, collector)
+    val aiService = AITurnService(FirstLegalMoveProvider(), svc, collector)
     aiService.requestAIMove(humanSession, state)
     collector.events should not contain a[AppEvent.AITurnRequested]
   }

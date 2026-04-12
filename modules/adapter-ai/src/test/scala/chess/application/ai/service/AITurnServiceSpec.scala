@@ -1,12 +1,12 @@
 package chess.application.ai.service
 
 import chess.adapter.ai.FirstLegalMoveProvider
-import chess.adapter.repository.InMemorySessionRepository
+import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionRepository}
 import chess.application.ChessService
 import chess.application.port.ai.{AIError, AIProvider, AIResponse}
 import chess.application.session.model.{GameSession, SessionLifecycle, SessionMode, SideController}
 import chess.application.session.model.SessionIds.GameId
-import chess.application.session.service.{SessionMoveError, SessionService}
+import chess.application.session.service.{SessionGameService, SessionMoveError, SessionService}
 import chess.domain.model.{Move, Position}
 import chess.domain.state.GameStateFactory
 import org.scalatest.EitherValues
@@ -23,44 +23,52 @@ class AITurnServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
     whiteController: SideController = SideController.AI(),
     blackController: SideController = SideController.HumanLocal
   ) =
-    val repo           = InMemorySessionRepository()
-    val sessionService = SessionService(repo, _ => ())
+    val sessionRepo    = InMemorySessionRepository()
+    val gameRepo       = InMemoryGameRepository()
+    val sessionService = SessionService(sessionRepo, _ => ())
+    val svc            = SessionGameService(sessionService, gameRepo)
     val gameId         = GameId.random()
-    val session        = sessionService.createSession(
+    val session        = svc.createSession(
       gameId          = gameId,
       mode            = SessionMode.HumanVsAI,
       whiteController = whiteController,
       blackController = blackController
     ).value
-    val state      = GameStateFactory.initial()
-    val aiService  = AITurnService(FirstLegalMoveProvider(), sessionService, _ => ())
-    (aiService, session, state, sessionService)
+    val state     = GameStateFactory.initial()
+    val aiService = AITurnService(FirstLegalMoveProvider(), svc, _ => ())
+    (aiService, session, state, svc, gameRepo)
 
   // ── happy path ─────────────────────────────────────────────────────────────
 
   "AITurnService.requestAIMove" should "return an updated GameState after a legal AI move" in {
-    val (aiService, session, state, _) = freshSetup()
+    val (aiService, session, state, _, _) = freshSetup()
     val (nextState, _) = aiService.requestAIMove(session, state).value
     nextState.moveHistory.size shouldBe 1
   }
 
   it should "transition the session lifecycle from Created to Active after the first AI move" in {
-    val (aiService, session, state, _) = freshSetup()
+    val (aiService, session, state, _, _) = freshSetup()
     val (_, updatedSession) = aiService.requestAIMove(session, state).value
     updatedSession.lifecycle shouldBe SessionLifecycle.Active
   }
 
   it should "switch the current player to Black after White AI moves" in {
-    val (aiService, session, state, _) = freshSetup()
+    val (aiService, session, state, _, _) = freshSetup()
     val (nextState, _) = aiService.requestAIMove(session, state).value
     nextState.currentPlayer shouldBe chess.domain.model.Color.Black
+  }
+
+  it should "persist the updated GameState to GameRepository after a successful AI move" in {
+    val (aiService, session, state, _, gameRepo) = freshSetup()
+    val (nextState, _) = aiService.requestAIMove(session, state).value
+    gameRepo.load(session.gameId).value shouldBe nextState
   }
 
   // ── not AI turn ────────────────────────────────────────────────────────────
 
   it should "return NotAITurn when the side to move is human-controlled" in {
     // White is HumanLocal, it is White's turn → AI service must refuse
-    val (aiService, session, state, _) =
+    val (aiService, session, state, _, _) =
       freshSetup(whiteController = SideController.HumanLocal, blackController = SideController.AI())
     aiService.requestAIMove(session, state).left.value shouldBe AITurnError.NotAITurn
   }
@@ -70,16 +78,17 @@ class AITurnServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
   it should "return ProviderFailure(NoLegalMove) when the provider signals no legal moves" in {
     val noMoveProvider = new AIProvider:
       def suggestMove(state: chess.domain.state.GameState) = Left(AIError.NoLegalMove)
-    val repo           = InMemorySessionRepository()
-    val sessionService = SessionService(repo, _ => ())
-    val session        = sessionService.createSession(
+    val sessionRepo    = InMemorySessionRepository()
+    val sessionService = SessionService(sessionRepo, _ => ())
+    val svc            = SessionGameService(sessionService, InMemoryGameRepository())
+    val session        = svc.createSession(
       gameId          = GameId.random(),
       mode            = SessionMode.HumanVsAI,
       whiteController = SideController.AI(),
       blackController = SideController.HumanLocal
     ).value
     val state     = GameStateFactory.initial()
-    val aiService = AITurnService(noMoveProvider, sessionService, _ => ())
+    val aiService = AITurnService(noMoveProvider, svc, _ => ())
     aiService.requestAIMove(session, state).left.value shouldBe
       AITurnError.ProviderFailure(AIError.NoLegalMove)
   }
@@ -88,16 +97,17 @@ class AITurnServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
     val crashProvider = new AIProvider:
       def suggestMove(state: chess.domain.state.GameState) =
         Left(AIError.EngineFailure("timeout"))
-    val repo           = InMemorySessionRepository()
-    val sessionService = SessionService(repo, _ => ())
-    val session        = sessionService.createSession(
+    val sessionRepo    = InMemorySessionRepository()
+    val sessionService = SessionService(sessionRepo, _ => ())
+    val svc            = SessionGameService(sessionService, InMemoryGameRepository())
+    val session        = svc.createSession(
       gameId          = GameId.random(),
       mode            = SessionMode.HumanVsAI,
       whiteController = SideController.AI(),
       blackController = SideController.HumanLocal
     ).value
     val state     = GameStateFactory.initial()
-    val aiService = AITurnService(crashProvider, sessionService, _ => ())
+    val aiService = AITurnService(crashProvider, svc, _ => ())
     aiService.requestAIMove(session, state).left.value shouldBe
       AITurnError.ProviderFailure(AIError.EngineFailure("timeout"))
   }
@@ -110,16 +120,17 @@ class AITurnServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
     val illegalProvider = new AIProvider:
       def suggestMove(state: chess.domain.state.GameState) =
         Right(AIResponse(Move(e2, e5)))
-    val repo           = InMemorySessionRepository()
-    val sessionService = SessionService(repo, _ => ())
-    val session        = sessionService.createSession(
+    val sessionRepo    = InMemorySessionRepository()
+    val sessionService = SessionService(sessionRepo, _ => ())
+    val svc            = SessionGameService(sessionService, InMemoryGameRepository())
+    val session        = svc.createSession(
       gameId          = GameId.random(),
       mode            = SessionMode.HumanVsAI,
       whiteController = SideController.AI(),
       blackController = SideController.HumanLocal
     ).value
     val state     = GameStateFactory.initial()
-    val aiService = AITurnService(illegalProvider, sessionService, _ => ())
+    val aiService = AITurnService(illegalProvider, svc, _ => ())
     val err = aiService.requestAIMove(session, state).left.value
     err shouldBe a[AITurnError.MoveFailed]
     err.asInstanceOf[AITurnError.MoveFailed].cause shouldBe a[SessionMoveError.DomainRejection]

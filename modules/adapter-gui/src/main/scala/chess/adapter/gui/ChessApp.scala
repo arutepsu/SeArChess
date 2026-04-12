@@ -3,6 +3,7 @@ package chess.adapter.gui
 
 import chess.adapter.gui.scene.ChessScene
 import chess.application.ObservableGame
+import chess.application.port.event.EventPublisher
 import scalafx.application.JFXApp3
 import scalafx.application.JFXApp3.PrimaryStage
 
@@ -22,12 +23,20 @@ import scalafx.application.JFXApp3.PrimaryStage
  */
 object ChessApp extends JFXApp3:
 
-  private var providedGame: Option[ObservableGame] = None
+  private var providedGame:      Option[ObservableGame] = None
+  private var providedPublisher: EventPublisher          = _ => ()
   private var afterStart: () => Unit = () => ()
 
   /** Supply the shared game instance before launching.  Called by [[chess.Main]]. */
   def prepareWith(game: ObservableGame): Unit =
     providedGame = Some(game)
+
+  /** Supply the application event publisher to use for GUI-driven moves.
+   *  Must be called before [[main]].  Defaults to a no-op publisher if omitted.
+   *  Called by [[chess.Main]].
+   */
+  def preparePublisher(publisher: EventPublisher): Unit =
+    providedPublisher = publisher
 
   /** Register a callback to invoke after [[start()]] has finished setting up
    *  the primary stage.  The callback runs on the JavaFX application thread,
@@ -38,10 +47,12 @@ object ChessApp extends JFXApp3:
     afterStart = f
 
   override def start(): Unit =
-    val game = providedGame.getOrElse(new ObservableGame())
-    providedGame = None   // release; ChessScene takes ownership from here
+    val game      = providedGame.getOrElse(new ObservableGame())
+    val publisher = providedPublisher
+    providedGame      = None      // release; ChessScene takes ownership from here
+    providedPublisher = _ => ()   // release
 
-    val sceneController = new ChessScene(game)
+    val sceneController = new ChessScene(game, publisher)
 
     stage = new PrimaryStage:
       title     = "Searchess"
