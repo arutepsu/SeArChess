@@ -1,8 +1,11 @@
 import org.scoverage.coveralls.CoverallsPlugin
 
-val scala3Version  = "3.8.2"
-val scalaFxVersion = "21.0.0-R32"
-val javaFxVersion  = "21.0.1"
+// ── Versions ──────────────────────────────────────────────────────────────────
+
+val scala3Version    = "3.8.2"
+val scalaFxVersion   = "21.0.0-R32"
+val javaFxVersion    = "21.0.1"
+val http4sVersion    = "0.23.29"
 
 lazy val osClassifier: String = System.getProperty("os.name") match {
   case n if n.startsWith("Windows") => "win"
@@ -11,11 +14,194 @@ lazy val osClassifier: String = System.getProperty("os.name") match {
 }
 lazy val javaFxModules = Seq("base", "controls", "graphics")
 
-addCommandAlias("build",    "compile")
-addCommandAlias("rebuild",  ";clean;compile")
-addCommandAlias("check",    ";compile;test")
-addCommandAlias("report", ";set coverageEnabled := true;clean;test;coverageReport;set coverageEnabled := false")
-addCommandAlias("ci",     ";set coverageEnabled := true;clean;test;coverageReport;coveralls;set coverageEnabled := false")
+// ── Shared settings ───────────────────────────────────────────────────────────
+
+lazy val commonSettings = Seq(
+  scalaVersion := scala3Version,
+  libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,
+  // scoverage: coverage is toggled via the report/ci aliases on the root project;
+  // individual modules inherit ThisBuild-level coverageEnabled.
+  coverageFailOnMinimum := true,
+  coverageMinimumStmtTotal := 100,
+  coverageHighlighting := true
+)
+
+// Coverage exclusion helper: produces the -coverage-exclude-files scalac flag
+// when coverage is enabled.  Pass a seq of regex fragments; they are OR-joined.
+def excludeFromCoverage(patterns: String*) = Seq(
+  Compile / compile / scalacOptions ++= {
+    if (coverageEnabled.value)
+      Seq("-coverage-exclude-files:" + patterns.mkString("|"))
+    else Seq.empty
+  }
+)
+
+// ── Module: domain ─────────────────────────────────────────────────────────────
+
+lazy val domain = project
+  .in(file("modules/domain"))
+  .settings(commonSettings)
+
+// ── Module: notation ──────────────────────────────────────────────────────────
+
+lazy val notation = project
+  .in(file("modules/notation"))
+  .settings(
+    commonSettings,
+    libraryDependencies += "com.lihaoyi" %% "ujson" % "4.0.2"
+  )
+  .dependsOn(domain)
+
+// ── Module: application ───────────────────────────────────────────────────────
+
+lazy val application = project
+  .in(file("modules/application"))
+  .settings(commonSettings)
+  .dependsOn(domain)
+
+// ── Module: adapter-persistence ───────────────────────────────────────────────
+
+lazy val adapterPersistence = project
+  .in(file("modules/adapter-persistence"))
+  .settings(commonSettings)
+  .dependsOn(application)
+
+// ── Module: adapter-ai ────────────────────────────────────────────────────────
+
+lazy val adapterAi = project
+  .in(file("modules/adapter-ai"))
+  .settings(commonSettings)
+  .dependsOn(application)
+
+// ── Module: adapter-event ─────────────────────────────────────────────────────
+
+lazy val adapterEvent = project
+  .in(file("modules/adapter-event"))
+  .settings(commonSettings)
+  .dependsOn(application)
+
+// ── Module: adapter-rest-shared (DTOs and mappers shared by all REST adapters) ─
+
+lazy val adapterRestShared = project
+  .in(file("modules/adapter-rest-shared"))
+  .settings(
+    commonSettings,
+    libraryDependencies += "com.lihaoyi" %% "ujson" % "4.0.2"
+  )
+  .dependsOn(application)
+
+// ── Module: adapter-rest-jdk (legacy spike) ───────────────────────────────────
+
+lazy val adapterRestJdk = project
+  .in(file("modules/adapter-rest-jdk"))
+  .settings(
+    commonSettings,
+    // RestServer and route handlers require a live HTTP socket; exclude from coverage.
+    // Note: unescaped . matches any char so it works as path separator on Windows (\) and Unix (/).
+    excludeFromCoverage(
+      ".*adapter.rest.RestServer.*",
+      ".*adapter.rest.route.*"
+    )
+  )
+  .dependsOn(adapterRestShared, adapterPersistence)
+
+// ── Module: adapter-rest-http4s (authoritative REST adapter) ──────────────────
+
+lazy val adapterRestHttp4s = project
+  .in(file("modules/adapter-rest-http4s"))
+  .settings(
+    commonSettings,
+    libraryDependencies ++= Seq(
+      "org.http4s" %% "http4s-ember-server" % http4sVersion,
+      "org.http4s" %% "http4s-dsl"          % http4sVersion
+    ),
+    // Http4sServer itself (Ember binding) cannot be easily tested without a live socket.
+    // Route classes (Http4sSessionRoutes, Http4sGameRoutes) are tested in-memory and
+    // therefore ARE included in coverage.
+    excludeFromCoverage(".*adapter.http4s.Http4sServer.*")
+  )
+  // adapterPersistence is only needed for test fixtures (InMemoryGameRepository etc.)
+  .dependsOn(adapterRestShared, adapterPersistence % Test)
+
+// ── Module: adapter-websocket ─────────────────────────────────────────────────
+
+lazy val adapterWebsocket = project
+  .in(file("modules/adapter-websocket"))
+  .settings(
+    commonSettings,
+    libraryDependencies ++= Seq(
+      "com.lihaoyi"        %% "ujson"            % "4.0.2",
+      "org.java-websocket"  % "Java-WebSocket"   % "1.5.7"
+    ),
+    excludeFromCoverage(
+      ".*adapter.websocket.ChessWebSocketServer.*",
+      ".*adapter.websocket.JavaWebSocketConnection.*"
+    )
+  )
+  .dependsOn(application, adapterEvent)
+
+// ── Module: adapter-gui ───────────────────────────────────────────────────────
+
+lazy val adapterGui = project
+  .in(file("modules/adapter-gui"))
+  .settings(
+    commonSettings,
+    libraryDependencies ++= Seq(
+      "org.scalafx" %% "scalafx" % scalaFxVersion
+    ) ++ javaFxModules.map(m =>
+      "org.openjfx" % s"javafx-$m" % javaFxVersion classifier osClassifier
+    ),
+    libraryDependencies += "com.lihaoyi" %% "ujson" % "4.0.2",
+    excludeFromCoverage(
+      ".*adapter.gui.ChessApp.*",
+      ".*adapter.gui.scene.*",
+      ".*adapter.gui.render.*",
+      ".*adapter.gui.animation.AnimationRunner.*",
+      ".*adapter.gui.assets.SpriteSheetLoader.*",
+      ".*adapter.gui.assets.PieceNodeFactory.*",
+      ".*adapter.gui.assets.SpriteCatalogLoader.*"
+    )
+  )
+  .dependsOn(application, notation, adapterPersistence, adapterAi, adapterEvent)
+
+// ── Module: adapter-tui ───────────────────────────────────────────────────────
+
+lazy val adapterTui = project
+  .in(file("modules/adapter-tui"))
+  .settings(
+    commonSettings,
+    excludeFromCoverage(
+      ".*adapter.textui.TuiRunner.*",
+      ".*adapter.textui.Console.*"
+    )
+  )
+  .dependsOn(application, adapterPersistence)
+
+// ── Module: main ──────────────────────────────────────────────────────────────
+
+lazy val main = project
+  .in(file("modules/main"))
+  .settings(
+    commonSettings,
+    // Main only wires adapters; nothing to cover meaningfully.
+    coverageMinimumStmtTotal := 0,
+    Compile / mainClass := Some("chess.Main"),
+    run     / mainClass := Some("chess.Main"),
+    run     / fork      := true,
+    excludeFromCoverage(".*chess.Main.*")
+  )
+  .dependsOn(adapterGui, adapterTui, adapterRestHttp4s, adapterRestJdk,
+             adapterWebsocket, adapterAi, adapterEvent)
+
+// ── Root aggregate ────────────────────────────────────────────────────────────
+
+addCommandAlias("build",   "compile")
+addCommandAlias("rebuild", ";clean;compile")
+addCommandAlias("check",   ";compile;test")
+addCommandAlias("report",
+  ";set ThisBuild/coverageEnabled := true;clean;test;coverageReport;set ThisBuild/coverageEnabled := false")
+addCommandAlias("ci",
+  ";set ThisBuild/coverageEnabled := true;clean;test;coverageReport;coveralls;set ThisBuild/coverageEnabled := false")
 
 lazy val root = project
   .in(file("."))
@@ -24,62 +210,17 @@ lazy val root = project
     name         := "SeArChess",
     version      := "0.1.0-SNAPSHOT",
     scalaVersion := scala3Version,
-
-    libraryDependencies ++= Seq(
-      "org.scalatest"       %% "scalatest"     % "3.2.19"  % Test,
-      "org.scalafx"         %% "scalafx"       % scalaFxVersion,
-      "com.lihaoyi"         %% "ujson"         % "4.0.2",
-      // Embeddable WebSocket server — zero transitive compile deps beyond slf4j-api.
-      // Used only by adapter.websocket; REST adapter is unchanged.
-      "org.java-websocket"  %  "Java-WebSocket" % "1.5.7"
-    ) ++ javaFxModules.map(m =>
-      "org.openjfx" % s"javafx-$m" % javaFxVersion classifier osClassifier
-    ),
-
-    // Single entry point for `sbt run`; avoids the "multiple main classes" prompt.
-    Compile / mainClass := Some("chess.Main"),
-    run     / mainClass := Some("chess.Main"),
-
-    // Fork run so JavaFX has a proper application thread.
-    // NOTE: forked processes do not inherit sbt's stdin, so the TUI will
-    // receive immediate EOF and exit.  The GUI is designed to survive this.
-    run / fork := true,
-
-    // scoverage settings
-    coverageEnabled          := false,        // toggled per-command via report/ci aliases
-    coverageFailOnMinimum    := true,
-    coverageMinimumStmtTotal := 100,
-    coverageHighlighting     := true,
-    // Exclude JavaFX-dependent adapter code that cannot run without a display.
-    // sbt-scoverage 2.0.11 + Scala 3: coverage uses the native Scala 3 compiler
-    // flag (-coverage-out) but does NOT forward coverageExcludedFiles/Packages to
-    // Scala 3's -coverage-exclude-files / -coverage-exclude-classlikes flags.
-    // We therefore inject them manually via scalacOptions when coverage is active.
-    Compile / compile / scalacOptions ++= {
-      if (coverageEnabled.value)
-        // -coverage-exclude-files takes a regex matched against the relative source
-        // path from the project root.  Use . (any char) for path separators so the
-        // pattern works on both Windows (\) and Unix (/).
-        Seq(
-          "-coverage-exclude-files:" +
-          Seq(
-            ".*adapter.gui.ChessApp.*",
-            ".*adapter.gui.scene.*",
-            ".*adapter.gui.render.*",
-            ".*adapter.gui.animation.AnimationRunner.*",
-            ".*adapter.gui.assets.SpriteSheetLoader.*",
-            ".*adapter.gui.assets.PieceNodeFactory.*",
-            ".*adapter.gui.assets.SpriteCatalogLoader.*",
-            ".*adapter.textui.TuiRunner.*",
-            ".*chess.Main.*",
-            ".*adapter.textui.Console.*",
-            ".*adapter.rest.RestServer.*",
-            ".*adapter.rest.route.*",
-            // WebSocket files that require live network connections to test
-            ".*adapter.websocket.ChessWebSocketServer.*",
-            ".*adapter.websocket.JavaWebSocketConnection.*"
-          ).mkString("|")
-        )
-      else Seq.empty
-    }
+    // Root project has no sources; all code lives in submodules.
+    // Disable source scanning so the legacy src/ tree (kept as reference) is ignored.
+    Compile / unmanagedSourceDirectories := Nil,
+    Test    / unmanagedSourceDirectories := Nil,
+    // Root project has no sources; coverage aggregation happens via subprojects.
+    coverageEnabled := false
+  )
+  .aggregate(
+    domain, notation, application,
+    adapterPersistence, adapterAi, adapterEvent,
+    adapterRestShared, adapterRestJdk, adapterRestHttp4s,
+    adapterWebsocket, adapterGui, adapterTui,
+    main
   )
