@@ -4,10 +4,8 @@ import cats.effect.IO
 import chess.adapter.http4s.route.Http4sRouteSupport.*
 import chess.adapter.rest.dto.{CreateSessionRequest, CreateSessionResponse, SessionResponse}
 import chess.adapter.rest.mapper.{GameMapper, SessionMapper}
-import chess.application.ChessService
-import chess.application.port.repository.{GameRepository, RepositoryError}
-import chess.application.session.model.SessionIds.{GameId, SessionId}
-import chess.application.session.service.{SessionError, SessionService}
+import chess.application.session.model.SessionIds.SessionId
+import chess.application.session.service.{SessionError, SessionGameService}
 import org.http4s.*
 import org.http4s.dsl.io.*
 
@@ -24,10 +22,7 @@ import org.http4s.dsl.io.*
  *  are transport-neutral (ujson-based case classes) and there is no reason to
  *  duplicate them for the http4s adapter.
  */
-class Http4sSessionRoutes(
-  sessionService: SessionService,
-  gameRepository: GameRepository
-):
+class Http4sSessionRoutes(sessionGameService: SessionGameService):
 
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
 
@@ -40,22 +35,26 @@ class Http4sSessionRoutes(
 
   // ── handlers ──────────────────────────────────────────────────────────────
 
+  /** Create a session through the unified application mutation boundary.
+   *
+   *  [[SessionGameService.newGame]] atomically creates a fresh session, generates
+   *  a [[chess.application.session.model.SessionIds.GameId]], and persists the
+   *  initial [[chess.domain.state.GameState]] before returning.
+   */
   private def handleCreate(body: String): IO[Response[IO]] =
     val result =
       for
-        req     <- CreateSessionRequest.fromJson(body)
-        mode    <- SessionMapper.parseMode(req.mode)
-        white   <- SessionMapper.parseController(req.whiteController)
-        black   <- SessionMapper.parseController(req.blackController)
-        state    = ChessService.createNewGame()
-        gameId   = GameId.random()
-        _       <- gameRepository.save(gameId, state).left.map(repoErrMsg)
-        session <- sessionService.createSession(gameId, mode, white, black)
-                     .left.map(sessionErrMsg)
+        req           <- CreateSessionRequest.fromJson(body)
+        mode          <- SessionMapper.parseMode(req.mode)
+        white         <- SessionMapper.parseController(req.whiteController)
+        black         <- SessionMapper.parseController(req.blackController)
+        pair          <- sessionGameService.newGame(mode, white, black)
+                           .left.map(sessionErrMsg)
+        (state, session) = pair
       yield SessionMapper.toCreateSessionResponse(
               session,
-              gameId,
-              GameMapper.toGameResponse(gameId.value.toString, state)
+              session.gameId,
+              GameMapper.toGameResponse(session.gameId.value.toString, state)
             )
 
     result match
@@ -67,7 +66,7 @@ class Http4sSessionRoutes(
       case Left(msg) =>
         jsonError(Status.BadRequest, "BAD_REQUEST", msg)
       case Right(uuid) =>
-        sessionService.getSession(SessionId(uuid)) match
+        sessionGameService.getSession(SessionId(uuid)) match
           case Left(SessionError.SessionNotFound(_)) =>
             jsonError(Status.NotFound, "SESSION_NOT_FOUND", s"Session not found: $idStr")
           case Left(err) =>
@@ -82,7 +81,3 @@ class Http4sSessionRoutes(
     case SessionError.GameSessionNotFound(id)       => s"Game session not found: ${id.value}"
     case SessionError.PersistenceFailed(cause)      => s"Storage error: $cause"
     case SessionError.InvalidLifecycleTransition(r) => s"Invalid lifecycle transition: $r"
-
-  private def repoErrMsg(err: RepositoryError): String = err match
-    case RepositoryError.NotFound(id)        => s"Game not found: $id"
-    case RepositoryError.StorageFailure(msg) => s"Storage error: $msg"

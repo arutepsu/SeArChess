@@ -4,7 +4,7 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import chess.adapter.http4s.route.Http4sSessionRoutes
 import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionRepository}
-import chess.application.session.service.SessionService
+import chess.application.session.service.{SessionGameService, SessionService}
 import org.http4s.*
 import org.http4s.dsl.io.*
 import org.http4s.implicits.*
@@ -24,10 +24,11 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers:
   // ── shared fixtures ────────────────────────────────────────────────────────
 
   private def makeRoutes() =
-    val sessionRepo = InMemorySessionRepository()
-    val gameRepo    = InMemoryGameRepository()
-    val service     = SessionService(sessionRepo, _ => ())
-    Http4sSessionRoutes(service, gameRepo).routes.orNotFound
+    val sessionRepo    = InMemorySessionRepository()
+    val gameRepo       = InMemoryGameRepository()
+    val sessionService = SessionService(sessionRepo, _ => ())
+    val svc            = SessionGameService(sessionService, gameRepo)
+    Http4sSessionRoutes(svc).routes.orNotFound
 
   /** Run a request through the route under test and return the response. */
   private def run(routes: HttpApp[IO], req: Request[IO]): Response[IO] =

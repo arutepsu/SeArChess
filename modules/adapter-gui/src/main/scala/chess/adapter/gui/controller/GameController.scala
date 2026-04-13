@@ -4,7 +4,7 @@ import chess.adapter.gui.animation.{AnimationPlan, AnimationPlanner}
 import chess.adapter.gui.input.InputAction
 import chess.adapter.gui.viewmodel.*
 import chess.application.ChessService
-import chess.application.session.model.{GameSession, SessionLifecycle, SideController}
+import chess.application.session.model.{DesktopSessionContext, SessionLifecycle, SideController}
 import chess.application.session.model.SessionIds.GameId
 import chess.application.session.service.SessionGameService
 import chess.domain.state.GameState
@@ -21,7 +21,7 @@ import chess.domain.model.{Color, GameStatus, Move, PieceType, Position}
  *  runner finishes, the scene calls [[completeAnimation]] to settle the GUI state.
  *
  *  === Session-aware mode ===
- *  When `sessionGameService` and `initialSession` are supplied, move submission is
+ *  When `sessionGameService` and `sessionContext` are supplied, move submission is
  *  routed through [[SessionGameService.submitMove]] — the single application mutation
  *  boundary — instead of [[ChessService.applyMove]] directly.  That boundary
  *  validates the move, publishes application events, persists session lifecycle, and
@@ -38,22 +38,19 @@ import chess.domain.model.{Color, GameStatus, Move, PieceType, Position}
  *  @param onRefresh          called with the new [[GameViewModel]] after every state change
  *  @param onAnimate          called with an [[AnimationPlan]] when a move animation should start
  *  @param sessionGameService optional unified application mutation boundary
- *  @param initialSession     optional starting [[GameSession]]; must already be persisted
- *                            in the repository backing [[sessionGameService]]
+ *  @param sessionContext     optional shared [[DesktopSessionContext]]; must wrap a session
+ *                            already persisted in the repository backing [[sessionGameService]]
  */
 class GameController(
     game:               chess.application.ObservableGame,
     onRefresh:          GameViewModel     => Unit,
     onAnimate:          AnimationPlan     => Unit,
-    sessionGameService: Option[SessionGameService] = None,
-    initialSession:     Option[GameSession]        = None
+    sessionGameService: Option[SessionGameService]    = None,
+    sessionContext:     Option[DesktopSessionContext] = None
 ):
   private var gameState: GameState     = game.getState
   private var viewModel: GameViewModel =
     GameViewModelMapper.build(gameState, GuiState.WaitingForSelection)
-
-  /** Tracks the current session when operating in session-aware mode. */
-  private var currentSession: Option[GameSession] = initialSession
 
   // Listen to external state changes (e.g., from TUI)
   game.addObserver { newState =>
@@ -81,7 +78,7 @@ class GameController(
 
   def handle(action: InputAction): Unit =
     val (newState, newVm, animPlan) =
-      if sessionGameService.isDefined && currentSession.isDefined then
+      if sessionGameService.isDefined && sessionContext.isDefined then
         sessionAwareHandle(action)
       else
         GameController.transition(gameState, viewModel, action)
@@ -111,22 +108,23 @@ class GameController(
    *
    *  [[chess.application.session.model.SessionLifecycle.Created]] is intentionally skipped:
    *  an imported board position is already "in progress", not awaiting a first move.
-   *  Best-effort: session provisioning failure leaves `currentSession` stale but
+   *  Best-effort: session provisioning failure leaves the context's session stale but
    *  chess gameplay continues correctly.
    */
   def loadGameState(importedState: GameState): Unit =
     // Session-aware: provision a fresh session matching the imported state's lifecycle.
     for
       service <- sessionGameService
-      session <- currentSession
+      context <- sessionContext
     do
+      val session = context.getSession
       val targetLifecycle = importedState.status match
         case _: GameStatus.Checkmate | _: GameStatus.Draw => SessionLifecycle.Finished
         case _                                            => SessionLifecycle.Active
       service
         .createSession(GameId.random(), session.mode, session.whiteController, session.blackController)
         .flatMap(newSess => service.updateLifecycle(newSess.sessionId, targetLifecycle))
-        .foreach(updated => currentSession = Some(updated))
+        .foreach(updated => context.setSession(updated))
 
     gameState = importedState
     val settled = GameController.resolveSettledGuiState(gameState)
@@ -160,7 +158,8 @@ class GameController(
    */
   private def sessionAwareHandle(action: InputAction): (GameState, GameViewModel, Option[AnimationPlan]) =
     val service = sessionGameService.get
-    val session = currentSession.get
+    val ctx     = sessionContext.get
+    val session = ctx.getSession
 
     action match
       case InputAction.SquareClicked(pos) =>
@@ -170,7 +169,7 @@ class GameController(
               // Transition session to AwaitingPromotion before opening the overlay.
               // Best-effort: overlay still opens even if session persistence fails.
               service.preparePromotion(session.sessionId) match
-                case Right(updated) => currentSession = Some(updated)
+                case Right(updated) => ctx.setSession(updated)
                 case Left(_)        => ()
               val promotingColor = gameState.board.pieceAt(from).get.color
               val gs = GuiState.AwaitingPromotion(from, pos)
@@ -189,7 +188,7 @@ class GameController(
                     squares  = GameViewModelMapper.buildSquares(gameState, gs),
                     guiState = gs), None)
                 case Right((newState, newSess)) =>
-                  currentSession = Some(newSess)
+                  ctx.setSession(newSess)
                   AnimationPlanner.plan(gameState.board, Move(from, pos)) match
                     case Some(p) =>
                       (newState, GameViewModelMapper.build(newState, GuiState.Animating), Some(p))
@@ -210,7 +209,7 @@ class GameController(
               case Left(_) =>
                 (gameState, viewModel, None)  // invalid choice; overlay stays open
               case Right((newState, newSess)) =>
-                currentSession = Some(newSess)
+                ctx.setSession(newSess)
                 val settled = GameController.resolveSettledGuiState(newState)
                 (newState, GameViewModelMapper.build(newState, settled), None)
           case _ =>
@@ -219,10 +218,10 @@ class GameController(
       case InputAction.ResetClicked =>
         // Provision a fresh session and persist the initial game state atomically.
         // Best-effort: if newGame fails, fall back to the pure domain reset so
-        // gameplay continues correctly; currentSession becomes stale in that case.
+        // gameplay continues correctly; the context is not updated in that case.
         service.newGame(session.mode, session.whiteController, session.blackController) match
           case Right((fresh, newSess)) =>
-            currentSession = Some(newSess)
+            ctx.setSession(newSess)
             (fresh, GameViewModelMapper.build(fresh, GuiState.WaitingForSelection), None)
           case Left(_) =>
             val fresh = ChessService.createNewGame()

@@ -8,11 +8,8 @@ import chess.adapter.gui.input.InputAction
 import chess.adapter.gui.notation.{GuiNotationApi, NotationSidebar, NotationSidebarController}
 import chess.adapter.gui.render.{BoardRenderer, MoveHistoryPanel, PromotionOverlay, StaticPieceOverlayRenderer, StatusRenderer}
 import chess.adapter.gui.viewmodel.{GameViewModel, MoveHistoryViewModelMapper}
-import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionRepository}
-import chess.application.port.event.EventPublisher
-import chess.application.session.model.{SessionMode, SideController}
-import chess.application.session.model.SessionIds.GameId
-import chess.application.session.service.{SessionGameService, SessionService}
+import chess.application.session.model.DesktopSessionContext
+import chess.application.session.service.SessionGameService
 import chess.domain.state.GameState
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.Scene
@@ -21,10 +18,21 @@ import scalafx.scene.layout.{BorderPane, Pane, StackPane}
 /** Assembles the board, status bar, promotion overlay, animation layer,
  *  and right-side tools panel (notation + move history) into a single [[Scene]].
  *
- *  @param game      shared observable game (used for cross-adapter observation, e.g. TUI)
- *  @param publisher application event publisher; pass `_ => ()` when events are not needed
+ *  The session context — [[SessionGameService]] and the current [[DesktopSessionContext]] —
+ *  is provided by the composition root.  GUI, TUI, and any other desktop adapter
+ *  share the same service and session identity so that moves from any adapter
+ *  are authoritative over the same repo-backed game state.
+ *
+ *  @param game               cross-adapter notification bridge; updated after every
+ *                            successful move so other adapters (e.g. TUI) observe it
+ *  @param sessionGameService unified application mutation boundary (shared with TUI)
+ *  @param sessionContext      the shared [[DesktopSessionContext]] (created once at startup)
  */
-class ChessScene(game: chess.application.ObservableGame, publisher: EventPublisher = _ => ()):
+class ChessScene(
+    game:               chess.application.ObservableGame,
+    sessionGameService: SessionGameService,
+    sessionContext:     DesktopSessionContext
+):
 
   private val catalog      = SpriteCatalogLoader.load()
   private val metaRepo     = SpriteMetadataRepository.fromCatalog(catalog)
@@ -38,25 +46,10 @@ class ChessScene(game: chess.application.ObservableGame, publisher: EventPublish
   private val mapper = new AnimationPresentationMapper(metaRepo, playbackRepo)
   private val runner = new AnimationRunner(onAnimationFrame, onAnimationComplete)
 
-  // ── Session infrastructure for local GUI play ───────────────────────────────
-  //  Composed here; not pushed into the domain or application layers.
-  //  In-memory repositories are intentionally local — replace with durable
-  //  adapters when persistence across restarts becomes a requirement.
+  // Session and repositories are provided by the composition root.
+  // ChessScene is no longer responsible for creating session infrastructure.
 
-  private val sessionRepo    = new InMemorySessionRepository
-  private val gameRepo       = new InMemoryGameRepository
-  private val sessionSvc     = new SessionService(sessionRepo, publisher)
-  private val sessionGameSvc = new SessionGameService(sessionSvc, gameRepo)
-
-  /** Initial session for the current game, always in [[chess.application.session.model.SessionLifecycle.Created]].
-   *  Failure is unexpected from an in-memory store; we surface it immediately
-   *  rather than silently degrading to the session-unaware path.
-   */
-  private val initialSession = sessionGameSvc
-    .createSession(GameId.random(), SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal)
-    .fold(err => throw RuntimeException(s"[ChessScene] Failed to create initial session: $err"), identity)
-
-  private val controller = new GameController(game, refresh, startAnimation, Some(sessionGameSvc), Some(initialSession))
+  private val controller = new GameController(game, refresh, startAnimation, Some(sessionGameService), Some(sessionContext))
   private var vm: GameViewModel = controller.currentViewModel
 
   private val boardGrid          = BoardRenderer.create(vm, handle, factory)

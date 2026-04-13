@@ -71,6 +71,12 @@ class SessionGameService(
   // Adapters that previously depended on SessionService directly can switch to
   // this façade as their sole dependency.
 
+  def getSession(id: SessionId): Either[SessionError, GameSession] =
+    sessionService.getSession(id)
+
+  def getSessionByGameId(gameId: GameId): Either[SessionError, GameSession] =
+    sessionService.getSessionByGameId(gameId)
+
   def createSession(
     gameId:          GameId,
     mode:            SessionMode,

@@ -1,13 +1,20 @@
 package chess.adapter.textui
 
+import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionRepository}
 import chess.application.{ChessService, ObservableGame}
+import chess.application.event.AppEvent
+import chess.application.port.event.EventPublisher
+import chess.application.session.model.SessionIds.GameId
+import chess.application.session.model.{DesktopSessionContext, SessionMode, SideController}
+import chess.application.session.service.{SessionGameService, SessionService}
 import chess.domain.state.GameState
 import chess.domain.model.*
+import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import scala.collection.mutable
 
-class TextUISpec extends AnyFlatSpec with Matchers:
+class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
 
   /** A scriptable in-memory Console for testing. */
   private class TestConsole(inputs: List[String]) extends Console:
@@ -178,4 +185,243 @@ class TextUISpec extends AnyFlatSpec with Matchers:
     val c = TestConsole(List("move a7 a8", "promote q", "quit"))
     new TextUI(c, new ObservableGame(promotionReadyState)).run()
     c.printed should include("Q")
+  }
+
+  // ── Session-aware mode ─────────────────────────────────────────────────────
+
+  /** Minimal event publisher that collects published events for assertion. */
+  private class TestEventPublisher extends EventPublisher:
+    val events: mutable.ListBuffer[AppEvent] = mutable.ListBuffer.empty
+    def publish(event: AppEvent): Unit = events += event
+
+  "TextUI (session-aware)" should "persist game state after a successful move" in {
+    val collector    = new TestEventPublisher
+    val sessionRepo  = new InMemorySessionRepository
+    val gameRepo     = new InMemoryGameRepository
+    val sessionSvc   = new SessionService(sessionRepo, collector.publish)
+    val svc          = new SessionGameService(sessionSvc, gameRepo)
+    val gameId       = GameId.random()
+    val session      = svc.createSession(
+      gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
+    ).value
+    val game = new ObservableGame()
+    val c    = TestConsole(List("move e2 e4", "quit"))
+    new TextUI(c, game, Some(svc), Some(new DesktopSessionContext(session))).run()
+    val savedState = gameRepo.load(gameId).value
+    savedState.moveHistory.size shouldBe 1
+  }
+
+  it should "publish MoveApplied after a successful move" in {
+    val collector    = new TestEventPublisher
+    val sessionRepo  = new InMemorySessionRepository
+    val gameRepo     = new InMemoryGameRepository
+    val sessionSvc   = new SessionService(sessionRepo, collector.publish)
+    val svc          = new SessionGameService(sessionSvc, gameRepo)
+    val gameId       = GameId.random()
+    val session      = svc.createSession(
+      gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
+    ).value
+    val game = new ObservableGame()
+    collector.events.clear()  // discard SessionCreated from setup
+    val c = TestConsole(List("move e2 e4", "quit"))
+    new TextUI(c, game, Some(svc), Some(new DesktopSessionContext(session))).run()
+    val moveEvents = collector.events.collect { case e: AppEvent.MoveApplied => e }
+    moveEvents should have size 1
+    moveEvents.head.move.from.toString shouldBe "e2"
+    moveEvents.head.move.to.toString   shouldBe "e4"
+  }
+
+  it should "not publish MoveApplied after an illegal move" in {
+    val collector    = new TestEventPublisher
+    val sessionRepo  = new InMemorySessionRepository
+    val gameRepo     = new InMemoryGameRepository
+    val sessionSvc   = new SessionService(sessionRepo, collector.publish)
+    val svc          = new SessionGameService(sessionSvc, gameRepo)
+    val gameId       = GameId.random()
+    val session      = svc.createSession(
+      gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
+    ).value
+    val game = new ObservableGame()
+    collector.events.clear()
+    val c = TestConsole(List("move e2 e5", "quit"))  // three-square jump is illegal
+    new TextUI(c, game, Some(svc), Some(new DesktopSessionContext(session))).run()
+    collector.events.collect { case e: AppEvent.MoveApplied => e } shouldBe empty
+  }
+
+  it should "render an error and continue after an illegal move in session mode" in {
+    val collector    = new TestEventPublisher
+    val sessionRepo  = new InMemorySessionRepository
+    val gameRepo     = new InMemoryGameRepository
+    val sessionSvc   = new SessionService(sessionRepo, collector.publish)
+    val svc          = new SessionGameService(sessionSvc, gameRepo)
+    val gameId       = GameId.random()
+    val session      = svc.createSession(
+      gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
+    ).value
+    val game = new ObservableGame()
+    val c    = TestConsole(List("move e2 e5", "quit"))
+    new TextUI(c, game, Some(svc), Some(new DesktopSessionContext(session))).run()
+    c.printed should include("Goodbye!")
+  }
+
+  it should "notify ObservableGame after a successful move in session mode" in {
+    val collector    = new TestEventPublisher
+    val sessionRepo  = new InMemorySessionRepository
+    val gameRepo     = new InMemoryGameRepository
+    val sessionSvc   = new SessionService(sessionRepo, collector.publish)
+    val svc          = new SessionGameService(sessionSvc, gameRepo)
+    val gameId       = GameId.random()
+    val session      = svc.createSession(
+      gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
+    ).value
+    val game           = new ObservableGame()
+    var observedCount  = 0
+    game.addObserver { _ => observedCount += 1 }
+    val c = TestConsole(List("move e2 e4", "quit"))
+    new TextUI(c, game, Some(svc), Some(new DesktopSessionContext(session))).run()
+    observedCount should be >= 1
+  }
+
+  it should "persist fresh game state after 'new' command in session mode" in {
+    val collector    = new TestEventPublisher
+    val sessionRepo  = new InMemorySessionRepository
+    val gameRepo     = new InMemoryGameRepository
+    val sessionSvc   = new SessionService(sessionRepo, collector.publish)
+    val svc          = new SessionGameService(sessionSvc, gameRepo)
+    val gameId       = GameId.random()
+    val session      = svc.createSession(
+      gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
+    ).value
+    val game = new ObservableGame()
+    // Make a move first, then reset.  After 'new', the game in the observer
+    // bridge should be back to the initial position (no move history).
+    val c = TestConsole(List("move e2 e4", "new", "quit"))
+    new TextUI(c, game, Some(svc), Some(new DesktopSessionContext(session))).run()
+    game.getState.moveHistory shouldBe empty
+  }
+
+  it should "still accept moves after 'new' command in session mode" in {
+    val collector    = new TestEventPublisher
+    val sessionRepo  = new InMemorySessionRepository
+    val gameRepo     = new InMemoryGameRepository
+    val sessionSvc   = new SessionService(sessionRepo, collector.publish)
+    val svc          = new SessionGameService(sessionSvc, gameRepo)
+    val gameId       = GameId.random()
+    val session      = svc.createSession(
+      gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
+    ).value
+    val game     = new ObservableGame()
+    collector.events.clear()
+    val c = TestConsole(List("new", "move d2 d4", "quit"))
+    new TextUI(c, game, Some(svc), Some(new DesktopSessionContext(session))).run()
+    // A MoveApplied event means the move in the new session was accepted.
+    collector.events.collect { case e: AppEvent.MoveApplied => e } should have size 1
+  }
+
+  // ── Shared desktop session ─────────────────────────────────────────────────
+  // These tests prove that two adapters sharing the same SessionGameService and
+  // GameSession operate on ONE authoritative game identity.  Moves from either
+  // adapter accumulate in the same repository entry under the same GameId.
+
+  "Shared desktop session" should "accumulate moves from two adapters in the same repo entry" in {
+    // Shared infrastructure — exactly as the composition root creates it.
+    val collector   = new TestEventPublisher
+    val sessionRepo = new InMemorySessionRepository
+    val gameRepo    = new InMemoryGameRepository
+    val sessionSvc  = new SessionService(sessionRepo, collector.publish)
+    val svc         = new SessionGameService(sessionSvc, gameRepo)
+    val gameId      = GameId.random()
+    val session     = svc.createSession(
+      gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
+    ).value
+    val sharedGame    = new ObservableGame()
+    val sharedContext = new DesktopSessionContext(session)
+
+    // Adapter A (simulating TUI) makes the first move.
+    val cA = TestConsole(List("move e2 e4", "quit"))
+    new TextUI(cA, sharedGame, Some(svc), Some(sharedContext)).run()
+
+    // Repo has exactly one move; sharedGame reflects the updated state.
+    gameRepo.load(gameId).value.moveHistory.size shouldBe 1
+
+    // Adapter B (simulating a second adapter) makes a move using the same context.
+    // It reads sharedGame.getState which was updated by Adapter A via updateState.
+    val cB = TestConsole(List("move e7 e5", "quit"))
+    new TextUI(cB, sharedGame, Some(svc), Some(sharedContext)).run()
+
+    // Repo now has two moves under the same gameId — proves shared authoritative state.
+    gameRepo.load(gameId).value.moveHistory.size shouldBe 2
+  }
+
+  it should "publish events for moves from both adapters sharing the same session" in {
+    val collector   = new TestEventPublisher
+    val sessionRepo = new InMemorySessionRepository
+    val gameRepo    = new InMemoryGameRepository
+    val sessionSvc  = new SessionService(sessionRepo, collector.publish)
+    val svc         = new SessionGameService(sessionSvc, gameRepo)
+    val gameId      = GameId.random()
+    val session     = svc.createSession(
+      gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
+    ).value
+    val sharedGame    = new ObservableGame()
+    val sharedContext = new DesktopSessionContext(session)
+    collector.events.clear()  // discard SessionCreated
+
+    val cA = TestConsole(List("move d2 d4", "quit"))
+    new TextUI(cA, sharedGame, Some(svc), Some(sharedContext)).run()
+
+    val cB = TestConsole(List("move d7 d5", "quit"))
+    new TextUI(cB, sharedGame, Some(svc), Some(sharedContext)).run()
+
+    // Both moves published MoveApplied; both carry the same gameId.
+    val moveEvents = collector.events.collect { case e: AppEvent.MoveApplied => e }
+    moveEvents should have size 2
+    moveEvents.forall(_.gameId == session.gameId) shouldBe true
+  }
+
+  it should "make state from the first adapter visible to the second adapter via ObservableGame" in {
+    val sessionRepo = new InMemorySessionRepository
+    val gameRepo    = new InMemoryGameRepository
+    val sessionSvc  = new SessionService(sessionRepo, _ => ())
+    val svc         = new SessionGameService(sessionSvc, gameRepo)
+    val gameId      = GameId.random()
+    val session     = svc.createSession(
+      gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
+    ).value
+    val sharedGame    = new ObservableGame()
+    val sharedContext = new DesktopSessionContext(session)
+
+    // Adapter A makes a move — updates sharedGame via updateState.
+    val cA = TestConsole(List("move e2 e4", "quit"))
+    new TextUI(cA, sharedGame, Some(svc), Some(sharedContext)).run()
+
+    // sharedGame now reflects Adapter A's move (1 entry in history).
+    sharedGame.getState.moveHistory.size shouldBe 1
+
+    // Adapter B reads sharedGame.getState at the top of its loop and sees
+    // Black to move — it can now make a Black move without conflict.
+    val cB = TestConsole(List("move e7 e5", "quit"))
+    new TextUI(cB, sharedGame, Some(svc), Some(sharedContext)).run()
+
+    sharedGame.getState.moveHistory.size shouldBe 2
+  }
+
+  // ── DesktopSessionContext shared reference ─────────────────────────────────
+
+  it should "update DesktopSessionContext after 'new' command so a second adapter sees the new session" in {
+    val sessionRepo = new InMemorySessionRepository
+    val gameRepo    = new InMemoryGameRepository
+    val sessionSvc  = new SessionService(sessionRepo, _ => ())
+    val svc         = new SessionGameService(sessionSvc, gameRepo)
+    val gameId      = GameId.random()
+    val session     = svc.createSession(
+      gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
+    ).value
+    val sharedContext = new DesktopSessionContext(session)
+    val sharedGame    = new ObservableGame()
+
+    val c = TestConsole(List("new", "quit"))
+    new TextUI(c, sharedGame, Some(svc), Some(sharedContext)).run()
+
+    sharedContext.getSession.sessionId should not equal session.sessionId
   }

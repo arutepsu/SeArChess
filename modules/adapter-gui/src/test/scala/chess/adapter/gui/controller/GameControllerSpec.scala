@@ -8,7 +8,7 @@ import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionReposito
 import chess.application.{ChessService, ObservableGame}
 import chess.application.event.AppEvent
 import chess.application.session.model.SessionIds.GameId
-import chess.application.session.model.{SessionLifecycle, SessionMode, SideController}
+import chess.application.session.model.{DesktopSessionContext, SessionLifecycle, SessionMode, SideController}
 import chess.application.session.service.{SessionGameService, SessionService}
 import chess.domain.model.{Board, Color, DrawReason, GameStatus, Move, Piece, PieceType, Position}
 import chess.domain.state.GameState
@@ -446,13 +446,13 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   /** Build a session-aware GameController backed by in-memory repositories. */
   private def sessionAwareController(): GameController =
-    val (ctrl, _, _, _) = sessionAwareControllerWithFixtures()
+    val (ctrl, _, _, _, _) = sessionAwareControllerWithFixtures()
     ctrl
 
   /** Build a session-aware GameController and expose its fixtures for inspection. */
   private def sessionAwareControllerWithFixtures(
     collector: CollectingEventPublisher = CollectingEventPublisher()
-  ): (GameController, SessionGameService, InMemoryGameRepository, CollectingEventPublisher) =
+  ): (GameController, SessionGameService, InMemoryGameRepository, CollectingEventPublisher, DesktopSessionContext) =
     val sessionRepo     = new InMemorySessionRepository
     val gameRepo        = new InMemoryGameRepository
     val service         = new SessionService(sessionRepo, collector)
@@ -460,8 +460,9 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
     val session         = sessionGameSvc
       .createSession(GameId.random(), SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal)
       .value
-    val ctrl = new GameController(new ObservableGame(), _ => (), _ => (), Some(sessionGameSvc), Some(session))
-    (ctrl, sessionGameSvc, gameRepo, collector)
+    val context = new DesktopSessionContext(session)
+    val ctrl = new GameController(new ObservableGame(), _ => (), _ => (), Some(sessionGameSvc), Some(context))
+    (ctrl, sessionGameSvc, gameRepo, collector, context)
 
   "GameController (session-aware)" should "reset game state and view model on ResetClicked" in {
     val ctrl = sessionAwareController()
@@ -543,7 +544,7 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
   // publication, session persistence, and game-state persistence all happen.
 
   "GameController (session-aware)" should "persist the new game state to GameRepository after a GUI move" in {
-    val (ctrl, svc, gameRepo, _) = sessionAwareControllerWithFixtures()
+    val (ctrl, svc, gameRepo, _, _) = sessionAwareControllerWithFixtures()
     ctrl.handle(InputAction.SquareClicked(algPos("e2")))
     ctrl.handle(InputAction.SquareClicked(algPos("e4")))
     ctrl.completeAnimation()
@@ -560,7 +561,7 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   it should "publish MoveApplied after a successful GUI move" in {
     val collector = CollectingEventPublisher()
-    val (ctrl, _, _, _) = sessionAwareControllerWithFixtures(collector)
+    val (ctrl, _, _, _, _) = sessionAwareControllerWithFixtures(collector)
     collector.clear()   // discard SessionCreated from setup
 
     ctrl.handle(InputAction.SquareClicked(algPos("e2")))
@@ -588,7 +589,7 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
     )
 
     val collector = CollectingEventPublisher()
-    val (ctrl, _, _, _) = sessionAwareControllerWithFixtures(collector)
+    val (ctrl, _, _, _, _) = sessionAwareControllerWithFixtures(collector)
     ctrl.loadGameState(checkmateInOneState)
     collector.clear()   // discard setup events
 
@@ -602,7 +603,7 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   it should "not publish any event when a GUI move is rejected" in {
     val collector = CollectingEventPublisher()
-    val (ctrl, _, _, _) = sessionAwareControllerWithFixtures(collector)
+    val (ctrl, _, _, _, _) = sessionAwareControllerWithFixtures(collector)
     collector.clear()   // discard setup events
 
     // Try to move a piece that isn't on the board (empty square at e4).
@@ -618,7 +619,7 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
     // Construct a PieceSelected state where the 'target' is not actually legal.
     // This exercises the Left branch of submitMove without going through selection.
     val collector = CollectingEventPublisher()
-    val (ctrl, _, _, _) = sessionAwareControllerWithFixtures(collector)
+    val (ctrl, _, _, _, _) = sessionAwareControllerWithFixtures(collector)
     collector.clear()
 
     // Select e2 (legal), then select e6 — not a legal target, so the
@@ -628,4 +629,16 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
 
     collector.events shouldBe empty
     ctrl.currentViewModel.guiState shouldBe GuiState.WaitingForSelection
+  }
+
+  // ── DesktopSessionContext shared reference ────────────────────────────────
+
+  it should "update DesktopSessionContext after reset so subsequent moves use the new session" in {
+    val (ctrl, _, _, _, context) = sessionAwareControllerWithFixtures()
+    val sessionBefore = context.getSession
+
+    ctrl.handle(InputAction.ResetClicked)
+
+    val sessionAfter = context.getSession
+    sessionAfter.sessionId should not equal sessionBefore.sessionId
   }
