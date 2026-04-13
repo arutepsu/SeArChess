@@ -3,7 +3,7 @@ package chess.notation.fen
 import chess.notation.api.ParseFailure
 import scala.util.parsing.combinator.RegexParsers
 
-private[fen] object FenCombinatorGrammar extends RegexParsers:
+private[fen] object FenCombinatorGrammar extends RegexParsers, FenGrammar:
 
   override val skipWhitespace: Boolean = false
 
