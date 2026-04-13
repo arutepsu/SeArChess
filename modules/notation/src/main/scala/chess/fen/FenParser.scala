@@ -18,11 +18,13 @@ object FenParser extends NotationParser:
 
   val format: NotationFormat = NotationFormat.FEN
 
+  val default: FenGrammar = FenFastParseGrammar // selector for easy switching between combinator and FastParse implementations
+
   def parse(input: String): Either[ParseFailure, ParsedNotation] =
     parseRecord(input).map(record => ParsedNotation.ParsedFen(input, toFenData(record)))
 
   private[fen] def parseRecord(input: String): Either[ParseFailure, FenRecord] =
-    FenCombinatorGrammar.parseRecord(input)
+    FenGrammarSelector.default.parseRecord(input)
 
   // ── FenRecord → FenData conversion ──────────────────────────────────────────
 
