@@ -21,6 +21,23 @@ import chess.domain.model.{Color, GameStatus, Move}
  *  Every event carries both a [[SessionIds.SessionId]] and a [[SessionIds.GameId]]
  *  so transport adapters (e.g. WebSocket) can route by either identifier without
  *  an exhaustive pattern match.
+ *
+ *  === Event categories ===
+ *
+ *  '''Game flow events''' — always forwarded to transport adapters; meaningful
+ *  to any UI that tracks the game:
+ *  - [[SessionCreated]]          — new session ready for play
+ *  - [[SessionLifecycleChanged]] — lifecycle phase transition (e.g. Created → Active)
+ *  - [[MoveApplied]]             — a move was successfully applied and persisted
+ *  - [[PromotionPending]]        — pawn on back rank; promotion choice required
+ *  - [[GameFinished]]            — terminal position reached (checkmate or draw)
+ *
+ *  '''AI monitoring events''' — forwarded to all transport adapters but primarily
+ *  for observability.  A UI may use them for "AI thinking…" indicators; they do
+ *  not change the canonical game state and do not replace a REST re-fetch:
+ *  - [[AITurnRequested]] — AI turn guard passed; provider is being called
+ *  - [[AITurnCompleted]] — AI provider returned a move; move was applied
+ *  - [[AITurnFailed]]    — AI turn attempt failed (provider error or illegal move)
  */
 sealed trait AppEvent:
   def sessionId: SessionId
@@ -55,14 +72,16 @@ object AppEvent:
   /** Published when a move has been successfully applied and the new state
    *  has been determined.
    *
-   *  `currentPlayer` is the color that *made* the move (i.e. the player whose
-   *  turn it was before the move was applied).
+   *  `playerWhoMoved` is the color that *made* the move (i.e. the player whose
+   *  turn it was *before* the move was applied).  After the move the turn
+   *  belongs to the opposite color — use [[chess.domain.state.GameState.currentPlayer]]
+   *  from a REST re-fetch to obtain the player to move next.
    */
   final case class MoveApplied(
     sessionId:     SessionId,
     gameId:        GameId,
     move:          Move,
-    currentPlayer: Color
+    playerWhoMoved: Color
   ) extends AppEvent
 
   /** Published when a pawn has reached the back rank and the session is waiting
@@ -76,7 +95,7 @@ object AppEvent:
   /** Published when a move results in a terminal game state (checkmate or draw).
    *
    *  Always accompanies a [[MoveApplied]] event in the same operation.
-   * *  `status` is guaranteed to be a terminal variant
+   *  `status` is guaranteed to be a terminal variant
    *  ([[chess.domain.model.GameStatus.Checkmate]] or
    *  [[chess.domain.model.GameStatus.Draw]]).
    */

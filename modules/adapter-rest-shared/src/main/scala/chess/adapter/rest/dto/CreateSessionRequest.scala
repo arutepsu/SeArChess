@@ -10,6 +10,12 @@ package chess.adapter.rest.dto
  *  @param mode            "HumanVsHuman" | "HumanVsAI" | "AIVsAI"
  *  @param whiteController "HumanLocal" | "HumanRemote"
  *  @param blackController "HumanLocal" | "HumanRemote"
+ *
+ *  === REST v1 controller constraint ===
+ *  "AI" is not a valid controller value in this API.  Passing "AI" returns
+ *  400 BAD_REQUEST.  Server-side AI (for HumanVsAI / AIVsAI modes) is
+ *  triggered externally; the client does not configure the AI engine identity
+ *  via this endpoint.
  */
 final case class CreateSessionRequest(
   mode:            Option[String],

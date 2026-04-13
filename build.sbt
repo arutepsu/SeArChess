@@ -93,20 +93,6 @@ lazy val adapterRestShared = project
   )
   .dependsOn(application)
 
-// ── Module: adapter-rest-jdk (legacy spike) ───────────────────────────────────
-
-lazy val adapterRestJdk = project
-  .in(file("modules/adapter-rest-jdk"))
-  .settings(
-    commonSettings,
-    // RestServer and route handlers require a live HTTP socket; exclude from coverage.
-    // Note: unescaped . matches any char so it works as path separator on Windows (\) and Unix (/).
-    excludeFromCoverage(
-      ".*adapter.rest.RestServer.*",
-      ".*adapter.rest.route.*"
-    )
-  )
-  .dependsOn(adapterRestShared, adapterPersistence)
 
 // ── Module: adapter-rest-http4s (authoritative REST adapter) ──────────────────
 
@@ -193,7 +179,7 @@ lazy val main = project
     run     / fork      := true,
     excludeFromCoverage(".*chess.Main.*")
   )
-  .dependsOn(adapterGui, adapterTui, adapterRestHttp4s, adapterRestJdk,
+  .dependsOn(adapterGui, adapterTui, adapterRestHttp4s,
              adapterWebsocket, adapterAi, adapterEvent)
 
 // ── Aliases ───────────────────────────────────────────────────────────────────
@@ -208,7 +194,7 @@ lazy val main = project
 // Per-module test aliases:
 //   testDomain              testNotation            testApplication
 //   testAdapterPersistence  testAdapterAi           testAdapterEvent
-//   testAdapterRestShared   testAdapterRestJdk      testAdapterRestHttp4s
+//   testAdapterRestShared   testAdapterRestHttp4s
 //   testAdapterWebsocket    testAdapterGui          testAdapterTui
 //   testMain
 //
@@ -243,7 +229,6 @@ addCommandAlias("testAdapterPersistence", "adapterPersistence/test")
 addCommandAlias("testAdapterAi",          "adapterAi/test")
 addCommandAlias("testAdapterEvent",       "adapterEvent/test")
 addCommandAlias("testAdapterRestShared",  "adapterRestShared/test")
-addCommandAlias("testAdapterRestJdk",     "adapterRestJdk/test")
 addCommandAlias("testAdapterRestHttp4s",  "adapterRestHttp4s/test")
 addCommandAlias("testAdapterWebsocket",   "adapterWebsocket/test")
 addCommandAlias("testAdapterGui",         "adapterGui/test")
@@ -259,14 +244,14 @@ addCommandAlias("testInfra",
   ";adapterPersistence/test;adapterEvent/test;adapterAi/test;adapterWebsocket/test")
 
 addCommandAlias("testRest",
-  ";adapterRestShared/test;adapterRestJdk/test;adapterRestHttp4s/test")
+  ";adapterRestShared/test;adapterRestHttp4s/test")
 
 addCommandAlias("testUi",
   ";adapterGui/test;adapterTui/test")
 
 addCommandAlias("testAllAdapters",
   ";adapterPersistence/test;adapterEvent/test;adapterAi/test;adapterWebsocket/test" +
-  ";adapterRestShared/test;adapterRestJdk/test;adapterRestHttp4s/test" +
+  ";adapterRestShared/test;adapterRestHttp4s/test" +
   ";adapterGui/test;adapterTui/test")
 
 // ── Compile slices ────────────────────────────────────────────────────────────
@@ -275,7 +260,7 @@ addCommandAlias("compileCore",
   ";domain/compile;notation/compile;application/compile")
 
 addCommandAlias("compileRest",
-  ";adapterRestShared/compile;adapterRestJdk/compile;adapterRestHttp4s/compile")
+  ";adapterRestShared/compile;adapterRestHttp4s/compile")
 
 addCommandAlias("compileUi",
   ";adapterGui/compile;adapterTui/compile")
@@ -297,7 +282,7 @@ lazy val root = project
   .aggregate(
     domain, notation, application,
     adapterPersistence, adapterAi, adapterEvent,
-    adapterRestShared, adapterRestJdk, adapterRestHttp4s,
+    adapterRestShared, adapterRestHttp4s,
     adapterWebsocket, adapterGui, adapterTui,
     main
   )

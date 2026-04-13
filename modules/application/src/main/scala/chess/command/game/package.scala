@@ -3,8 +3,12 @@
  *  Responsibilities:
  *  - command types that represent player intentions (e.g. ApplyMove, NewGame)
  *  - command handlers that validate guards, delegate to domain rules, and return results
- *  - internal orchestration types (ApplyMoveResult, GameTransitionService, EventBuilder,
- *    MoveTransitionContext) once migrated from the application root
+ *
+ *  === Current command boundary ===
+ *  The game-session command surface is defined by
+ *  [[chess.application.session.service.GameSessionCommands]] and implemented by
+ *  [[chess.application.session.service.SessionGameService]].  These are the first
+ *  extractable service boundary candidates.
  *
  *  Does NOT:
  *  - contain chess rule logic (that belongs in chess.domain.rules)

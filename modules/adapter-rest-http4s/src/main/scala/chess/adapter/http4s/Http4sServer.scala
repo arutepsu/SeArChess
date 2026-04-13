@@ -4,7 +4,7 @@ import cats.effect.{IO, Resource}
 import cats.syntax.semigroupk.*
 import chess.adapter.http4s.route.{Http4sGameRoutes, Http4sSessionRoutes}
 import chess.application.port.repository.GameRepository
-import chess.application.session.service.SessionGameService
+import chess.application.session.service.{GameSessionCommands, SessionService}
 import com.comcast.ip4s.*
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.server.Server
@@ -15,9 +15,14 @@ import org.http4s.server.Server
  *  JDK-`HttpServer`-based spike in `chess.adapter.rest`.
  *
  *  === Design ===
- *  - `sessionService` and `gameRepository` are injected by the caller (typically
- *    `chess.Main`), so this class depends only on `application` ports and does
- *    not hard-code any persistence implementation.
+ *  - Dependencies are injected by the caller (typically `chess.Main`), so this
+ *    class depends only on `application` ports and does not hard-code any
+ *    persistence implementation.
+ *  - The command/query split is explicit:
+ *    - `commands` drives all state-mutating routes ([[Http4sSessionRoutes]] POST,
+ *      [[Http4sGameRoutes]] POST) via the [[GameSessionCommands]] boundary.
+ *    - `sessionService` serves read-only session lookups (GET routes).
+ *    - `gameRepository` serves read-only game-state lookups (GET routes).
  *  - Routes are composed via [[Router]] so each route class works on its own
  *    path prefix independently.
  *  - The server lifecycle is expressed as `Resource[IO, Server]`, the standard
@@ -29,19 +34,21 @@ import org.http4s.server.Server
  *  Pass `port = 0` to bind to an OS-assigned ephemeral port.  The actual
  *  port can be read from `server.address.port.value` after acquisition.
  *
- *  @param sessionGameService unified application mutation boundary
- *  @param gameRepository    application-level game state port
- *  @param port              TCP port; 0 for ephemeral (useful in tests)
+ *  @param commands       game-session command boundary (write path)
+ *  @param sessionService session read/query service
+ *  @param gameRepository application-level game state read port
+ *  @param port           TCP port; 0 for ephemeral (useful in tests)
  */
 class Http4sServer(
-  sessionGameService: SessionGameService,
-  gameRepository:     GameRepository,
-  port:               Int = 8080
+  commands:       GameSessionCommands,
+  sessionService: SessionService,
+  gameRepository: GameRepository,
+  port:           Int = 8080
 ):
 
   private val combinedRoutes =
-    Http4sSessionRoutes(sessionGameService).routes <+>
-    Http4sGameRoutes(sessionGameService, gameRepository).routes
+    Http4sSessionRoutes(commands, sessionService).routes <+>
+    Http4sGameRoutes(commands, sessionService, gameRepository).routes
 
   /** Acquire the bound server as a `Resource`.  The server is stopped when
    *  the resource is released.

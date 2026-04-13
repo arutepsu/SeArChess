@@ -9,22 +9,30 @@ import chess.application.port.repository.{GameRepository, RepositoryError}
 import chess.domain.error.DomainError
 import chess.application.session.model.SessionIds.GameId
 import chess.application.session.model.SideController
-import chess.application.session.service.{SessionError, SessionGameService, SessionMoveError}
+import chess.application.session.service.{GameSessionCommands, SessionError, SessionMoveError, SessionService}
 import org.http4s.*
 import org.http4s.dsl.io.*
 
 /** http4s routes for the `/games` resource.
  *
  *  Routes:
- *  - `GET  /games/{gameId}`        → [[handleGetGame]]
- *  - `POST /games/{gameId}/moves`  → [[handleSubmitMove]]
+ *  - `GET  /games/{gameId}`        → [[handleGetGame]]     (query — uses [[GameRepository]])
+ *  - `POST /games/{gameId}/moves`  → [[handleSubmitMove]]  (command — uses [[GameSessionCommands]])
+ *
+ *  The dependency split is intentional:
+ *  - `GET` reads game state directly from [[GameRepository]] (query path).
+ *  - `POST` session lookup uses [[SessionService]] (query path), then routes the
+ *    move through [[GameSessionCommands]] (command path).
+ *  This keeps the command and query paths separately typed, making the future
+ *  service extraction boundary visible at the adapter level.
  *
  *  This class is pure logic tested in-memory via `routes.orNotFound.run(req)`.
  *  DTOs and mappers from `chess.adapter.rest` are reused (transport-neutral).
  */
 class Http4sGameRoutes(
-  sessionGameService: SessionGameService,
-  gameRepository:     GameRepository
+  commands:       GameSessionCommands,
+  sessionService: SessionService,
+  gameRepository: GameRepository
 ):
 
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
@@ -52,12 +60,13 @@ class Http4sGameRoutes(
           case Right(state) =>
             jsonResponse(Status.Ok, GameResponse.toJson(GameMapper.toGameResponse(gameIdStr, state)))
 
-  /** Submit a move through the unified application mutation boundary.
+  /** Submit a move through the game-session command boundary.
    *
-   *  [[SessionGameService.submitMove]] handles domain validation, session-lifecycle
+   *  [[GameSessionCommands.submitMove]] handles domain validation, session-lifecycle
    *  persistence, game-state persistence, and event publication atomically from the
-   *  adapter's perspective.  The route only parses the request, resolves the session,
-   *  and maps the result to an HTTP response.
+   *  adapter's perspective.  The route only parses the request, resolves the session
+   *  via the query path ([[SessionService.getSessionByGameId]]), and maps the result
+   *  to an HTTP response.
    */
   private def handleSubmitMove(gameIdStr: String, body: String): IO[Response[IO]] =
     type HttpErr = (Status, String, String)
@@ -76,11 +85,11 @@ class Http4sGameRoutes(
                      .left.map(m => (Status.BadRequest, "BAD_REQUEST", m))
         move    <- MoveMapper.toDomain(req)
                      .left.map(m => (Status.UnprocessableEntity, "INVALID_MOVE", m))
-        ctrl     = SessionMapper.parseController(req.controller)
-                     .getOrElse(SideController.HumanLocal)
-        session <- sessionGameService.getSessionByGameId(gameId)
+        ctrl    <- SessionMapper.parseController(req.controller)
+                     .left.map(m => (Status.BadRequest, "BAD_REQUEST", m))
+        session <- sessionService.getSessionByGameId(gameId)
                      .left.map(e => (Status.NotFound, "GAME_NOT_FOUND", sessionErrMsg(e)))
-        pair    <- sessionGameService.submitMove(session, state, move, ctrl)
+        pair    <- commands.submitMove(session, state, move, ctrl)
                      .left.map(moveErrToHttpErr)
         (nextState, nextSess) = pair
       yield SubmitMoveResponse(

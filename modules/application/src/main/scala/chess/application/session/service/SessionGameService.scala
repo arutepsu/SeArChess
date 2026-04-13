@@ -9,41 +9,45 @@ import chess.domain.model.{GameStatus, Move}
 import chess.domain.state.{GameState, GameStateFactory}
 import java.time.Instant
 
-/** Unified application mutation boundary for all game-move adapters.
+/** Concrete implementation of [[GameSessionCommands]] and the composition root for
+ *  the game-session capability inside the modular monolith.
  *
- *  Composes [[SessionService]] (pure move validation and session-lifecycle
- *  computation) with [[SessionGameStore]] (combined session + game-state
- *  persistence) and [[EventPublisher]] (post-persistence event publication)
- *  so every adapter — GUI, TUI, REST — calls one entry point and is guaranteed
- *  that after a successful move:
+ *  This class has three distinct roles, each occupying its own section:
  *
- *  1. the move is validated by the domain rules engine
- *  2. the updated session lifecycle and the new [[GameState]] are persisted
- *     atomically via [[SessionGameStore]]
- *  3. [[chess.application.event.AppEvent.MoveApplied]] is published
- *  4. [[chess.application.event.AppEvent.GameFinished]] is published when the
- *     move is terminal
- *  5. [[chess.application.event.AppEvent.SessionLifecycleChanged]] is published
- *     when the lifecycle advances
+ *  === 1. Game-session command surface ([[GameSessionCommands]]) ===
+ *  [[newGame]] and [[submitMove]] are the authoritative write operations.
+ *  Both operations:
+ *  - validate a command against domain rules and session policy
+ *  - persist session metadata and game state atomically via [[SessionGameStore]]
+ *  - emit post-persistence [[chess.application.event.AppEvent]]s
+ *  These are the operations the future extracted game-session command service
+ *  would own.  Adapters that depend only on [[GameSessionCommands]] are
+ *  already extraction-ready.
  *
- *  Events (steps 3–5) are only published after both persistence writes have
- *  succeeded, eliminating the partial-failure window that existed when session
- *  and game-state writes were independent.
+ *  === 2. Session lifecycle management ===
+ *  [[createSession]], [[preparePromotion]], and [[updateLifecycle]] mutate session
+ *  state only (not game state) and delegate to [[SessionService]].  They write only
+ *  to [[chess.application.port.repository.SessionRepository]] — not
+ *  [[SessionGameStore]].  These operations are used by desktop adapters (GUI,
+ *  desktop-session import) that manage session context locally.
  *
- *  Session lifecycle operations that do not involve a move (session creation,
- *  lifecycle transitions, promotion setup) are delegated transparently to the
- *  underlying [[SessionService]]; adapters may call them through this façade so
- *  they only need one dependency.
+ *  === 3. Query delegation ===
+ *  [[getSession]] and [[getSessionByGameId]] are pure reads forwarded to
+ *  [[SessionService]].  Callers that only need reads may depend on
+ *  [[SessionService]] directly; these delegating methods exist so that adapters
+ *  that need both reads and commands can use a single dependency.
+ *  In a future extraction, these reads could remain on the command service
+ *  (if it is the read authority) or be served by a separate read model.
  *
  *  @param sessionService pure validation, lifecycle computation, and session-only writes
- *  @param store          combined persistence port for session + game state
- *  @param publisher      post-persistence event publication
+ *  @param store          combined persistence port for session + game state (command surface)
+ *  @param publisher      post-persistence event publication (command surface)
  */
 class SessionGameService(
   sessionService: SessionService,
   store:          SessionGameStore,
   publisher:      EventPublisher
-):
+) extends GameSessionCommands:
 
   /** Apply a move through the session boundary and persist both the updated
    *  session and the new [[GameState]] before publishing any events.
@@ -65,6 +69,10 @@ class SessionGameService(
    *  @param now        wall-clock instant for lifecycle timestamps
    *  @return updated (GameState, GameSession) or the first error encountered
    */
+  // ── Game-session command surface (GameSessionCommands) ────────────────────
+  // Both methods use SessionGameStore (combined write) and publish post-persistence events.
+  // These are the operations the future extracted service would own.
+
   def submitMove(
     session:    GameSession,
     state:      GameState,
@@ -84,35 +92,6 @@ class SessionGameService(
         publisher.publish(AppEvent.SessionLifecycleChanged(
           session.sessionId, session.gameId, session.lifecycle, nextSession.lifecycle))
       (nextState, nextSession)
-
-  // ── Session lifecycle delegation ────────────────────────────────────────────
-  // Adapters that previously depended on SessionService directly can switch to
-  // this façade as their sole dependency.
-
-  def getSession(id: SessionId): Either[SessionError, GameSession] =
-    sessionService.getSession(id)
-
-  def getSessionByGameId(gameId: GameId): Either[SessionError, GameSession] =
-    sessionService.getSessionByGameId(gameId)
-
-  def createSession(
-    gameId:          GameId,
-    mode:            SessionMode,
-    whiteController: SideController,
-    blackController: SideController,
-    now:             Instant = Instant.now()
-  ): Either[SessionError, GameSession] =
-    sessionService.createSession(gameId, mode, whiteController, blackController, now)
-
-  def preparePromotion(sessionId: SessionId, now: Instant = Instant.now()): Either[SessionError, GameSession] =
-    sessionService.preparePromotion(sessionId, now)
-
-  def updateLifecycle(
-    id:  SessionId,
-    next: SessionLifecycle,
-    now:  Instant = Instant.now()
-  ): Either[SessionError, GameSession] =
-    sessionService.updateLifecycle(id, next, now)
 
   /** Create a new session and persist the initial [[GameState]] as one write.
    *
@@ -143,6 +122,41 @@ class SessionGameService(
           session.whiteController, session.blackController))
         (fresh, session)
       }
+
+  // ── Query delegation ──────────────────────────────────────────────────────
+  // Pure reads forwarded to SessionService.
+  // Adapters that only need reads can depend on SessionService directly.
+  // Adapters that need both reads and commands can use this class as their
+  // single dependency (it covers all three roles above).
+
+  def getSession(id: SessionId): Either[SessionError, GameSession] =
+    sessionService.getSession(id)
+
+  def getSessionByGameId(gameId: GameId): Either[SessionError, GameSession] =
+    sessionService.getSessionByGameId(gameId)
+
+  // ── Session lifecycle management ──────────────────────────────────────────
+  // Delegates to SessionService; writes only to SessionRepository (not SessionGameStore).
+  // Used by desktop adapters (GUI) that manage the shared desktop session context.
+
+  def createSession(
+    gameId:          GameId,
+    mode:            SessionMode,
+    whiteController: SideController,
+    blackController: SideController,
+    now:             Instant = Instant.now()
+  ): Either[SessionError, GameSession] =
+    sessionService.createSession(gameId, mode, whiteController, blackController, now)
+
+  def preparePromotion(sessionId: SessionId, now: Instant = Instant.now()): Either[SessionError, GameSession] =
+    sessionService.preparePromotion(sessionId, now)
+
+  def updateLifecycle(
+    id:  SessionId,
+    next: SessionLifecycle,
+    now:  Instant = Instant.now()
+  ): Either[SessionError, GameSession] =
+    sessionService.updateLifecycle(id, next, now)
 
   // ── private helpers ────────────────────────────────────────────────────────
 

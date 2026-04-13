@@ -11,6 +11,17 @@ import chess.domain.state.GameState
  *  eliminate the partial-failure window that exists when the two writes are
  *  independent: either both succeed or the caller receives an error.
  *
+ *  === Data ownership for the future extracted service ===
+ *  This port defines the authoritative write scope of the game-session command
+ *  capability (see [[chess.application.session.service.GameSessionCommands]]).
+ *  The future extracted game-session command service would own:
+ *  - the session write model ([[GameSession]] records)
+ *  - the game-state write model ([[chess.domain.state.GameState]] records associated
+ *    with session-aware play)
+ *
+ *  No other service or adapter should perform direct authoritative writes to
+ *  either of these records outside of this port.
+ *
  *  === Read paths ===
  *  This port is write-only.  Reads are still performed through
  *  [[SessionRepository]] (for session metadata) and [[GameRepository]] (for
