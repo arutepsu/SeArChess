@@ -5,15 +5,21 @@ import chess.adapter.http4s.route.Http4sRouteSupport.*
 import chess.adapter.rest.dto.{CreateSessionRequest, CreateSessionResponse, SessionResponse}
 import chess.adapter.rest.mapper.{GameMapper, SessionMapper}
 import chess.application.session.model.SessionIds.SessionId
-import chess.application.session.service.{SessionError, SessionGameService}
+import chess.application.session.service.{GameSessionCommands, SessionError, SessionService}
 import org.http4s.*
 import org.http4s.dsl.io.*
 
 /** http4s routes for the `/sessions` resource.
  *
  *  Routes:
- *  - `POST /sessions`       → [[handleCreate]]
- *  - `GET  /sessions/{id}`  → [[handleGet]]
+ *  - `POST /sessions`       → [[handleCreate]]  (command — uses [[GameSessionCommands]])
+ *  - `GET  /sessions/{id}`  → [[handleGet]]      (query  — uses [[SessionService]])
+ *
+ *  The dependency split is intentional:
+ *  - `POST` routes to the game-session command boundary ([[GameSessionCommands]]).
+ *  - `GET` routes to the read/query side ([[SessionService]]).
+ *  This keeps the command path and the query path separately typed, making the
+ *  future service extraction boundary visible at the adapter level.
  *
  *  This class is pure logic: no I/O beyond effect-wrapping of synchronous
  *  application calls.  It is tested in-memory via `routes.orNotFound.run(req)`.
@@ -22,7 +28,7 @@ import org.http4s.dsl.io.*
  *  are transport-neutral (ujson-based case classes) and there is no reason to
  *  duplicate them for the http4s adapter.
  */
-class Http4sSessionRoutes(sessionGameService: SessionGameService):
+class Http4sSessionRoutes(commands: GameSessionCommands, sessionService: SessionService):
 
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
 
@@ -35,9 +41,9 @@ class Http4sSessionRoutes(sessionGameService: SessionGameService):
 
   // ── handlers ──────────────────────────────────────────────────────────────
 
-  /** Create a session through the unified application mutation boundary.
+  /** Create a session through the game-session command boundary.
    *
-   *  [[SessionGameService.newGame]] atomically creates a fresh session, generates
+   *  [[GameSessionCommands.newGame]] atomically creates a fresh session, generates
    *  a [[chess.application.session.model.SessionIds.GameId]], and persists the
    *  initial [[chess.domain.state.GameState]] before returning.
    */
@@ -48,7 +54,7 @@ class Http4sSessionRoutes(sessionGameService: SessionGameService):
         mode          <- SessionMapper.parseMode(req.mode)
         white         <- SessionMapper.parseController(req.whiteController)
         black         <- SessionMapper.parseController(req.blackController)
-        pair          <- sessionGameService.newGame(mode, white, black)
+        pair          <- commands.newGame(mode, white, black)
                            .left.map(sessionErrMsg)
         (state, session) = pair
       yield SessionMapper.toCreateSessionResponse(
@@ -66,7 +72,7 @@ class Http4sSessionRoutes(sessionGameService: SessionGameService):
       case Left(msg) =>
         jsonError(Status.BadRequest, "BAD_REQUEST", msg)
       case Right(uuid) =>
-        sessionGameService.getSession(SessionId(uuid)) match
+        sessionService.getSession(SessionId(uuid)) match
           case Left(SessionError.SessionNotFound(_)) =>
             jsonError(Status.NotFound, "SESSION_NOT_FOUND", s"Session not found: $idStr")
           case Left(err) =>

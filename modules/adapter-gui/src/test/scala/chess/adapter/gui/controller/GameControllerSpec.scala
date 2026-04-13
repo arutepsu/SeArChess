@@ -572,7 +572,7 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
     moveEvents should have size 1
     moveEvents.head.move.from.toString shouldBe "e2"
     moveEvents.head.move.to.toString   shouldBe "e4"
-    moveEvents.head.currentPlayer      shouldBe Color.White
+    moveEvents.head.playerWhoMoved      shouldBe Color.White
   }
 
   it should "publish GameFinished after a GUI move that ends the game in checkmate" in {

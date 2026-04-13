@@ -4,7 +4,7 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import chess.adapter.http4s.route.Http4sSessionRoutes
 import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionGameStore, InMemorySessionRepository}
-import chess.application.session.service.{SessionGameService, SessionService}
+import chess.application.session.service.{SessionGameService, SessionService, GameSessionCommands}
 import org.http4s.*
 import org.http4s.dsl.io.*
 import org.http4s.implicits.*
@@ -29,7 +29,7 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers:
     val store          = InMemorySessionGameStore(sessionRepo, gameRepo)
     val sessionService = SessionService(sessionRepo, _ => ())
     val svc            = SessionGameService(sessionService, store, _ => ())
-    Http4sSessionRoutes(svc).routes.orNotFound
+    Http4sSessionRoutes(svc, sessionService).routes.orNotFound
 
   /** Run a request through the route under test and return the response. */
   private def run(routes: HttpApp[IO], req: Request[IO]): Response[IO] =
@@ -79,6 +79,19 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers:
     val resp = run(routes, req)
     resp.status             shouldBe Status.BadRequest
     bodyJson(resp)("code").str shouldBe "BAD_REQUEST"
+  }
+
+  // REST v1 contract: "AI" is not a valid controller value.
+  // AI engine wiring is server-side only; clients may not configure it via this endpoint.
+  it should "return 400 when whiteController is AI (not valid in REST v1)" in {
+    val routes = makeRoutes()
+    val body   = """{"mode":"HumanVsAI","whiteController":"AI","blackController":"HumanLocal"}"""
+    val req    = Request[IO](Method.POST, uri"/sessions")
+      .withBodyStream(fs2.Stream.emits(body.getBytes("UTF-8")).covary[IO])
+
+    val resp = run(routes, req)
+    resp.status                  shouldBe Status.BadRequest
+    bodyJson(resp)("code").str   shouldBe "BAD_REQUEST"
   }
 
   it should "return 400 for malformed JSON" in {

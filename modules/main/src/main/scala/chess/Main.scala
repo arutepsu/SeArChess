@@ -43,7 +43,7 @@ object Main:
 
     // ── REST server ────────────────────────────────────────────────────────
     // Allocated as a Cats Effect Resource; the IO[Unit] shuts the server down.
-    val (_, shutdownHttp) = Http4sServer(sessionGameService, gameRepo, port = 8080)
+    val (_, shutdownHttp) = Http4sServer(sessionGameService, sessionService, gameRepo, port = 8080)
       .resource.allocated.unsafeRunSync()
 
     // ── One shared desktop session ─────────────────────────────────────────

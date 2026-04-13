@@ -26,6 +26,10 @@ object SessionMapper:
 
   /** Parse a [[SideController]] from an optional request string.
    *  Absent or "HumanLocal" → [[SideController.HumanLocal]] (default).
+   *
+   *  "AI" is intentionally not accepted here.  REST v1 does not allow clients
+   *  to configure an AI-controlled side; attempting to do so returns a parse
+   *  error.  AI session wiring is a server-side concern.
    */
   def parseController(s: Option[String]): Either[String, SideController] =
     s match

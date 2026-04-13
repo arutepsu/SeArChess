@@ -67,9 +67,15 @@ class WebSocketMessageMapperSpec extends AnyFlatSpec with Matchers with EitherVa
 
   "MoveApplied" should "include move with from/to in algebraic notation" in {
     val json = parse(AppEvent.MoveApplied(sid, gid, Move(e2, e4), Color.White))
-    json("currentPlayer").str    shouldBe "White"
+    json("playerWhoMoved").str   shouldBe "White"
     json("move")("from").str     shouldBe "e2"
     json("move")("to").str       shouldBe "e4"
+  }
+
+  it should "use playerWhoMoved (not currentPlayer) so the frontend is not misled about whose turn is next" in {
+    val json = parse(AppEvent.MoveApplied(sid, gid, Move(e2, e4), Color.White))
+    json.obj.contains("currentPlayer") shouldBe false
+    json("playerWhoMoved").str         shouldBe "White"
   }
 
   it should "include promotion field when present" in {

@@ -5,7 +5,7 @@ import chess.application.event.AppEvent
 import chess.application.port.ai.{AIError, AIProvider}
 import chess.application.port.event.EventPublisher
 import chess.application.session.model.{GameSession, SideController}
-import chess.application.session.service.SessionGameService
+import chess.application.session.service.GameSessionCommands
 import chess.domain.state.GameState
 import java.time.Instant
 
@@ -14,14 +14,14 @@ import java.time.Instant
  *  === Responsibilities ===
  *  - Verify the current turn belongs to an AI controller via [[AITurnPolicy]].
  *  - Request a move candidate from [[AIProvider]].
- *  - Feed the candidate through [[SessionGameService.submitMove]] — the unified
- *    application mutation boundary — so that domain validation, session-lifecycle
- *    persistence, game-state persistence, and event publication all apply to AI
- *    moves in exactly the same way as to human moves.
+ *  - Feed the candidate through [[GameSessionCommands.submitMove]] — the game-session
+ *    command boundary — so that domain validation, session-lifecycle persistence,
+ *    game-state persistence, and event publication all apply to AI moves in exactly
+ *    the same way as to human moves.
  *  - Publish [[AppEvent.AITurnRequested]], [[AppEvent.AITurnCompleted]], or
  *    [[AppEvent.AITurnFailed]] as appropriate via [[EventPublisher]].
  *
- *  The [[SideController.AI]] value passed to [[SessionGameService.submitMove]]
+ *  The [[SideController.AI]] value passed to [[GameSessionCommands.submitMove]]
  *  satisfies the existing [[chess.application.session.policy.ActorControlPolicy]]
  *  check: any `AI(_)` matches any `AI(_)` regardless of engine id.
  *
@@ -30,14 +30,14 @@ import java.time.Instant
  *  - Choosing or registering engine implementations
  *  - Async or background processing
  *
- *  @param provider           outbound port for AI move generation
- *  @param sessionGameService unified application mutation boundary
- *  @param publisher          outbound port for event publication
+ *  @param provider  outbound port for AI move generation
+ *  @param commands  game-session command boundary
+ *  @param publisher outbound port for event publication
  */
 class AITurnService(
-  provider:           AIProvider,
-  sessionGameService: SessionGameService,
-  publisher:          EventPublisher
+  provider:  AIProvider,
+  commands:  GameSessionCommands,
+  publisher: EventPublisher
 ):
 
   /** Ask the AI to make a move for the current player in `state`.
@@ -70,7 +70,7 @@ class AITurnService(
         for
           response <- provider.suggestMove(state)
                         .left.map(AITurnError.ProviderFailure(_))
-          result   <- sessionGameService.submitMove(
+          result   <- commands.submitMove(
                         session    = session,
                         state      = state,
                         move       = response.move,

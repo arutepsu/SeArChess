@@ -6,8 +6,11 @@ import chess.adapter.http4s.route.{Http4sGameRoutes, Http4sSessionRoutes}
 import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionGameStore, InMemorySessionRepository}
 import chess.application.event.AppEvent
 import chess.application.port.event.EventPublisher
-import chess.application.session.model.SessionIds.GameId
+import chess.application.port.repository.{GameRepository, RepositoryError, SessionGameStore, SessionRepository}
+import chess.application.session.model.GameSession
+import chess.application.session.model.SessionIds.{GameId, SessionId}
 import chess.application.session.service.{SessionGameService, SessionService}
+import chess.domain.state.GameState
 import chess.domain.model.{Board, Color, Piece, PieceType, Position}
 import chess.domain.state.{GameStateFactory, CastlingRights}
 import org.http4s.*
@@ -41,6 +44,20 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     collector:  TestEventPublisher
   )
 
+  // ── repository / store stubs ───────────────────────────────────────────────
+
+  /** Game repository that always returns StorageFailure for every operation. */
+  private class FailingGameRepository extends GameRepository:
+    override def save(gameId: GameId, state: GameState): Either[RepositoryError, Unit] =
+      Left(RepositoryError.StorageFailure("disk full"))
+    override def load(gameId: GameId): Either[RepositoryError, GameState] =
+      Left(RepositoryError.StorageFailure("disk full"))
+
+  /** Session game store that always fails on save (reads via underlying repos are unaffected). */
+  private class FailingSessionGameStore extends SessionGameStore:
+    override def save(session: GameSession, state: GameState): Either[RepositoryError, Unit] =
+      Left(RepositoryError.StorageFailure("write failed"))
+
   /** Returns a fixture with shared in-memory repositories wired through SessionGameService. */
   private def makeFixture(collector: TestEventPublisher = new TestEventPublisher): TestFixture =
     val sessionRepo    = InMemorySessionRepository()
@@ -48,8 +65,8 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val store          = InMemorySessionGameStore(sessionRepo, gameRepo)
     val sessionService = SessionService(sessionRepo, _ => ())
     val svc            = SessionGameService(sessionService, store, collector)
-    val gameRoutes     = Http4sGameRoutes(svc, gameRepo).routes.orNotFound
-    val sessRoutes     = Http4sSessionRoutes(svc).routes.orNotFound
+    val gameRoutes     = Http4sGameRoutes(svc, sessionService, gameRepo).routes.orNotFound
+    val sessRoutes     = Http4sSessionRoutes(svc, sessionService).routes.orNotFound
     TestFixture(gameRoutes, sessRoutes, gameRepo, svc, collector)
 
   /** Convenience alias kept for existing tests. */
@@ -268,6 +285,36 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     bodyJson(resp)("code").str shouldBe "PROMOTION_REQUIRED"
   }
 
+  // REST v1 two-step promotion contract: reject without piece → accept with piece.
+  // sessionLifecycle in the success response must never be "AwaitingPromotion"
+  // because the session is only updated after the complete move is committed.
+  it should "accept a promotion move when the piece is included and return sessionLifecycle Active" in {
+    val fixture = makeFixture()
+    val gameId  = createSession(fixture.sessRoutes)
+
+    val pos = (alg: String) => Position.fromAlgebraic(alg).getOrElse(throw AssertionError(s"bad: $alg"))
+    val promotionBoard = Board.empty
+      .place(pos("e7"), Piece(Color.White, PieceType.Pawn))
+      .place(pos("a1"), Piece(Color.White, PieceType.King))
+      .place(pos("h8"), Piece(Color.Black, PieceType.King))
+    val promotionState = GameStateFactory.initial().copy(
+      board          = promotionBoard,
+      currentPlayer  = Color.White,
+      moveHistory    = Nil,
+      castlingRights = CastlingRights.none
+    )
+    fixture.gameRepo.save(GameId(UUID.fromString(gameId)), promotionState)
+
+    val req = Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/moves"))
+      .withBodyStream(jsonBody("""{"from":"e7","to":"e8","promotion":"Queen"}"""))
+    val resp = run(fixture.gameRoutes, req)
+    resp.status                                        shouldBe Status.Ok
+    val json = bodyJson(resp)
+    json("sessionLifecycle").str                       shouldBe "Active"
+    json("sessionLifecycle").str                       should not be "AwaitingPromotion"
+    json("game")("board").arr.map(_("pieceType").str)  should contain ("Queen")
+  }
+
   it should "return GAME_FINISHED (409) when the session is already finished" in {
     val fixture = makeFixture()
     val gameId  = createSession(fixture.sessRoutes)
@@ -296,6 +343,53 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val resp = run(fixture.gameRoutes, req)
     resp.status                shouldBe Status.Conflict
     bodyJson(resp)("code").str shouldBe "GAME_FINISHED"
+  }
+
+  // ── REST v1 controller validation ─────────────────────────────────────────
+  // An explicitly invalid controller value must be rejected (400) rather than
+  // silently falling back to HumanLocal.  An absent controller field defaults
+  // to HumanLocal as before.
+
+  it should "return 400 BAD_REQUEST for an explicitly invalid controller value" in {
+    val (gameRoutes, sessRoutes) = makeRoutes()
+    val gameId = createSession(sessRoutes)
+
+    val req = Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/moves"))
+      .withBodyStream(jsonBody("""{"from":"e2","to":"e4","controller":"BogusController"}"""))
+    val resp = run(gameRoutes, req)
+    resp.status                shouldBe Status.BadRequest
+    bodyJson(resp)("code").str shouldBe "BAD_REQUEST"
+  }
+
+  it should "return 400 BAD_REQUEST when controller is AI (not valid in REST v1)" in {
+    val (gameRoutes, sessRoutes) = makeRoutes()
+    val gameId = createSession(sessRoutes)
+
+    val req = Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/moves"))
+      .withBodyStream(jsonBody("""{"from":"e2","to":"e4","controller":"AI"}"""))
+    val resp = run(gameRoutes, req)
+    resp.status                shouldBe Status.BadRequest
+    bodyJson(resp)("code").str shouldBe "BAD_REQUEST"
+  }
+
+  it should "succeed when controller is omitted (defaults to HumanLocal)" in {
+    val (gameRoutes, sessRoutes) = makeRoutes()
+    val gameId = createSession(sessRoutes)
+
+    val req = Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/moves"))
+      .withBodyStream(jsonBody("""{"from":"e2","to":"e4"}"""))
+    val resp = run(gameRoutes, req)
+    resp.status shouldBe Status.Ok
+  }
+
+  it should "succeed when controller is explicitly HumanLocal" in {
+    val (gameRoutes, sessRoutes) = makeRoutes()
+    val gameId = createSession(sessRoutes)
+
+    val req = Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/moves"))
+      .withBodyStream(jsonBody("""{"from":"e2","to":"e4","controller":"HumanLocal"}"""))
+    val resp = run(gameRoutes, req)
+    resp.status shouldBe Status.Ok
   }
 
   // ── Unified application mutation boundary ─────────────────────────────────
@@ -372,4 +466,123 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
 
     val finishedEvents = collector.events.collect { case e: AppEvent.GameFinished => e }
     finishedEvents should have size 1
+  }
+
+  // ── GET storage failure path ───────────────────────────────────────────────
+
+  "GET /games/{gameId} (storage failure)" should "return 500 INTERNAL_ERROR when game repository fails" in {
+    val sessionRepo    = InMemorySessionRepository()
+    val sessionService = SessionService(sessionRepo, _ => ())
+    val store          = InMemorySessionGameStore(sessionRepo, InMemoryGameRepository())
+    val svc            = SessionGameService(sessionService, store, _ => ())
+    val failingRoutes  = Http4sGameRoutes(svc, sessionService, FailingGameRepository()).routes.orNotFound
+
+    val resp = run(failingRoutes, Request[IO](Method.GET, Uri.unsafeFromString(s"/games/${UUID.randomUUID()}")))
+    resp.status                shouldBe Status.InternalServerError
+    bodyJson(resp)("code").str shouldBe "INTERNAL_ERROR"
+  }
+
+  // ── POST storage failure paths ─────────────────────────────────────────────
+
+  "POST /games/{gameId}/moves (non-UUID id)" should "return 400 BAD_REQUEST" in {
+    val (gameRoutes, _) = makeRoutes()
+    val req = Request[IO](Method.POST, uri"/games/not-a-uuid/moves")
+      .withBodyStream(jsonBody("""{"from":"e2","to":"e4"}"""))
+    val resp = run(gameRoutes, req)
+    resp.status                shouldBe Status.BadRequest
+    bodyJson(resp)("code").str shouldBe "BAD_REQUEST"
+  }
+
+  "POST /games/{gameId}/moves (storage failure)" should
+      "return 500 INTERNAL_ERROR when gameRepository.load fails with StorageFailure" in {
+    val sessionRepo    = InMemorySessionRepository()
+    val sessionService = SessionService(sessionRepo, _ => ())
+    val store          = InMemorySessionGameStore(sessionRepo, InMemoryGameRepository())
+    val svc            = SessionGameService(sessionService, store, _ => ())
+    val failingRoutes  = Http4sGameRoutes(svc, sessionService, FailingGameRepository()).routes.orNotFound
+
+    val req = Request[IO](Method.POST, Uri.unsafeFromString(s"/games/${UUID.randomUUID()}/moves"))
+      .withBodyStream(jsonBody("""{"from":"e2","to":"e4"}"""))
+    val resp = run(failingRoutes, req)
+    resp.status                shouldBe Status.InternalServerError
+    bodyJson(resp)("code").str shouldBe "INTERNAL_ERROR"
+  }
+
+  it should "return 500 INTERNAL_ERROR when session store save fails after a valid move" in {
+    // Create session + initial game state in real repos, then wire a failing store.
+    val sessionRepo    = InMemorySessionRepository()
+    val gameRepo       = InMemoryGameRepository()
+    val normalStore    = InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionService = SessionService(sessionRepo, _ => ())
+    val normalSvc      = SessionGameService(sessionService, normalStore, _ => ())
+    val sessRoutes     = Http4sSessionRoutes(normalSvc, sessionService).routes.orNotFound
+    val gameId         = createSession(sessRoutes)
+
+    // Rebuild with a store that fails on every save.
+    val failingSvc    = SessionGameService(sessionService, FailingSessionGameStore(), _ => ())
+    val failingRoutes = Http4sGameRoutes(failingSvc, sessionService, gameRepo).routes.orNotFound
+
+    val req = Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/moves"))
+      .withBodyStream(jsonBody("""{"from":"e2","to":"e4"}"""))
+    val resp = run(failingRoutes, req)
+    resp.status                shouldBe Status.InternalServerError
+    bodyJson(resp)("code").str shouldBe "INTERNAL_ERROR"
+  }
+
+  // ── POST session lookup failure ────────────────────────────────────────────
+
+  "POST /games/{gameId}/moves (session lookup failure)" should
+      "return 404 GAME_NOT_FOUND when getSessionByGameId returns PersistenceFailed" in {
+    // Create session + initial game state in real repos.
+    val sessionRepo    = InMemorySessionRepository()
+    val gameRepo       = InMemoryGameRepository()
+    val normalStore    = InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionService = SessionService(sessionRepo, _ => ())
+    val normalSvc      = SessionGameService(sessionService, normalStore, _ => ())
+    val sessRoutes     = Http4sSessionRoutes(normalSvc, sessionService).routes.orNotFound
+    val gameId         = createSession(sessRoutes)
+
+    // Replace session repo with one that always fails on loadByGameId.
+    val failingRepo = new SessionRepository:
+      def save(s: GameSession): Either[RepositoryError, Unit]            = sessionRepo.save(s)
+      def load(id: SessionId): Either[RepositoryError, GameSession]      = sessionRepo.load(id)
+      def loadByGameId(id: GameId): Either[RepositoryError, GameSession] =
+        Left(RepositoryError.StorageFailure("session db failure"))
+
+    val failingSessionService = SessionService(failingRepo, _ => ())
+    val svc           = SessionGameService(failingSessionService, normalStore, _ => ())
+    val failingRoutes = Http4sGameRoutes(svc, failingSessionService, gameRepo).routes.orNotFound
+
+    val req = Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/moves"))
+      .withBodyStream(jsonBody("""{"from":"e2","to":"e4"}"""))
+    val resp = run(failingRoutes, req)
+    resp.status                shouldBe Status.NotFound
+    bodyJson(resp)("code").str shouldBe "GAME_NOT_FOUND"
+  }
+
+  // ── POST move error paths ──────────────────────────────────────────────────
+
+  "POST /games/{gameId}/moves (move error paths)" should
+      "return 403 UNAUTHORIZED_CONTROLLER when controller does not own the side to move" in {
+    // Session has HumanLocal for both sides; HumanRemote is not authorised.
+    val (gameRoutes, sessRoutes) = makeRoutes()
+    val gameId = createSession(sessRoutes)
+
+    val req = Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/moves"))
+      .withBodyStream(jsonBody("""{"from":"e2","to":"e4","controller":"HumanRemote"}"""))
+    val resp = run(gameRoutes, req)
+    resp.status                shouldBe Status.Forbidden
+    bodyJson(resp)("code").str shouldBe "UNAUTHORIZED_CONTROLLER"
+  }
+
+  it should "return 422 NOT_YOUR_TURN when attempting to move the opponent's piece" in {
+    // It is White's turn; e7 is a Black pawn — ChessService returns NotPlayersTurn.
+    val (gameRoutes, sessRoutes) = makeRoutes()
+    val gameId = createSession(sessRoutes)
+
+    val req = Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/moves"))
+      .withBodyStream(jsonBody("""{"from":"e7","to":"e5"}"""))
+    val resp = run(gameRoutes, req)
+    resp.status                shouldBe Status.UnprocessableEntity
+    bodyJson(resp)("code").str shouldBe "NOT_YOUR_TURN"
   }

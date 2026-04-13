@@ -32,8 +32,10 @@ import chess.domain.model.{Color, GameStatus, Move, PieceType, Position}
  *  - promotion completion transitions AwaitingPromotion → Active (or Finished if checkmate)
  *  - terminal game positions transition any lifecycle → Finished
  *
- *  When neither parameter is supplied (default), behavior falls back to the pure
- *  [[chess.application.ChessService.applyMove]] path (no persistence, no events).
+ *  === Local mode (default) ===
+ *  When neither parameter is supplied, moves go through [[chess.application.ChessService]]
+ *  directly (pure domain path).  No persistence, no event publication.  Intended for
+ *  standalone demo use and testing without infrastructure.
  *
  *  @param onRefresh          called with the new [[GameViewModel]] after every state change
  *  @param onAnimate          called with an [[AnimationPlan]] when a move animation should start

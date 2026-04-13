@@ -6,12 +6,25 @@ import chess.domain.model.{GameStatus, Move}
 
 /** Maps [[AppEvent]] values to outbound WebSocket JSON messages.
  *
+ *  === Transport model ===
+ *  WebSocket is a '''notification channel''', not a full-state transport.
+ *  Every message signals that something happened and, where useful, carries
+ *  the minimal fact needed to act on that signal.  The canonical game state
+ *  lives in the REST API; the frontend must re-fetch via
+ *  `GET /games/{gameId}` after receiving a [[chess.application.event.AppEvent.MoveApplied]]
+ *  or [[chess.application.event.AppEvent.GameFinished]] notification.
+ *
  *  === Message structure ===
  *  Every message includes:
  *  - `eventType`  — the event case class name (e.g. `"MoveApplied"`)
  *  - `sessionId`  — UUID string
  *  - `gameId`     — UUID string
  *  - event-specific fields
+ *
+ *  === Event categories ===
+ *  All [[AppEvent]] variants are forwarded.  See [[chess.application.event.AppEvent]]
+ *  for the distinction between '''game flow events''' (always relevant to UI) and
+ *  '''AI monitoring events''' (useful for "AI thinking…" indicators only).
  *
  *  === Field conventions ===
  *  Consistent with the REST adapter:
@@ -20,6 +33,11 @@ import chess.domain.model.{GameStatus, Move}
  *  - Game status: `"status"` string (`"Ongoing"` / `"Checkmate"` / `"Draw"`)
  *    plus `"winner"` or `"drawReason"` as appropriate, matching [[chess.adapter.rest.mapper.GameMapper]].
  *  - Colors, lifecycles, modes: `.toString` on the enum case.
+ *
+ *  === Key field semantics ===
+ *  - `MoveApplied.playerWhoMoved` — the color that made the move (i.e. whose turn
+ *    it was *before* the move).  This is NOT the player to move next; re-fetch
+ *    `GET /games/{gameId}` to obtain the authoritative `currentPlayer`.
  */
 object WebSocketMessageMapper:
 
@@ -50,11 +68,11 @@ object WebSocketMessageMapper:
 
     case MoveApplied(sid, gid, move, player) =>
       ujson.Obj(
-        "eventType"     -> "MoveApplied",
-        "sessionId"     -> sid.value.toString,
-        "gameId"        -> gid.value.toString,
-        "move"          -> moveJson(move),
-        "currentPlayer" -> player.toString
+        "eventType"      -> "MoveApplied",
+        "sessionId"      -> sid.value.toString,
+        "gameId"         -> gid.value.toString,
+        "move"           -> moveJson(move),
+        "playerWhoMoved" -> player.toString
       )
 
     case PromotionPending(sid, gid) =>
