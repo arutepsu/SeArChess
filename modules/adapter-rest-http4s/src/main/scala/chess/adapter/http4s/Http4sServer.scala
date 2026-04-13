@@ -4,7 +4,7 @@ import cats.effect.{IO, Resource}
 import cats.syntax.semigroupk.*
 import chess.adapter.http4s.route.{Http4sGameRoutes, Http4sSessionRoutes}
 import chess.application.port.repository.GameRepository
-import chess.application.session.service.SessionService
+import chess.application.session.service.SessionGameService
 import com.comcast.ip4s.*
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.server.Server
@@ -29,19 +29,19 @@ import org.http4s.server.Server
  *  Pass `port = 0` to bind to an OS-assigned ephemeral port.  The actual
  *  port can be read from `server.address.port.value` after acquisition.
  *
- *  @param sessionService  application-layer session orchestration
- *  @param gameRepository  application-level game state port
- *  @param port            TCP port; 0 for ephemeral (useful in tests)
+ *  @param sessionGameService unified application mutation boundary
+ *  @param gameRepository    application-level game state port
+ *  @param port              TCP port; 0 for ephemeral (useful in tests)
  */
 class Http4sServer(
-  sessionService: SessionService,
-  gameRepository: GameRepository,
-  port:           Int = 8080
+  sessionGameService: SessionGameService,
+  gameRepository:     GameRepository,
+  port:               Int = 8080
 ):
 
   private val combinedRoutes =
-    Http4sSessionRoutes(sessionService, gameRepository).routes <+>
-    Http4sGameRoutes(sessionService, gameRepository).routes
+    Http4sSessionRoutes(sessionGameService).routes <+>
+    Http4sGameRoutes(sessionGameService, gameRepository).routes
 
   /** Acquire the bound server as a `Resource`.  The server is stopped when
    *  the resource is released.

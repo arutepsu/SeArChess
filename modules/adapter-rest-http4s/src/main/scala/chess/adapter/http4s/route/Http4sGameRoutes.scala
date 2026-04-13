@@ -9,7 +9,7 @@ import chess.application.port.repository.{GameRepository, RepositoryError}
 import chess.domain.error.DomainError
 import chess.application.session.model.SessionIds.GameId
 import chess.application.session.model.SideController
-import chess.application.session.service.{SessionError, SessionMoveError, SessionService}
+import chess.application.session.service.{SessionError, SessionGameService, SessionMoveError}
 import org.http4s.*
 import org.http4s.dsl.io.*
 
@@ -23,8 +23,8 @@ import org.http4s.dsl.io.*
  *  DTOs and mappers from `chess.adapter.rest` are reused (transport-neutral).
  */
 class Http4sGameRoutes(
-  sessionService: SessionService,
-  gameRepository: GameRepository
+  sessionGameService: SessionGameService,
+  gameRepository:     GameRepository
 ):
 
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
@@ -52,11 +52,12 @@ class Http4sGameRoutes(
           case Right(state) =>
             jsonResponse(Status.Ok, GameResponse.toJson(GameMapper.toGameResponse(gameIdStr, state)))
 
-  /** Submit a move through the session-aware application boundary.
+  /** Submit a move through the unified application mutation boundary.
    *
-   *  The for-comprehension carries `(Status, errorCode, message)` triples as the
-   *  Left type so each step can report a precise HTTP status without losing
-   *  information when errors are collapsed at the end.
+   *  [[SessionGameService.submitMove]] handles domain validation, session-lifecycle
+   *  persistence, game-state persistence, and event publication atomically from the
+   *  adapter's perspective.  The route only parses the request, resolves the session,
+   *  and maps the result to an HTTP response.
    */
   private def handleSubmitMove(gameIdStr: String, body: String): IO[Response[IO]] =
     type HttpErr = (Status, String, String)
@@ -77,16 +78,11 @@ class Http4sGameRoutes(
                      .left.map(m => (Status.UnprocessableEntity, "INVALID_MOVE", m))
         ctrl     = SessionMapper.parseController(req.controller)
                      .getOrElse(SideController.HumanLocal)
-        session <- sessionService.getSessionByGameId(gameId)
+        session <- sessionGameService.getSessionByGameId(gameId)
                      .left.map(e => (Status.NotFound, "GAME_NOT_FOUND", sessionErrMsg(e)))
-        pair    <- sessionService.applyMove(session, state, move, ctrl)
+        pair    <- sessionGameService.submitMove(session, state, move, ctrl)
                      .left.map(moveErrToHttpErr)
         (nextState, nextSess) = pair
-        _       <- gameRepository.save(gameId, nextState)
-                     .left.map {
-                       case RepositoryError.NotFound(_)         => (Status.InternalServerError, "INTERNAL_ERROR", "Game disappeared after move")
-                       case RepositoryError.StorageFailure(msg) => (Status.InternalServerError, "INTERNAL_ERROR", s"Storage error after move: $msg")
-                     }
       yield SubmitMoveResponse(
         game             = GameMapper.toGameResponse(gameIdStr, nextState),
         sessionLifecycle = nextSess.lifecycle.toString

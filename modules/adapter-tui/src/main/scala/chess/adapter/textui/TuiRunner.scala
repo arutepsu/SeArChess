@@ -2,6 +2,8 @@
 package chess.adapter.textui
 
 import chess.application.ObservableGame
+import chess.application.session.model.DesktopSessionContext
+import chess.application.session.service.SessionGameService
 
 /** Starts a [[TextUI]] session on a named daemon thread.
  *
@@ -19,14 +21,44 @@ import chess.application.ObservableGame
  */
 object TuiRunner:
 
-  def start(game: ObservableGame, onUserQuit: () => Unit): Unit =
-    val t = new Thread(() => run(game, onUserQuit), "searchess-tui")
-    t.setDaemon(true)   // never prevent JVM exit when the GUI closes first
+  /** Start the TUI in session-aware mode.
+   *
+   *  All moves go through [[SessionGameService.submitMove]] — the unified
+   *  application mutation boundary — so that domain validation, persistence,
+   *  and event publication apply to TUI-driven moves in exactly the same way
+   *  as to GUI- and REST-driven moves.
+   *
+   *  [[ObservableGame]] is updated after each successful move as a notification
+   *  bridge so other adapters (e.g. GUI) observe the state change.  It is not
+   *  the mutation authority in this mode.
+   */
+  def start(
+    game:               ObservableGame,
+    sessionGameService: SessionGameService,
+    sessionContext:     DesktopSessionContext,
+    onUserQuit:         () => Unit
+  ): Unit =
+    val t = new Thread(
+      () => run(new TextUI(ConsoleIO, game, Some(sessionGameService), Some(sessionContext)), onUserQuit),
+      "searchess-tui"
+    )
+    t.setDaemon(true)
     t.start()
 
-  private def run(game: ObservableGame, onUserQuit: () => Unit): Unit =
+  /** Start the TUI in local (non-persistent) mode.
+   *
+   *  Moves go through the pure domain path ([[chess.application.ChessService]])
+   *  with no persistence or event publication.  Intended for standalone demo
+   *  use or contexts where no session infrastructure is available.
+   */
+  def start(game: ObservableGame, onUserQuit: () => Unit): Unit =
+    val t = new Thread(() => run(new TextUI(ConsoleIO, game), onUserQuit), "searchess-tui")
+    t.setDaemon(true)
+    t.start()
+
+  private def run(ui: TextUI, onUserQuit: () => Unit): Unit =
     try
-      new TextUI(ConsoleIO, game).run() match
+      ui.run() match
         case TuiExitReason.UserQuit =>
           // Explicit quit: delegate shutdown to the registered callback.
           onUserQuit()

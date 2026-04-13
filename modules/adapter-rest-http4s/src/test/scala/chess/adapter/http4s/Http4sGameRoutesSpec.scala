@@ -4,8 +4,10 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import chess.adapter.http4s.route.{Http4sGameRoutes, Http4sSessionRoutes}
 import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionRepository}
+import chess.application.event.AppEvent
+import chess.application.port.event.EventPublisher
 import chess.application.session.model.SessionIds.GameId
-import chess.application.session.service.SessionService
+import chess.application.session.service.{SessionGameService, SessionService}
 import chess.domain.model.{Board, Color, Piece, PieceType, Position}
 import chess.domain.state.{GameStateFactory, CastlingRights}
 import org.http4s.*
@@ -14,6 +16,7 @@ import org.http4s.implicits.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import java.util.UUID
+import scala.collection.mutable
 
 /** In-memory tests for [[Http4sGameRoutes]].
  *
@@ -25,21 +28,27 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
 
   // ── shared fixtures ────────────────────────────────────────────────────────
 
+  private class TestEventPublisher extends EventPublisher:
+    val events: mutable.ListBuffer[AppEvent] = mutable.ListBuffer.empty
+    def publish(event: AppEvent): Unit = events += event
+
   private case class TestFixture(
     gameRoutes: HttpApp[IO],
     sessRoutes: HttpApp[IO],
     gameRepo:   InMemoryGameRepository,
-    service:    SessionService
+    svc:        SessionGameService,
+    collector:  TestEventPublisher
   )
 
-  /** Returns a fixture with shared in-memory repositories. */
-  private def makeFixture(): TestFixture =
-    val sessionRepo = InMemorySessionRepository()
-    val gameRepo    = InMemoryGameRepository()
-    val service     = SessionService(sessionRepo, _ => ())
-    val gameRoutes  = Http4sGameRoutes(service, gameRepo).routes.orNotFound
-    val sessRoutes  = Http4sSessionRoutes(service, gameRepo).routes.orNotFound
-    TestFixture(gameRoutes, sessRoutes, gameRepo, service)
+  /** Returns a fixture with shared in-memory repositories wired through SessionGameService. */
+  private def makeFixture(collector: TestEventPublisher = new TestEventPublisher): TestFixture =
+    val sessionRepo    = InMemorySessionRepository()
+    val gameRepo       = InMemoryGameRepository()
+    val sessionService = SessionService(sessionRepo, collector)
+    val svc            = SessionGameService(sessionService, gameRepo)
+    val gameRoutes     = Http4sGameRoutes(svc, gameRepo).routes.orNotFound
+    val sessRoutes     = Http4sSessionRoutes(svc).routes.orNotFound
+    TestFixture(gameRoutes, sessRoutes, gameRepo, svc, collector)
 
   /** Convenience alias kept for existing tests. */
   private def makeRoutes() =
@@ -287,3 +296,78 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     bodyJson(resp)("code").str shouldBe "GAME_FINISHED"
   }
 
+  // ── Unified application mutation boundary ─────────────────────────────────
+  // These tests prove that a REST move now goes through SessionGameService —
+  // the same unified boundary as GUI, TUI, and AI.
+
+  "POST /games/{gameId}/moves (session boundary)" should "publish MoveApplied after a successful REST move" in {
+    val collector = new TestEventPublisher
+    val fixture   = makeFixture(collector)
+    val gameId    = createSession(fixture.sessRoutes)
+    collector.events.clear()  // discard SessionCreated from setup
+
+    val req = Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/moves"))
+      .withBodyStream(jsonBody("""{"from":"e2","to":"e4"}"""))
+    run(fixture.gameRoutes, req)
+
+    val moveEvents = collector.events.collect { case e: AppEvent.MoveApplied => e }
+    moveEvents should have size 1
+    moveEvents.head.move.from.toString shouldBe "e2"
+    moveEvents.head.move.to.toString   shouldBe "e4"
+  }
+
+  it should "not publish MoveApplied after an illegal REST move" in {
+    val collector = new TestEventPublisher
+    val fixture   = makeFixture(collector)
+    val gameId    = createSession(fixture.sessRoutes)
+    collector.events.clear()
+
+    val req = Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/moves"))
+      .withBodyStream(jsonBody("""{"from":"e2","to":"e5"}"""))  // three-square jump: illegal
+    run(fixture.gameRoutes, req)
+
+    collector.events.collect { case e: AppEvent.MoveApplied => e } shouldBe empty
+  }
+
+  it should "persist game state to the repository after a successful REST move" in {
+    val fixture = makeFixture()
+    val gameId  = createSession(fixture.sessRoutes)
+    val uuid    = UUID.fromString(gameId)
+
+    val req = Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/moves"))
+      .withBodyStream(jsonBody("""{"from":"d2","to":"d4"}"""))
+    run(fixture.gameRoutes, req)
+
+    val savedState = fixture.gameRepo.load(GameId(uuid))
+    savedState.isRight          shouldBe true
+    savedState.value.moveHistory should have size 1
+  }
+
+  it should "publish GameFinished when a REST move delivers checkmate" in {
+    val collector = new TestEventPublisher
+    val fixture   = makeFixture(collector)
+    val gameId    = createSession(fixture.sessRoutes)
+
+    // Drive to Scholar's mate then verify GameFinished is published.
+    val moves = List(
+      """{"from":"e2","to":"e4"}""",
+      """{"from":"e7","to":"e5"}""",
+      """{"from":"f1","to":"c4"}""",
+      """{"from":"b8","to":"c6"}""",
+      """{"from":"d1","to":"h5"}""",
+      """{"from":"g8","to":"f6"}"""
+    )
+    moves.foreach { body =>
+      run(fixture.gameRoutes,
+        Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/moves"))
+          .withBodyStream(jsonBody(body)))
+    }
+    collector.events.clear()
+
+    run(fixture.gameRoutes,
+      Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/moves"))
+        .withBodyStream(jsonBody("""{"from":"h5","to":"f7"}""")))
+
+    val finishedEvents = collector.events.collect { case e: AppEvent.GameFinished => e }
+    finishedEvents should have size 1
+  }
