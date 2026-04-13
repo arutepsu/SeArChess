@@ -22,10 +22,8 @@ object PgnNotationFacade extends NotationFacade[GameState]:
 
   override def parse(format: NotationFormat, input: String): Either[ParseFailure, ParsedNotation] =
     format match
-      case NotationFormat.PGN =>
-        PgnParser.parse(input).map(data => ParsedNotation.ParsedPgn(raw = input, data = data))
-      case other =>
-        Left(ParseFailure.StructuralError(s"No parser for format: $other"))
+      case NotationFormat.PGN => PgnParser.parseParsedNotation(input)
+      case other              => Left(ParseFailure.StructuralError(s"No parser for format: $other"))
 
   override def executeImport(
     parsed: ParsedNotation,
