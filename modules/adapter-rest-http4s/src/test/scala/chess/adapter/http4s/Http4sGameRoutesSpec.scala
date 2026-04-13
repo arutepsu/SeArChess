@@ -17,6 +17,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import java.util.UUID
 import scala.collection.mutable
+import org.scalatest.EitherValues.*
 
 /** In-memory tests for [[Http4sGameRoutes]].
  *
