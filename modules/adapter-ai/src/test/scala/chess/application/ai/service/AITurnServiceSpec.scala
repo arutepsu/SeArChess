@@ -1,7 +1,7 @@
 package chess.application.ai.service
 
 import chess.adapter.ai.FirstLegalMoveProvider
-import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionRepository}
+import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionGameStore, InMemorySessionRepository}
 import chess.application.ChessService
 import chess.application.port.ai.{AIError, AIProvider, AIResponse}
 import chess.application.session.model.{GameSession, SessionLifecycle, SessionMode, SideController}
@@ -25,8 +25,9 @@ class AITurnServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
   ) =
     val sessionRepo    = InMemorySessionRepository()
     val gameRepo       = InMemoryGameRepository()
+    val store          = InMemorySessionGameStore(sessionRepo, gameRepo)
     val sessionService = SessionService(sessionRepo, _ => ())
-    val svc            = SessionGameService(sessionService, gameRepo)
+    val svc            = SessionGameService(sessionService, store, _ => ())
     val gameId         = GameId.random()
     val session        = svc.createSession(
       gameId          = gameId,
@@ -79,8 +80,10 @@ class AITurnServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
     val noMoveProvider = new AIProvider:
       def suggestMove(state: chess.domain.state.GameState) = Left(AIError.NoLegalMove)
     val sessionRepo    = InMemorySessionRepository()
+    val gameRepo       = InMemoryGameRepository()
+    val store          = InMemorySessionGameStore(sessionRepo, gameRepo)
     val sessionService = SessionService(sessionRepo, _ => ())
-    val svc            = SessionGameService(sessionService, InMemoryGameRepository())
+    val svc            = SessionGameService(sessionService, store, _ => ())
     val session        = svc.createSession(
       gameId          = GameId.random(),
       mode            = SessionMode.HumanVsAI,
@@ -98,8 +101,10 @@ class AITurnServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
       def suggestMove(state: chess.domain.state.GameState) =
         Left(AIError.EngineFailure("timeout"))
     val sessionRepo    = InMemorySessionRepository()
+    val gameRepo       = InMemoryGameRepository()
+    val store          = InMemorySessionGameStore(sessionRepo, gameRepo)
     val sessionService = SessionService(sessionRepo, _ => ())
-    val svc            = SessionGameService(sessionService, InMemoryGameRepository())
+    val svc            = SessionGameService(sessionService, store, _ => ())
     val session        = svc.createSession(
       gameId          = GameId.random(),
       mode            = SessionMode.HumanVsAI,
@@ -121,8 +126,10 @@ class AITurnServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
       def suggestMove(state: chess.domain.state.GameState) =
         Right(AIResponse(Move(e2, e5)))
     val sessionRepo    = InMemorySessionRepository()
+    val gameRepo       = InMemoryGameRepository()
+    val store          = InMemorySessionGameStore(sessionRepo, gameRepo)
     val sessionService = SessionService(sessionRepo, _ => ())
-    val svc            = SessionGameService(sessionService, InMemoryGameRepository())
+    val svc            = SessionGameService(sessionService, store, _ => ())
     val session        = svc.createSession(
       gameId          = GameId.random(),
       mode            = SessionMode.HumanVsAI,

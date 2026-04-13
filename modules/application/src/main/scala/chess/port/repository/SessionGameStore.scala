@@ -1,0 +1,36 @@
+package chess.application.port.repository
+
+import chess.application.session.model.GameSession
+import chess.domain.state.GameState
+
+/** Combined write port for session metadata and game state.
+ *
+ *  Exposes a single [[save]] operation that persists both a [[GameSession]] and
+ *  its associated [[GameState]] as one logical unit.  Callers that use this port
+ *  instead of separate [[SessionRepository]] and [[GameRepository]] writes
+ *  eliminate the partial-failure window that exists when the two writes are
+ *  independent: either both succeed or the caller receives an error.
+ *
+ *  === Read paths ===
+ *  This port is write-only.  Reads are still performed through
+ *  [[SessionRepository]] (for session metadata) and [[GameRepository]] (for
+ *  game state) so that existing read-side adapters require no changes.
+ *
+ *  === Implementations ===
+ *  - [[chess.adapter.repository.InMemorySessionGameStore]] — sequential in-memory
+ *    writes; used in tests and the desktop composition root.
+ *  - A future JDBC implementation would wrap both writes in a single transaction.
+ */
+trait SessionGameStore:
+
+  /** Persist the updated session and its new game state as one logical unit.
+   *
+   *  Implementations backed by a relational database should wrap both writes
+   *  in a single transaction so that a partial write is never visible.
+   *
+   *  @param session the updated session metadata to persist
+   *  @param state   the new game state associated with the session's game id
+   *  @return [[Right]] on success; [[Left]] with a [[RepositoryError]] if either
+   *          write fails
+   */
+  def save(session: GameSession, state: GameState): Either[RepositoryError, Unit]

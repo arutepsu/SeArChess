@@ -1,6 +1,6 @@
 package chess.adapter.textui
 
-import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionRepository}
+import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionGameStore, InMemorySessionRepository}
 import chess.application.{ChessService, ObservableGame}
 import chess.application.event.AppEvent
 import chess.application.port.event.EventPublisher
@@ -198,8 +198,9 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     val collector    = new TestEventPublisher
     val sessionRepo  = new InMemorySessionRepository
     val gameRepo     = new InMemoryGameRepository
-    val sessionSvc   = new SessionService(sessionRepo, collector.publish)
-    val svc          = new SessionGameService(sessionSvc, gameRepo)
+    val store        = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionSvc   = new SessionService(sessionRepo, _ => ())
+    val svc          = new SessionGameService(sessionSvc, store, collector.publish)
     val gameId       = GameId.random()
     val session      = svc.createSession(
       gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
@@ -215,8 +216,9 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     val collector    = new TestEventPublisher
     val sessionRepo  = new InMemorySessionRepository
     val gameRepo     = new InMemoryGameRepository
-    val sessionSvc   = new SessionService(sessionRepo, collector.publish)
-    val svc          = new SessionGameService(sessionSvc, gameRepo)
+    val store        = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionSvc   = new SessionService(sessionRepo, _ => ())
+    val svc          = new SessionGameService(sessionSvc, store, collector.publish)
     val gameId       = GameId.random()
     val session      = svc.createSession(
       gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
@@ -235,8 +237,9 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     val collector    = new TestEventPublisher
     val sessionRepo  = new InMemorySessionRepository
     val gameRepo     = new InMemoryGameRepository
-    val sessionSvc   = new SessionService(sessionRepo, collector.publish)
-    val svc          = new SessionGameService(sessionSvc, gameRepo)
+    val store        = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionSvc   = new SessionService(sessionRepo, _ => ())
+    val svc          = new SessionGameService(sessionSvc, store, collector.publish)
     val gameId       = GameId.random()
     val session      = svc.createSession(
       gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
@@ -249,11 +252,11 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   it should "render an error and continue after an illegal move in session mode" in {
-    val collector    = new TestEventPublisher
     val sessionRepo  = new InMemorySessionRepository
     val gameRepo     = new InMemoryGameRepository
-    val sessionSvc   = new SessionService(sessionRepo, collector.publish)
-    val svc          = new SessionGameService(sessionSvc, gameRepo)
+    val store        = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionSvc   = new SessionService(sessionRepo, _ => ())
+    val svc          = new SessionGameService(sessionSvc, store, _ => ())
     val gameId       = GameId.random()
     val session      = svc.createSession(
       gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
@@ -265,13 +268,13 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   it should "notify ObservableGame after a successful move in session mode" in {
-    val collector    = new TestEventPublisher
-    val sessionRepo  = new InMemorySessionRepository
-    val gameRepo     = new InMemoryGameRepository
-    val sessionSvc   = new SessionService(sessionRepo, collector.publish)
-    val svc          = new SessionGameService(sessionSvc, gameRepo)
-    val gameId       = GameId.random()
-    val session      = svc.createSession(
+    val sessionRepo    = new InMemorySessionRepository
+    val gameRepo       = new InMemoryGameRepository
+    val store          = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionSvc     = new SessionService(sessionRepo, _ => ())
+    val svc            = new SessionGameService(sessionSvc, store, _ => ())
+    val gameId         = GameId.random()
+    val session        = svc.createSession(
       gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
     ).value
     val game           = new ObservableGame()
@@ -283,11 +286,11 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   it should "persist fresh game state after 'new' command in session mode" in {
-    val collector    = new TestEventPublisher
     val sessionRepo  = new InMemorySessionRepository
     val gameRepo     = new InMemoryGameRepository
-    val sessionSvc   = new SessionService(sessionRepo, collector.publish)
-    val svc          = new SessionGameService(sessionSvc, gameRepo)
+    val store        = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionSvc   = new SessionService(sessionRepo, _ => ())
+    val svc          = new SessionGameService(sessionSvc, store, _ => ())
     val gameId       = GameId.random()
     val session      = svc.createSession(
       gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
@@ -304,8 +307,9 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     val collector    = new TestEventPublisher
     val sessionRepo  = new InMemorySessionRepository
     val gameRepo     = new InMemoryGameRepository
-    val sessionSvc   = new SessionService(sessionRepo, collector.publish)
-    val svc          = new SessionGameService(sessionSvc, gameRepo)
+    val store        = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionSvc   = new SessionService(sessionRepo, _ => ())
+    val svc          = new SessionGameService(sessionSvc, store, collector.publish)
     val gameId       = GameId.random()
     val session      = svc.createSession(
       gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
@@ -325,11 +329,11 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
 
   "Shared desktop session" should "accumulate moves from two adapters in the same repo entry" in {
     // Shared infrastructure — exactly as the composition root creates it.
-    val collector   = new TestEventPublisher
     val sessionRepo = new InMemorySessionRepository
     val gameRepo    = new InMemoryGameRepository
-    val sessionSvc  = new SessionService(sessionRepo, collector.publish)
-    val svc         = new SessionGameService(sessionSvc, gameRepo)
+    val store       = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionSvc  = new SessionService(sessionRepo, _ => ())
+    val svc         = new SessionGameService(sessionSvc, store, _ => ())
     val gameId      = GameId.random()
     val session     = svc.createSession(
       gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
@@ -357,8 +361,9 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     val collector   = new TestEventPublisher
     val sessionRepo = new InMemorySessionRepository
     val gameRepo    = new InMemoryGameRepository
-    val sessionSvc  = new SessionService(sessionRepo, collector.publish)
-    val svc         = new SessionGameService(sessionSvc, gameRepo)
+    val store       = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionSvc  = new SessionService(sessionRepo, _ => ())
+    val svc         = new SessionGameService(sessionSvc, store, collector.publish)
     val gameId      = GameId.random()
     val session     = svc.createSession(
       gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
@@ -382,8 +387,9 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
   it should "make state from the first adapter visible to the second adapter via ObservableGame" in {
     val sessionRepo = new InMemorySessionRepository
     val gameRepo    = new InMemoryGameRepository
+    val store       = new InMemorySessionGameStore(sessionRepo, gameRepo)
     val sessionSvc  = new SessionService(sessionRepo, _ => ())
-    val svc         = new SessionGameService(sessionSvc, gameRepo)
+    val svc         = new SessionGameService(sessionSvc, store, _ => ())
     val gameId      = GameId.random()
     val session     = svc.createSession(
       gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
@@ -411,8 +417,9 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
   it should "update DesktopSessionContext after 'new' command so a second adapter sees the new session" in {
     val sessionRepo = new InMemorySessionRepository
     val gameRepo    = new InMemoryGameRepository
+    val store       = new InMemorySessionGameStore(sessionRepo, gameRepo)
     val sessionSvc  = new SessionService(sessionRepo, _ => ())
-    val svc         = new SessionGameService(sessionSvc, gameRepo)
+    val svc         = new SessionGameService(sessionSvc, store, _ => ())
     val gameId      = GameId.random()
     val session     = svc.createSession(
       gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal

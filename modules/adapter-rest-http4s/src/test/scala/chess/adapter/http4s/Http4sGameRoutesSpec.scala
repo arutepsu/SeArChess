@@ -3,7 +3,7 @@ package chess.adapter.http4s
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import chess.adapter.http4s.route.{Http4sGameRoutes, Http4sSessionRoutes}
-import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionRepository}
+import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionGameStore, InMemorySessionRepository}
 import chess.application.event.AppEvent
 import chess.application.port.event.EventPublisher
 import chess.application.session.model.SessionIds.GameId
@@ -45,8 +45,9 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
   private def makeFixture(collector: TestEventPublisher = new TestEventPublisher): TestFixture =
     val sessionRepo    = InMemorySessionRepository()
     val gameRepo       = InMemoryGameRepository()
-    val sessionService = SessionService(sessionRepo, collector)
-    val svc            = SessionGameService(sessionService, gameRepo)
+    val store          = InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionService = SessionService(sessionRepo, _ => ())
+    val svc            = SessionGameService(sessionService, store, collector)
     val gameRoutes     = Http4sGameRoutes(svc, gameRepo).routes.orNotFound
     val sessRoutes     = Http4sSessionRoutes(svc).routes.orNotFound
     TestFixture(gameRoutes, sessRoutes, gameRepo, svc, collector)

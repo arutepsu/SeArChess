@@ -4,7 +4,7 @@ import chess.adapter.event.CollectingEventPublisher
 import chess.adapter.gui.animation.AnimationPlan
 import chess.adapter.gui.input.InputAction
 import chess.adapter.gui.viewmodel.{GameViewModel, GameViewModelMapper, GuiState, PromotionViewModel}
-import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionRepository}
+import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionGameStore, InMemorySessionRepository}
 import chess.application.{ChessService, ObservableGame}
 import chess.application.event.AppEvent
 import chess.application.session.model.SessionIds.GameId
@@ -453,11 +453,12 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
   private def sessionAwareControllerWithFixtures(
     collector: CollectingEventPublisher = CollectingEventPublisher()
   ): (GameController, SessionGameService, InMemoryGameRepository, CollectingEventPublisher, DesktopSessionContext) =
-    val sessionRepo     = new InMemorySessionRepository
-    val gameRepo        = new InMemoryGameRepository
-    val service         = new SessionService(sessionRepo, collector)
-    val sessionGameSvc  = new SessionGameService(service, gameRepo)
-    val session         = sessionGameSvc
+    val sessionRepo    = new InMemorySessionRepository
+    val gameRepo       = new InMemoryGameRepository
+    val store          = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val service        = new SessionService(sessionRepo, collector)
+    val sessionGameSvc = new SessionGameService(service, store, collector)
+    val session        = sessionGameSvc
       .createSession(GameId.random(), SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal)
       .value
     val context = new DesktopSessionContext(session)

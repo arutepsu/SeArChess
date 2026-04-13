@@ -3,7 +3,7 @@ package chess.adapter.http4s
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import chess.adapter.http4s.route.Http4sSessionRoutes
-import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionRepository}
+import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionGameStore, InMemorySessionRepository}
 import chess.application.session.service.{SessionGameService, SessionService}
 import org.http4s.*
 import org.http4s.dsl.io.*
@@ -26,8 +26,9 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers:
   private def makeRoutes() =
     val sessionRepo    = InMemorySessionRepository()
     val gameRepo       = InMemoryGameRepository()
+    val store          = InMemorySessionGameStore(sessionRepo, gameRepo)
     val sessionService = SessionService(sessionRepo, _ => ())
-    val svc            = SessionGameService(sessionService, gameRepo)
+    val svc            = SessionGameService(sessionService, store, _ => ())
     Http4sSessionRoutes(svc).routes.orNotFound
 
   /** Run a request through the route under test and return the response. */

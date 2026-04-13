@@ -4,7 +4,7 @@ import cats.effect.unsafe.implicits.global
 import chess.adapter.event.FanOutEventPublisher
 import chess.adapter.gui.ChessApp
 import chess.adapter.http4s.Http4sServer
-import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionRepository}
+import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionGameStore, InMemorySessionRepository}
 import chess.adapter.textui.TuiRunner
 import chess.adapter.websocket.{ChessWebSocketServer, WebSocketConnectionRegistry, WebSocketEventPublisher}
 import chess.application.ObservableGame
@@ -33,8 +33,13 @@ object Main:
     // FanOutEventPublisher forwards each AppEvent to every wired publisher.
     // Add further publishers here (e.g. structured logging) without touching
     // the application layer.
-    val sessionService    = SessionService(sessionRepo, FanOutEventPublisher(wsPublisher))
-    val sessionGameService = SessionGameService(sessionService, gameRepo)
+    // fanOut is shared: SessionService uses it for createSession/preparePromotion
+    // events; SessionGameService uses it for move-related events published after
+    // the combined session+game-state write completes.
+    val fanOut             = FanOutEventPublisher(wsPublisher)
+    val sessionService     = SessionService(sessionRepo, fanOut)
+    val store              = InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionGameService = SessionGameService(sessionService, store, fanOut)
 
     // ── REST server ────────────────────────────────────────────────────────
     // Allocated as a Cats Effect Resource; the IO[Unit] shuts the server down.
