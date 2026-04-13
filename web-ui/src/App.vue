@@ -208,6 +208,14 @@ const squareToIndex = (square: string): { row: number; col: number } | null => {
 
 <template>
   <div class="app">
+    <div class="leaf-layer" aria-hidden="true">
+      <span class="leaf leaf-1"></span>
+      <span class="leaf leaf-2"></span>
+      <span class="leaf leaf-3"></span>
+      <span class="leaf leaf-4"></span>
+      <span class="leaf leaf-5"></span>
+      <span class="leaf leaf-6"></span>
+    </div>
     <StatusBanner :game="game" :connection="connection" :message="message" />
     <main class="layout">
       <ChessBoard
@@ -261,18 +269,27 @@ const squareToIndex = (square: string): { row: number; col: number } | null => {
 .app {
   display: grid;
   gap: 24px;
+  position: relative;
+}
+
+.app > :not(.leaf-layer) {
+  position: relative;
+  z-index: 1;
 }
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(280px, 1.1fr) minmax(260px, 0.9fr);
-  gap: 24px;
+  grid-template-columns: minmax(360px, 1.6fr) minmax(200px, 0.4fr);
+  gap: 36px;
   align-items: start;
 }
 
 .side {
   display: grid;
   gap: 16px;
+  width: 100%;
+  max-width: 280px;
+  justify-self: end;
 }
 
 .placeholder {
@@ -293,7 +310,7 @@ const squareToIndex = (square: string): { row: number; col: number } | null => {
 .panel {
   background: rgba(20, 21, 27, 0.88);
   border-radius: 24px;
-  padding: 20px;
+  padding: 24px;
   color: #f4efe6;
 }
 
