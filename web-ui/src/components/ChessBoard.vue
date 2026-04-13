@@ -676,8 +676,11 @@ watch(
 
 <style scoped>
 .board-shell {
-  background: #312e2b;
-  padding: 16px;
+  background: rgba(49, 46, 43, 0.6);
+  border: 1px solid rgba(181, 136, 99, 0.35);
+  padding: 6px;
+  width: fit-content;
+  justify-self: start;
   --square-size: 72px;
 }
 
@@ -685,13 +688,13 @@ watch(
 .board-grid {
   position: relative;
   display: grid;
-  grid-template-rows: repeat(8, minmax(0, 1fr));
+  grid-template-rows: repeat(8, var(--square-size, 72px));
   gap: 0;
 }
 
 .board-row {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-columns: repeat(8, var(--square-size, 72px));
   gap: 0;
 }
 
@@ -732,6 +735,8 @@ watch(
   animation-duration: var(--anim-duration, 1200ms);
   animation-timing-function: steps(var(--frame-count, 1));
   animation-iteration-count: infinite;
+  transform: scale(1.08);
+  transform-origin: center;
   z-index: 1;
 }
 
@@ -741,6 +746,11 @@ watch(
 
 .piece-dark {
   color: #1a1411;
+}
+
+.piece-dark.has-sprite {
+  transform: scaleX(-1);
+  transform-origin: center;
 }
 
 .has-sprite {
@@ -764,6 +774,7 @@ watch(
   background-position: 0% 50%;
   background-size: 100% 100%;
   transform-origin: center;
+  transform: scale(1.08);
 }
 
 .is-selected {
