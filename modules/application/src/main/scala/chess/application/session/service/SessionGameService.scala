@@ -1,53 +1,65 @@
 package chess.application.session.service
 
-import chess.application.port.repository.{GameRepository, RepositoryError}
+import chess.application.event.AppEvent
+import chess.application.port.event.EventPublisher
+import chess.application.port.repository.{RepositoryError, SessionGameStore}
 import chess.application.session.model.{GameSession, SessionLifecycle, SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
-import chess.domain.model.Move
+import chess.domain.model.{GameStatus, Move}
 import chess.domain.state.{GameState, GameStateFactory}
 import java.time.Instant
 
 /** Unified application mutation boundary for all game-move adapters.
  *
- *  Composes [[SessionService]] (domain validation, application event publication,
- *  session-lifecycle persistence) with [[GameRepository]] (game-state persistence)
+ *  Composes [[SessionService]] (pure move validation and session-lifecycle
+ *  computation) with [[SessionGameStore]] (combined session + game-state
+ *  persistence) and [[EventPublisher]] (post-persistence event publication)
  *  so every adapter — GUI, TUI, REST — calls one entry point and is guaranteed
  *  that after a successful move:
  *
  *  1. the move is validated by the domain rules engine
- *  2. [[chess.application.event.AppEvent.MoveApplied]] is published via [[chess.application.port.event.EventPublisher]]
- *  3. [[chess.application.event.AppEvent.GameFinished]] is published when the move is terminal
- *  4. the updated session lifecycle is persisted to [[chess.application.port.repository.SessionRepository]]
- *  5. the new [[GameState]] is persisted to [[GameRepository]]
+ *  2. the updated session lifecycle and the new [[GameState]] are persisted
+ *     atomically via [[SessionGameStore]]
+ *  3. [[chess.application.event.AppEvent.MoveApplied]] is published
+ *  4. [[chess.application.event.AppEvent.GameFinished]] is published when the
+ *     move is terminal
+ *  5. [[chess.application.event.AppEvent.SessionLifecycleChanged]] is published
+ *     when the lifecycle advances
  *
- *  None of steps 1–5 are the adapter's concern.  The adapter supplies intent
- *  (session + current state + move + controller) and receives the new state.
+ *  Events (steps 3–5) are only published after both persistence writes have
+ *  succeeded, eliminating the partial-failure window that existed when session
+ *  and game-state writes were independent.
  *
  *  Session lifecycle operations that do not involve a move (session creation,
  *  lifecycle transitions, promotion setup) are delegated transparently to the
  *  underlying [[SessionService]]; adapters may call them through this façade so
  *  they only need one dependency.
  *
- *  @param sessionService handles validation, event publication, and session persistence
- *  @param gameRepository handles game-state persistence
+ *  @param sessionService pure validation, lifecycle computation, and session-only writes
+ *  @param store          combined persistence port for session + game state
+ *  @param publisher      post-persistence event publication
  */
 class SessionGameService(
   sessionService: SessionService,
-  gameRepository: GameRepository
+  store:          SessionGameStore,
+  publisher:      EventPublisher
 ):
 
-  /** Apply a move through the session boundary and persist the resulting [[GameState]].
+  /** Apply a move through the session boundary and persist both the updated
+   *  session and the new [[GameState]] before publishing any events.
    *
-   *  On success, both the updated session lifecycle and the new [[GameState]] are
-   *  durably stored before returning.  On any failure the repositories are left
-   *  unchanged (the session persistence inside [[SessionService.applyMove]] is the
-   *  sole exception — a session lifecycle write that succeeds before a game-state
-   *  save failure leaves the session advanced but the game state stale; this
-   *  inconsistency is accepted for now and is the primary motivation to eventually
-   *  wrap both writes in a single transaction).
+   *  On success:
+   *  - [[SessionGameStore.save]] is called once with the updated session and
+   *    new game state.
+   *  - [[AppEvent.MoveApplied]] is published.
+   *  - [[AppEvent.GameFinished]] is published when the game is terminal.
+   *  - [[AppEvent.SessionLifecycleChanged]] is published when the lifecycle
+   *    advances (e.g. Created → Active on the first move).
    *
-   *  @param session    current live session (caller must have loaded it; not re-fetched here)
-   *  @param state      current game state (caller must have loaded it; not re-fetched here)
+   *  On any failure the store is left unchanged and no events are published.
+   *
+   *  @param session    current live session (caller must have loaded it)
+   *  @param state      current game state (caller must have loaded it)
    *  @param move       the move to attempt
    *  @param controller the controller submitting the move
    *  @param now        wall-clock instant for lifecycle timestamps
@@ -60,12 +72,18 @@ class SessionGameService(
     controller: SideController,
     now:        Instant = Instant.now()
   ): Either[SessionMoveError, (GameState, GameSession)] =
-    sessionService.applyMove(session, state, move, controller, now).flatMap { (nextState, nextSession) =>
-      gameRepository
-        .save(nextSession.gameId, nextState)
-        .left.map(e => SessionMoveError.PersistenceFailed(SessionError.PersistenceFailed(e)))
-        .map(_ => (nextState, nextSession))
-    }
+    for
+      (nextState, nextSession) <- sessionService.applyMove(session, state, move, controller, now)
+      _                        <- store.save(nextSession, nextState)
+                                    .left.map(e => SessionMoveError.PersistenceFailed(SessionError.PersistenceFailed(e)))
+    yield
+      publisher.publish(AppEvent.MoveApplied(session.sessionId, session.gameId, move, state.currentPlayer))
+      if isTerminalStatus(nextState.status) then
+        publisher.publish(AppEvent.GameFinished(session.sessionId, session.gameId, nextState.status))
+      if nextSession.lifecycle != session.lifecycle then
+        publisher.publish(AppEvent.SessionLifecycleChanged(
+          session.sessionId, session.gameId, session.lifecycle, nextSession.lifecycle))
+      (nextState, nextSession)
 
   // ── Session lifecycle delegation ────────────────────────────────────────────
   // Adapters that previously depended on SessionService directly can switch to
@@ -96,17 +114,15 @@ class SessionGameService(
   ): Either[SessionError, GameSession] =
     sessionService.updateLifecycle(id, next, now)
 
-  /** Create a new session and persist the initial [[GameState]] atomically.
+  /** Create a new session and persist the initial [[GameState]] as one write.
    *
-   *  Produces a fresh starting position, creates a session in
-   *  [[SessionLifecycle.Created]], and saves the initial state to the
-   *  [[GameRepository]] before returning.  Both operations succeed or the
-   *  caller receives the first error; partial failure (session created but
-   *  save failed) is possible and accepted as a known limitation pending
-   *  transactional writes.
+   *  Creates a fresh starting position and a new [[GameSession]], saves both
+   *  via [[SessionGameStore]] (one logical write), then publishes
+   *  [[AppEvent.SessionCreated]].  Events are only published after the
+   *  combined write succeeds.
    *
-   *  Intended for reset flows where the caller needs both a valid session
-   *  and a persisted initial state in a single call.
+   *  Intended for reset flows (GUI/TUI "New Game") and REST session creation
+   *  where both a valid session and a persisted initial state are required.
    *
    *  @return `(GameState, GameSession)` — the fresh state and its new session
    */
@@ -116,10 +132,20 @@ class SessionGameService(
     blackController: SideController,
     now:             Instant = Instant.now()
   ): Either[SessionError, (GameState, GameSession)] =
-    val fresh  = GameStateFactory.initial()
-    val gameId = GameId.random()
-    for
-      session <- sessionService.createSession(gameId, mode, whiteController, blackController, now)
-      _       <- gameRepository.save(gameId, fresh)
-                   .left.map(e => SessionError.PersistenceFailed(e))
-    yield (fresh, session)
+    val fresh   = GameStateFactory.initial()
+    val gameId  = GameId.random()
+    val session = GameSession.create(gameId, mode, whiteController, blackController, now)
+    store.save(session, fresh)
+      .left.map(SessionError.PersistenceFailed(_))
+      .map { _ =>
+        publisher.publish(AppEvent.SessionCreated(
+          session.sessionId, session.gameId, session.mode,
+          session.whiteController, session.blackController))
+        (fresh, session)
+      }
+
+  // ── private helpers ────────────────────────────────────────────────────────
+
+  private def isTerminalStatus(status: GameStatus): Boolean = status match
+    case GameStatus.Checkmate(_) | GameStatus.Draw(_) => true
+    case _                                            => false

@@ -126,26 +126,30 @@ class SessionService(repository: SessionRepository, publisher: EventPublisher):
       case Color.White => session.whiteController
       case Color.Black => session.blackController
 
-  /** Session-aware move entry point.
+  /** Session-aware move entry point (pure computation).
    *
    *  Performs session-level ownership and lifecycle checks before delegating to
-   *  the chess engine.  The existing [[ChessService.applyMove]] path is used
-   *  for chess-rule enforcement; no domain logic is duplicated here.
+   *  the chess engine.  Returns the new [[GameState]] and an updated
+   *  [[GameSession]] (with the correct lifecycle) without touching any
+   *  repository or publishing any events.
+   *
+   *  The caller ([[chess.application.session.service.SessionGameService.submitMove]])
+   *  is responsible for:
+   *  1. Persisting both the updated [[GameSession]] and the new [[GameState]]
+   *     via [[chess.application.port.repository.SessionGameStore]].
+   *  2. Publishing [[chess.application.event.AppEvent]]s after persistence succeeds.
+   *
+   *  Keeping this method pure eliminates the partial-failure window that existed
+   *  when session persistence and event publication were interleaved with the
+   *  separate game-state save.
    *
    *  Flow:
    *  1. Reject immediately if session is [[SessionLifecycle.Finished]].
    *  2. Check [[ActorControlPolicy.canAct]] — reject if the requesting controller
    *     does not own the side to move.
    *  3. Delegate to [[ChessService.applyMove]] for chess legality.
-   *  4. On success, auto-transition the session to [[SessionLifecycle.Finished]]
-   *     if the game has reached a terminal domain status (checkmate or draw).
+   *  4. Compute the correct next lifecycle phase (no repository write).
    *  5. Return the updated domain state and the (possibly updated) session.
-   *
-   *  === Temporary compromise ===
-   *  Local single-player callers that do not yet participate in session tracking
-   *  should continue to use [[ChessService.applyMove]] directly.  This method
-   *  is the entry point for session-aware flows only.  Migration of the GUI
-   *  adapter to use this path is a Phase 4 concern.
    *
    *  @param session              current session (loaded by caller; not re-fetched)
    *  @param state                current chess state
@@ -161,29 +165,15 @@ class SessionService(repository: SessionRepository, publisher: EventPublisher):
     requestingController: SideController,
     now:                  Instant = Instant.now()
   ): Either[SessionMoveError, (GameState, GameSession)] =
-    val outcome =
-      for
-        _         <- rejectIfFinished(session)
-        _         <- checkController(session, requestingController, state.currentPlayer)
-        nextState <- ChessService.applyMove(state, move)
-                       .left.map(SessionMoveError.DomainRejection(_))
-        result    <- persistPostMoveLifecycle(session, nextState, now)
-      yield result
-    outcome.foreach { (nextState, updatedSession) =>
-      publisher.publish(AppEvent.MoveApplied(session.sessionId, session.gameId, move, state.currentPlayer))
-      if isTerminalStatus(nextState.status) then
-        publisher.publish(AppEvent.GameFinished(session.sessionId, session.gameId, nextState.status))
-      if updatedSession.lifecycle != session.lifecycle then
-        publisher.publish(AppEvent.SessionLifecycleChanged(
-          session.sessionId, session.gameId, session.lifecycle, updatedSession.lifecycle))
-    }
-    outcome
+    for
+      _         <- rejectIfFinished(session)
+      _         <- checkController(session, requestingController, state.currentPlayer)
+      nextState <- ChessService.applyMove(state, move)
+                     .left.map(SessionMoveError.DomainRejection(_))
+      result    <- computePostMoveLifecycle(session, nextState, now)
+    yield result
 
   // ── private helpers ────────────────────────────────────────────────────────
-
-  private def isTerminalStatus(status: GameStatus): Boolean = status match
-    case GameStatus.Checkmate(_) | GameStatus.Draw(_) => true
-    case _                                            => false
 
   private def save(session: GameSession): Either[SessionError, GameSession] =
     repository.save(session)
@@ -202,19 +192,22 @@ class SessionService(repository: SessionRepository, publisher: EventPublisher):
     if ActorControlPolicy.canAct(session, requesting, sideToMove) then Right(())
     else Left(SessionMoveError.UnauthorizedController(requesting, sideToMove))
 
-  /** After a successful move, determine and persist the correct next lifecycle phase.
+  /** After a successful move, compute the correct next lifecycle phase (pure).
+   *
+   *  Returns an updated [[GameSession]] with the new lifecycle applied but does
+   *  NOT write to any repository.  The caller is responsible for persisting.
    *
    *  Transition table:
    *  - Any lifecycle  + terminal game (checkmate/draw)  → [[SessionLifecycle.Finished]]
-   *  - [[SessionLifecycle.Created]]          + non-terminal → [[SessionLifecycle.Active]]
+   *  - [[SessionLifecycle.Created]]           + non-terminal → [[SessionLifecycle.Active]]
    *    (first move activates the session)
    *  - [[SessionLifecycle.AwaitingPromotion]] + non-terminal → [[SessionLifecycle.Active]]
    *    (promotion choice was just supplied; resume normal play)
-   *  - [[SessionLifecycle.Active]]           + non-terminal → no change (no persist needed)
+   *  - [[SessionLifecycle.Active]]            + non-terminal → no change
    *
-   *  All transitions are validated by [[SessionLifecyclePolicy]] inside [[updateLifecycle]].
+   *  Transitions are validated by [[SessionLifecyclePolicy]].
    */
-  private def persistPostMoveLifecycle(
+  private def computePostMoveLifecycle(
     session:   GameSession,
     nextState: GameState,
     now:       Instant
@@ -232,6 +225,6 @@ class SessionService(repository: SessionRepository, publisher: EventPublisher):
     nextLifecycle match
       case None       => Right((nextState, session))
       case Some(next) =>
-        updateLifecycle(session.sessionId, next, now)
-          .left.map(SessionMoveError.PersistenceFailed(_))
-          .map(updated => (nextState, updated))
+        SessionLifecyclePolicy.validateTransition(session.lifecycle, next)
+          .left.map(msg => SessionMoveError.PersistenceFailed(SessionError.InvalidLifecycleTransition(msg)))
+          .map(next => (nextState, GameSession.withLifecycle(session, next, now)))

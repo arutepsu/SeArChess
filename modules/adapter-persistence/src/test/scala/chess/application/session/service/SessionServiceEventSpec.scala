@@ -98,57 +98,57 @@ class SessionServiceEventSpec extends AnyFlatSpec with Matchers with EitherValue
     events.head shouldBe AppEvent.PromotionPending(session.sessionId, session.gameId)
   }
 
-  // ── applyMove events ───────────────────────────────────────────────────────
+  // ── applyMove (pure computation) ──────────────────────────────────────────
+  // applyMove no longer publishes events — it is a pure computation.
+  // Event publication is the responsibility of SessionGameService.submitMove,
+  // which calls applyMove and then publishes after the combined write succeeds.
 
-  "SessionService.applyMove" should "publish MoveApplied after a successful move" in {
+  "SessionService.applyMove" should "return updated GameState and GameSession on a successful move" in {
     val (service, collector) = freshService()
     val session              = createSession(service)
     val state                = GameStateFactory.initial()
     val move                 = Move(Position.from(4, 1).value, Position.from(4, 3).value) // e2-e4
     collector.clear()
-    service.applyMove(session, state, move, SideController.HumanLocal)
-    val events = collector.events
-    events.collect { case e: AppEvent.MoveApplied => e } should have size 1
-    events.collectFirst { case e: AppEvent.MoveApplied => e }.value shouldBe
-      AppEvent.MoveApplied(session.sessionId, session.gameId, move, Color.White)
+    val result = service.applyMove(session, state, move, SideController.HumanLocal)
+    result.isRight shouldBe true
+    result.value._1.moveHistory.size shouldBe 1
   }
 
-  it should "publish SessionLifecycleChanged when the lifecycle advances" in {
+  it should "return GameSession with lifecycle advanced to Active after the first move" in {
+    val (service, _) = freshService()
+    val session      = createSession(service)  // lifecycle: Created
+    val state        = GameStateFactory.initial()
+    val move         = Move(Position.from(4, 1).value, Position.from(4, 3).value)
+    val result       = service.applyMove(session, state, move, SideController.HumanLocal)
+    result.value._2.lifecycle shouldBe SessionLifecycle.Active
+  }
+
+  it should "return GameSession with lifecycle Finished when the move is checkmate" in {
+    val (service, _) = freshService()
+    val session      = createSession(service)
+    val move         = Move(rb1, ra1)
+    val result       = service.applyMove(session, checkmateInOneState, move, SideController.HumanLocal)
+    result.value._2.lifecycle shouldBe SessionLifecycle.Finished
+  }
+
+  it should "not publish any events on a successful move" in {
     val (service, collector) = freshService()
-    val session              = createSession(service)  // lifecycle: Created
+    val session              = createSession(service)
     val state                = GameStateFactory.initial()
     val move                 = Move(Position.from(4, 1).value, Position.from(4, 3).value)
     collector.clear()
     service.applyMove(session, state, move, SideController.HumanLocal)
-    val events = collector.events
-    events.collectFirst { case e: AppEvent.SessionLifecycleChanged => e }.value shouldBe
-      AppEvent.SessionLifecycleChanged(
-        session.sessionId, session.gameId,
-        SessionLifecycle.Created, SessionLifecycle.Active)
+    collector.events shouldBe empty
   }
 
-  it should "publish GameFinished when the move results in checkmate" in {
-    val (service, collector) = freshService()
-    val session              = createSession(service)
-    val state                = checkmateInOneState
-    val move                 = Move(rb1, ra1)
-    collector.clear()
-    service.applyMove(session, state, move, SideController.HumanLocal)
-    val events = collector.events
-    val finished = events.collectFirst { case e: AppEvent.GameFinished => e }
-    finished shouldBe defined
-    finished.value.sessionId shouldBe session.sessionId
-    finished.value.gameId    shouldBe session.gameId
-    finished.value.status shouldBe a[GameStatus.Checkmate]
-  }
-
-  it should "not publish any events when the move is rejected" in {
+  it should "return Left and publish no events when the move is rejected" in {
     val (service, collector) = freshService()
     val session              = createSession(service)
     val state                = GameStateFactory.initial()
     val illegalMove          = Move(Position.from(4, 1).value, Position.from(4, 5).value) // pawn e2→e6
     collector.clear()
-    service.applyMove(session, state, illegalMove, SideController.HumanLocal)
+    val result = service.applyMove(session, state, illegalMove, SideController.HumanLocal)
+    result.isLeft  shouldBe true
     collector.events shouldBe empty
   }
 

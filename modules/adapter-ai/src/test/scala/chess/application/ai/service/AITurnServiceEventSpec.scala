@@ -2,7 +2,7 @@ package chess.application.ai.service
 
 import chess.adapter.ai.FirstLegalMoveProvider
 import chess.adapter.event.CollectingEventPublisher
-import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionRepository}
+import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionGameStore, InMemorySessionRepository}
 import chess.application.event.AppEvent
 import chess.application.port.ai.{AIError, AIProvider, AIResponse}
 import chess.application.session.model.{SessionMode, SideController}
@@ -19,8 +19,10 @@ class AITurnServiceEventSpec extends AnyFlatSpec with Matchers with EitherValues
   private def freshSetup(provider: AIProvider = FirstLegalMoveProvider()) =
     val collector      = CollectingEventPublisher()
     val sessionRepo    = InMemorySessionRepository()
+    val gameRepo       = InMemoryGameRepository()
+    val store          = InMemorySessionGameStore(sessionRepo, gameRepo)
     val sessionService = SessionService(sessionRepo, _ => ())
-    val svc            = SessionGameService(sessionService, InMemoryGameRepository())
+    val svc            = SessionGameService(sessionService, store, _ => ())
     val session        = svc.createSession(
       gameId          = GameId.random(),
       mode            = SessionMode.HumanVsAI,
@@ -46,8 +48,10 @@ class AITurnServiceEventSpec extends AnyFlatSpec with Matchers with EitherValues
   it should "NOT publish AITurnRequested when the guard fails (not AI turn)" in {
     val collector      = CollectingEventPublisher()
     val sessionRepo    = InMemorySessionRepository()
+    val gameRepo       = InMemoryGameRepository()
+    val store          = InMemorySessionGameStore(sessionRepo, gameRepo)
     val sessionService = SessionService(sessionRepo, _ => ())
-    val svc            = SessionGameService(sessionService, InMemoryGameRepository())
+    val svc            = SessionGameService(sessionService, store, _ => ())
     val humanSession   = svc.createSession(
       gameId          = GameId.random(),
       mode            = SessionMode.HumanVsHuman,
