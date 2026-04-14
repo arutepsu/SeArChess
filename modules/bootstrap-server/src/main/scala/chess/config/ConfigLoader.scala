@@ -15,6 +15,8 @@ package chess.config
  *    WS_PORT           integer 1–65535             (default: 9090)
  *    PERSISTENCE_MODE  in-memory                   (default: in-memory)
  *    EVENT_MODE        in-process                  (default: in-process)
+ *    CORS_ENABLED      true/false/1/0/yes/no       (default: false)
+ *    CORS_ALLOWED_ORIGIN  * | specific origin URL  (default: *)
  *  }}}
  *
  *  === Validation ===
@@ -31,8 +33,10 @@ object ConfigLoader:
   private val DefaultHttpPort:    String = "8080"
   private val DefaultWsEnabled:   String = "true"
   private val DefaultWsPort:      String = "9090"
-  private val DefaultPersistence: String = "in-memory"
-  private val DefaultEventMode:   String = "in-process"
+  private val DefaultPersistence:     String = "in-memory"
+  private val DefaultEventMode:       String = "in-process"
+  private val DefaultCorsEnabled:     String = "false"
+  private val DefaultCorsAllowOrigin: String = "*"
 
   // ── Public API ───────────────────────────────────────────────────────────────
 
@@ -48,14 +52,17 @@ object ConfigLoader:
       httpPort    <- parsePort("HTTP_PORT", env("HTTP_PORT").getOrElse(DefaultHttpPort))
       wsEnabled   <- parseBool("WS_ENABLED", env("WS_ENABLED").getOrElse(DefaultWsEnabled))
       wsPort      <- parsePort("WS_PORT", env("WS_PORT").getOrElse(DefaultWsPort))
-      persistence <- parsePersistenceMode(env("PERSISTENCE_MODE").getOrElse(DefaultPersistence))
-      eventMode   <- parseEventMode(env("EVENT_MODE").getOrElse(DefaultEventMode))
+      persistence   <- parsePersistenceMode(env("PERSISTENCE_MODE").getOrElse(DefaultPersistence))
+      eventMode     <- parseEventMode(env("EVENT_MODE").getOrElse(DefaultEventMode))
+      corsEnabled   <- parseBool("CORS_ENABLED", env("CORS_ENABLED").getOrElse(DefaultCorsEnabled))
+      corsOrigin     = env("CORS_ALLOWED_ORIGIN").getOrElse(DefaultCorsAllowOrigin)
     yield AppConfig(
       mode        = mode,
       http        = HttpConfig(httpHost, httpPort),
       webSocket   = WebSocketConfig(wsEnabled, wsPort),
       persistence = persistence,
-      eventMode   = eventMode
+      eventMode   = eventMode,
+      cors        = CorsConfig(corsEnabled, corsOrigin)
     )
 
   /** Load config or print the error and exit the process.

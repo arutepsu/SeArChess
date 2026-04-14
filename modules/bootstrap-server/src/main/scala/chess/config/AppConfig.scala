@@ -17,6 +17,19 @@ enum AppMode:
 enum PersistenceMode:
   case InMemory
 
+/** CORS configuration for development-time cross-origin browser access.
+ *
+ *  Applied to the entire composed HTTP surface in `bootstrap-server`.
+ *  Business routes do not contain any CORS logic.
+ *
+ *  - [[enabled]]: when `false` (the default) no CORS headers are added;
+ *    current behavior is fully preserved.
+ *  - [[allowedOrigin]]: the `Origin` value a browser is allowed to send.
+ *    Use `"*"` to allow any origin (permissive dev mode) or a specific
+ *    origin like `"http://localhost:3000"` for tighter dev control.
+ */
+final case class CorsConfig(enabled: Boolean, allowedOrigin: String)
+
 /** Event distribution strategy.
  *
  *  Controls how [[chess.application.event.AppEvent]]s emitted by application
@@ -49,5 +62,6 @@ final case class AppConfig(
   http:        HttpConfig,
   webSocket:   WebSocketConfig,
   persistence: PersistenceMode,
-  eventMode:   EventMode
+  eventMode:   EventMode,
+  cors:        CorsConfig
 )
