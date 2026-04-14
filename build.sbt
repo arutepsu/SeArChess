@@ -54,6 +54,7 @@ lazy val root = project
         Seq(
           "-coverage-exclude-files:" +
           Seq(
+            ".*chess.Main.*",
             ".*adapter.gui.ChessApp.*",
             ".*adapter.gui.scene.*",
             ".*adapter.gui.render.*",
