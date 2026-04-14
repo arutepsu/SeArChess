@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { BoardMatrix, GameState, MoveRequest, PieceCode } from "./api/types";
 import {
   apiBaseUrl,
@@ -27,6 +27,11 @@ const pgnExport = ref<string>("");
 const previousBoard = ref<BoardMatrix | null>(null);
 const animationPlan = ref<BoardAnimation | null>(null);
 const animationCounter = ref(0);
+const baseClockMs = 10 * 60 * 1000;
+const whiteClockMs = ref(baseClockMs);
+const blackClockMs = ref(baseClockMs);
+const lastTickMs = ref<number | null>(null);
+const clockInterval = ref<number | null>(null);
 
 type BoardAnimation = {
   id: number;
@@ -54,6 +59,30 @@ const loadGame = async () => {
       error instanceof Error
         ? `Service offline. ${error.message}`
         : "Service offline.";
+  }
+};
+
+const resetClocks = () => {
+  whiteClockMs.value = baseClockMs;
+  blackClockMs.value = baseClockMs;
+  lastTickMs.value = performance.now();
+};
+
+const clockRunning = computed(() => {
+  const status = game.value?.status;
+  return status === "active" || status === "check";
+});
+
+const tickClock = () => {
+  const now = performance.now();
+  const last = lastTickMs.value ?? now;
+  lastTickMs.value = now;
+  if (!clockRunning.value || !game.value) return;
+  const delta = Math.max(0, now - last);
+  if (game.value.activeColor === "white") {
+    whiteClockMs.value = Math.max(0, whiteClockMs.value - delta);
+  } else {
+    blackClockMs.value = Math.max(0, blackClockMs.value - delta);
   }
 };
 
@@ -163,7 +192,26 @@ const handleExport = async () => {
   }
 };
 
-onMounted(loadGame);
+onMounted(() => {
+  loadGame();
+  lastTickMs.value = performance.now();
+  clockInterval.value = window.setInterval(tickClock, 250);
+});
+
+onBeforeUnmount(() => {
+  if (clockInterval.value !== null) {
+    window.clearInterval(clockInterval.value);
+  }
+});
+
+watch(
+  () => game.value?.id,
+  (next, prev) => {
+    if (next && next !== prev) {
+      resetClocks();
+    }
+  }
+);
 
 const handleAnimationFinished = (id: number) => {
   if (animationPlan.value?.id === id) {
@@ -216,7 +264,7 @@ const squareToIndex = (square: string): { row: number; col: number } | null => {
       <span class="leaf leaf-5"></span>
       <span class="leaf leaf-6"></span>
     </div>
-    <StatusBanner :game="game" :connection="connection" :message="message" />
+    <!-- <StatusBanner :game="game" :connection="connection" :message="message" /> -->
     <main class="layout">
       <ChessBoard
         v-if="game"
@@ -234,6 +282,10 @@ const squareToIndex = (square: string): { row: number; col: number } | null => {
         <ControlPanel
           :game="game"
           :busy="busy"
+          :white-time-ms="whiteClockMs"
+          :black-time-ms="blackClockMs"
+          :active-color="game?.activeColor"
+          :clock-running="clockRunning"
           @new-game="handleNewGame"
           @undo="handleUndo"
           @redo="handleRedo"
@@ -290,6 +342,7 @@ const squareToIndex = (square: string): { row: number; col: number } | null => {
   width: 100%;
   max-width: 280px;
   justify-self: end;
+  margin-left: 32px;
 }
 
 .placeholder {

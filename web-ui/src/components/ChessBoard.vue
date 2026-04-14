@@ -689,13 +689,13 @@ watch(
   position: relative;
   display: grid;
   grid-template-rows: repeat(8, var(--square-size, 72px));
-  gap: 0;
+  gap: 1px;
 }
 
 .board-row {
   display: grid;
   grid-template-columns: repeat(8, var(--square-size, 72px));
-  gap: 0;
+  gap: 1px;
 }
 
 .board-square {
@@ -712,11 +712,11 @@ watch(
 }
 
 .square-light {
-  background: #f0d9b5;
+  background: #f0d9b5e7;
 }
 
 .square-dark {
-  background: #b58863;
+  background: #b58863c9;
 }
 
 .piece {

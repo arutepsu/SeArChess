@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import type { GameState } from "../api/types";
+import type { GameState, PlayerColor } from "../api/types";
 
-defineProps<{
+const props = defineProps<{
   game?: GameState;
   busy: boolean;
+  whiteTimeMs?: number;
+  blackTimeMs?: number;
+  activeColor?: PlayerColor;
+  clockRunning?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -12,6 +16,13 @@ const emit = defineEmits<{
   (event: "redo"): void;
   (event: "export"): void;
 }>();
+
+const formatTime = (ms?: number) => {
+  const totalSeconds = Math.max(0, Math.floor((ms ?? 0) / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+};
 </script>
 
 <template>
@@ -20,6 +31,22 @@ const emit = defineEmits<{
       <h2>Command Deck</h2>
       <p>Direct the battle from here.</p>
     </header>
+    <div class="clocks">
+      <div
+        class="clock"
+        :class="[props.activeColor === 'white' && props.clockRunning ? 'is-active' : '']"
+      >
+        <span class="label">White</span>
+        <strong class="clock-time">{{ formatTime(props.whiteTimeMs) }}</strong>
+      </div>
+      <div
+        class="clock"
+        :class="[props.activeColor === 'black' && props.clockRunning ? 'is-active' : '']"
+      >
+        <span class="label">Black</span>
+        <strong class="clock-time">{{ formatTime(props.blackTimeMs) }}</strong>
+      </div>
+    </div>
     <div class="status">
       <div>
         <span class="label">Status</span>
@@ -77,6 +104,31 @@ header p {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 16px;
+}
+
+.clocks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.clock {
+  display: grid;
+  gap: 6px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.clock.is-active {
+  box-shadow: 0 0 0 1px rgba(255, 206, 116, 0.55), 0 12px 22px rgba(0, 0, 0, 0.35);
+}
+
+.clock-time {
+  font-size: 1.2rem;
+  letter-spacing: 0.08rem;
 }
 
 .label {
