@@ -5,7 +5,8 @@ import chess.config.CorsConfig
 import org.http4s.HttpApp
 import org.http4s.headers.Origin
 import org.http4s.server.middleware.CORS
-
+import org.http4s.Header.ToRaw.modelledHeadersToRaw
+import org.http4s.implicits.http4sHeaderSyntax
 /** Applies http4s CORS middleware to the final composed [[HttpApp]].
  *
  *  This is an operational/runtime concern owned by `bootstrap-server`.
@@ -42,8 +43,5 @@ object CorsMiddleware:
   /** Render an [[Origin.Host]] to `"scheme://host"` or `"scheme://host:port"`
    *  and compare it to the configured origin string.
    */
-  private def matchesOrigin(host: Origin.Host, allowedOrigin: String): Boolean =
-    val rendered = host.port match
-      case Some(p) => s"${host.scheme.value}://${host.host.value}:$p"
-      case None    => s"${host.scheme.value}://${host.host.value}"
-    rendered == allowedOrigin
+  private def matchesOrigin(origin: Origin, allowedOrigin: String): Boolean =
+    origin.value == allowedOrigin
