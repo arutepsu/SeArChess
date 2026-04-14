@@ -4,48 +4,27 @@ import chess.notation.api.{FenData, NotationFormat, NotationParser, ParsedNotati
 
 /** Strict FEN parser that implements the shared [[NotationParser]] contract.
  *
- *  Parsing proceeds in five phases:
- *  1. Field splitting ([[FenTokenizer]])
- *  2. Per-field syntax/structural parsing ([[FenFieldParsers]])
- *  3. Assembly into the parser-local [[FenRecord]]
- *  4. Conversion to the shared [[FenData]] model
- *  5. Wrapping in [[ParsedNotation.ParsedFen]]
- *
- *  On success the raw input string and the structured [[FenData]] are both
- *  preserved in [[ParsedNotation.ParsedFen]].  On any failure a structured
- *  [[ParseFailure]] is returned; input is never silently normalised.
+ *  Parsing flow:
+ *  1. Full grammar parse via [[FenCombinatorGrammar]]
+ *  2. Assembly into parser-local [[FenRecord]]
+ *  3. Conversion to shared [[FenData]]
+ *  4. Wrapping in [[ParsedNotation.ParsedFen]]
  *
  *  Validation scope:
- *  - syntax and structural shape only (field count, rank count, legal symbols, etc.)
- *  - no semantic chess-legality checks (king placement, reachable positions, etc.)
+ *  - syntax and structural shape only
+ *  - no semantic chess-legality checks
  */
 object FenParser extends NotationParser:
 
   val format: NotationFormat = NotationFormat.FEN
 
-  /** Parse `input` and return `Right(ParsedFen(input, data))` on success. */
+  val default: FenGrammar = FenCombinatorGrammar // selector for easy switching between combinator and FastParse implementations
+
   def parse(input: String): Either[ParseFailure, ParsedNotation] =
     parseRecord(input).map(record => ParsedNotation.ParsedFen(input, toFenData(record)))
 
-  /** Parse `input` into a fully structured [[FenRecord]].
-   *
-   *  This is a notation-module internal operation.  It is intentionally
-   *  restricted to `package chess.notation.fen` and is NOT part of the shared
-   *  `chess.notation.api` contract.
-   *
-   *  Returns the same failures as [[parse]]; the public [[parse]] method
-   *  converts the [[FenRecord]] to [[FenData]] and wraps it in [[ParsedNotation.ParsedFen]].
-   */
   private[fen] def parseRecord(input: String): Either[ParseFailure, FenRecord] =
-    for
-      tokens         <- FenTokenizer.tokenize(input)
-      ranks          <- FenFieldParsers.parsePiecePlacement(tokens.piecePlacement)
-      activeColor    <- FenFieldParsers.parseActiveColor(tokens.activeColor)
-      castling       <- FenFieldParsers.parseCastling(tokens.castling)
-      enPassant      <- FenFieldParsers.parseEnPassant(tokens.enPassant)
-      halfmoveClock  <- FenFieldParsers.parseHalfmoveClock(tokens.halfmoveClock)
-      fullmoveNumber <- FenFieldParsers.parseFullmoveNumber(tokens.fullmoveNumber)
-    yield FenRecord(ranks, activeColor, castling, enPassant, halfmoveClock, fullmoveNumber)
+    FenGrammarSelector.default.parseRecord(input)
 
   // ── FenRecord → FenData conversion ──────────────────────────────────────────
 
