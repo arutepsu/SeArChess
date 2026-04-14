@@ -355,14 +355,14 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
   // ── currentGameState ───────────────────────────────────────────────────────
 
   "GameController.currentGameState" should "initially return a new-game state" in {
-    val controller = new GameController(_ => (), _ => ())
+    val controller = new GameController(new chess.application.ObservableGame(), _ => (), _ => ())
     controller.currentGameState.currentPlayer shouldBe Color.White
     controller.currentGameState.board         shouldBe Board.initial
   }
 
   it should "reflect the state after loadGameState" in {
     val imported   = freshState.copy(currentPlayer = Color.Black)
-    val controller = new GameController(_ => (), _ => ())
+    val controller = new GameController(new chess.application.ObservableGame(), _ => (), _ => ())
     controller.loadGameState(imported)
     controller.currentGameState.currentPlayer shouldBe Color.Black
   }
@@ -371,14 +371,14 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   "GameController.loadGameState" should "replace internal state with the imported GameState" in {
     val imported   = freshState.copy(currentPlayer = Color.Black)
-    val controller = new GameController(_ => (), _ => ())
+    val controller = new GameController(new chess.application.ObservableGame(), _ => (), _ => ())
     controller.loadGameState(imported)
     controller.currentGameState shouldBe imported
   }
 
   it should "rebuild currentViewModel from the imported state" in {
     val imported   = freshState.copy(currentPlayer = Color.Black)
-    val controller = new GameController(_ => (), _ => ())
+    val controller = new GameController(new chess.application.ObservableGame(), _ => (), _ => ())
     controller.loadGameState(imported)
     // ViewModel must reflect Black to move, not the initial White-to-move state
     controller.currentViewModel.statusText should include("Black")
@@ -386,7 +386,7 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   it should "call onRefresh with the rebuilt view model" in {
     var refreshed: Option[GameViewModel] = None
-    val controller = new GameController(vm => refreshed = Some(vm), _ => ())
+    val controller = new GameController(new chess.application.ObservableGame(), vm => refreshed = Some(vm), _ => ())
     val imported   = freshState.copy(currentPlayer = Color.Black)
     controller.loadGameState(imported)
     refreshed            should not be empty
@@ -395,13 +395,13 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   it should "not call onAnimate during loadGameState" in {
     var animateCalled = false
-    val controller = new GameController(_ => (), _ => { animateCalled = true })
+    val controller = new GameController(new chess.application.ObservableGame(), _ => (), _ => { animateCalled = true })
     controller.loadGameState(freshState)
     animateCalled shouldBe false
   }
 
   it should "settle to WaitingForSelection for an Ongoing imported state" in {
-    val controller = new GameController(_ => (), _ => ())
+    val controller = new GameController(new chess.application.ObservableGame(), _ => (), _ => ())
     controller.loadGameState(freshState)
     controller.currentViewModel.guiState shouldBe GuiState.WaitingForSelection
   }
@@ -421,14 +421,14 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
       currentPlayer = Color.Black,
       status        = GameStatus.Checkmate(Color.White)
     )
-    val controller = new GameController(_ => (), _ => ())
+    val controller = new GameController(new chess.application.ObservableGame(), _ => (), _ => ())
     controller.loadGameState(checkmateState)
     controller.currentViewModel.guiState shouldBe GuiState.GameFinished(GameStatus.Checkmate(Color.White))
   }
 
   it should "clear stale PieceSelected GUI state when loading new state mid-selection" in {
     // Start a game, select a piece to enter PieceSelected state, then load new state
-    val controller = new GameController(_ => (), _ => ())
+    val controller = new GameController(new chess.application.ObservableGame(), _ => (), _ => ())
     controller.handle(InputAction.SquareClicked(algPos("e2")))
     controller.currentViewModel.guiState shouldBe a[GuiState.PieceSelected]
     // Now load a fresh imported state — selection must be gone

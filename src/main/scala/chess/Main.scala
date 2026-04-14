@@ -6,6 +6,11 @@ import chess.application.ObservableGame
 
 object Main {
   def main(args: Array[String]): Unit = {
+    if (System.getProperty("chess.testMode") == "true") {
+      ChessApp.sharedGame = new ObservableGame()
+      return
+    }
+
     // 1. Initialize the shared game state
     val game = new ObservableGame()
 
