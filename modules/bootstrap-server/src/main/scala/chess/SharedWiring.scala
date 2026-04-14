@@ -10,6 +10,7 @@ import chess.application.session.service.{GameSessionCommands, SessionGameServic
 import chess.config.AppConfig
 import com.comcast.ip4s.{Host, Port}
 import org.http4s.ember.server.EmberServerBuilder
+import org.http4s.{HttpApp, Request}
 
 /** Live backend handles produced by [[SharedWiring.start]].
  *
@@ -91,9 +92,16 @@ object SharedWiring:
     // Http4sApp already applies orNotFound so it handles the final 404.
     // CORS middleware (if enabled) wraps the entire composed surface so that
     // both operational and business routes respond correctly to browser preflight.
-    val chessHttpApp  = Http4sApp(sessionGameService, sessionService, persistence.gameRepository).httpApp
-    val composedApp   = Kleisli(req => HealthRoutes.routes(config.mode).run(req).getOrElseF(chessHttpApp(req)))
-    val httpApp       = CorsMiddleware(config.cors, composedApp)
+    val chessHttpApp: HttpApp[IO] =
+      Http4sApp(sessionGameService, sessionService, persistence.gameRepository).httpApp
+
+    val composedApp: HttpApp[IO] =
+      Kleisli { (req: Request[IO]) =>
+        HealthRoutes.routes(config.mode).run(req).getOrElseF(chessHttpApp.run(req))
+      }
+
+    val httpApp: HttpApp[IO] =
+      CorsMiddleware(config.cors, composedApp)
 
     // ── REST server ──────────────────────────────────────────────────────────
     // Resolve config strings to ip4s types; port is already range-validated by
