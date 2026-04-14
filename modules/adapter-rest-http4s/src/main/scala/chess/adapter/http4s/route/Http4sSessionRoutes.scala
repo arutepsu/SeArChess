@@ -2,8 +2,8 @@ package chess.adapter.http4s.route
 
 import cats.effect.IO
 import chess.adapter.http4s.route.Http4sRouteSupport.*
-import chess.adapter.rest.dto.{CreateSessionRequest, CreateSessionResponse, SessionResponse}
-import chess.adapter.rest.mapper.{GameMapper, SessionMapper}
+import chess.adapter.rest.contract.dto.{CreateSessionRequest, CreateSessionResponse, SessionResponse}
+import chess.adapter.rest.contract.mapper.{GameMapper, SessionMapper}
 import chess.application.session.model.SessionIds.SessionId
 import chess.application.session.service.{GameSessionCommands, SessionError, SessionService}
 import org.http4s.*

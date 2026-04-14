@@ -1,11 +1,24 @@
 // $COVERAGE-OFF$
 package chess.adapter.textui
 
-import chess.application.ObservableGame
+import chess.application.GameStateObservable
 import chess.application.session.model.DesktopSessionContext
-import chess.application.session.service.SessionGameService
+import chess.application.session.service.GameSessionCommands
 
 /** Starts a [[TextUI]] session on a named daemon thread.
+ *
+ *  Supports both execution modes of [[TextUI]]:
+ *
+ *  === Session-aware mode ===
+ *  Uses [[GameSessionCommands]] and [[DesktopSessionContext]]. All moves go through
+ *  the unified application mutation boundary ([[GameSessionCommands.submitMove]]),
+ *  ensuring consistent validation, persistence, and event publication across
+ *  adapters (GUI, REST, WebSocket).
+ *
+ *  === Local mode ===
+ *  No session infrastructure is provided. Moves go through the pure domain path
+ *  ([[chess.application.ChessService]]), with no persistence or event publication.
+ *  Intended for standalone demo or testing scenarios.
  *
  *  === Shutdown policy ===
  *  - [[TuiExitReason.UserQuit]]   → invokes `onUserQuit`; the caller decides
@@ -23,23 +36,23 @@ object TuiRunner:
 
   /** Start the TUI in session-aware mode.
    *
-   *  All moves go through [[SessionGameService.submitMove]] — the unified
+   *  All moves go through [[GameSessionCommands.submitMove]] — the unified
    *  application mutation boundary — so that domain validation, persistence,
    *  and event publication apply to TUI-driven moves in exactly the same way
    *  as to GUI- and REST-driven moves.
    *
-   *  [[ObservableGame]] is updated after each successful move as a notification
+   *  [[GameStateObservable]] is updated after each successful move as a notification
    *  bridge so other adapters (e.g. GUI) observe the state change.  It is not
    *  the mutation authority in this mode.
    */
   def start(
-    game:               ObservableGame,
-    sessionGameService: SessionGameService,
-    sessionContext:     DesktopSessionContext,
-    onUserQuit:         () => Unit
+    game:          GameStateObservable,
+    commands:      GameSessionCommands,
+    sessionContext: DesktopSessionContext,
+    onUserQuit:    () => Unit
   ): Unit =
     val t = new Thread(
-      () => run(new TextUI(ConsoleIO, game, Some(sessionGameService), Some(sessionContext)), onUserQuit),
+      () => run(new TextUI(ConsoleIO, game, Some(commands), Some(sessionContext)), onUserQuit),
       "searchess-tui"
     )
     t.setDaemon(true)
@@ -51,7 +64,7 @@ object TuiRunner:
    *  with no persistence or event publication.  Intended for standalone demo
    *  use or contexts where no session infrastructure is available.
    */
-  def start(game: ObservableGame, onUserQuit: () => Unit): Unit =
+  def start(game: GameStateObservable, onUserQuit: () => Unit): Unit =
     val t = new Thread(() => run(new TextUI(ConsoleIO, game), onUserQuit), "searchess-tui")
     t.setDaemon(true)
     t.start()

@@ -2,8 +2,8 @@ package chess.adapter.http4s.route
 
 import cats.effect.IO
 import chess.adapter.http4s.route.Http4sRouteSupport.*
-import chess.adapter.rest.dto.{GameResponse, SubmitMoveRequest, SubmitMoveResponse}
-import chess.adapter.rest.mapper.{GameMapper, MoveMapper, SessionMapper}
+import chess.adapter.rest.contract.dto.{GameResponse, SubmitMoveRequest, SubmitMoveResponse}
+import chess.adapter.rest.contract.mapper.{GameMapper, MoveMapper, SessionMapper}
 import chess.application.ApplicationError
 import chess.application.port.repository.{GameRepository, RepositoryError}
 import chess.domain.error.DomainError

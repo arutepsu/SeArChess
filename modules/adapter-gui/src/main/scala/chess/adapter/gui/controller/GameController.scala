@@ -6,49 +6,44 @@ import chess.adapter.gui.viewmodel.*
 import chess.application.ChessService
 import chess.application.session.model.{DesktopSessionContext, SessionLifecycle, SideController}
 import chess.application.session.model.SessionIds.GameId
-import chess.application.session.service.SessionGameService
+import chess.application.session.service.{GameSessionCommands, SessionService}
 import chess.domain.state.GameState
 import chess.domain.model.{Color, GameStatus, Move, PieceType, Position}
 
 /** Mutable GUI controller.
  *
- *  Holds the current game and view state.  On every input event it delegates to
- *  the pure [[GameController.transition]] function, stores the result, and fires
- *  the appropriate callback.
+ *  Holds the current game and view state. On every input event it routes
+ *  move submission through [[GameSessionCommands]] — the single application
+ *  mutation boundary — and uses the pure [[GameController.transition]] function
+ *  for non-mutating actions (selection, deselection).
+ *
+ *  This controller is always session-aware in production: all state mutations
+ *  go through the application layer, ensuring consistent validation, persistence,
+ *  and event publication across adapters (GUI, TUI, REST, WebSocket).
  *
  *  Animation is decoupled: [[onAnimate]] is called when a move should be animated;
- *  [[onRefresh]] is called whenever the view model changes.  When the animation
+ *  [[onRefresh]] is called whenever the view model changes. When the animation
  *  runner finishes, the scene calls [[completeAnimation]] to settle the GUI state.
  *
- *  === Session-aware mode ===
- *  When `sessionGameService` and `sessionContext` are supplied, move submission is
- *  routed through [[SessionGameService.submitMove]] — the single application mutation
- *  boundary — instead of [[ChessService.applyMove]] directly.  That boundary
- *  validates the move, publishes application events, persists session lifecycle, and
- *  persists the new [[chess.domain.state.GameState]].  Session lifecycle is tracked
- *  automatically:
+ *  Session lifecycle is tracked automatically:
  *  - first move transitions [[chess.application.session.model.SessionLifecycle.Created]] → Active
  *  - promotion detection transitions Active → AwaitingPromotion before the overlay opens
  *  - promotion completion transitions AwaitingPromotion → Active (or Finished if checkmate)
  *  - terminal game positions transition any lifecycle → Finished
  *
- *  === Local mode (default) ===
- *  When neither parameter is supplied, moves go through [[chess.application.ChessService]]
- *  directly (pure domain path).  No persistence, no event publication.  Intended for
- *  standalone demo use and testing without infrastructure.
- *
- *  @param onRefresh          called with the new [[GameViewModel]] after every state change
- *  @param onAnimate          called with an [[AnimationPlan]] when a move animation should start
- *  @param sessionGameService optional unified application mutation boundary
- *  @param sessionContext     optional shared [[DesktopSessionContext]]; must wrap a session
- *                            already persisted in the repository backing [[sessionGameService]]
+ *  @param commands        single write boundary for session-aware game mutations
+ *  @param sessionService  session lifecycle operations (promotion, import session provisioning)
+ *  @param sessionContext  shared context holding the current [[chess.application.session.model.GameSession]]
+ *  @param onRefresh       called with the new [[GameViewModel]] after every state change
+ *  @param onAnimate       called with an [[AnimationPlan]] when a move animation should start
  */
 class GameController(
-    game:               chess.application.ObservableGame,
-    onRefresh:          GameViewModel     => Unit,
-    onAnimate:          AnimationPlan     => Unit,
-    sessionGameService: Option[SessionGameService]    = None,
-    sessionContext:     Option[DesktopSessionContext] = None
+    game:           chess.application.GameStateObservable,
+    onRefresh:      GameViewModel  => Unit,
+    onAnimate:      AnimationPlan  => Unit,
+    commands:       GameSessionCommands,
+    sessionService: SessionService,
+    sessionContext: DesktopSessionContext
 ):
   private var gameState: GameState     = game.getState
   private var viewModel: GameViewModel =
@@ -79,11 +74,7 @@ class GameController(
   def currentGameState: GameState = gameState
 
   def handle(action: InputAction): Unit =
-    val (newState, newVm, animPlan) =
-      if sessionGameService.isDefined && sessionContext.isDefined then
-        sessionAwareHandle(action)
-      else
-        GameController.transition(gameState, viewModel, action)
+    val (newState, newVm, animPlan) = sessionAwareHandle(action)
     commitTransition(newState, newVm, animPlan)
 
   /** Replace the current game state with an externally imported one.
@@ -115,18 +106,14 @@ class GameController(
    */
   def loadGameState(importedState: GameState): Unit =
     // Session-aware: provision a fresh session matching the imported state's lifecycle.
-    for
-      service <- sessionGameService
-      context <- sessionContext
-    do
-      val session = context.getSession
-      val targetLifecycle = importedState.status match
-        case _: GameStatus.Checkmate | _: GameStatus.Draw => SessionLifecycle.Finished
-        case _                                            => SessionLifecycle.Active
-      service
-        .createSession(GameId.random(), session.mode, session.whiteController, session.blackController)
-        .flatMap(newSess => service.updateLifecycle(newSess.sessionId, targetLifecycle))
-        .foreach(updated => context.setSession(updated))
+    val session = sessionContext.getSession
+    val targetLifecycle = importedState.status match
+      case _: GameStatus.Checkmate | _: GameStatus.Draw => SessionLifecycle.Finished
+      case _                                            => SessionLifecycle.Active
+    sessionService
+      .createSession(GameId.random(), session.mode, session.whiteController, session.blackController)
+      .flatMap(newSess => sessionService.updateLifecycle(newSess.sessionId, targetLifecycle))
+      .foreach(updated => sessionContext.setSession(updated))
 
     gameState = importedState
     val settled = GameController.resolveSettledGuiState(gameState)
@@ -145,23 +132,20 @@ class GameController(
 
   // ── Session-aware move handling ─────────────────────────────────────────────
 
-  /** Routes move-submission actions through [[SessionGameService.submitMove]] — the
-   *  single application mutation boundary — when session context is present.
-   *  Selection, reset, and all non-move actions fall through to the standard pure
-   *  [[GameController.transition]] path.
+  /** Routes move-submission actions through [[GameSessionCommands.submitMove]] — the
+   *  single application mutation boundary.  Selection, deselection, and all
+   *  non-move actions fall through to the pure [[GameController.transition]] path.
    *
    *  Promotion flow:
    *  1. When a pawn reaches the back rank ([[ChessService.isPromotionPending]]),
    *     the session is transitioned to [[chess.application.session.model.SessionLifecycle.AwaitingPromotion]]
    *     before the promotion overlay is shown.  No domain state change occurs yet.
-   *  2. When the promotion piece is chosen, [[SessionGameService.submitMove]] commits
+   *  2. When the promotion piece is chosen, [[GameSessionCommands.submitMove]] commits
    *     the complete move (with promotion) and transitions the session back to Active
    *     (or Finished if the game ends).
    */
   private def sessionAwareHandle(action: InputAction): (GameState, GameViewModel, Option[AnimationPlan]) =
-    val service = sessionGameService.get
-    val ctx     = sessionContext.get
-    val session = ctx.getSession
+    val session = sessionContext.getSession
 
     action match
       case InputAction.SquareClicked(pos) =>
@@ -170,8 +154,8 @@ class GameController(
             if ChessService.isPromotionPending(gameState, from, pos) then
               // Transition session to AwaitingPromotion before opening the overlay.
               // Best-effort: overlay still opens even if session persistence fails.
-              service.preparePromotion(session.sessionId) match
-                case Right(updated) => ctx.setSession(updated)
+              sessionService.preparePromotion(session.sessionId) match
+                case Right(updated) => sessionContext.setSession(updated)
                 case Left(_)        => ()
               val promotingColor = gameState.board.pieceAt(from).get.color
               val gs = GuiState.AwaitingPromotion(from, pos)
@@ -182,7 +166,7 @@ class GameController(
               // Regular move through the unified application mutation boundary.
               // submitMove validates, applies, publishes events, and persists both
               // the session lifecycle and the new GameState before returning.
-              service.submitMove(session, gameState, Move(from, pos), SideController.HumanLocal) match
+              commands.submitMove(session, gameState, Move(from, pos), SideController.HumanLocal) match
                 case Left(_) =>
                   // Illegal move (shouldn't happen for targets from legalTargetsFrom); clear selection.
                   val gs = GuiState.WaitingForSelection
@@ -190,7 +174,7 @@ class GameController(
                     squares  = GameViewModelMapper.buildSquares(gameState, gs),
                     guiState = gs), None)
                 case Right((newState, newSess)) =>
-                  ctx.setSession(newSess)
+                  sessionContext.setSession(newSess)
                   AnimationPlanner.plan(gameState.board, Move(from, pos)) match
                     case Some(p) =>
                       (newState, GameViewModelMapper.build(newState, GuiState.Animating), Some(p))
@@ -207,11 +191,11 @@ class GameController(
           case GuiState.AwaitingPromotion(from, to) =>
             // Commit the complete promotion move through the unified application boundary.
             // Session lifecycle: AwaitingPromotion → Active (or Finished).
-            service.submitMove(session, gameState, Move(from, to, Some(pt)), SideController.HumanLocal) match
+            commands.submitMove(session, gameState, Move(from, to, Some(pt)), SideController.HumanLocal) match
               case Left(_) =>
                 (gameState, viewModel, None)  // invalid choice; overlay stays open
               case Right((newState, newSess)) =>
-                ctx.setSession(newSess)
+                sessionContext.setSession(newSess)
                 val settled = GameController.resolveSettledGuiState(newState)
                 (newState, GameViewModelMapper.build(newState, settled), None)
           case _ =>
@@ -221,9 +205,9 @@ class GameController(
         // Provision a fresh session and persist the initial game state atomically.
         // Best-effort: if newGame fails, fall back to the pure domain reset so
         // gameplay continues correctly; the context is not updated in that case.
-        service.newGame(session.mode, session.whiteController, session.blackController) match
+        commands.newGame(session.mode, session.whiteController, session.blackController) match
           case Right((fresh, newSess)) =>
-            ctx.setSession(newSess)
+            sessionContext.setSession(newSess)
             (fresh, GameViewModelMapper.build(fresh, GuiState.WaitingForSelection), None)
           case Left(_) =>
             val fresh = ChessService.createNewGame()

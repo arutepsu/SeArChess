@@ -87,8 +87,8 @@ lazy val adapterEvent = project
 
 // ── Module: adapter-rest-shared (DTOs and mappers shared by all REST adapters) ─
 
-lazy val adapterRestShared = project
-  .in(file("modules/adapter-rest-shared"))
+lazy val adapterRestContract = project
+  .in(file("modules/adapter-rest-contract"))
   .settings(
     commonSettings,
     libraryDependencies += "com.lihaoyi" %% "ujson" % "4.0.2"
@@ -103,16 +103,15 @@ lazy val adapterRestHttp4s = project
   .settings(
     commonSettings,
     libraryDependencies ++= Seq(
-      "org.http4s" %% "http4s-ember-server" % http4sVersion,
-      "org.http4s" %% "http4s-dsl"          % http4sVersion
+      "org.http4s" %% "http4s-dsl" % http4sVersion
     ),
-    // Http4sServer itself (Ember binding) cannot be easily tested without a live socket.
-    // Route classes (Http4sSessionRoutes, Http4sGameRoutes) are tested in-memory and
-    // therefore ARE included in coverage.
-    excludeFromCoverage(".*adapter.http4s.Http4sServer.*")
+    // Http4sApp itself (route composition wrapper) is excluded; route classes
+    // (Http4sSessionRoutes, Http4sGameRoutes) are tested in-memory and therefore
+    // ARE included in coverage.
+    excludeFromCoverage(".*adapter.http4s.Http4sApp.*")
   )
   // adapterPersistence is only needed for test fixtures (InMemoryGameRepository etc.)
-  .dependsOn(adapterRestShared, adapterPersistence % Test)
+  .dependsOn(adapterRestContract, adapterPersistence % Test)
 
 // ── Module: adapter-websocket ─────────────────────────────────────────────────
 
@@ -153,7 +152,7 @@ lazy val adapterGui = project
       ".*adapter.gui.assets.SpriteCatalogLoader.*"
     )
   )
-  .dependsOn(application, notation, adapterPersistence, adapterAi, adapterEvent)
+  .dependsOn(application, notation, adapterEvent, adapterPersistence)
 
 // ── Module: adapter-tui ───────────────────────────────────────────────────────
 
@@ -168,21 +167,31 @@ lazy val adapterTui = project
   )
   .dependsOn(application, adapterPersistence)
 
-// ── Module: main ──────────────────────────────────────────────────────────────
+// ── Module: bootstrap-server ─────────────────────────────────────────────────
 
-lazy val main = project
-  .in(file("modules/main"))
+lazy val bootstrapServer = project
+  .in(file("modules/bootstrap-server"))
   .settings(
     commonSettings,
-    // Main only wires adapters; nothing to cover meaningfully.
+    // Bootstrap-server only wires adapters; nothing to cover meaningfully.
     coverageMinimumStmtTotal := 0,
     Compile / mainClass := Some("chess.Main"),
     run     / mainClass := Some("chess.Main"),
     run     / fork      := true,
+    libraryDependencies ++= Seq(
+      "org.http4s" %% "http4s-ember-server" % http4sVersion
+    ),
     excludeFromCoverage(".*chess.Main.*")
   )
-  .dependsOn(adapterGui, adapterTui, adapterRestHttp4s,
-             adapterWebsocket, adapterAi, adapterEvent)
+  .dependsOn(
+    adapterGui,
+    adapterTui,
+    adapterRestHttp4s,
+    adapterWebsocket,
+    adapterAi,
+    adapterEvent,
+    adapterPersistence
+  )
 
 // ── Aliases ───────────────────────────────────────────────────────────────────
 //
@@ -198,7 +207,7 @@ lazy val main = project
 //   testAdapterPersistence  testAdapterAi           testAdapterEvent
 //   testAdapterRestShared   testAdapterRestHttp4s
 //   testAdapterWebsocket    testAdapterGui          testAdapterTui
-//   testMain
+//   testBootstrapServer
 //
 // Grouped aliases by architectural concern:
 //   testCore         — domain + notation + application
@@ -230,12 +239,12 @@ addCommandAlias("testApplication",        "application/test")
 addCommandAlias("testAdapterPersistence", "adapterPersistence/test")
 addCommandAlias("testAdapterAi",          "adapterAi/test")
 addCommandAlias("testAdapterEvent",       "adapterEvent/test")
-addCommandAlias("testAdapterRestShared",  "adapterRestShared/test")
+addCommandAlias("testAdapterRestContract",  "adapterRestContract/test")
 addCommandAlias("testAdapterRestHttp4s",  "adapterRestHttp4s/test")
 addCommandAlias("testAdapterWebsocket",   "adapterWebsocket/test")
 addCommandAlias("testAdapterGui",         "adapterGui/test")
 addCommandAlias("testAdapterTui",         "adapterTui/test")
-addCommandAlias("testMain",               "main/test")
+addCommandAlias("testBootstrapServer", "bootstrapServer/test")
 
 // ── Grouped test: by architectural concern ────────────────────────────────────
 
@@ -284,7 +293,7 @@ lazy val root = project
   .aggregate(
     domain, notation, application,
     adapterPersistence, adapterAi, adapterEvent,
-    adapterRestShared, adapterRestHttp4s,
+    adapterRestContract, adapterRestHttp4s,
     adapterWebsocket, adapterGui, adapterTui,
-    main
+    bootstrapServer
   )
