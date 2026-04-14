@@ -1,81 +1,287 @@
-## SeArChess — Scala 3 Chess Engine
+# Chess System — Architecture & Long-Term Plan
 
-[![Coverage Status](https://coveralls.io/repos/github/arutepsu/SeArChess/badge.svg?branch=main)](https://coveralls.io/github/arutepsu/SeArChess?branch=main)
+## 1. Project Overview
 
-### Usage
+This project is a modular chess system designed to evolve from a local application into a scalable, extensible architecture.
 
-```bash
-sbt run          # start the text UI
-sbt compile      # compile
-sbt test         # run tests
-sbt report       # tests + coverage report
-sbt ci           # tests + coverage + Coveralls upload
-```
+It aims to support:
+- multiple interaction styles (Web UI, TUI, GUI, AI)
+- clean separation of concerns
+- replaceable infrastructure (persistence, transport, events)
+- notation support (FEN, PGN, JSON)
+- live updates and event-driven flow
+- future extensions such as tournaments and bot APIs
 
----
-
-## Architecture
+The focus is not only functionality, but **architectural clarity and long-term evolvability**.
 
 ---
 
-## Domain Core Model
+## 2. Architectural Vision
 
-The domain core defines the fundamental chess entities: `Board`, `Piece`, `Color`, `PieceType`, `Position`, `Move`, `MoveResult`, and `GameStatus`. These types are pure data — they carry no behavior, have no dependencies on application workflows or UI concerns, and form the stable foundation that all other layers build upon.
+The system follows a domain-centered, adapter-based architecture:
 
-![Domain Core Model](docs/diagrams/DomainCoreModel.png)
+clients / adapters  
+→ application  
+→ domain  
 
----
+Surrounding capabilities:
+- notation (independent capability)
+- event flow (shared backbone)
+- persistence (replaceable infrastructure)
+- runtime composition (app-server)
 
-## Position State
-
-Castling rights and en passant eligibility are explicitly modeled as first-class types (`CastlingRights`, `EnPassantState`) in a dedicated `positionstate` sub-package. This makes transient game state visible and immutable rather than derived implicitly, ensuring that both validation and application logic receive exactly the state they need.
-
-![Position State](docs/diagrams/PositionState.png)
-
----
-
-## Move Processing Pipeline
-
-Move execution is split into four sequential responsibilities: validation (is the move legal?), application (produce the new board), evaluation (what is the resulting game status?), and state update (revise castling rights and en passant eligibility). Each stage is a stateless object with a single well-defined input and output, making the pipeline easy to test and extend independently.
-
-![Move Processing Pipeline](docs/diagrams/MoveProcessingPipeline.png)
+Core principles:
+- **domain owns rules**
+- **application owns use cases**
+- **adapters connect the outside world**
+- **runtime assembly is centralized**
 
 ---
 
-## Application Layer
+## 3. Long-Term Module Roles
 
-`ChessService` orchestrates game workflows by advancing an immutable `GameState` snapshot — the authoritative record of the current board, active color, castling rights, and en passant state — in response to `ChessCommand` inputs. It delegates all rule logic to the domain pipeline and assembles results; no domain decisions are made here.
+### domain
+The pure chess business core.
 
-![Application Layer](docs/diagrams/ApplicationLayer.png)
+Contains:
+- board, pieces, moves
+- rules (legal moves, turn logic, special moves)
+- game state and transitions
+- domain errors and invariants
 
----
-
-## Promotion Workflow
-
-When a pawn reaches the back rank, `MoveApplier` returns a `MoveResult.PromotionRequired` rather than `Applied`. `ChessService` records this as a `PendingPromotion` in `GameState` and suspends normal move processing until the player supplies a piece type. This two-step interaction keeps promotion as a first-class domain event rather than an edge case patched into the move loop.
-
-![Promotion Workflow](docs/diagrams/PromotionWorkflow.png)
-
----
-
-## Dependency Diagram
-
-Dependencies flow strictly inward: the `adapter` layer depends on `application`, which depends on `domain`. The domain does not depend on the application or adapter layers. This constraint ensures that UI changes, persistence strategies, or transport mechanisms can evolve without touching domain or application logic.
-
-![Dependency Diagram](docs/diagrams/DependencyDiagram.png)
+Must remain independent of all frameworks and infrastructure.
 
 ---
 
-## Test Strategy
+### application
+The use-case and orchestration layer.
 
-Tests mirror the production package structure, with each test class covering exactly one production object or service. This alignment means components can be tested independently, with domain rule logic verified through minimal board setups and `ChessService` verified end-to-end through command sequences. The 100% statement and branch coverage gate is enforced on every build via `sbt report`.
+Responsible for:
+- creating and loading games
+- submitting moves
+- querying state
+- coordinating sessions and lifecycle
+- defining ports for persistence and events
 
-![Test Strategy](docs/diagrams/TestStrategy.png)
+Acts as the **stable entry point for all adapters**.
 
 ---
 
-## Future Extension
+### notation
+A separable capability for notation handling.
 
-The architecture supports incremental extension without restructuring the domain. Export formats (JSON, PGN, FEN), HTTP transports (http4s, fs2), persistence backends (MongoDB, PostgreSQL), and web UIs all plug in at the adapter layer. The same `ChessService` interface can evolve toward microservices or streaming architectures as requirements grow.
+Supports:
+- FEN
+- PGN
+- JSON representations
 
-![Future Extension](docs/diagrams/FutureExtension.png)
+Provides:
+- parsing
+- rendering
+- multiple parser implementations (regex, fastparse, combinators)
+
+Independent from transport and UI.
+
+---
+
+### adapter-rest-contract
+The REST API schema layer.
+
+Defines:
+- request/response DTOs
+- validation shapes
+- serialization contracts
+
+Acts as the **stable interface between backend and clients**.
+
+---
+
+### adapter-rest-http4s
+The HTTP transport adapter.
+
+Responsible for:
+- route definitions
+- request decoding
+- response encoding
+- HTTP error mapping
+
+Implements the REST contract using http4s.
+
+---
+
+### adapter-websocket
+The live update transport adapter.
+
+Responsible for:
+- WebSocket connections
+- streaming backend events to clients
+- subscription handling
+
+Built on top of shared event flow.
+
+---
+
+### adapter-event
+The event delivery infrastructure.
+
+Responsible for:
+- event publication and subscription
+- in-process event distribution
+- bridging application events to adapters
+
+Forms the backbone for:
+- live updates
+- future Kafka integration
+
+---
+
+### adapter-persistence
+The storage adapter layer.
+
+Responsible for:
+- implementing repository ports
+- storing and retrieving state
+
+Long-term:
+- split into backend-specific modules (Postgres, Mongo)
+
+---
+
+### adapter-ai
+The automated player adapter.
+
+Responsible for:
+- AI strategy execution
+- decision-making
+- invoking application commands
+
+Acts as a **client of the application layer**, not a rule owner.
+
+---
+
+### adapter-tui
+Text-based interface.
+
+Used for:
+- testing
+- debugging
+- demonstration
+- validating architectural boundaries
+
+---
+
+### adapter-gui
+Desktop UI adapter.
+
+Optional long-term role:
+- demonstration client
+- alternative UI
+
+Maintained only if it continues to validate architecture quality.
+
+---
+
+### app-server (formerly bootstrap-server)
+The runtime composition root.
+
+Responsible for:
+- configuration
+- wiring modules together
+- selecting infrastructure
+- starting REST and WebSocket endpoints
+- managing lifecycle
+
+---
+
+### app-web-ui
+The frontend application.
+
+Consumes:
+- REST API (via contract)
+- WebSocket updates
+
+Responsible for user interaction and presentation.
+
+---
+
+### notation
+
+Independent module for chess notation (FEN, PGN, JSON).
+
+- parsing + rendering
+- multiple parser strategies (regex, fastparse, combinators)
+- clean split: api + format modules
+
+Independent of UI, transport, and persistence.
+Used by the application layer as a reusable capability.
+---
+
+## 4. Future Capability Growth
+
+### Game
+Core gameplay and rules.
+
+### Live Updates
+Event-driven updates via WebSocket and event infrastructure.
+
+### Tournament (future)
+- brackets
+- standings
+- rounds
+- player registration
+
+### AI / Bots
+- automated players
+- external engine integration
+- bot APIs
+
+---
+
+## 5. Target Module Structure
+
+### Core
+- domain  
+- application  
+- notation  
+- tournament (future)
+
+### Adapters
+- adapter-rest-contract  
+- adapter-rest-http4s  
+- adapter-websocket  
+- adapter-event  
+- adapter-persistence-postgres  
+- adapter-persistence-mongo  
+- adapter-ai  
+- adapter-bot-api  
+- adapter-tui  
+- adapter-gui  
+
+### Apps
+- app-server  
+- app-web-ui  
+
+---
+
+## 6. Architectural Rules
+
+1. Domain is the single source of truth for rules.
+2. Application is the only entry point for use cases.
+3. Adapters depend on application, not on each other.
+4. REST contract defines the public API.
+5. Event flow is centralized and shared.
+6. Persistence stays behind ports.
+7. Runtime assembly happens in app-server only.
+
+---
+
+## 7. Why This Structure Matters
+
+This architecture enables:
+- clear separation of concerns
+- replaceable infrastructure
+- consistent behavior across clients
+- scalable evolution (WebSocket, Kafka, microservices)
+- easier testing and reasoning
+
+The goal is not premature complexity, but **a structure that supports growth without breaking**.

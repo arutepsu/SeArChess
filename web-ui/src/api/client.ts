@@ -1,10 +1,19 @@
 import type {
   ApiStatus,
+  BoardMatrix,
   GameState,
   LegalMovesResponse,
   MoveRequest,
   NewGameRequest
 } from "./types";
+import type {
+  CreateSessionResponse,
+  GameResponse,
+  HealthResponse,
+  SubmitMoveResponse
+} from "./backendTypes";
+import { mapGameResponseToGameState } from "./mapper";
+import type { ErrorResponse } from "./backendTypes";
 
 const DEFAULT_API_BASE = "http://localhost:8080";
 
@@ -13,6 +22,17 @@ export const apiBaseUrl =
 
 const useMock = import.meta.env.VITE_API_MOCK === "true";
 
+// ── Real-mode game state ──────────────────────────────────────────────────────
+
+let realGameId: string | null = null;
+
+function requireGameId(): string {
+  if (!realGameId) throw new Error("No active game. Call startNewGame first.");
+  return realGameId;
+}
+
+// ── HTTP helper ───────────────────────────────────────────────────────────────
+
 async function fetchJson<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     headers: { "Content-Type": "application/json" },
@@ -20,36 +40,65 @@ async function fetchJson<T>(path: string, options?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `Request failed: ${response.status}`);
+    const raw = await response.text();
+
+    try {
+      const parsed = JSON.parse(raw) as ErrorResponse;
+      if (parsed.code && parsed.message) {
+        throw new Error(`${parsed.code}: ${parsed.message}`);
+      }
+    } catch {
+      // ignore parse failure, fall through
+    }
+
+    throw new Error(raw || `Request failed: ${response.status}`);
   }
 
   return (await response.json()) as T;
+}
+
+
+// ── Public API ────────────────────────────────────────────────────────────────
+export function getCurrentGameId(): string | null {
+  return useMock ? mockState.id : realGameId;
 }
 
 export async function getStatus(): Promise<ApiStatus> {
   if (useMock) {
     return { ok: true, serviceName: "SeArChess Mock", version: "0.0.0" };
   }
-  return fetchJson<ApiStatus>("/api/status");
+
+  const health = await fetchJson<HealthResponse>("/health");
+  return {
+    ok: health.status === "ok",
+    serviceName: "SeArChess",
+    version: "0.1.0"
+  };
 }
 
 export async function getGameState(): Promise<GameState> {
   if (useMock) {
     return getMockState();
   }
-  return fetchJson<GameState>("/api/game");
+
+  const gameId = requireGameId();
+  const game = await fetchJson<GameResponse>(`/api/games/${gameId}`);
+  return mapGameResponseToGameState(game);
 }
 
-export async function startNewGame(payload: NewGameRequest): Promise<GameState> {
+export async function startNewGame(_payload: NewGameRequest): Promise<GameState> {
   if (useMock) {
     resetMockState();
     return getMockState();
   }
-  return fetchJson<GameState>("/api/game/new", {
+
+  const response = await fetchJson<CreateSessionResponse>("/api/sessions", {
     method: "POST",
-    body: JSON.stringify(payload)
+    body: JSON.stringify({})
   });
+
+  realGameId = response.session.gameId;
+  return mapGameResponseToGameState(response.game);
 }
 
 export async function submitMove(payload: MoveRequest): Promise<GameState> {
@@ -57,35 +106,41 @@ export async function submitMove(payload: MoveRequest): Promise<GameState> {
     applyMockMove(payload);
     return getMockState();
   }
-  return fetchJson<GameState>("/api/game/move", {
-    method: "POST",
-    body: JSON.stringify(payload)
-  });
+
+  const gameId = requireGameId();
+  const body: Record<string, string> = {
+    from: payload.from,
+    to: payload.to
+  };
+  if (payload.promotion) body["promotion"] = payload.promotion;
+
+  const response = await fetchJson<SubmitMoveResponse>(
+    `/api/games/${gameId}/moves`,
+    { method: "POST", body: JSON.stringify(body) }
+  );
+
+  return mapGameResponseToGameState(response.game);
 }
 
 export async function undoMove(): Promise<GameState> {
   if (useMock) {
     return getMockState();
   }
-  return fetchJson<GameState>("/api/game/undo", {
-    method: "POST" }
-  );
+  throw new Error("Undo is not supported in server mode.");
 }
 
 export async function redoMove(): Promise<GameState> {
   if (useMock) {
     return getMockState();
   }
-  return fetchJson<GameState>("/api/game/redo", {
-    method: "POST" }
-  );
+  throw new Error("Redo is not supported in server mode.");
 }
 
 export async function exportPgn(): Promise<{ pgn: string }> {
   if (useMock) {
     return { pgn: "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6" };
   }
-  return fetchJson<{ pgn: string }>("/api/game/notation?format=pgn");
+  throw new Error("PGN export is not supported in server mode.");
 }
 
 export async function getLegalMoves(from: string): Promise<LegalMovesResponse> {
@@ -93,9 +148,14 @@ export async function getLegalMoves(from: string): Promise<LegalMovesResponse> {
     const moves = mockLegalMoves[from] ?? [];
     return { from, moves };
   }
-  const query = new URLSearchParams({ from }).toString();
-  return fetchJson<LegalMovesResponse>(`/api/game/legal?${query}`);
+
+  const gameId = requireGameId();
+  const game = await fetchJson<GameResponse>(`/api/games/${gameId}`);
+  const moves = game.legalTargetsByFrom[from] ?? [];
+  return { from, moves };
 }
+
+// ── Mock implementation (unchanged) ──────────────────────────────────────────
 
 function mockGameState(): GameState {
   const emptyRow = Array.from({ length: 8 }, () => null);
@@ -108,7 +168,7 @@ function mockGameState(): GameState {
     [...emptyRow],
     Array.from({ length: 8 }, () => "wP"),
     ["wR", "wN", "wB", "wQ", "wK", "wB", "wN", "wR"]
-  ];
+  ] as BoardMatrix;
 
   return {
     id: "mock-game",
