@@ -181,7 +181,18 @@ lazy val bootstrapServer = project
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-ember-server" % http4sVersion
     ),
-    excludeFromCoverage(".*chess.Main.*")
+    excludeFromCoverage(
+      ".*chess.Main.*",
+      ".*chess.ServerMain.*",
+      ".*chess.DesktopMain.*",
+      ".*chess.SharedWiring.*",
+      ".*chess.BackendWiring.*",
+      ".*chess.EventAssembly.*",
+      ".*chess.EventWiring.*",
+      ".*chess.PersistenceAssembly.*",
+      ".*chess.PersistenceWiring.*",
+      ".*chess.config.*"
+    )
   )
   .dependsOn(
     adapterGui,
