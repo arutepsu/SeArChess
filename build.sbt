@@ -179,7 +179,8 @@ lazy val bootstrapServer = project
     run     / mainClass := Some("chess.Main"),
     run     / fork      := true,
     libraryDependencies ++= Seq(
-      "org.http4s" %% "http4s-ember-server" % http4sVersion
+      "org.http4s" %% "http4s-ember-server" % http4sVersion,
+      "org.http4s" %% "http4s-dsl"          % http4sVersion
     ),
     excludeFromCoverage(
       ".*chess.Main.*",
@@ -191,6 +192,8 @@ lazy val bootstrapServer = project
       ".*chess.EventWiring.*",
       ".*chess.PersistenceAssembly.*",
       ".*chess.PersistenceWiring.*",
+      ".*chess.HealthRoutes.*",
+      ".*chess.CorsMiddleware.*",
       ".*chess.config.*"
     )
   )

@@ -1,5 +1,6 @@
 package chess
 
+import cats.data.Kleisli
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import chess.adapter.http4s.Http4sApp
@@ -42,7 +43,8 @@ final case class BackendWiring(
  *   1. persistence assembly ([[PersistenceAssembly]])
  *   2. event distribution assembly ([[EventAssembly]])
  *   3. application services
- *   4. HTTP server startup
+ *   4. HTTP surface composition (operational + chess business routes)
+ *   5. HTTP server startup
  *
  *  Each assembly concern is fully delegated to its own object.
  *  `SharedWiring` only threads the resulting wiring records into the layers
@@ -82,6 +84,17 @@ object SharedWiring:
     val sessionService     = SessionService(persistence.sessionRepository, events.publisher)
     val sessionGameService = SessionGameService(sessionService, persistence.store, events.publisher)
 
+    // ── HTTP surface composition ─────────────────────────────────────────────
+    // Operational routes (health) are owned by bootstrap-server and composed
+    // here alongside the chess business REST app.  Health routes are tried
+    // first; unmatched requests fall through to the chess HttpApp.
+    // Http4sApp already applies orNotFound so it handles the final 404.
+    // CORS middleware (if enabled) wraps the entire composed surface so that
+    // both operational and business routes respond correctly to browser preflight.
+    val chessHttpApp  = Http4sApp(sessionGameService, sessionService, persistence.gameRepository).httpApp
+    val composedApp   = Kleisli(req => HealthRoutes.routes(config.mode).run(req).getOrElseF(chessHttpApp(req)))
+    val httpApp       = CorsMiddleware(config.cors, composedApp)
+
     // ── REST server ──────────────────────────────────────────────────────────
     // Resolve config strings to ip4s types; port is already range-validated by
     // ConfigLoader so Port.fromInt will not fail in practice.
@@ -90,9 +103,7 @@ object SharedWiring:
     val port = Port.fromInt(config.http.port)
       .getOrElse(throw RuntimeException(s"[chess] HTTP port out of ip4s range: ${config.http.port}"))
 
-    // Http4sApp composes routes; EmberServerBuilder owns the lifecycle here.
     // The IO[Unit] returned by .allocated shuts the server down cleanly.
-    val httpApp = Http4sApp(sessionGameService, sessionService, persistence.gameRepository).httpApp
     val (_, shutdownHttp) =
       EmberServerBuilder
         .default[IO]
