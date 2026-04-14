@@ -1,7 +1,7 @@
 package chess.adapter.http4s.route
 
 import cats.effect.IO
-import chess.adapter.rest.dto.ErrorResponse
+import chess.adapter.rest.contract.dto.ErrorResponse
 import fs2.Stream
 import org.http4s.*
 import org.http4s.headers.`Content-Type`

@@ -1,15 +1,11 @@
-/** Session lifecycle coordination services.
+/** Session service layer.
  *
- *  Responsibilities:
- *  - coordinating session state with UI observers (ObservableGame belongs here)
- *  - managing active session registration and state access
- *  - bridging between application use-case results and registered callbacks
+ *  Owns application-level session orchestration, lifecycle transitions,
+ *  and command/query boundaries.
  *
- *  Candidate migration: chess.application.ObservableGame → this package.
- *  ObservableGame is a session-lifecycle concern: it holds current GameState
- *  and notifies registered adapters — the observable coordination pattern is
- *  inherently a session service responsibility.
- *
- *  Services here may have managed mutable state (unlike policies which are pure).
+ *  It does NOT own desktop/UI notification state. Cross-adapter state
+ *  notification is exposed via the `GameStateObservable` abstraction,
+ *  while the concrete observable implementation belongs in the
+ *  bootstrap-server composition layer.
  */
 package chess.application.session.service

@@ -5,7 +5,7 @@ import chess.adapter.gui.animation.AnimationPlan
 import chess.adapter.gui.input.InputAction
 import chess.adapter.gui.viewmodel.{GameViewModel, GameViewModelMapper, GuiState, PromotionViewModel}
 import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionGameStore, InMemorySessionRepository}
-import chess.application.{ChessService, ObservableGame}
+import chess.application.{ChessService, GameStateObservable}
 import chess.application.event.AppEvent
 import chess.application.session.model.SessionIds.GameId
 import chess.application.session.model.{DesktopSessionContext, SessionLifecycle, SessionMode, SideController}
@@ -17,6 +17,36 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
+
+  /** Minimal in-process [[GameStateObservable]] for unit tests. */
+  private class TestObservableGame(initial: GameState = ChessService.createNewGame())
+      extends GameStateObservable:
+    private var s   = initial
+    private val cbs = scala.collection.mutable.ListBuffer.empty[GameState => Unit]
+    def getState: GameState = synchronized(s)
+    def updateState(n: GameState): Unit =
+      val snapshot = synchronized { s = n; cbs.toList }
+      snapshot.foreach(_(n))
+    def addObserver(cb: GameState => Unit): Unit = synchronized { cbs += cb }
+
+  /** Fully wired session-aware [[GameController]] backed by in-memory repos.
+   *
+   *  Used for tests that exercise the class's mutable shell but do not care
+   *  about specific session behaviour.  Acceptance tests that DO care should
+   *  use [[sessionAwareControllerWithFixtures]] instead.
+   */
+  private def freshController(
+    onRefresh: GameViewModel => Unit = _ => (),
+    onAnimate: AnimationPlan => Unit = _ => ()
+  ): GameController =
+    val sessionRepo = new InMemorySessionRepository
+    val gameRepo    = new InMemoryGameRepository
+    val store       = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val svc         = new SessionService(sessionRepo, _ => ())
+    val commands    = new SessionGameService(svc, store, _ => ())
+    val session     = commands.newGame(SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal)
+                              .fold(e => throw AssertionError(s"freshController setup failed: $e"), identity)._2
+    new GameController(new TestObservableGame(), onRefresh, onAnimate, commands, svc, new DesktopSessionContext(session))
 
   // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -282,7 +312,7 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
   // ── GameController class (mutable wrapper) ────────────────────────────────
 
   "GameController class" should "expose the initial view model via currentViewModel" in {
-    val ctrl = new GameController(new chess.application.ObservableGame(), _ => (), _ => ())
+    val ctrl = freshController()
     ctrl.currentViewModel.guiState shouldBe GuiState.WaitingForSelection
     ctrl.currentViewModel.squares  should have size 64
   }
@@ -290,11 +320,7 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
   it should "call onRefresh and onAnimate after a move" in {
     var refreshCount = 0
     var capturedPlan: Option[AnimationPlan] = None
-    val ctrl = new GameController(
-      new chess.application.ObservableGame(),
-      _ => refreshCount += 1,
-      p => capturedPlan = Some(p)
-    )
+    val ctrl = freshController(_ => refreshCount += 1, p => capturedPlan = Some(p))
     val e2 = algPos("e2")
     val e4 = algPos("e4")
     ctrl.handle(InputAction.SquareClicked(e2))   // selection — refresh only
@@ -306,7 +332,7 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   it should "settle to WaitingForSelection after completeAnimation" in {
     var lastVm: Option[GameViewModel] = None
-    val ctrl = new GameController(new chess.application.ObservableGame(), vm => lastVm = Some(vm), _ => ())
+    val ctrl = freshController(vm => lastVm = Some(vm))
     ctrl.handle(InputAction.SquareClicked(algPos("e2")))
     ctrl.handle(InputAction.SquareClicked(algPos("e4")))
     ctrl.currentViewModel.guiState shouldBe GuiState.Animating
@@ -326,7 +352,7 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
       .place(g6, Piece(Color.White, PieceType.Queen))
       .place(b8, Piece(Color.White, PieceType.Rook))
       .place(h8, Piece(Color.Black, PieceType.King))
-    val ctrl = new GameController(new chess.application.ObservableGame(), _ => (), _ => ())
+    val ctrl = freshController()
     // Manually set up by reaching the right state through the real game service:
     // We can't inject state directly, but we can drive the controller via handle.
     // Instead, create a controller that starts with the prepared board.
@@ -361,14 +387,14 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
   // ── currentGameState ───────────────────────────────────────────────────────
 
   "GameController.currentGameState" should "initially return a new-game state" in {
-    val controller = new GameController(new ObservableGame(), _ => (), _ => ())
+    val controller = freshController()
     controller.currentGameState.currentPlayer shouldBe Color.White
     controller.currentGameState.board         shouldBe Board.initial
   }
 
   it should "reflect the state after loadGameState" in {
     val imported   = freshState.copy(currentPlayer = Color.Black)
-    val controller = new GameController(new ObservableGame(), _ => (), _ => ())
+    val controller = freshController()
     controller.loadGameState(imported)
     controller.currentGameState.currentPlayer shouldBe Color.Black
   }
@@ -377,14 +403,14 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   "GameController.loadGameState" should "replace internal state with the imported GameState" in {
     val imported   = freshState.copy(currentPlayer = Color.Black)
-    val controller = new GameController(new ObservableGame(), _ => (), _ => ())
+    val controller = freshController()
     controller.loadGameState(imported)
     controller.currentGameState shouldBe imported
   }
 
   it should "rebuild currentViewModel from the imported state" in {
     val imported   = freshState.copy(currentPlayer = Color.Black)
-    val controller = new GameController(new ObservableGame(), _ => (), _ => ())
+    val controller = freshController()
     controller.loadGameState(imported)
     // ViewModel must reflect Black to move, not the initial White-to-move state
     controller.currentViewModel.statusText should include("Black")
@@ -392,7 +418,7 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   it should "call onRefresh with the rebuilt view model" in {
     var refreshed: Option[GameViewModel] = None
-    val controller = new GameController(new ObservableGame(), vm => refreshed = Some(vm), _ => ())
+    val controller = freshController(vm => refreshed = Some(vm))
     val imported   = freshState.copy(currentPlayer = Color.Black)
     controller.loadGameState(imported)
     refreshed            should not be empty
@@ -401,13 +427,13 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   it should "not call onAnimate during loadGameState" in {
     var animateCalled = false
-    val controller = new GameController(new ObservableGame(), _ => (), _ => { animateCalled = true })
+    val controller = freshController(onAnimate = _ => { animateCalled = true })
     controller.loadGameState(freshState)
     animateCalled shouldBe false
   }
 
   it should "settle to WaitingForSelection for an Ongoing imported state" in {
-    val controller = new GameController(new ObservableGame(), _ => (), _ => ())
+    val controller = freshController()
     controller.loadGameState(freshState)
     controller.currentViewModel.guiState shouldBe GuiState.WaitingForSelection
   }
@@ -427,14 +453,14 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
       currentPlayer = Color.Black,
       status        = GameStatus.Checkmate(Color.White)
     )
-    val controller = new GameController(new ObservableGame(), _ => (), _ => ())
+    val controller = freshController()
     controller.loadGameState(checkmateState)
     controller.currentViewModel.guiState shouldBe GuiState.GameFinished(GameStatus.Checkmate(Color.White))
   }
 
   it should "clear stale PieceSelected GUI state when loading new state mid-selection" in {
     // Start a game, select a piece to enter PieceSelected state, then load new state
-    val controller = new GameController(new ObservableGame(), _ => (), _ => ())
+    val controller = freshController()
     controller.handle(InputAction.SquareClicked(algPos("e2")))
     controller.currentViewModel.guiState shouldBe a[GuiState.PieceSelected]
     // Now load a fresh imported state — selection must be gone
@@ -462,7 +488,7 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
       .createSession(GameId.random(), SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal)
       .value
     val context = new DesktopSessionContext(session)
-    val ctrl = new GameController(new ObservableGame(), _ => (), _ => (), Some(sessionGameSvc), Some(context))
+    val ctrl = new GameController(new TestObservableGame(), _ => (), _ => (), sessionGameSvc, service, context)
     (ctrl, sessionGameSvc, gameRepo, collector, context)
 
   "GameController (session-aware)" should "reset game state and view model on ResetClicked" in {

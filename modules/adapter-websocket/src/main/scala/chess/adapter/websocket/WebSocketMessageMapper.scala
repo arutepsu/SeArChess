@@ -31,7 +31,7 @@ import chess.domain.model.{GameStatus, Move}
  *  - Moves: `{"from": "e2", "to": "e4"}` using algebraic notation; includes
  *    `"promotion"` field only when present.
  *  - Game status: `"status"` string (`"Ongoing"` / `"Checkmate"` / `"Draw"`)
- *    plus `"winner"` or `"drawReason"` as appropriate, matching [[chess.adapter.rest.mapper.GameMapper]].
+ *    plus `"winner"` or `"drawReason"` as appropriate, matching [[chess.adapter.rest.contract.mapper.GameMapper]].
  *  - Colors, lifecycles, modes: `.toString` on the enum case.
  *
  *  === Key field semantics ===
