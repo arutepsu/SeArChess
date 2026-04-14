@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onMounted, onBeforeUnmount, ref, watch } from "vue";
 import type { BoardMatrix, GameState, MoveRequest, PieceCode } from "./api/types";
 import {
   apiBaseUrl,
   exportPgn,
   getGameState,
-  getLegalMoves,
   getStatus,
   redoMove,
   startNewGame,
@@ -16,6 +15,16 @@ import ChessBoard from "./components/ChessBoard.vue";
 import ControlPanel from "./components/ControlPanel.vue";
 import MoveList from "./components/MoveList.vue";
 import StatusBanner from "./components/StatusBanner.vue";
+
+import { connectWebSocket } from "./api/ws";
+import type { WsEvent } from "./api/wsTypes";
+import { getCurrentGameId } from "./api/client";
+
+const pendingPromotionMove = ref<{ from: string; to: string } | null>(null);
+const showPromotionPicker = ref(false);
+const promotionChoices = ["Queen", "Rook", "Bishop", "Knight"] as const;
+
+const lastLocalMoveTs = ref<number>(0);
 
 const game = ref<GameState>();
 const connection = ref<"connected" | "offline" | "loading">("loading");
@@ -32,7 +41,7 @@ const whiteClockMs = ref(baseClockMs);
 const blackClockMs = ref(baseClockMs);
 const lastTickMs = ref<number | null>(null);
 const clockInterval = ref<number | null>(null);
-
+const wsClient = ref<{ close: () => void } | null>(null);
 type BoardAnimation = {
   id: number;
   from: string;
@@ -46,7 +55,7 @@ const loadGame = async () => {
   connection.value = "loading";
   try {
     await getStatus();
-    const state = await getGameState();
+    const state = await startNewGame({});
     game.value = state;
     previousBoard.value = state.board;
     animationPlan.value = null;
@@ -60,6 +69,33 @@ const loadGame = async () => {
         ? `Service offline. ${error.message}`
         : "Service offline.";
   }
+};
+
+const refreshFromServer = async () => {
+  if (!game.value) return;
+
+  try {
+    const prevBoard = game.value.board;
+    const next = await getGameState();
+    game.value = next;
+    previousBoard.value = prevBoard;
+    animationPlan.value = planAnimation(prevBoard, next);
+    message.value = undefined;
+  } catch (error) {
+    message.value =
+      error instanceof Error ? error.message : "Failed to refresh game state.";
+  }
+};
+
+const shouldRefreshForEvent = (event: WsEvent, currentGameId: string | null): boolean => {
+  if (!currentGameId) return false;
+  if (event.gameId !== currentGameId) return false;
+
+  return (
+    event.eventType === "MoveApplied" ||
+    event.eventType === "GameFinished" ||
+    event.eventType === "SessionLifecycleChanged"
+  );
 };
 
 const resetClocks = () => {
@@ -86,16 +122,24 @@ const tickClock = () => {
   }
 };
 
+onBeforeUnmount(() => {
+  if (clockInterval.value !== null) {
+    window.clearInterval(clockInterval.value);
+  }
+  wsClient.value?.close();
+});
+
 const handleSelect = async (square: string) => {
   if (!game.value || busy.value) return;
   if (!selectedSquare.value) {
-    selectedSquare.value = square;
-    try {
-      const result = await getLegalMoves(square);
-      legalMoves.value = result.moves;
-    } catch {
+    const moves = game.value?.legalTargetsByFrom[square] ?? [];
+    if (moves.length === 0) {
+      selectedSquare.value = undefined;
       legalMoves.value = [];
+      return;
     }
+    selectedSquare.value = square;
+    legalMoves.value = moves;
     return;
   }
 
@@ -116,16 +160,55 @@ const handleSelect = async (square: string) => {
   legalMoves.value = [];
   busy.value = true;
   try {
+    lastLocalMoveTs.value = Date.now();
     game.value = await submitMove(move);
     previousBoard.value = prevBoard;
     animationPlan.value = planAnimation(prevBoard, game.value);
     message.value = undefined;
   } catch (error) {
-    message.value =
+    const msg =
       error instanceof Error ? error.message : "Move rejected by service.";
+
+    if (msg.includes("PROMOTION_REQUIRED")) {
+      pendingPromotionMove.value = move;
+      showPromotionPicker.value = true;
+      message.value = "Choose a promotion piece.";
+    } else {
+      message.value = msg;
+    }
+  }
+};
+
+const handlePromotionChoice = async (piece: "Queen" | "Rook" | "Bishop" | "Knight") => {
+  if (!pendingPromotionMove.value || !game.value) return;
+
+  const prevBoard = game.value.board;
+  busy.value = true;
+
+  try {
+    game.value = await submitMove({
+      from: pendingPromotionMove.value.from,
+      to: pendingPromotionMove.value.to,
+      promotion: piece
+    });
+
+    previousBoard.value = prevBoard;
+    animationPlan.value = planAnimation(prevBoard, game.value);
+    message.value = undefined;
+    pendingPromotionMove.value = null;
+    showPromotionPicker.value = false;
+  } catch (error) {
+    message.value =
+      error instanceof Error ? error.message : "Promotion submission failed.";
   } finally {
     busy.value = false;
   }
+};
+
+const cancelPromotionChoice = () => {
+  pendingPromotionMove.value = null;
+  showPromotionPicker.value = false;
+  message.value = undefined;
 };
 
 const handleNewGame = async () => {
@@ -192,16 +275,23 @@ const handleExport = async () => {
   }
 };
 
-onMounted(() => {
-  loadGame();
+onMounted(async () => {
+  await loadGame();
+
   lastTickMs.value = performance.now();
   clockInterval.value = window.setInterval(tickClock, 250);
-});
 
-onBeforeUnmount(() => {
-  if (clockInterval.value !== null) {
-    window.clearInterval(clockInterval.value);
-  }
+  wsClient.value = connectWebSocket({
+    onMessage: async (event) => {
+      const currentGameId = getCurrentGameId();
+      if (!shouldRefreshForEvent(event, currentGameId)) return;
+      if (Date.now() - lastLocalMoveTs.value < 300) return;
+
+      if (busy.value) return;
+
+      await refreshFromServer();
+    }
+  });
 });
 
 watch(
@@ -314,6 +404,24 @@ const squareToIndex = (square: string): { row: number; col: number } | null => {
       <pre>{{ pgnExport }}</pre>
       <span class="hint">API base: {{ apiBaseUrl }}</span>
     </section>
+    <section v-if="showPromotionPicker" class="panel promotion-panel">
+      <div class="promotion-header">
+        <h2>Choose promotion</h2>
+        <button type="button" @click="cancelPromotionChoice">Cancel</button>
+      </div>
+
+      <div class="promotion-choices">
+        <button
+          v-for="piece in promotionChoices"
+          :key="piece"
+          type="button"
+          :disabled="busy"
+          @click="handlePromotionChoice(piece)"
+        >
+          {{ piece }}
+        </button>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -414,5 +522,41 @@ pre {
   .layout {
     grid-template-columns: 1fr;
   }
+}
+
+.promotion-panel {
+  margin-top: 8px;
+}
+
+.promotion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.promotion-header button {
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: #f4efe6;
+  border-radius: 999px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+.promotion-choices {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.promotion-choices button {
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: #f4efe6;
+  border-radius: 14px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-weight: 600;
 }
 </style>

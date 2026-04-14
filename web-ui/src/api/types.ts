@@ -38,6 +38,7 @@ export interface GameState {
   moves: MoveRecord[];
   captured: PieceCode[];
   message?: string;
+  legalTargetsByFrom: Record<string, string[]>;
 }
 
 export interface NewGameRequest {
