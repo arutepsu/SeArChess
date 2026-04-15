@@ -1,0 +1,97 @@
+.app {
+  display: grid;
+  gap: 24px;
+  position: relative;
+}
+
+.app > :not(.leaf-layer) {
+  position: relative;
+  z-index: 1;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(360px, 1.6fr) minmax(200px, 0.4fr);
+  gap: 36px;
+  align-items: start;
+}
+
+.side {
+  display: grid;
+  gap: 16px;
+  width: 100%;
+  max-width: 280px;
+  justify-self: end;
+  margin-left: 32px;
+}
+
+.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #f4efe6;
+  min-height: 420px;
+}
+
+.loading {
+  font-size: 1rem;
+  letter-spacing: 0.12rem;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.panel {
+  background: rgba(20, 21, 27, 0.88);
+  border-radius: 24px;
+  padding: 24px;
+  color: #f4efe6;
+}
+
+.capture-panel .captured {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-weight: 600;
+  letter-spacing: 0.05rem;
+}
+
+.export {
+  margin-top: 8px;
+}
+
+.export-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.export-header button {
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: #f4efe6;
+  border-radius: 999px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+pre {
+  background: rgba(0, 0, 0, 0.4);
+  padding: 16px;
+  border-radius: 16px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.hint {
+  display: block;
+  margin-top: 10px;
+  font-size: 0.8rem;
+  opacity: 0.6;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
