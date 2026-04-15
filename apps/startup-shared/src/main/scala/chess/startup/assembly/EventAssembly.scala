@@ -1,4 +1,4 @@
-package chess
+package chess.startup.assembly
 
 import chess.adapter.event.FanOutEventPublisher
 import chess.adapter.websocket.{ChessWebSocketServer, WebSocketConnectionRegistry, WebSocketEventPublisher}

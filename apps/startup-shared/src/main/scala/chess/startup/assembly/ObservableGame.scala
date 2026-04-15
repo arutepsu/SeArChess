@@ -1,4 +1,4 @@
-package chess
+package chess.startup.assembly
 
 import chess.application.{ChessService, GameStateObservable}
 import chess.domain.state.GameState
@@ -6,9 +6,12 @@ import scala.collection.mutable
 
 /** Concrete synchronized implementation of [[GameStateObservable]].
  *
- *  Lives in the composition root (bootstrapserver) so that no adapter module
+ *  Lives in the composition root (startup-shared) so that no adapter module
  *  depends on this mutable class directly.  Adapters depend only on the
  *  [[GameStateObservable]] trait from the application module.
+ *
+ *  Used by both [[chess.guiapp.GuiWiring]] and [[chess.tuiapp.TuiWiring]] as
+ *  the local runtime notification bridge for their respective standalone sessions.
  *
  *  === Thread-safety contract ===
  *  - `getState` and `updateState` are synchronized on `this`.
