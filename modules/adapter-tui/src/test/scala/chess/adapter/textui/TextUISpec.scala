@@ -1,7 +1,7 @@
 package chess.adapter.textui
 
 import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionGameStore, InMemorySessionRepository}
-import chess.application.{ChessService, ObservableGame}
+import chess.application.{ChessService, GameStateObservable}
 import chess.application.event.AppEvent
 import chess.application.port.event.EventPublisher
 import chess.application.session.model.SessionIds.GameId
@@ -15,6 +15,17 @@ import org.scalatest.matchers.should.Matchers
 import scala.collection.mutable
 
 class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
+
+  /** Minimal in-process [[GameStateObservable]] for unit tests. */
+  private class TestObservableGame(initial: GameState = ChessService.createNewGame())
+      extends GameStateObservable:
+    private var s   = initial
+    private val cbs = scala.collection.mutable.ListBuffer.empty[GameState => Unit]
+    def getState: GameState = synchronized(s)
+    def updateState(n: GameState): Unit =
+      val snapshot = synchronized { s = n; cbs.toList }
+      snapshot.foreach(_(n))
+    def addObserver(cb: GameState => Unit): Unit = synchronized { cbs += cb }
 
   /** A scriptable in-memory Console for testing. */
   private class TestConsole(inputs: List[String]) extends Console:
@@ -148,7 +159,7 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
 
   it should "show the promotion prompt after a pawn-to-last-rank move" in {
     val c = TestConsole(List("move a7 a8", "quit"))
-    new TextUI(c, new ObservableGame()).run()
+    new TextUI(c, new TestObservableGame()).run()
     c.printed should include("promotion")
     c.printed should include("Goodbye!")
   }
@@ -179,11 +190,11 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     c.printed should include("Goodbye!")
   }
 
-  // ── ObservableGame constructor overload ────────────────────────────────────
+  // ── GameStateObservable constructor overload ───────────────────────────────
 
-  it should "work with an explicit ObservableGame" in {
+  it should "work with an explicit GameStateObservable" in {
     val c = TestConsole(List("move a7 a8", "promote q", "quit"))
-    new TextUI(c, new ObservableGame(promotionReadyState)).run()
+    new TextUI(c, new TestObservableGame(promotionReadyState)).run()
     c.printed should include("Q")
   }
 
@@ -205,7 +216,7 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     val session      = svc.createSession(
       gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
     ).value
-    val game = new ObservableGame()
+    val game = new TestObservableGame()
     val c    = TestConsole(List("move e2 e4", "quit"))
     new TextUI(c, game, Some(svc), Some(new DesktopSessionContext(session))).run()
     val savedState = gameRepo.load(gameId).value
@@ -223,7 +234,7 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     val session      = svc.createSession(
       gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
     ).value
-    val game = new ObservableGame()
+    val game = new TestObservableGame()
     collector.events.clear()  // discard SessionCreated from setup
     val c = TestConsole(List("move e2 e4", "quit"))
     new TextUI(c, game, Some(svc), Some(new DesktopSessionContext(session))).run()
@@ -244,7 +255,7 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     val session      = svc.createSession(
       gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
     ).value
-    val game = new ObservableGame()
+    val game = new TestObservableGame()
     collector.events.clear()
     val c = TestConsole(List("move e2 e5", "quit"))  // three-square jump is illegal
     new TextUI(c, game, Some(svc), Some(new DesktopSessionContext(session))).run()
@@ -261,7 +272,7 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     val session      = svc.createSession(
       gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
     ).value
-    val game = new ObservableGame()
+    val game = new TestObservableGame()
     val c    = TestConsole(List("move e2 e5", "quit"))
     new TextUI(c, game, Some(svc), Some(new DesktopSessionContext(session))).run()
     c.printed should include("Goodbye!")
@@ -277,7 +288,7 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     val session        = svc.createSession(
       gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
     ).value
-    val game           = new ObservableGame()
+    val game           = new TestObservableGame()
     var observedCount  = 0
     game.addObserver { _ => observedCount += 1 }
     val c = TestConsole(List("move e2 e4", "quit"))
@@ -295,7 +306,7 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     val session      = svc.createSession(
       gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
     ).value
-    val game = new ObservableGame()
+    val game = new TestObservableGame()
     // Make a move first, then reset.  After 'new', the game in the observer
     // bridge should be back to the initial position (no move history).
     val c = TestConsole(List("move e2 e4", "new", "quit"))
@@ -314,7 +325,7 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     val session      = svc.createSession(
       gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
     ).value
-    val game     = new ObservableGame()
+    val game     = new TestObservableGame()
     collector.events.clear()
     val c = TestConsole(List("new", "move d2 d4", "quit"))
     new TextUI(c, game, Some(svc), Some(new DesktopSessionContext(session))).run()
@@ -338,7 +349,7 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     val session     = svc.createSession(
       gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
     ).value
-    val sharedGame    = new ObservableGame()
+    val sharedGame    = new TestObservableGame()
     val sharedContext = new DesktopSessionContext(session)
 
     // Adapter A (simulating TUI) makes the first move.
@@ -368,7 +379,7 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     val session     = svc.createSession(
       gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
     ).value
-    val sharedGame    = new ObservableGame()
+    val sharedGame    = new TestObservableGame()
     val sharedContext = new DesktopSessionContext(session)
     collector.events.clear()  // discard SessionCreated
 
@@ -394,7 +405,7 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     val session     = svc.createSession(
       gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
     ).value
-    val sharedGame    = new ObservableGame()
+    val sharedGame    = new TestObservableGame()
     val sharedContext = new DesktopSessionContext(session)
 
     // Adapter A makes a move — updates sharedGame via updateState.
@@ -425,7 +436,7 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
       gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
     ).value
     val sharedContext = new DesktopSessionContext(session)
-    val sharedGame    = new ObservableGame()
+    val sharedGame    = new TestObservableGame()
 
     val c = TestConsole(List("new", "quit"))
     new TextUI(c, sharedGame, Some(svc), Some(sharedContext)).run()

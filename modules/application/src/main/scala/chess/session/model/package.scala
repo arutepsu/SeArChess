@@ -7,9 +7,6 @@
  *  These are application-layer models, not domain models.
  *  They may reference domain types (GameState, Color) but must not contain domain rules.
  *
- *  Candidate migration: chess.application.ObservableGame state-holding concerns may
- *  be replaced by a GameSession model here once session lifecycle is formalised.
- *
  *  Not yet populated.
  */
 package chess.application.session.model
