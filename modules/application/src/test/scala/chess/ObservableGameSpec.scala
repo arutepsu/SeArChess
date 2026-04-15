@@ -4,22 +4,39 @@ import chess.application.ChessService
 import chess.domain.state.GameState
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import java.util.concurrent.{CountDownLatch, TimeUnit}
 import scala.collection.mutable
 
+/** Contract spec for [[GameStateObservable]].
+ *
+ *  Uses a minimal local concrete implementation to verify the behavioural
+ *  contract that any [[GameStateObservable]] implementation must satisfy.
+ *  The production concrete class lives in bootstrapserver; tests for its
+ *  thread-safety are in that module.
+ */
 class ObservableGameSpec extends AnyFlatSpec with Matchers:
 
-  private def freshGame = new ObservableGame()
+  /** Minimal implementation of the trait's contract — used in tests only. */
+  private class TestImpl(initial: GameState = ChessService.createNewGame())
+      extends GameStateObservable:
+    private var s   = initial
+    private val cbs = mutable.ListBuffer.empty[GameState => Unit]
+    def getState: GameState = synchronized(s)
+    def updateState(n: GameState): Unit =
+      val snapshot = synchronized { s = n; cbs.toList }
+      snapshot.foreach(_(n))
+    def addObserver(cb: GameState => Unit): Unit = synchronized { cbs += cb }
+
+  private def freshGame: GameStateObservable = new TestImpl()
 
   // ── Initial state ────────────────────────────────────────────────────────────
 
-  "ObservableGame.getState" should "return the standard starting position" in {
+  "GameStateObservable.getState" should "return the standard starting position" in {
     freshGame.getState shouldBe ChessService.createNewGame()
   }
 
   // ── updateState ──────────────────────────────────────────────────────────────
 
-  "ObservableGame.updateState" should "reflect the new state in a subsequent getState call" in {
+  "GameStateObservable.updateState" should "reflect the new state in a subsequent getState call" in {
     val game     = freshGame
     val newState = ChessService.createNewGame()
     game.updateState(newState)
@@ -28,7 +45,7 @@ class ObservableGameSpec extends AnyFlatSpec with Matchers:
 
   // ── Observer registration ────────────────────────────────────────────────────
 
-  "ObservableGame.addObserver" should "invoke the callback with the new state on updateState" in {
+  "GameStateObservable.addObserver" should "invoke the callback with the new state on updateState" in {
     val game     = freshGame
     var received = Option.empty[GameState]
     game.addObserver(s => received = Some(s))

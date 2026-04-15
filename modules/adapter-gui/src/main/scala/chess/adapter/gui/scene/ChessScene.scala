@@ -9,7 +9,7 @@ import chess.adapter.gui.notation.{GuiNotationApi, NotationSidebar, NotationSide
 import chess.adapter.gui.render.{BoardRenderer, MoveHistoryPanel, PromotionOverlay, StaticPieceOverlayRenderer, StatusRenderer}
 import chess.adapter.gui.viewmodel.{GameViewModel, MoveHistoryViewModelMapper}
 import chess.application.session.model.DesktopSessionContext
-import chess.application.session.service.SessionGameService
+import chess.application.session.service.{GameSessionCommands, SessionService}
 import chess.domain.state.GameState
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.Scene
@@ -18,20 +18,27 @@ import scalafx.scene.layout.{BorderPane, Pane, StackPane}
 /** Assembles the board, status bar, promotion overlay, animation layer,
  *  and right-side tools panel (notation + move history) into a single [[Scene]].
  *
- *  The session context — [[SessionGameService]] and the current [[DesktopSessionContext]] —
- *  is provided by the composition root.  GUI, TUI, and any other desktop adapter
- *  share the same service and session identity so that moves from any adapter
- *  are authoritative over the same repo-backed game state.
+ *  The session dependencies — [[GameSessionCommands]], [[SessionService]], and the
+ *  current [[DesktopSessionContext]] — are provided by the composition root
+ *  (e.g. `bootstrap-server/Main`). GUI, TUI, and any other adapters share the
+ *  same command boundary and session identity so that moves from any adapter are
+ *  authoritative over the same repository-backed game state.
  *
- *  @param game               cross-adapter notification bridge; updated after every
- *                            successful move so other adapters (e.g. TUI) observe it
- *  @param sessionGameService unified application mutation boundary (shared with TUI)
- *  @param sessionContext      the shared [[DesktopSessionContext]] (created once at startup)
+ *  [[GameStateObservable]] acts only as a cross-adapter notification bridge.
+ *  It is updated after successful mutations so other adapters (e.g. TUI) observe
+ *  the new state, but it is not the source of truth.
+ *
+ *  @param game            cross-adapter notification bridge; updated after every
+ *                         successful move so other adapters (e.g. TUI) observe it
+ *  @param commands        single write boundary for session-aware game mutations
+ *  @param sessionService  session lifecycle operations (promotion, import provisioning)
+ *  @param sessionContext  the shared [[DesktopSessionContext]] (created once at startup)
  */
 class ChessScene(
-    game:               chess.application.ObservableGame,
-    sessionGameService: SessionGameService,
-    sessionContext:     DesktopSessionContext
+    game:           chess.application.GameStateObservable,
+    commands:       GameSessionCommands,
+    sessionService: SessionService,
+    sessionContext: DesktopSessionContext
 ):
 
   private val catalog      = SpriteCatalogLoader.load()
@@ -49,7 +56,7 @@ class ChessScene(
   // Session and repositories are provided by the composition root.
   // ChessScene is no longer responsible for creating session infrastructure.
 
-  private val controller = new GameController(game, refresh, startAnimation, Some(sessionGameService), Some(sessionContext))
+  private val controller = new GameController(game, refresh, startAnimation, commands, sessionService, sessionContext)
   private var vm: GameViewModel = controller.currentViewModel
 
   private val boardGrid          = BoardRenderer.create(vm, handle, factory)
