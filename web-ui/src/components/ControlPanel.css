@@ -1,0 +1,93 @@
+.control-panel {
+  background: rgba(20, 21, 27, 0.88);
+  border-radius: 24px;
+  padding: 20px;
+  color: #f4efe6;
+}
+
+.control-panel header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  letter-spacing: 0.1rem;
+  text-transform: uppercase;
+}
+
+.control-panel header p {
+  margin: 6px 0 16px;
+  font-size: 0.8rem;
+  opacity: 0.6;
+}
+
+.control-panel .status {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.control-panel .clocks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.control-panel .clock {
+  display: grid;
+  gap: 6px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.control-panel .clock.is-active {
+  box-shadow: 0 0 0 1px rgba(255, 206, 116, 0.55), 0 12px 22px rgba(0, 0, 0, 0.35);
+}
+
+.control-panel .clock-time {
+  font-size: 1.2rem;
+  letter-spacing: 0.08rem;
+}
+
+.control-panel .label {
+  display: block;
+  font-size: 0.65rem;
+  letter-spacing: 0.12rem;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+.control-panel strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 1rem;
+}
+
+.control-panel .actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.control-panel button {
+  border: none;
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: #ffce74;
+  color: #231710;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.control-panel button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 18px rgba(0, 0, 0, 0.35);
+}
+
+.control-panel button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
