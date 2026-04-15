@@ -1,7 +1,6 @@
-package chess
+package chess.server.http
 
 import cats.effect.IO
-import chess.config.AppMode
 import org.http4s.HttpRoutes
 import org.http4s.MediaType
 import org.http4s.dsl.io.*
@@ -18,17 +17,16 @@ import org.http4s.headers.`Content-Type`
  *    GET /health → 200 OK
  *    Content-Type: application/json
  *
- *    {"status":"ok","mode":"desktop"}
+ *    {"status":"ok"}
  *  }}}
  *
- *  The `mode` field reflects the runtime [[AppMode]] from config.  No deep
- *  dependency checks are performed; the response indicates the server process
- *  is alive and has completed startup.
+ *  No deep dependency checks are performed; the response indicates the server
+ *  process is alive and has completed startup.
  */
 object HealthRoutes:
 
-  def routes(mode: AppMode): HttpRoutes[IO] =
-    val body = s"""{"status":"ok","mode":"${mode.toString.toLowerCase}"}"""
+  def routes: HttpRoutes[IO] =
     HttpRoutes.of[IO]:
       case GET -> Root / "health" =>
-        Ok(body).map(_.withContentType(`Content-Type`(MediaType.application.json)))
+        Ok("""{"status":"ok"}""")
+          .map(_.withContentType(`Content-Type`(MediaType.application.json)))

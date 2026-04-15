@@ -1,4 +1,4 @@
-package chess
+package chess.server.http
 
 import cats.effect.IO
 import chess.config.CorsConfig
@@ -7,6 +7,7 @@ import org.http4s.headers.Origin
 import org.http4s.server.middleware.CORS
 import org.http4s.Header.ToRaw.modelledHeadersToRaw
 import org.http4s.implicits.http4sHeaderSyntax
+
 /** Applies http4s CORS middleware to the final composed [[HttpApp]].
  *
  *  This is an operational/runtime concern owned by `bootstrap-server`.

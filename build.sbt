@@ -167,38 +167,89 @@ lazy val adapterTui = project
   )
   .dependsOn(application, adapterPersistence)
 
-// ── Module: bootstrap-server ─────────────────────────────────────────────────
+// ── App: startup-shared ──────────────────────────────────────────────────────
+
+lazy val startupShared = project
+  .in(file("apps/startup-shared"))
+  .settings(
+    commonSettings,
+    coverageMinimumStmtTotal := 0,
+    excludeFromCoverage(
+      ".*chess.startup.assembly.EventAssembly.*",
+      ".*chess.startup.assembly.EventWiring.*",
+      ".*chess.startup.assembly.PersistenceAssembly.*",
+      ".*chess.startup.assembly.PersistenceWiring.*",
+      ".*chess.startup.assembly.CoreAssembly.*",
+      ".*chess.startup.assembly.AppContext.*",
+      ".*chess.startup.assembly.ObservableGame.*",
+      ".*chess.config.*"
+    )
+  )
+  .dependsOn(
+    application,
+    adapterPersistence,
+    adapterEvent,
+    adapterWebsocket
+  )
+
+// ── App: desktop-gui ─────────────────────────────────────────────────────────
+
+lazy val desktopGui = project
+  .in(file("apps/desktop-gui"))
+  .settings(
+    commonSettings,
+    coverageMinimumStmtTotal := 0,
+    Compile / mainClass := Some("chess.guiapp.GuiMain"),
+    run / mainClass     := Some("chess.guiapp.GuiMain"),
+    run / fork          := true,
+    excludeFromCoverage(
+      ".*chess.guiapp.GuiMain.*",
+      ".*chess.guiapp.GuiWiring.*"
+    )
+  )
+  .dependsOn(startupShared, adapterGui)
+
+// ── App: tui-cli ─────────────────────────────────────────────────────────────
+
+lazy val tuiCli = project
+  .in(file("apps/tui-cli"))
+  .settings(
+    commonSettings,
+    coverageMinimumStmtTotal := 0,
+    Compile / mainClass := Some("chess.tuiapp.TuiMain"),
+    run / mainClass     := Some("chess.tuiapp.TuiMain"),
+    run / fork          := true,
+    excludeFromCoverage(
+      ".*chess.tuiapp.TuiMain.*",
+      ".*chess.tuiapp.TuiWiring.*"
+    )
+  )
+  .dependsOn(startupShared, adapterTui)
+
+// ── App: bootstrap-server ────────────────────────────────────────────────────
 
 lazy val bootstrapServer = project
   .in(file("apps/bootstrap-server"))
   .settings(
     commonSettings,
     coverageMinimumStmtTotal := 0,
-    Compile / mainClass := Some("chess.Main"),
-    run / mainClass := Some("chess.Main"),
-    run / fork := true,
+    Compile / mainClass := Some("chess.server.ServerMain"),
+    run / mainClass     := Some("chess.server.ServerMain"),
+    run / fork          := true,
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-ember-server" % http4sVersion,
       "org.http4s" %% "http4s-dsl" % http4sVersion
     ),
     excludeFromCoverage(
-      ".*chess.Main.*",
-      ".*chess.ServerMain.*",
-      ".*chess.DesktopMain.*",
-      ".*chess.SharedWiring.*",
-      ".*chess.BackendWiring.*",
-      ".*chess.EventAssembly.*",
-      ".*chess.EventWiring.*",
-      ".*chess.PersistenceAssembly.*",
-      ".*chess.PersistenceWiring.*",
-      ".*chess.HealthRoutes.*",
-      ".*chess.CorsMiddleware.*",
-      ".*chess.config.*"
+      ".*chess.server.ServerMain.*",
+      ".*chess.server.ServerWiring.*",
+      ".*chess.server.ServerRuntime.*",
+      ".*chess.server.http.HealthRoutes.*",
+      ".*chess.server.http.CorsMiddleware.*"
     )
   )
   .dependsOn(
-    adapterGui,
-    adapterTui,
+    startupShared,
     adapterRestHttp4s,
     adapterWebsocket,
     adapterAi,
@@ -208,7 +259,7 @@ lazy val bootstrapServer = project
 
 // ── Aliases ───────────────────────────────────────────────────────────────────
 //
-// Full-project workflow (unchanged):
+// Full-project workflow:
 //   build    — compile everything
 //   rebuild  — clean + compile everything
 //   check    — compile + test everything
@@ -218,20 +269,22 @@ lazy val bootstrapServer = project
 // Per-module test aliases:
 //   testDomain              testNotation            testApplication
 //   testAdapterPersistence  testAdapterAi           testAdapterEvent
-//   testAdapterRestShared   testAdapterRestHttp4s
+//   testAdapterRestContract testAdapterRestHttp4s
 //   testAdapterWebsocket    testAdapterGui          testAdapterTui
-//   testBootstrapServer
+//   testStartupShared       testBootstrapServer
+//   testDesktopGui          testTuiCli
 //
 // Grouped aliases by architectural concern:
 //   testCore         — domain + notation + application
 //   testInfra        — adapter-persistence + adapter-event + adapter-ai + adapter-websocket
-//   testRest         — adapter-rest-shared + adapter-rest-jdk + adapter-rest-http4s
+//   testRest         — adapter-rest-contract + adapter-rest-http4s
 //   testUi           — adapter-gui + adapter-tui
 //   testAllAdapters  — all adapter modules
+//   testApps         — startup-shared + bootstrap-server + desktop-gui + tui-cli
 //
 // Compile slice aliases:
 //   compileCore      — domain + notation + application
-//   compileRest      — adapter-rest-shared + adapter-rest-jdk + adapter-rest-http4s
+//   compileRest      — adapter-rest-contract + adapter-rest-http4s
 //   compileUi        — adapter-gui + adapter-tui
 
 // ── Full-project ──────────────────────────────────────────────────────────────
@@ -252,12 +305,15 @@ addCommandAlias("testApplication",        "application/test")
 addCommandAlias("testAdapterPersistence", "adapterPersistence/test")
 addCommandAlias("testAdapterAi",          "adapterAi/test")
 addCommandAlias("testAdapterEvent",       "adapterEvent/test")
-addCommandAlias("testAdapterRestContract",  "adapterRestContract/test")
+addCommandAlias("testAdapterRestContract","adapterRestContract/test")
 addCommandAlias("testAdapterRestHttp4s",  "adapterRestHttp4s/test")
 addCommandAlias("testAdapterWebsocket",   "adapterWebsocket/test")
 addCommandAlias("testAdapterGui",         "adapterGui/test")
 addCommandAlias("testAdapterTui",         "adapterTui/test")
-addCommandAlias("testBootstrapServer", "bootstrapServer/test")
+addCommandAlias("testStartupShared",      "startupShared/test")
+addCommandAlias("testBootstrapServer",    "bootstrapServer/test")
+addCommandAlias("testDesktopGui",         "desktopGui/test")
+addCommandAlias("testTuiCli",             "tuiCli/test")
 
 // ── Grouped test: by architectural concern ────────────────────────────────────
 
@@ -268,15 +324,18 @@ addCommandAlias("testInfra",
   ";adapterPersistence/test;adapterEvent/test;adapterAi/test;adapterWebsocket/test")
 
 addCommandAlias("testRest",
-  ";adapterRestShared/test;adapterRestHttp4s/test")
+  ";adapterRestContract/test;adapterRestHttp4s/test")
 
 addCommandAlias("testUi",
   ";adapterGui/test;adapterTui/test")
 
 addCommandAlias("testAllAdapters",
   ";adapterPersistence/test;adapterEvent/test;adapterAi/test;adapterWebsocket/test" +
-  ";adapterRestShared/test;adapterRestHttp4s/test" +
+  ";adapterRestContract/test;adapterRestHttp4s/test" +
   ";adapterGui/test;adapterTui/test")
+
+addCommandAlias("testApps",
+  ";startupShared/test;bootstrapServer/test;desktopGui/test;tuiCli/test")
 
 // ── Compile slices ────────────────────────────────────────────────────────────
 
@@ -284,7 +343,7 @@ addCommandAlias("compileCore",
   ";domain/compile;notation/compile;application/compile")
 
 addCommandAlias("compileRest",
-  ";adapterRestShared/compile;adapterRestHttp4s/compile")
+  ";adapterRestContract/compile;adapterRestHttp4s/compile")
 
 addCommandAlias("compileUi",
   ";adapterGui/compile;adapterTui/compile")
@@ -308,5 +367,5 @@ lazy val root = project
     adapterPersistence, adapterAi, adapterEvent,
     adapterRestContract, adapterRestHttp4s,
     adapterWebsocket, adapterGui, adapterTui,
-    bootstrapServer
+    startupShared, bootstrapServer, desktopGui, tuiCli
   )
