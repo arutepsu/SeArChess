@@ -1,4 +1,7 @@
+
 # Chess System — Architecture & Long-Term Plan
+
+[![Coverage Status](https://coveralls.io/repos/github/arutepsu/SeArChess/badge.svg?branch=main)](https://coveralls.io/github/arutepsu/SeArChess?branch=main)
 
 ## 1. Project Overview
 

@@ -170,17 +170,16 @@ lazy val adapterTui = project
 // ── Module: bootstrap-server ─────────────────────────────────────────────────
 
 lazy val bootstrapServer = project
-  .in(file("modules/bootstrap-server"))
+  .in(file("apps/bootstrap-server"))
   .settings(
     commonSettings,
-    // Bootstrap-server only wires adapters; nothing to cover meaningfully.
     coverageMinimumStmtTotal := 0,
     Compile / mainClass := Some("chess.Main"),
-    run     / mainClass := Some("chess.Main"),
-    run     / fork      := true,
+    run / mainClass := Some("chess.Main"),
+    run / fork := true,
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-ember-server" % http4sVersion,
-      "org.http4s" %% "http4s-dsl"          % http4sVersion
+      "org.http4s" %% "http4s-dsl" % http4sVersion
     ),
     excludeFromCoverage(
       ".*chess.Main.*",
