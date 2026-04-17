@@ -1,4 +1,4 @@
-package chess
+package chess.server
 
 import cats.effect.unsafe.implicits.global
 import chess.config.{AppConfig, ConfigLoader}
@@ -6,7 +6,7 @@ import chess.config.{AppConfig, ConfigLoader}
 /** Entry point for server-only deployment.
  *
  *  Loads config from environment variables via [[ConfigLoader]], then starts
- *  the full backend infrastructure via [[SharedWiring.start]]:
+ *  the full server infrastructure via [[ServerWiring.start]]:
  *  in-memory repositories, WebSocket server (if enabled), application services,
  *  and HTTP REST server.
  *
@@ -16,7 +16,7 @@ import chess.config.{AppConfig, ConfigLoader}
  *
  *  To run:
  *  {{{
- *    sbt "bootstrapServer/runMain chess.ServerMain"
+ *    sbt "bootstrapServer/runMain chess.server.ServerMain"
  *  }}}
  */
 object ServerMain:
@@ -27,16 +27,16 @@ object ServerMain:
 
   /** Start the server composition with a pre-loaded config.
    *
-   *  Separated from [[main]] so that [[Main]] can load config once and
-   *  dispatch here without reloading.
+   *  Separated from [[main]] to allow callers to supply an already-loaded
+   *  [[AppConfig]] without re-reading environment variables.
    */
   private[chess] def run(args: Array[String], config: AppConfig): Unit =
-    val wiring = SharedWiring.start(config)
+    val (_, server) = ServerWiring.start(config)
 
     // Drain HTTP and WebSocket on JVM shutdown (SIGINT / SIGTERM).
     Runtime.getRuntime.addShutdownHook(new Thread(() => {
-      wiring.shutdownHttp.unsafeRunSync()
-      wiring.wsServer.foreach(_.stop(0))
+      server.shutdownHttp.unsafeRunSync()
+      server.wsServer.foreach(_.stop(0))
     }))
 
     // Server threads keep the JVM alive; block main until interrupted.

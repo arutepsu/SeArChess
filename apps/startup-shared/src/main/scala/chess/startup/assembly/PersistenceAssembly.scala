@@ -1,4 +1,4 @@
-package chess
+package chess.startup.assembly
 
 import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionGameStore, InMemorySessionRepository}
 import chess.application.port.repository.{GameRepository, SessionGameStore, SessionRepository}
@@ -31,7 +31,7 @@ final case class PersistenceWiring(
  *
  *  === Current strategies ===
  *  - [[PersistenceMode.InMemory]]: all state lives in JVM heap; suitable for
- *    local development and desktop mode.  Data is lost on restart.
+ *    local development and GUI/TUI apps.  Data is lost on restart.
  *
  *  === Extension path ===
  *  Future strategies (e.g. `PersistenceMode.Postgres`) would:

@@ -2,13 +2,12 @@ package chess.config
 
 /** Loads [[AppConfig]] from environment variables with sensible defaults.
  *
- *  All defaults preserve today's hardcoded behavior so that a server started
- *  with no environment variables set is indistinguishable from the previous
- *  hardcoded configuration.
+ *  App selection (server, GUI, TUI) is determined by the SBT project and
+ *  entry point, not by this loader.  These variables control runtime
+ *  infrastructure only.
  *
  *  === Supported environment variables ===
  *  {{{
- *    APP_MODE          desktop | server            (default: desktop)
  *    HTTP_HOST         any hostname or IP address  (default: 0.0.0.0)
  *    HTTP_PORT         integer 1–65535             (default: 8080)
  *    WS_ENABLED        true/false/1/0/yes/no       (default: true)
@@ -26,13 +25,12 @@ package chess.config
  */
 object ConfigLoader:
 
-  // ── Defaults (preserve current hardcoded behavior) ──────────────────────────
+  // ── Defaults ─────────────────────────────────────────────────────────────────
 
-  private val DefaultMode:        String = "desktop"
-  private val DefaultHttpHost:    String = "0.0.0.0"
-  private val DefaultHttpPort:    String = "8080"
-  private val DefaultWsEnabled:   String = "true"
-  private val DefaultWsPort:      String = "9090"
+  private val DefaultHttpHost:        String = "0.0.0.0"
+  private val DefaultHttpPort:        String = "8080"
+  private val DefaultWsEnabled:       String = "true"
+  private val DefaultWsPort:          String = "9090"
   private val DefaultPersistence:     String = "in-memory"
   private val DefaultEventMode:       String = "in-process"
   private val DefaultCorsEnabled:     String = "false"
@@ -47,17 +45,15 @@ object ConfigLoader:
    */
   def load(): Either[String, AppConfig] =
     for
-      mode        <- parseMode(env("APP_MODE").getOrElse(DefaultMode))
-      httpHost     = env("HTTP_HOST").getOrElse(DefaultHttpHost)
+      httpHost    <- Right(env("HTTP_HOST").getOrElse(DefaultHttpHost))
       httpPort    <- parsePort("HTTP_PORT", env("HTTP_PORT").getOrElse(DefaultHttpPort))
       wsEnabled   <- parseBool("WS_ENABLED", env("WS_ENABLED").getOrElse(DefaultWsEnabled))
       wsPort      <- parsePort("WS_PORT", env("WS_PORT").getOrElse(DefaultWsPort))
-      persistence   <- parsePersistenceMode(env("PERSISTENCE_MODE").getOrElse(DefaultPersistence))
-      eventMode     <- parseEventMode(env("EVENT_MODE").getOrElse(DefaultEventMode))
-      corsEnabled   <- parseBool("CORS_ENABLED", env("CORS_ENABLED").getOrElse(DefaultCorsEnabled))
-      corsOrigin     = env("CORS_ALLOWED_ORIGIN").getOrElse(DefaultCorsAllowOrigin)
+      persistence <- parsePersistenceMode(env("PERSISTENCE_MODE").getOrElse(DefaultPersistence))
+      eventMode   <- parseEventMode(env("EVENT_MODE").getOrElse(DefaultEventMode))
+      corsEnabled <- parseBool("CORS_ENABLED", env("CORS_ENABLED").getOrElse(DefaultCorsEnabled))
+      corsOrigin   = env("CORS_ALLOWED_ORIGIN").getOrElse(DefaultCorsAllowOrigin)
     yield AppConfig(
-      mode        = mode,
       http        = HttpConfig(httpHost, httpPort),
       webSocket   = WebSocketConfig(wsEnabled, wsPort),
       persistence = persistence,
@@ -92,12 +88,6 @@ object ConfigLoader:
       case "true"  | "1" | "yes" => Right(true)
       case "false" | "0" | "no"  => Right(false)
       case _                     => Left(s"$varName must be true/false/1/0/yes/no, got: '$value'")
-
-  private def parseMode(value: String): Either[String, AppMode] =
-    value.toLowerCase match
-      case "desktop" => Right(AppMode.Desktop)
-      case "server"  => Right(AppMode.Server)
-      case _         => Left(s"APP_MODE must be 'desktop' or 'server', got: '$value'")
 
   private def parsePersistenceMode(value: String): Either[String, PersistenceMode] =
     value.toLowerCase match
