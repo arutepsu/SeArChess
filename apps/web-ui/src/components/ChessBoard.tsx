@@ -285,6 +285,8 @@ export default function ChessBoard({
   const [animationActive, setAnimationActive] = useState(false);
   const [animationPlan, setAnimationPlan] = useState<BoardAnimation | null>(null);
   const animationFrame = useRef<number | null>(null);
+  const [currentFrameTick, setCurrentFrameTick] = useState(0);
+  const idleTimerFrame = useRef<number | null>(null);
 
   const boardPieceAt = useCallback(
     (rowIndex: number, colIndex: number): BoardSquare => {
@@ -415,20 +417,25 @@ export default function ChessBoard({
     (piece: BoardSquare): React.CSSProperties => {
       const info = resolveSpriteInfo(piece);
       if (!info) return {};
+
+      const frameIndex = (info.frameCount <= 1 || !info.animate)
+        ? 0
+        : currentFrameTick % info.frameCount;
+
       return {
         backgroundImage: `url(${info.url})`,
-        ["--frame-count" as string]: info.frameCount.toString(),
-        ["--anim-duration" as string]: `${info.durationMs}ms`
+        backgroundSize: `${info.frameCount * 100}% 100%`,
+        backgroundPosition: backgroundPositionFor(frameIndex, info.frameCount)
       } as React.CSSProperties;
     },
-    [resolveSpriteInfo]
+    [resolveSpriteInfo, currentFrameTick]
   );
 
   const spriteClasses = useCallback(
     (piece: BoardSquare): string => {
       const info = resolveSpriteInfo(piece);
       if (!info) return "";
-      return ["has-sprite", info.animate ? "animate-sprite" : ""].filter(Boolean).join(" ");
+      return ["has-sprite"].filter(Boolean).join(" ");
     },
     [resolveSpriteInfo]
   );
@@ -651,11 +658,21 @@ export default function ChessBoard({
       });
     updateSquareSize();
     window.addEventListener("resize", updateSquareSize);
+
+    const tickIdle = () => {
+      setCurrentFrameTick(Math.floor((performance.now() / 1000) * idleFps));
+      idleTimerFrame.current = requestAnimationFrame(tickIdle);
+    };
+    idleTimerFrame.current = requestAnimationFrame(tickIdle);
+
     return () => {
       active = false;
       window.removeEventListener("resize", updateSquareSize);
       if (animationFrame.current !== null) {
         cancelAnimationFrame(animationFrame.current);
+      }
+      if (idleTimerFrame.current !== null) {
+        cancelAnimationFrame(idleTimerFrame.current);
       }
     };
   }, [updateSquareSize]);
@@ -684,9 +701,8 @@ export default function ChessBoard({
               return (
                 <button
                   key={`square-${rowIndex}-${colIndex}`}
-                  className={`board-square ${(rowIndex + colIndex) % 2 === 0 ? "square-light" : "square-dark"} ${
-                    piece ? "has-piece" : ""
-                  } ${squareState(square).join(" ")}`}
+                  className={`board-square ${(rowIndex + colIndex) % 2 === 0 ? "square-light" : "square-dark"} ${piece ? "has-piece" : ""
+                    } ${squareState(square).join(" ")}`}
                   type="button"
                   role="gridcell"
                   aria-label={`Square ${square}`}

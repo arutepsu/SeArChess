@@ -13,11 +13,11 @@ import chess.application.session.service.{GameSessionCommands, SessionError, Ses
 import org.http4s.*
 import org.http4s.dsl.io.*
 
-/** http4s routes for the `/games` resource.
+/** http4s routes for the `/api/games` resource.
  *
  *  Routes:
- *  - `GET  /games/{gameId}`        → [[handleGetGame]]     (query — uses [[GameRepository]])
- *  - `POST /games/{gameId}/moves`  → [[handleSubmitMove]]  (command — uses [[GameSessionCommands]])
+ *  - `GET  /api/games/{gameId}`        → [[handleGetGame]]     (query — uses [[GameRepository]])
+ *  - `POST /api/games/{gameId}/moves`  → [[handleSubmitMove]]  (command — uses [[GameSessionCommands]])
  *
  *  The dependency split is intentional:
  *  - `GET` reads game state directly from [[GameRepository]] (query path).
@@ -37,10 +37,10 @@ class Http4sGameRoutes(
 
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
 
-    case GET -> Root / "games" / id =>
+    case GET -> Root / "api" / "games" / id =>
       handleGetGame(id)
 
-    case req @ POST -> Root / "games" / id / "moves" =>
+    case req @ POST -> Root / "api" / "games" / id / "moves" =>
       req.bodyText.compile.string.flatMap(handleSubmitMove(id, _))
   }
 

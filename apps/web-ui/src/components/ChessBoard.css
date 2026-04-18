@@ -53,10 +53,6 @@
   text-transform: uppercase;
   background-repeat: no-repeat;
   background-position: 0% 50%;
-  background-size: calc(var(--frame-count, 1) * 100%) 100%;
-  animation-duration: var(--anim-duration, 1200ms);
-  animation-timing-function: steps(var(--frame-count, 1));
-  animation-iteration-count: infinite;
   transform: scale(1.08);
   transform-origin: center;
   z-index: 1;
@@ -77,11 +73,6 @@
 
 .has-sprite {
   color: transparent;
-  animation-name: none;
-}
-
-.animate-sprite {
-  animation-name: sprite;
 }
 
 .animation-layer {
@@ -136,11 +127,4 @@
   background: #baca2b;
 }
 
-@keyframes sprite {
-  from {
-    background-position: 0% 50%;
-  }
-  to {
-    background-position: 100% 50%;
-  }
-}
+

@@ -38,11 +38,11 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers:
   private def bodyJson(resp: Response[IO]): ujson.Value =
     ujson.read(resp.bodyText.compile.string.unsafeRunSync())
 
-  // ── POST /sessions ─────────────────────────────────────────────────────────
+  // ── POST /api/sessions ─────────────────────────────────────────────────────
 
-  "POST /sessions" should "return 201 with bundled session and initial game state" in {
+  "POST /api/sessions" should "return 201 with bundled session and initial game state" in {
     val routes = makeRoutes()
-    val req    = Request[IO](Method.POST, uri"/sessions")
+    val req    = Request[IO](Method.POST, uri"/api/sessions")
       .withBodyStream(fs2.Stream.emits("{}".getBytes("UTF-8")).covary[IO])
 
     val resp = run(routes, req)
@@ -59,7 +59,7 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers:
   it should "accept explicit mode and controller fields" in {
     val routes = makeRoutes()
     val body   = """{"mode":"HumanVsHuman","whiteController":"HumanLocal","blackController":"HumanLocal"}"""
-    val req    = Request[IO](Method.POST, uri"/sessions")
+    val req    = Request[IO](Method.POST, uri"/api/sessions")
       .withBodyStream(fs2.Stream.emits(body.getBytes("UTF-8")).covary[IO])
 
     val resp = run(routes, req)
@@ -73,7 +73,7 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers:
   it should "return 400 for an unknown mode value" in {
     val routes = makeRoutes()
     val body   = """{"mode":"BattleChess"}"""
-    val req    = Request[IO](Method.POST, uri"/sessions")
+    val req    = Request[IO](Method.POST, uri"/api/sessions")
       .withBodyStream(fs2.Stream.emits(body.getBytes("UTF-8")).covary[IO])
 
     val resp = run(routes, req)
@@ -86,7 +86,7 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers:
   it should "return 400 when whiteController is AI (not valid in REST v1)" in {
     val routes = makeRoutes()
     val body   = """{"mode":"HumanVsAI","whiteController":"AI","blackController":"HumanLocal"}"""
-    val req    = Request[IO](Method.POST, uri"/sessions")
+    val req    = Request[IO](Method.POST, uri"/api/sessions")
       .withBodyStream(fs2.Stream.emits(body.getBytes("UTF-8")).covary[IO])
 
     val resp = run(routes, req)
@@ -96,7 +96,7 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers:
 
   it should "return 400 for malformed JSON" in {
     val routes = makeRoutes()
-    val req    = Request[IO](Method.POST, uri"/sessions")
+    val req    = Request[IO](Method.POST, uri"/api/sessions")
       .withBodyStream(fs2.Stream.emits("not json".getBytes("UTF-8")).covary[IO])
 
     val resp = run(routes, req)
@@ -104,19 +104,19 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers:
     bodyJson(resp)("code").str shouldBe "BAD_REQUEST"
   }
 
-  // ── GET /sessions/{sessionId} ──────────────────────────────────────────────
+  // ── GET /api/sessions/{sessionId} ─────────────────────────────────────────-
 
-  "GET /sessions/{sessionId}" should "return 200 with session data after creation" in {
+  "GET /api/sessions/{sessionId}" should "return 200 with session data after creation" in {
     val routes = makeRoutes()
 
     // create a session first
-    val createReq = Request[IO](Method.POST, uri"/sessions")
+    val createReq = Request[IO](Method.POST, uri"/api/sessions")
       .withBodyStream(fs2.Stream.emits("{}".getBytes("UTF-8")).covary[IO])
     val createJson = bodyJson(run(routes, createReq))
     val sessionId  = createJson("session")("sessionId").str
 
     // now retrieve it
-    val getResp = run(routes, Request[IO](Method.GET, Uri.unsafeFromString(s"/sessions/$sessionId")))
+    val getResp = run(routes, Request[IO](Method.GET, Uri.unsafeFromString(s"/api/sessions/$sessionId")))
     getResp.status                         shouldBe Status.Ok
     val json = bodyJson(getResp)
     json("sessionId").str                  shouldBe sessionId
@@ -126,14 +126,14 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers:
   it should "return 404 for an unknown session id" in {
     val routes   = makeRoutes()
     val unknown  = UUID.randomUUID().toString
-    val resp     = run(routes, Request[IO](Method.GET, Uri.unsafeFromString(s"/sessions/$unknown")))
+    val resp     = run(routes, Request[IO](Method.GET, Uri.unsafeFromString(s"/api/sessions/$unknown")))
     resp.status                  shouldBe Status.NotFound
     bodyJson(resp)("code").str   shouldBe "SESSION_NOT_FOUND"
   }
 
   it should "return 400 for a non-UUID session id" in {
     val routes = makeRoutes()
-    val resp   = run(routes, Request[IO](Method.GET, uri"/sessions/not-a-uuid"))
+    val resp   = run(routes, Request[IO](Method.GET, uri"/api/sessions/not-a-uuid"))
     resp.status                  shouldBe Status.BadRequest
     bodyJson(resp)("code").str   shouldBe "BAD_REQUEST"
   }

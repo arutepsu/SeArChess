@@ -9,11 +9,11 @@ import chess.application.session.service.{GameSessionCommands, SessionError, Ses
 import org.http4s.*
 import org.http4s.dsl.io.*
 
-/** http4s routes for the `/sessions` resource.
+/** http4s routes for the `/api/sessions` resource.
  *
  *  Routes:
- *  - `POST /sessions`       → [[handleCreate]]  (command — uses [[GameSessionCommands]])
- *  - `GET  /sessions/{id}`  → [[handleGet]]      (query  — uses [[SessionService]])
+ *  - `POST /api/sessions`       → [[handleCreate]]  (command — uses [[GameSessionCommands]])
+ *  - `GET  /api/sessions/{id}`  → [[handleGet]]      (query  — uses [[SessionService]])
  *
  *  The dependency split is intentional:
  *  - `POST` routes to the game-session command boundary ([[GameSessionCommands]]).
@@ -32,10 +32,10 @@ class Http4sSessionRoutes(commands: GameSessionCommands, sessionService: Session
 
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
 
-    case req @ POST -> Root / "sessions" =>
+    case req @ POST -> Root / "api" / "sessions" =>
       req.bodyText.compile.string.flatMap(handleCreate)
 
-    case GET -> Root / "sessions" / id =>
+    case GET -> Root / "api" / "sessions" / id =>
       handleGet(id)
   }
 

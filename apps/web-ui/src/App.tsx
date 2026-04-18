@@ -3,6 +3,7 @@ import type { BoardMatrix, GameState, MoveRequest, PieceCode } from "./api/types
 import {
   apiBaseUrl,
   exportPgn,
+  getCurrentGameId,
   getGameState,
   getLegalMoves,
   getStatus,
@@ -59,7 +60,8 @@ export default function App() {
     setConnection("loading");
     try {
       await getStatus();
-      const state = await getGameState();
+      const existingId = getCurrentGameId();
+      const state = existingId ? await getGameState() : await startNewGame({});
       setGame(state);
       setAnimationPlan(null);
       setLegalMoves([]);
@@ -258,7 +260,7 @@ export default function App() {
             selectedSquare={selectedSquare}
             legalMoves={legalMoves}
             animation={animationPlan}
-            idleAnimation={false}
+            idleAnimation={true}
             onSelect={handleSelect}
             onAnimationFinished={handleAnimationFinished}
           />

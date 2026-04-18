@@ -85,17 +85,17 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
 
   /** Create a fresh session; return the gameId string. */
   private def createSession(sessRoutes: HttpApp[IO]): String =
-    val req  = Request[IO](Method.POST, uri"/sessions").withBodyStream(jsonBody("{}"))
+    val req  = Request[IO](Method.POST, uri"/api/sessions").withBodyStream(jsonBody("{}"))
     val json = bodyJson(run(sessRoutes, req))
     json("session")("gameId").str
 
-  // ── GET /games/{gameId} ────────────────────────────────────────────────────
+  // ── GET /api/games/{gameId} ───────────────────────────────────────────────-
 
-  "GET /games/{gameId}" should "return 200 with the initial game state" in {
+  "GET /api/games/{gameId}" should "return 200 with the initial game state" in {
     val (gameRoutes, sessRoutes) = makeRoutes()
     val gameId = createSession(sessRoutes)
 
-    val resp = run(gameRoutes, Request[IO](Method.GET, Uri.unsafeFromString(s"/games/$gameId")))
+    val resp = run(gameRoutes, Request[IO](Method.GET, Uri.unsafeFromString(s"/api/games/$gameId")))
     resp.status                    shouldBe Status.Ok
     val json = bodyJson(resp)
     json("gameId").str             shouldBe gameId
@@ -108,14 +108,14 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
   it should "return 404 for an unknown game id" in {
     val (gameRoutes, _) = makeRoutes()
     val unknown = UUID.randomUUID().toString
-    val resp    = run(gameRoutes, Request[IO](Method.GET, Uri.unsafeFromString(s"/games/$unknown")))
+    val resp    = run(gameRoutes, Request[IO](Method.GET, Uri.unsafeFromString(s"/api/games/$unknown")))
     resp.status                  shouldBe Status.NotFound
     bodyJson(resp)("code").str   shouldBe "GAME_NOT_FOUND"
   }
 
   it should "return 400 for a non-UUID game id" in {
     val (gameRoutes, _) = makeRoutes()
-    val resp = run(gameRoutes, Request[IO](Method.GET, uri"/games/not-a-uuid"))
+    val resp = run(gameRoutes, Request[IO](Method.GET, uri"/api/games/not-a-uuid"))
     resp.status                  shouldBe Status.BadRequest
     bodyJson(resp)("code").str   shouldBe "BAD_REQUEST"
   }
@@ -124,7 +124,7 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val (gameRoutes, sessRoutes) = makeRoutes()
     val gameId = createSession(sessRoutes)
 
-    val resp = run(gameRoutes, Request[IO](Method.GET, Uri.unsafeFromString(s"/games/$gameId")))
+    val resp = run(gameRoutes, Request[IO](Method.GET, Uri.unsafeFromString(s"/api/games/$gameId")))
     resp.status shouldBe Status.Ok
     val legal = bodyJson(resp)("legalTargetsByFrom").obj
     // White has 16 pawns moves + 4 knight moves = 20 moves across 10 source squares
@@ -137,20 +137,20 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val (gameRoutes, sessRoutes) = makeRoutes()
     val gameId = createSession(sessRoutes)
 
-    val resp = run(gameRoutes, Request[IO](Method.GET, Uri.unsafeFromString(s"/games/$gameId")))
+    val resp = run(gameRoutes, Request[IO](Method.GET, Uri.unsafeFromString(s"/api/games/$gameId")))
     resp.status shouldBe Status.Ok
     val json = bodyJson(resp)
     json("moveHistory").arr  shouldBe empty
     json("lastMove").isNull  shouldBe true
   }
 
-  // ── POST /games/{gameId}/moves ─────────────────────────────────────────────
+  // ── POST /api/games/{gameId}/moves ─────────────────────────────────────────
 
-  "POST /games/{gameId}/moves" should "apply a legal opening move and return the updated state" in {
+  "POST /api/games/{gameId}/moves" should "apply a legal opening move and return the updated state" in {
     val (gameRoutes, sessRoutes) = makeRoutes()
     val gameId = createSession(sessRoutes)
 
-    val req  = Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/moves"))
+    val req  = Request[IO](Method.POST, Uri.unsafeFromString(s"/api/games/$gameId/moves"))
       .withBodyStream(jsonBody("""{"from":"e2","to":"e4"}"""))
     val resp = run(gameRoutes, req)
     resp.status                              shouldBe Status.Ok
@@ -164,11 +164,11 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val (gameRoutes, sessRoutes) = makeRoutes()
     val gameId = createSession(sessRoutes)
 
-    val moveReq = Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/moves"))
+    val moveReq = Request[IO](Method.POST, Uri.unsafeFromString(s"/api/games/$gameId/moves"))
       .withBodyStream(jsonBody("""{"from":"e2","to":"e4"}"""))
     run(gameRoutes, moveReq)
 
-    val getResp = run(gameRoutes, Request[IO](Method.GET, Uri.unsafeFromString(s"/games/$gameId")))
+    val getResp = run(gameRoutes, Request[IO](Method.GET, Uri.unsafeFromString(s"/api/games/$gameId")))
     getResp.status                           shouldBe Status.Ok
     bodyJson(getResp)("currentPlayer").str   shouldBe "Black"
   }
@@ -177,7 +177,7 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val (gameRoutes, sessRoutes) = makeRoutes()
     val gameId = createSession(sessRoutes)
 
-    val req  = Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/moves"))
+    val req  = Request[IO](Method.POST, Uri.unsafeFromString(s"/api/games/$gameId/moves"))
       .withBodyStream(jsonBody("""{"invalid":"payload"}"""))
     val resp = run(gameRoutes, req)
     resp.status                  shouldBe Status.BadRequest
@@ -188,7 +188,7 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val (gameRoutes, sessRoutes) = makeRoutes()
     val gameId = createSession(sessRoutes)
 
-    val req  = Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/moves"))
+    val req  = Request[IO](Method.POST, Uri.unsafeFromString(s"/api/games/$gameId/moves"))
       .withBodyStream(jsonBody("not json at all"))
     val resp = run(gameRoutes, req)
     resp.status                  shouldBe Status.BadRequest
@@ -200,7 +200,7 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val gameId = createSession(sessRoutes)
 
     // A pawn cannot advance three squares.
-    val req  = Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/moves"))
+    val req  = Request[IO](Method.POST, Uri.unsafeFromString(s"/api/games/$gameId/moves"))
       .withBodyStream(jsonBody("""{"from":"e2","to":"e5"}"""))
     val resp = run(gameRoutes, req)
     resp.status                  shouldBe Status.UnprocessableEntity
@@ -211,7 +211,7 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val (gameRoutes, sessRoutes) = makeRoutes()
     val gameId = createSession(sessRoutes)
 
-    val req  = Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/moves"))
+    val req  = Request[IO](Method.POST, Uri.unsafeFromString(s"/api/games/$gameId/moves"))
       .withBodyStream(jsonBody("""{"from":"z9","to":"e4"}"""))
     val resp = run(gameRoutes, req)
     resp.status                  shouldBe Status.UnprocessableEntity
@@ -232,7 +232,7 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
 
   it should "return 404 for an unknown game id" in {
     val (gameRoutes, _) = makeRoutes()
-    val req = Request[IO](Method.POST, Uri.unsafeFromString(s"/games/${UUID.randomUUID()}/moves"))
+    val req = Request[IO](Method.POST, Uri.unsafeFromString(s"/api/games/${UUID.randomUUID()}/moves"))
       .withBodyStream(jsonBody("""{"from":"e2","to":"e4"}"""))
     val resp = run(gameRoutes, req)
     resp.status                  shouldBe Status.NotFound
@@ -243,7 +243,7 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val (gameRoutes, sessRoutes) = makeRoutes()
     val gameId = createSession(sessRoutes)
 
-    val req = Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/moves"))
+    val req = Request[IO](Method.POST, Uri.unsafeFromString(s"/api/games/$gameId/moves"))
       .withBodyStream(jsonBody("""{"from":"e2","to":"e4"}"""))
     val json = bodyJson(run(gameRoutes, req))("game")
 
