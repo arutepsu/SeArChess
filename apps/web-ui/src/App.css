@@ -47,6 +47,60 @@
   color: #f4efe6;
 }
 
+.background-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.background-panel header {
+  display: grid;
+  gap: 4px;
+}
+
+.background-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(72px, 1fr));
+  gap: 10px;
+}
+
+.background-option {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  color: inherit;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.background-option span {
+  display: block;
+  width: 100%;
+  height: 62px;
+  border-radius: 12px;
+  background-position: center;
+  background-size: cover;
+  margin-bottom: 6px;
+}
+
+.background-option small {
+  display: block;
+  text-align: center;
+  font-weight: 600;
+  letter-spacing: 0.03rem;
+}
+
+.background-option.is-active {
+  border-color: rgba(255, 206, 116, 0.8);
+  box-shadow: 0 0 0 1px rgba(255, 206, 116, 0.4);
+  transform: translateY(-2px);
+}
+
+.background-option:focus-visible {
+  outline: 2px solid rgba(255, 206, 116, 0.8);
+  outline-offset: 2px;
+}
+
 .capture-panel .captured {
   display: flex;
   flex-wrap: wrap;
@@ -93,5 +147,14 @@ pre {
 @media (max-width: 900px) {
   .layout {
     grid-template-columns: 1fr;
+  }
+
+  .side {
+    max-width: 100%;
+    margin-left: 0;
+  }
+
+  .background-grid {
+    grid-template-columns: repeat(3, minmax(80px, 1fr));
   }
 }

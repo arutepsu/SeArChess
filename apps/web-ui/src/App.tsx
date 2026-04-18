@@ -21,6 +21,12 @@ type ConnectionState = "connected" | "offline" | "loading";
 
 const baseClockMs = 10 * 60 * 1000;
 
+const backgrounds = [
+  { id: "river", label: "River", url: "/assets/backgrounds/river.png" },
+  { id: "sakura-grove", label: "Grove", url: "/assets/backgrounds/sakuratrees.jpg" },
+  { id: "forest", label: "Forest", url: "/assets/backgrounds/new.jpg" }
+];
+
 const pieceAt = (board: BoardMatrix, square: string): PieceCode | null => {
   const position = squareToIndex(square);
   if (!position) return null;
@@ -50,6 +56,7 @@ export default function App() {
   const [whiteClockMs, setWhiteClockMs] = useState(baseClockMs);
   const [blackClockMs, setBlackClockMs] = useState(baseClockMs);
   const lastTickMs = useRef<number | null>(null);
+  const [backgroundId, setBackgroundId] = useState(backgrounds[0].id);
 
   const clockRunning = useMemo(() => {
     const status = game?.status;
@@ -261,6 +268,12 @@ export default function App() {
     }
   }, [game?.id, resetClocks]);
 
+  useEffect(() => {
+    const match = backgrounds.find((item) => item.id === backgroundId);
+    const nextUrl = match?.url ?? backgrounds[0].url;
+    document.documentElement.style.setProperty("--app-background", `url("${nextUrl}")`);
+  }, [backgroundId]);
+
   return (
     <div className="app">
       <div className="leaf-layer" aria-hidden="true">
@@ -300,6 +313,25 @@ export default function App() {
             onRedo={handleRedo}
             onExport={handleExport}
           />
+          <section className="panel background-panel">
+            <header>
+              <h2>Background</h2>
+              <p>Pick the arena for your next battle.</p>
+            </header>
+            <div className="background-grid">
+              {backgrounds.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`background-option${backgroundId === item.id ? " is-active" : ""}`}
+                  onClick={() => setBackgroundId(item.id)}
+                >
+                  <span style={{ backgroundImage: `url("${item.url}")` }} />
+                  <small>{item.label}</small>
+                </button>
+              ))}
+            </div>
+          </section>
           <MoveList moves={game?.moves ?? []} />
           <section className="panel capture-panel">
             <header>
