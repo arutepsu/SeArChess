@@ -123,6 +123,34 @@ class SessionGameService(
         (fresh, session)
       }
 
+  def undoMove(
+    sessionId: SessionId,
+    now:       Instant = Instant.now()
+  ): Either[SessionMoveError, (GameState, GameSession)] =
+    for
+      session <- sessionService.getSession(sessionId).left.map(e => SessionMoveError.PersistenceFailed(e))
+      result  <- store.undo(session.gameId, state => GameSession.withLifecycle(session, recomputeLifecyclePhase(session, state), now))
+                   .left.map(e => SessionMoveError.PersistenceFailed(SessionError.PersistenceFailed(e)))
+    yield
+      val (nextState, nextSession) = result
+      if nextSession.lifecycle != session.lifecycle then
+        publisher.publish(AppEvent.SessionLifecycleChanged(session.sessionId, session.gameId, session.lifecycle, nextSession.lifecycle))
+      result
+
+  def redoMove(
+    sessionId: SessionId,
+    now:       Instant = Instant.now()
+  ): Either[SessionMoveError, (GameState, GameSession)] =
+    for
+      session <- sessionService.getSession(sessionId).left.map(e => SessionMoveError.PersistenceFailed(e))
+      result  <- store.redo(session.gameId, state => GameSession.withLifecycle(session, recomputeLifecyclePhase(session, state), now))
+                   .left.map(e => SessionMoveError.PersistenceFailed(SessionError.PersistenceFailed(e)))
+    yield
+      val (nextState, nextSession) = result
+      if nextSession.lifecycle != session.lifecycle then
+        publisher.publish(AppEvent.SessionLifecycleChanged(session.sessionId, session.gameId, session.lifecycle, nextSession.lifecycle))
+      result
+
   // ── Query delegation ──────────────────────────────────────────────────────
   // Pure reads forwarded to SessionService.
   // Adapters that only need reads can depend on SessionService directly.
@@ -163,3 +191,8 @@ class SessionGameService(
   private def isTerminalStatus(status: GameStatus): Boolean = status match
     case GameStatus.Checkmate(_) | GameStatus.Draw(_) => true
     case _                                            => false
+
+  private def recomputeLifecyclePhase(session: GameSession, state: GameState): SessionLifecycle =
+    if isTerminalStatus(state.status) then SessionLifecycle.Finished
+    else if state.fullmoveNumber == 1 && state.currentPlayer == chess.domain.model.Color.White then SessionLifecycle.Created
+    else SessionLifecycle.Active

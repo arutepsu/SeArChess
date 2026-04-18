@@ -258,6 +258,56 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     last("promotion").isNull   shouldBe true
   }
 
+  // ── POST /api/games/{gameId}/undo ─────────────────────────────────────────
+
+  "POST /api/games/{gameId}/undo" should "revert the last move and return the previous state" in {
+    val (gameRoutes, sessRoutes) = makeRoutes()
+    val gameId = createSession(sessRoutes)
+
+    val moveReq = Request[IO](Method.POST, Uri.unsafeFromString(s"/api/games/$gameId/moves"))
+      .withBodyStream(jsonBody("""{"from":"e2","to":"e4"}"""))
+    run(gameRoutes, moveReq)
+
+    val undoReq = Request[IO](Method.POST, Uri.unsafeFromString(s"/api/games/$gameId/undo"))
+    val undoResp = run(gameRoutes, undoReq)
+    undoResp.status shouldBe Status.Ok
+    val json = bodyJson(undoResp)
+    json("currentPlayer").str shouldBe "White"
+    json("moveHistory").arr shouldBe empty
+    json("lastMove").isNull shouldBe true
+  }
+
+  it should "return 409 when there is no move to undo" in {
+    val (gameRoutes, sessRoutes) = makeRoutes()
+    val gameId = createSession(sessRoutes)
+
+    val undoReq = Request[IO](Method.POST, Uri.unsafeFromString(s"/api/games/$gameId/undo"))
+    val undoResp = run(gameRoutes, undoReq)
+    undoResp.status shouldBe Status.Conflict
+    bodyJson(undoResp)("code").str shouldBe "UNDO_NOT_AVAILABLE"
+  }
+
+  // ── POST /api/games/{gameId}/redo ─────────────────────────────────────────
+
+  "POST /api/games/{gameId}/redo" should "re-apply the undone move" in {
+    val (gameRoutes, sessRoutes) = makeRoutes()
+    val gameId = createSession(sessRoutes)
+
+    val moveReq = Request[IO](Method.POST, Uri.unsafeFromString(s"/api/games/$gameId/moves"))
+      .withBodyStream(jsonBody("""{"from":"e2","to":"e4"}"""))
+    run(gameRoutes, moveReq)
+
+    val undoReq = Request[IO](Method.POST, Uri.unsafeFromString(s"/api/games/$gameId/undo"))
+    run(gameRoutes, undoReq)
+
+    val redoReq = Request[IO](Method.POST, Uri.unsafeFromString(s"/api/games/$gameId/redo"))
+    val redoResp = run(gameRoutes, redoReq)
+    redoResp.status shouldBe Status.Ok
+    val json = bodyJson(redoResp)
+    json("currentPlayer").str shouldBe "Black"
+    json("moveHistory").arr should have size 1
+  }
+
   it should "return PROMOTION_REQUIRED (422) when a pawn reaches the 8th rank without a promotion piece" in {
     val fixture = makeFixture()
     val gameId  = createSession(fixture.sessRoutes)

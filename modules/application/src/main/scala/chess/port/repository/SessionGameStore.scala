@@ -45,3 +45,14 @@ trait SessionGameStore:
    *          write fails
    */
   def save(session: GameSession, state: GameState): Either[RepositoryError, Unit]
+
+  /** Undo the last move atomically, computing the new session before persisting it.
+   *
+   *  @param gameId Game ID to revert
+   *  @param nextSession callback mapping the restored domain state to an updated session
+   */
+  def undo(gameId: chess.application.session.model.SessionIds.GameId, nextSession: GameState => GameSession): Either[RepositoryError, (GameState, GameSession)]
+
+  /** Redo the undone move atomically, computing the new session before persisting it.
+   */
+  def redo(gameId: chess.application.session.model.SessionIds.GameId, nextSession: GameState => GameSession): Either[RepositoryError, (GameState, GameSession)]

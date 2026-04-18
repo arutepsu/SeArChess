@@ -42,6 +42,12 @@ class Http4sGameRoutes(
 
     case req @ POST -> Root / "api" / "games" / id / "moves" =>
       req.bodyText.compile.string.flatMap(handleSubmitMove(id, _))
+
+    case POST -> Root / "api" / "games" / id / "undo" =>
+      handleUndo(id)
+
+    case POST -> Root / "api" / "games" / id / "redo" =>
+      handleRedo(id)
   }
 
   // ── handlers ──────────────────────────────────────────────────────────────
@@ -101,6 +107,32 @@ class Http4sGameRoutes(
       case Right(resp)                   => jsonResponse(Status.Ok, SubmitMoveResponse.toJson(resp))
       case Left((status, code, message)) => jsonError(status, code, message)
 
+  private def handleUndo(gameIdStr: String): IO[Response[IO]] =
+    handleUndoRedo(gameIdStr, isUndo = true)
+
+  private def handleRedo(gameIdStr: String): IO[Response[IO]] =
+    handleUndoRedo(gameIdStr, isUndo = false)
+
+  private def handleUndoRedo(gameIdStr: String, isUndo: Boolean): IO[Response[IO]] =
+    type HttpErr = (Status, String, String)
+
+    val result: Either[HttpErr, GameResponse] =
+      for
+        uuid    <- parseUUID(gameIdStr)
+                     .left.map(m => (Status.BadRequest, "BAD_REQUEST", m))
+        gameId   = GameId(uuid)
+        session <- sessionService.getSessionByGameId(gameId)
+                     .left.map(e => (Status.NotFound, "GAME_NOT_FOUND", sessionErrMsg(e)))
+        pair    <- (if isUndo then commands.undoMove(session.sessionId)
+                    else commands.redoMove(session.sessionId))
+                     .left.map(err => undoRedoErrToHttpErr(err, isUndo))
+        (nextState, _) = pair
+      yield GameMapper.toGameResponse(gameIdStr, nextState)
+
+    result match
+      case Right(resp)                   => jsonResponse(Status.Ok, GameResponse.toJson(resp))
+      case Left((status, code, message)) => jsonError(status, code, message)
+
   // ── error mapping ──────────────────────────────────────────────────────────
 
   private def moveErrToHttpErr(err: SessionMoveError): (Status, String, String) = err match
@@ -119,6 +151,29 @@ class Http4sGameRoutes(
       (Status.UnprocessableEntity, "ILLEGAL_MOVE", s"Illegal move: $err")
     case SessionMoveError.PersistenceFailed(cause) =>
       (Status.InternalServerError, "INTERNAL_ERROR", s"Storage error after move: $cause")
+
+  private def undoRedoErrToHttpErr(err: SessionMoveError, isUndo: Boolean): (Status, String, String) = err match
+    case SessionMoveError.SessionFinished =>
+      (Status.Conflict, "GAME_FINISHED",
+        "Game is already finished; undo/redo is not available")
+    case SessionMoveError.UnauthorizedController(req, side) =>
+      (Status.Forbidden, "UNAUTHORIZED_CONTROLLER",
+        s"Controller '$req' is not authorized to move for $side")
+    case SessionMoveError.DomainRejection(ApplicationError.NotPlayersTurn) =>
+      (Status.UnprocessableEntity, "NOT_YOUR_TURN", "It is not your turn")
+    case SessionMoveError.DomainRejection(ApplicationError.DomainFailure(DomainError.MissingPromotionChoice)) =>
+      (Status.UnprocessableEntity, "PROMOTION_REQUIRED",
+        "A promotion piece must be specified for this move")
+    case SessionMoveError.DomainRejection(ApplicationError.DomainFailure(err)) =>
+      (Status.UnprocessableEntity, "ILLEGAL_MOVE", s"Illegal move: $err")
+    case SessionMoveError.PersistenceFailed(SessionError.PersistenceFailed(RepositoryError.StorageFailure(msg)))
+        if isUndo && msg == "No past moves to undo" =>
+      (Status.Conflict, "UNDO_NOT_AVAILABLE", msg)
+    case SessionMoveError.PersistenceFailed(SessionError.PersistenceFailed(RepositoryError.StorageFailure(msg)))
+        if !isUndo && msg == "No future moves to redo" =>
+      (Status.Conflict, "REDO_NOT_AVAILABLE", msg)
+    case SessionMoveError.PersistenceFailed(cause) =>
+      (Status.InternalServerError, "INTERNAL_ERROR", s"Storage error after undo/redo: $cause")
 
   private def sessionErrMsg(err: SessionError): String = err match
     case SessionError.SessionNotFound(id)           => s"Session not found: ${id.value}"

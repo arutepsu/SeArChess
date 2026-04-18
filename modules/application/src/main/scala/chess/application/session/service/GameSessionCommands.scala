@@ -1,6 +1,7 @@
 package chess.application.session.service
 
 import chess.application.session.model.{GameSession, SessionMode, SideController}
+import chess.application.session.model.SessionIds.SessionId
 import chess.domain.model.Move
 import chess.domain.state.GameState
 import java.time.Instant
@@ -52,6 +53,20 @@ trait GameSessionCommands:
     blackController: SideController,
     now:             Instant = Instant.now()
   ): Either[SessionError, (GameState, GameSession)]
+
+  /** Revert to the previous state within the session context.
+   */
+  def undoMove(
+    sessionId: SessionId,
+    now:       Instant = Instant.now()
+  ): Either[SessionMoveError, (GameState, GameSession)]
+
+  /** Re-apply an undone state within the session context.
+   */
+  def redoMove(
+    sessionId: SessionId,
+    now:       Instant = Instant.now()
+  ): Either[SessionMoveError, (GameState, GameSession)]
 
   /** Apply a move through the session boundary and persist the result atomically.
    *

@@ -23,5 +23,11 @@ trait GameRepository:
    */
   def load(gameId: GameId): Either[RepositoryError, GameState]
 
-  /** Persist (or replace) the [[GameState]] associated with `gameId`. */
+  /** Persist (or replace/push) the [[GameState]] associated with `gameId`. */
   def save(gameId: GameId, state: GameState): Either[RepositoryError, Unit]
+
+  /** Undo the last move, returning the restored state. */
+  def undo(gameId: GameId): Either[RepositoryError, GameState]
+
+  /** Redo the previously undone move, returning the restored state. */
+  def redo(gameId: GameId): Either[RepositoryError, GameState]

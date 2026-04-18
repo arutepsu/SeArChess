@@ -28,3 +28,23 @@ class InMemorySessionGameStore(
       _ <- sessionRepo.save(session)
       _ <- gameRepo.save(session.gameId, state)
     yield ()
+
+  override def undo(
+    gameId: chess.application.session.model.SessionIds.GameId,
+    nextSession: GameState => GameSession
+  ): Either[RepositoryError, (GameState, GameSession)] =
+    for
+      restoredState <- gameRepo.undo(gameId)
+      sessionToSave = nextSession(restoredState)
+      _ <- sessionRepo.save(sessionToSave)
+    yield (restoredState, sessionToSave)
+
+  override def redo(
+    gameId: chess.application.session.model.SessionIds.GameId,
+    nextSession: GameState => GameSession
+  ): Either[RepositoryError, (GameState, GameSession)] =
+    for
+      restoredState <- gameRepo.redo(gameId)
+      sessionToSave = nextSession(restoredState)
+      _ <- sessionRepo.save(sessionToSave)
+    yield (restoredState, sessionToSave)
