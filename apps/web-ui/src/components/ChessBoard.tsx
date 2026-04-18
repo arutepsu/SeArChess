@@ -213,19 +213,19 @@ const interpolate = (
     case "linear":
       return { x: lerp(fromX, toX, t), y: lerp(fromY, toY, t) };
     case "smooth": {
-      const e = smoothstep(t);
-      return { x: lerp(fromX, toX, e), y: lerp(fromY, toY, e) };
-    }
-    case "heavy": {
       const e = easeInOut(t);
       return { x: lerp(fromX, toX, e), y: lerp(fromY, toY, e) };
     }
+    case "heavy": {
+      const MathPow = Math.pow(t, 2);
+      return { x: lerp(fromX, toX, MathPow), y: lerp(fromY, toY, MathPow) };
+    }
     case "arc": {
-      const e = smoothstep(t);
+      const e = easeInOut(t);
       const baseX = lerp(fromX, toX, e);
       const baseY = lerp(fromY, toY, e);
-      const dist = Math.hypot(toX - fromX, toY - fromY);
-      const lift = 4 * style.heightFraction * dist * t * (1 - t);
+      const arcBase = Math.max(Math.abs(toX - fromX), Math.abs(toY - fromY));
+      const lift = Math.sin(e * Math.PI) * (arcBase * style.heightFraction);
       return { x: baseX, y: baseY - lift };
     }
     case "attack": {
@@ -236,7 +236,7 @@ const interpolate = (
       const overshoot = style.overshootFraction * dist;
       const osX = toX + (dx / dist) * overshoot;
       const osY = toY + (dy / dist) * overshoot;
-      const peakT = 0.65;
+      const peakT = 0.6;
       if (t <= peakT) {
         const s = smoothstep(t / peakT);
         return { x: lerp(fromX, osX, s), y: lerp(fromY, osY, s) };
@@ -591,7 +591,7 @@ export default function ChessBoard({
       width: `${squareSize}px`,
       height: `${squareSize}px`,
       opacity: model.opacity.toString(),
-      transform: `scaleX(${model.flipX ? -1 : 1}) scale(${model.scale})`,
+      transform: `scaleX(${model.flipX ? -1 : 1}) scale(${model.scale * 1.08})`,
       backgroundImage: model.sheet ? `url(${model.sheet.url})` : "",
       backgroundSize: model.sheet ? `${model.sheet.frameCount * 100}% 100%` : "100% 100%",
       backgroundPosition: model.sheet
@@ -609,7 +609,7 @@ export default function ChessBoard({
       width: `${squareSize}px`,
       height: `${squareSize}px`,
       opacity: model.opacity.toString(),
-      transform: `scaleX(${model.flipX ? -1 : 1})`,
+      transform: `scaleX(${model.flipX ? -1 : 1}) scale(1.08)`,
       backgroundImage: model.sheet ? `url(${model.sheet.url})` : "",
       backgroundSize: model.sheet ? `${model.sheet.frameCount * 100}% 100%` : "100% 100%",
       backgroundPosition: model.sheet
@@ -629,7 +629,8 @@ export default function ChessBoard({
       const duration = animationDurationMs(plan);
       const start = performance.now();
 
-      const tick = (now: number) => {
+      const tick = () => {
+        const now = performance.now();
         const elapsed = now - start;
         const progress = duration > 0 ? elapsed / duration : 1;
         setAnimationProgress(Math.max(0, Math.min(1, progress)));

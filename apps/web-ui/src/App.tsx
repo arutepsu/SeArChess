@@ -83,18 +83,7 @@ export default function App() {
     lastTickMs.current = performance.now();
   }, []);
 
-  const tickClock = useCallback(() => {
-    const now = performance.now();
-    const last = lastTickMs.current ?? now;
-    lastTickMs.current = now;
-    if (!clockRunning || !game) return;
-    const delta = Math.max(0, now - last);
-    if (game.activeColor === "white") {
-      setWhiteClockMs((value) => Math.max(0, value - delta));
-    } else {
-      setBlackClockMs((value) => Math.max(0, value - delta));
-    }
-  }, [clockRunning, game]);
+
 
   const planAnimation = useCallback((prevBoard: BoardMatrix, nextGame?: GameState): BoardAnimation | null => {
     if (!nextGame?.lastMove) return null;
@@ -232,10 +221,39 @@ export default function App() {
 
   useEffect(() => {
     loadGame();
+  }, [loadGame]);
+
+  const clockStateRef = useRef({
+    running: false,
+    activeColor: "white" as PlayerColor
+  });
+
+  useEffect(() => {
+    clockStateRef.current = {
+      running: clockRunning,
+      activeColor: game?.activeColor ?? "white"
+    };
+  }, [clockRunning, game?.activeColor]);
+
+  useEffect(() => {
     lastTickMs.current = performance.now();
-    const intervalId = window.setInterval(tickClock, 250);
+    const intervalId = window.setInterval(() => {
+      const now = performance.now();
+      const last = lastTickMs.current ?? now;
+      lastTickMs.current = now;
+
+      const { running, activeColor } = clockStateRef.current;
+      if (!running) return;
+
+      const delta = Math.max(0, now - last);
+      if (activeColor === "white") {
+        setWhiteClockMs((value) => Math.max(0, value - delta));
+      } else {
+        setBlackClockMs((value) => Math.max(0, value - delta));
+      }
+    }, 250);
     return () => window.clearInterval(intervalId);
-  }, [loadGame, tickClock]);
+  }, []);
 
   useEffect(() => {
     if (game?.id) {
