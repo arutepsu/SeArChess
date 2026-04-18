@@ -4,7 +4,7 @@
   position: relative;
 }
 
-.app > :not(.leaf-layer) {
+.app > :not(.leaf-layer):not(.rain-layer):not(.sakura-layer) {
   position: relative;
   z-index: 1;
 }
