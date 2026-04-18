@@ -109,6 +109,30 @@
   letter-spacing: 0.05rem;
 }
 
+.captured-piece {
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f4efe6;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  background-repeat: no-repeat;
+  background-position: 0% 50%;
+  background-size: 100% 100%;
+}
+
+.captured-piece.has-sprite {
+  color: transparent;
+}
+
+.captured-piece.is-black.has-sprite {
+  transform: scaleX(-1);
+}
+
 .export {
   margin-top: 8px;
 }

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BoardMatrix, GameState, MoveRequest, PieceCode } from "./api/types";
+import type { SpriteCatalog } from "./assets/spriteCatalog";
+import { loadSpriteCatalog } from "./assets/spriteCatalog";
 import {
   apiBaseUrl,
   exportPgn,
@@ -57,6 +59,7 @@ export default function App() {
   const [blackClockMs, setBlackClockMs] = useState(baseClockMs);
   const lastTickMs = useRef<number | null>(null);
   const [backgroundId, setBackgroundId] = useState(backgrounds[0].id);
+  const [spriteCatalog, setSpriteCatalog] = useState<SpriteCatalog | null>(null);
 
   const clockRunning = useMemo(() => {
     const status = game?.status;
@@ -274,6 +277,44 @@ export default function App() {
     document.documentElement.style.setProperty("--app-background", `url("${nextUrl}")`);
   }, [backgroundId]);
 
+  useEffect(() => {
+    let active = true;
+    loadSpriteCatalog()
+      .then((catalog) => {
+        if (active) setSpriteCatalog(catalog);
+      })
+      .catch(() => {
+        if (active) setSpriteCatalog(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const spriteInfoFor = useCallback(
+    (piece: PieceCode): { url: string; frameCount: number } | null => {
+      if (!spriteCatalog) return null;
+      const color = piece.startsWith("w") ? "white" : "black";
+      const letter = piece[1];
+      const nameMap: Record<string, string> = {
+        K: "king",
+        Q: "queen",
+        R: "rook",
+        B: "bishop",
+        N: "knight",
+        P: "pawn"
+      };
+      const name = nameMap[letter] ?? "pawn";
+      const key = `classic/${color}_${name}_idle`;
+      const sheet = spriteCatalog.spriteSheets[key];
+      if (!sheet) return null;
+      const clipSpec = spriteCatalog.clipSpecs[sheet.clipSpec];
+      if (!clipSpec) return null;
+      return { url: `/${sheet.path}`, frameCount: clipSpec.frameCount };
+    },
+    [spriteCatalog]
+  );
+
   const isRainBackground = backgroundId === "river";
   const isSakuraBackground = backgroundId === "sakura-grove";
 
@@ -359,9 +400,28 @@ export default function App() {
               {!game || game.captured.length === 0 ? (
                 <span>None yet.</span>
               ) : (
-                game.captured.map((piece, index) => (
-                  <span key={`${piece}-${index}`}>{piece}</span>
-                ))
+                game.captured.map((piece, index) => {
+                  const sprite = spriteInfoFor(piece);
+                  const frameCount = sprite?.frameCount ?? 1;
+                  const style = sprite
+                    ? {
+                        backgroundImage: `url(${sprite.url})`,
+                        backgroundSize: `${frameCount * 100}% 100%`,
+                        backgroundPosition: "0% 50%"
+                      }
+                    : undefined;
+
+                  return (
+                    <span
+                      key={`${piece}-${index}`}
+                      className={`captured-piece${piece.startsWith("b") ? " is-black" : ""}${sprite ? " has-sprite" : ""}`}
+                      style={style}
+                      aria-label={piece}
+                    >
+                      {sprite ? "" : piece}
+                    </span>
+                  );
+                })
               )}
             </div>
           </section>
