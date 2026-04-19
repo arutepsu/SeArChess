@@ -3,7 +3,7 @@ package chess.application.ai.service
 import chess.adapter.ai.FirstLegalMoveProvider
 import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionGameStore, InMemorySessionRepository}
 import chess.application.ChessService
-import chess.application.port.ai.{AIError, AIProvider, AIResponse}
+import chess.application.port.ai.{AIError, AIProvider, AIRequestContext, AIResponse}
 import chess.application.session.model.{GameSession, SessionLifecycle, SessionMode, SideController}
 import chess.application.session.model.SessionIds.GameId
 import chess.application.session.service.{SessionGameService, SessionMoveError, SessionService}
@@ -78,7 +78,7 @@ class AITurnServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   it should "return ProviderFailure(NoLegalMove) when the provider signals no legal moves" in {
     val noMoveProvider = new AIProvider:
-      def suggestMove(state: chess.domain.state.GameState) = Left(AIError.NoLegalMove)
+      def suggestMove(context: AIRequestContext) = Left(AIError.NoLegalMove)
     val sessionRepo    = InMemorySessionRepository()
     val gameRepo       = InMemoryGameRepository()
     val store          = InMemorySessionGameStore(sessionRepo, gameRepo)
@@ -98,7 +98,7 @@ class AITurnServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   it should "return ProviderFailure(EngineFailure) when the provider signals an engine error" in {
     val crashProvider = new AIProvider:
-      def suggestMove(state: chess.domain.state.GameState) =
+      def suggestMove(context: AIRequestContext) =
         Left(AIError.EngineFailure("timeout"))
     val sessionRepo    = InMemorySessionRepository()
     val gameRepo       = InMemoryGameRepository()
@@ -123,7 +123,7 @@ class AITurnServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
     // A pawn cannot jump from e2 to e5 — this verifies that the AI move goes
     // through the normal domain validation path and is not applied blindly.
     val illegalProvider = new AIProvider:
-      def suggestMove(state: chess.domain.state.GameState) =
+      def suggestMove(context: AIRequestContext) =
         Right(AIResponse(Move(e2, e5)))
     val sessionRepo    = InMemorySessionRepository()
     val gameRepo       = InMemoryGameRepository()

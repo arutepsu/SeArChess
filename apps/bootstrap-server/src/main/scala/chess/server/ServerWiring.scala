@@ -4,10 +4,12 @@ import cats.data.Kleisli
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import chess.adapter.ai.FirstLegalMoveProvider
+import chess.adapter.ai.remote.RemoteAiProvider
 import chess.adapter.http4s.Http4sApp
 import chess.application.DefaultGameService
 import chess.application.ai.service.AITurnService
-import chess.config.AppConfig
+import chess.application.port.ai.AIProvider
+import chess.config.{AiConfig, AiProviderMode, AppConfig}
 import chess.server.http.{CorsMiddleware, HealthRoutes}
 import chess.startup.assembly.{AppContext, CoreAssembly, EventAssembly, PersistenceAssembly}
 import com.comcast.ip4s.{Host, Port}
@@ -55,7 +57,7 @@ object ServerWiring:
     // The overload that takes pre-assembled wiring is used here to ensure
     // the app services see the same publisher as the live WebSocket server.
     val baseCtx = CoreAssembly.build(persistence, events)
-    val ctx     = withServerAi(baseCtx, events)
+    val ctx     = withServerAi(baseCtx, events, config.ai)
 
     // ── HTTP surface composition ─────────────────────────────────────────────
     // Operational routes (health) are tried first; unmatched requests fall
@@ -99,11 +101,34 @@ object ServerWiring:
    *  wires the existing AI adapter through the existing AI port and turn service.
    */
   private[server] def withServerAi(baseCtx: AppContext, events: chess.startup.assembly.EventWiring): AppContext =
-    val ai = AITurnService(FirstLegalMoveProvider(), baseCtx.commands, events.publisher)
+    withServerAi(baseCtx, events, AiConfig(AiProviderMode.LocalDeterministic, None, 2000, None))
+
+  private[server] def withServerAi(
+    baseCtx: AppContext,
+    events:  chess.startup.assembly.EventWiring,
+    config:  AiConfig
+  ): AppContext =
+    val aiService = aiProviderFor(config).map(provider =>
+      AITurnService(provider, baseCtx.commands, events.publisher))
     baseCtx.copy(gameService = DefaultGameService(
       commands       = baseCtx.commands,
       sessionService = baseCtx.sessionService,
       gameRepository = baseCtx.gameRepository,
       publisher      = events.publisher,
-      aiService      = Some(ai)
+      aiService      = aiService
     ))
+
+  private[server] def aiProviderFor(config: AiConfig): Option[AIProvider] =
+    config.mode match
+      case AiProviderMode.LocalDeterministic => Some(FirstLegalMoveProvider())
+      case AiProviderMode.Disabled           => None
+      case AiProviderMode.Remote             =>
+        config.remote match
+          case Some(remote) =>
+            Some(RemoteAiProvider(
+              baseUrl         = remote.baseUrl,
+              timeoutMillis   = config.timeoutMillis,
+              defaultEngineId = config.defaultEngineId
+            ))
+          case None =>
+            throw IllegalArgumentException("AI remote mode requires AI_REMOTE_BASE_URL")
