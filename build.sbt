@@ -73,10 +73,13 @@ lazy val adapterPersistence = project
 
 lazy val adapterAi = project
   .in(file("modules/adapter-ai"))
-  .settings(commonSettings)
+  .settings(
+    commonSettings,
+    libraryDependencies += "com.lihaoyi" %% "ujson" % "4.0.2"
+  )
   // adapterPersistence and adapterEvent are only needed for test fixtures
   // (InMemorySessionRepository, CollectingEventPublisher).
-  .dependsOn(application, adapterPersistence % Test, adapterEvent % Test)
+  .dependsOn(application, notation, adapterPersistence % Test, adapterEvent % Test)
 
 // ── Module: adapter-event ─────────────────────────────────────────────────────
 

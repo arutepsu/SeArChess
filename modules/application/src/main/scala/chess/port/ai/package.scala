@@ -4,12 +4,10 @@
  *  - interface definition for AI move suggestion (e.g. AiEngine)
  *  - no implementation — implementations live in chess.adapter.* packages (Stockfish, random, etc.)
  *
- *  Example interface to introduce when AI integration is needed:
+ *  Example interface shape:
  *  {{{
  *  trait AiEngine:
- *    def suggestMove(state: GameState, config: AiConfig): Either[AiError, Move]
+ *    def suggestMove(context: AIRequestContext): Either[AIError, AIResponse]
  *  }}}
- *
- *  Not yet populated.
  */
 package chess.application.port.ai

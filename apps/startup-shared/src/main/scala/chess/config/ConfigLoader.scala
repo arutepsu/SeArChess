@@ -16,6 +16,10 @@ package chess.config
  *    EVENT_MODE        in-process                  (default: in-process)
  *    CORS_ENABLED      true/false/1/0/yes/no       (default: false)
  *    CORS_ALLOWED_ORIGIN  * | specific origin URL  (default: *)
+ *    AI_PROVIDER_MODE  local | disabled | remote    (default: local)
+ *    AI_REMOTE_BASE_URL  URL for remote AI mode      (required for remote)
+ *    AI_TIMEOUT_MILLIS integer >= 1                 (default: 2000)
+ *    AI_DEFAULT_ENGINE_ID optional engine id         (default: unset)
  *  }}}
  *
  *  === Validation ===
@@ -35,6 +39,8 @@ object ConfigLoader:
   private val DefaultEventMode:       String = "in-process"
   private val DefaultCorsEnabled:     String = "false"
   private val DefaultCorsAllowOrigin: String = "*"
+  private val DefaultAiMode:          String = "local"
+  private val DefaultAiTimeoutMillis: String = "2000"
 
   // ── Public API ───────────────────────────────────────────────────────────────
 
@@ -44,6 +50,14 @@ object ConfigLoader:
    *  `Left(message)` describing the first problem encountered.
    */
   def load(): Either[String, AppConfig] =
+    loadFrom(key => Option(System.getenv(key)).filter(_.nonEmpty))
+
+  /** Load and validate configuration from a supplied environment lookup.
+   *
+   *  Kept package-visible for focused tests without mutating the process
+   *  environment.
+   */
+  private[config] def loadFrom(env: String => Option[String]): Either[String, AppConfig] =
     for
       httpHost    <- Right(env("HTTP_HOST").getOrElse(DefaultHttpHost))
       httpPort    <- parsePort("HTTP_PORT", env("HTTP_PORT").getOrElse(DefaultHttpPort))
@@ -53,12 +67,22 @@ object ConfigLoader:
       eventMode   <- parseEventMode(env("EVENT_MODE").getOrElse(DefaultEventMode))
       corsEnabled <- parseBool("CORS_ENABLED", env("CORS_ENABLED").getOrElse(DefaultCorsEnabled))
       corsOrigin   = env("CORS_ALLOWED_ORIGIN").getOrElse(DefaultCorsAllowOrigin)
+      aiMode      <- parseAiProviderMode(env("AI_PROVIDER_MODE").getOrElse(DefaultAiMode))
+      aiTimeout   <- parsePositiveInt("AI_TIMEOUT_MILLIS", env("AI_TIMEOUT_MILLIS").getOrElse(DefaultAiTimeoutMillis))
+      remote      <- parseRemoteAiConfig(aiMode, env("AI_REMOTE_BASE_URL"))
+      engineId     = env("AI_DEFAULT_ENGINE_ID")
     yield AppConfig(
       http        = HttpConfig(httpHost, httpPort),
       webSocket   = WebSocketConfig(wsEnabled, wsPort),
       persistence = persistence,
       eventMode   = eventMode,
-      cors        = CorsConfig(corsEnabled, corsOrigin)
+      cors        = CorsConfig(corsEnabled, corsOrigin),
+      ai          = AiConfig(
+                      mode            = aiMode,
+                      remote          = remote,
+                      timeoutMillis   = aiTimeout,
+                      defaultEngineId = engineId
+                    )
     )
 
   /** Load config or print the error and exit the process.
@@ -74,14 +98,17 @@ object ConfigLoader:
 
   // ── Private parsers ──────────────────────────────────────────────────────────
 
-  private def env(key: String): Option[String] =
-    Option(System.getenv(key)).filter(_.nonEmpty)
-
   private def parsePort(varName: String, value: String): Either[String, Int] =
     value.toIntOption match
       case None                           => Left(s"$varName must be an integer, got: '$value'")
       case Some(p) if p < 1 || p > 65535 => Left(s"$varName must be between 1 and 65535, got: $p")
       case Some(p)                        => Right(p)
+
+  private def parsePositiveInt(varName: String, value: String): Either[String, Int] =
+    value.toIntOption match
+      case None              => Left(s"$varName must be an integer, got: '$value'")
+      case Some(n) if n < 1  => Left(s"$varName must be >= 1, got: $n")
+      case Some(n)           => Right(n)
 
   private def parseBool(varName: String, value: String): Either[String, Boolean] =
     value.toLowerCase match
@@ -98,3 +125,26 @@ object ConfigLoader:
     value.toLowerCase match
       case "in-process" | "inprocess" => Right(EventMode.InProcess)
       case _                          => Left(s"EVENT_MODE must be 'in-process', got: '$value'")
+
+  private def parseAiProviderMode(value: String): Either[String, AiProviderMode] =
+    value.toLowerCase match
+      case "local" | "local-deterministic" | "localdeterministic" =>
+        Right(AiProviderMode.LocalDeterministic)
+      case "disabled" | "off" | "none" =>
+        Right(AiProviderMode.Disabled)
+      case "remote" =>
+        Right(AiProviderMode.Remote)
+      case _ =>
+        Left(s"AI_PROVIDER_MODE must be 'local', 'disabled', or 'remote', got: '$value'")
+
+  private def parseRemoteAiConfig(
+    mode:    AiProviderMode,
+    baseUrl: Option[String]
+  ): Either[String, Option[RemoteAiConfig]] =
+    mode match
+      case AiProviderMode.Remote =>
+        baseUrl match
+          case Some(url) if url.trim.nonEmpty => Right(Some(RemoteAiConfig(url.trim)))
+          case _ => Left("AI_REMOTE_BASE_URL is required when AI_PROVIDER_MODE is 'remote'")
+      case _ =>
+        Right(baseUrl.map(url => RemoteAiConfig(url.trim)).filter(_.baseUrl.nonEmpty))

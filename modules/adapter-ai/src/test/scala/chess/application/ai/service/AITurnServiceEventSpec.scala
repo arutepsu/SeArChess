@@ -4,7 +4,7 @@ import chess.adapter.ai.FirstLegalMoveProvider
 import chess.adapter.event.CollectingEventPublisher
 import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionGameStore, InMemorySessionRepository}
 import chess.application.event.AppEvent
-import chess.application.port.ai.{AIError, AIProvider, AIResponse}
+import chess.application.port.ai.{AIError, AIProvider, AIRequestContext, AIResponse}
 import chess.application.session.model.{SessionMode, SideController}
 import chess.application.session.model.SessionIds.GameId
 import chess.application.session.service.{SessionGameService, SessionService}
@@ -85,7 +85,7 @@ class AITurnServiceEventSpec extends AnyFlatSpec with Matchers with EitherValues
 
   it should "publish AITurnFailed when the provider returns NoLegalMove" in {
     val noMoveProvider = new AIProvider:
-      def suggestMove(s: chess.domain.state.GameState) = Left(AIError.NoLegalMove)
+      def suggestMove(context: AIRequestContext) = Left(AIError.NoLegalMove)
     val (aiService, collector, session, state) = freshSetup(noMoveProvider)
     aiService.requestAIMove(session, state)
     val failed = collector.events.collectFirst { case e: AppEvent.AITurnFailed => e }
@@ -95,7 +95,7 @@ class AITurnServiceEventSpec extends AnyFlatSpec with Matchers with EitherValues
 
   it should "publish AITurnFailed when the provider returns EngineFailure" in {
     val crashProvider = new AIProvider:
-      def suggestMove(s: chess.domain.state.GameState) = Left(AIError.EngineFailure("timeout"))
+      def suggestMove(context: AIRequestContext) = Left(AIError.EngineFailure("timeout"))
     val (aiService, collector, session, state) = freshSetup(crashProvider)
     aiService.requestAIMove(session, state)
     val failed = collector.events.collectFirst { case e: AppEvent.AITurnFailed => e }
@@ -109,7 +109,7 @@ class AITurnServiceEventSpec extends AnyFlatSpec with Matchers with EitherValues
     val e2 = Position.from(4, 1).value
     val e5 = Position.from(4, 4).value
     val illegalProvider = new AIProvider:
-      def suggestMove(s: chess.domain.state.GameState) = Right(AIResponse(Move(e2, e5)))
+      def suggestMove(context: AIRequestContext) = Right(AIResponse(Move(e2, e5)))
     val (aiService, collector, session, state) = freshSetup(illegalProvider)
     aiService.requestAIMove(session, state)
     val failed = collector.events.collectFirst { case e: AppEvent.AITurnFailed => e }

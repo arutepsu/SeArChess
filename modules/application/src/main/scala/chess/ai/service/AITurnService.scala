@@ -2,7 +2,7 @@ package chess.application.ai.service
 
 import chess.application.ai.policy.AITurnPolicy
 import chess.application.event.AppEvent
-import chess.application.port.ai.{AIError, AIProvider}
+import chess.application.port.ai.{AIError, AIProvider, AIRequestContext}
 import chess.application.port.event.EventPublisher
 import chess.application.session.model.{GameSession, SideController}
 import chess.application.session.service.GameSessionCommands
@@ -66,15 +66,16 @@ class AITurnService(
   ): Either[AITurnError, (GameState, GameSession)] =
     guardAITurn(session, state).flatMap { _ =>
       publisher.publish(AppEvent.AITurnRequested(session.sessionId, session.gameId, state.currentPlayer))
+      val aiContext = AIRequestContext.fromSession(session, state)
       val outcome =
         for
-          response <- provider.suggestMove(state)
+          response <- provider.suggestMove(aiContext)
                         .left.map(AITurnError.ProviderFailure(_))
           result   <- commands.submitMove(
                         session    = session,
                         state      = state,
                         move       = response.move,
-                        controller = SideController.AI(),
+                        controller = SideController.AI(aiContext.engineId),
                         now        = now
                       ).left.map(AITurnError.MoveFailed(_))
         yield (result, response.move)

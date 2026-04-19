@@ -747,8 +747,8 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val store          = InMemorySessionGameStore(sessionRepo, gameRepo)
     val sessionService = SessionService(sessionRepo, collector)
     val svc            = SessionGameService(sessionService, store, collector)
-    val provider: AIProvider = state =>
-      val move = GameStateRules.legalMoves(state).toSeq
+    val provider: AIProvider = context =>
+      val move = GameStateRules.legalMoves(context.state).toSeq
         .sortBy(m => (m.from.file, m.from.rank, m.to.file, m.to.rank))
         .head
       Right(AIResponse(move))

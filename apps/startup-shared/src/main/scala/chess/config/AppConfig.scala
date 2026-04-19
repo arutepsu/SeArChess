@@ -36,11 +36,40 @@ final case class CorsConfig(enabled: Boolean, allowedOrigin: String)
 enum EventMode:
   case InProcess
 
+/** AI provider runtime mode.
+ *
+ *  - [[Disabled]]: no AI provider is wired; AI HTTP requests return the existing
+ *    `AI_NOT_CONFIGURED` response.
+ *  - [[LocalDeterministic]]: use the in-process deterministic first-legal-move
+ *    adapter. This remains the default so current flows are stable.
+ *  - [[Remote]]: configuration shape for a future remote AI provider. The
+ *    client adapter is introduced in a later slice.
+ */
+enum AiProviderMode:
+  case Disabled
+  case LocalDeterministic
+  case Remote
+
 /** Normalised HTTP server configuration. */
 final case class HttpConfig(host: String, port: Int)
 
 /** Normalised WebSocket server configuration. */
 final case class WebSocketConfig(enabled: Boolean, port: Int)
+
+/** Normalised remote AI provider configuration.
+ *
+ *  [[baseUrl]] is intentionally a string at this layer; the future remote
+ *  adapter will parse it into whichever HTTP client URI type it owns.
+ */
+final case class RemoteAiConfig(baseUrl: String)
+
+/** Normalised AI runtime configuration. */
+final case class AiConfig(
+  mode:             AiProviderMode,
+  remote:           Option[RemoteAiConfig],
+  timeoutMillis:    Int,
+  defaultEngineId:  Option[String]
+)
 
 /** Fully resolved runtime configuration for the chess server.
  *
@@ -56,5 +85,6 @@ final case class AppConfig(
   webSocket:   WebSocketConfig,
   persistence: PersistenceMode,
   eventMode:   EventMode,
-  cors:        CorsConfig
+  cors:        CorsConfig,
+  ai:          AiConfig
 )

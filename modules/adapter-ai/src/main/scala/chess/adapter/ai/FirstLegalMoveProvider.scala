@@ -1,8 +1,7 @@
 package chess.adapter.ai
 
-import chess.application.port.ai.{AIError, AIProvider, AIResponse}
+import chess.application.port.ai.{AIError, AIProvider, AIRequestContext, AIResponse}
 import chess.domain.rules.GameStateRules
-import chess.domain.state.GameState
 
 /** Minimal AI provider that selects the first legal move in a deterministic order.
  *
@@ -18,7 +17,8 @@ import chess.domain.state.GameState
  */
 class FirstLegalMoveProvider extends AIProvider:
 
-  override def suggestMove(state: GameState): Either[AIError, AIResponse] =
+  override def suggestMove(context: AIRequestContext): Either[AIError, AIResponse] =
+    val state = context.state
     GameStateRules
       .legalMoves(state)
       .toSeq
