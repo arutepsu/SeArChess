@@ -1,6 +1,7 @@
 package chess.adapter.rest.contract.mapper
 
-import chess.adapter.rest.contract.dto.{GameResponse, MoveHistoryEntry, PieceDto}
+import chess.adapter.rest.contract.dto.{GameResponse, LegalMoveDto, LegalMovesResponse, MoveHistoryEntry, PieceDto}
+import chess.application.query.game.LegalMovesView
 import chess.domain.model.GameStatus
 import chess.domain.rules.GameStateRules
 import chess.domain.state.GameState
@@ -24,6 +25,7 @@ object GameMapper:
       case GameStatus.Ongoing(check)    => ("Ongoing",   check, None,                   None)
       case GameStatus.Checkmate(winner) => ("Checkmate", false, Some(winner.toString),  None)
       case GameStatus.Draw(reason)      => ("Draw",      false, None,                   Some(reason.toString))
+      case GameStatus.Resigned(winner)  => ("Resigned",  false, Some(winner.toString),  None)
 
     val board = state.board.pieces
       .map { case (pos, piece) =>
@@ -67,4 +69,30 @@ object GameMapper:
       lastMove           = history.lastOption,
       promotionPending   = promotionPending,
       legalTargetsByFrom = legalTargetsByFrom
+    )
+
+  /** Build a first-class legal-moves response from the Game Service query view. */
+  def toLegalMovesResponse(view: LegalMovesView): LegalMovesResponse =
+    val orderedMoves = view.moves.toList.sortBy(m =>
+      (m.from.file, m.from.rank, m.to.file, m.to.rank, m.promotion.map(_.toString).getOrElse("")))
+
+    val moveDtos = orderedMoves.map { m =>
+      LegalMoveDto(
+        from      = m.from.toString,
+        to        = m.to.toString,
+        promotion = m.promotion.map(_.toString)
+      )
+    }
+
+    val targetsByFrom = orderedMoves
+      .groupBy(_.from.toString)
+      .view
+      .mapValues(_.map(_.to.toString).distinct.sorted)
+      .toMap
+
+    LegalMovesResponse(
+      gameId             = view.gameId.value.toString,
+      currentPlayer      = view.currentPlayer.toString,
+      moves              = moveDtos,
+      legalTargetsByFrom = targetsByFrom
     )

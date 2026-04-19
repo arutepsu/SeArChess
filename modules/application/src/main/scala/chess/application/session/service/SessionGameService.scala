@@ -5,7 +5,7 @@ import chess.application.port.event.EventPublisher
 import chess.application.port.repository.{RepositoryError, SessionGameStore}
 import chess.application.session.model.{GameSession, SessionLifecycle, SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
-import chess.domain.model.{GameStatus, Move}
+import chess.domain.model.{Color, GameStatus, Move}
 import chess.domain.state.{GameState, GameStateFactory}
 import java.time.Instant
 
@@ -123,6 +123,35 @@ class SessionGameService(
         (fresh, session)
       }
 
+  /** Record a resignation: set [[GameStatus.Resigned]] on the game state, advance
+   *  the session lifecycle to [[SessionLifecycle.Finished]], and persist both
+   *  atomically via [[SessionGameStore]].
+   *
+   *  On success: publishes [[AppEvent.GameResigned]] followed by
+   *  [[AppEvent.SessionLifecycleChanged]].
+   *  On any failure the store is left unchanged and no events are published.
+   */
+  def resignGame(
+    session:       GameSession,
+    state:         GameState,
+    resigningSide: Color,
+    now:           Instant = Instant.now()
+  ): Either[SessionError, (GameState, GameSession)] =
+    if session.lifecycle == SessionLifecycle.Finished then
+      Left(SessionError.InvalidLifecycleTransition("Session is already finished"))
+    else
+      val winner        = resigningSide.opposite
+      val resignedState = state.copy(status = GameStatus.Resigned(winner))
+      val finishedSess  = GameSession.withLifecycle(session, SessionLifecycle.Finished, now)
+      store.save(finishedSess, resignedState)
+        .left.map(SessionError.PersistenceFailed(_))
+        .map { _ =>
+          publisher.publish(AppEvent.GameResigned(session.sessionId, session.gameId, winner))
+          publisher.publish(AppEvent.SessionLifecycleChanged(
+            session.sessionId, session.gameId, session.lifecycle, SessionLifecycle.Finished))
+          (resignedState, finishedSess)
+        }
+
   // ── Query delegation ──────────────────────────────────────────────────────
   // Pure reads forwarded to SessionService.
   // Adapters that only need reads can depend on SessionService directly.
@@ -161,5 +190,5 @@ class SessionGameService(
   // ── private helpers ────────────────────────────────────────────────────────
 
   private def isTerminalStatus(status: GameStatus): Boolean = status match
-    case GameStatus.Checkmate(_) | GameStatus.Draw(_) => true
-    case _                                            => false
+    case GameStatus.Checkmate(_) | GameStatus.Draw(_) | GameStatus.Resigned(_) => true
+    case _                                                                      => false

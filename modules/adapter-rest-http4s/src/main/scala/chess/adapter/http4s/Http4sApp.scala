@@ -3,8 +3,7 @@ package chess.adapter.http4s
 import cats.effect.IO
 import cats.syntax.semigroupk.*
 import chess.adapter.http4s.route.{Http4sGameRoutes, Http4sSessionRoutes}
-import chess.application.port.repository.GameRepository
-import chess.application.session.service.{GameSessionCommands, SessionService}
+import chess.application.GameServiceApi
 import org.http4s.HttpApp
 
 /** REST adapter surface for the chess API.
@@ -14,25 +13,19 @@ import org.http4s.HttpApp
  *  resource acquisition) is the responsibility of the composition root
  *  (`bootstrap-server/Main`).
  *
- *  The command/query split is explicit:
- *  - `commands` drives all state-mutating routes ([[Http4sSessionRoutes]] POST,
- *    [[Http4sGameRoutes]] POST) via the [[GameSessionCommands]] boundary.
- *  - `sessionService` serves read-only session lookups (GET routes).
- *  - `gameRepository` serves read-only game-state lookups (GET routes).
+ *  Both route classes depend only on [[GameServiceApi]] — the single Game Service
+ *  boundary.  This replaces the previous three-dependency split
+ *  ([[chess.application.session.service.GameSessionCommands]],
+ *  [[chess.application.session.service.SessionService]],
+ *  [[chess.application.port.repository.GameRepository]]).
  *
- *  @param commands       game-session command boundary (write path)
- *  @param sessionService session read/query service
- *  @param gameRepository application-level game-state read port
+ *  @param gameService the Game Service boundary (commands + queries)
  */
-class Http4sApp(
-  commands:       GameSessionCommands,
-  sessionService: SessionService,
-  gameRepository: GameRepository
-):
+class Http4sApp(gameService: GameServiceApi):
 
   private val combinedRoutes =
-    Http4sSessionRoutes(commands, sessionService).routes <+>
-    Http4sGameRoutes(commands, sessionService, gameRepository).routes
+    Http4sSessionRoutes(gameService).routes <+>
+    Http4sGameRoutes(gameService).routes
 
   /** Combined [[HttpApp]] for all REST routes.
    *

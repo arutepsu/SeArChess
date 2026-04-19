@@ -2,20 +2,20 @@ package chess.adapter.rest.contract.dto
 
 /** Request body for POST /sessions.
  *
- *  All fields are optional; absent fields use defaults in the mapper layer:
- *  - mode            → HumanVsHuman
- *  - whiteController → HumanLocal
- *  - blackController → HumanLocal
+ *  All fields are optional; absent fields use mode-aware defaults in the
+ *  mapper layer:
+ *  - HumanVsHuman: White HumanLocal, Black HumanLocal
+ *  - HumanVsAI: White HumanLocal, Black server AI
+ *  - AIVsAI: White server AI, Black server AI
  *
  *  @param mode            "HumanVsHuman" | "HumanVsAI" | "AIVsAI"
- *  @param whiteController "HumanLocal" | "HumanRemote"
- *  @param blackController "HumanLocal" | "HumanRemote"
+ *  @param whiteController "HumanLocal" | "HumanRemote" for human-controlled seats only
+ *  @param blackController "HumanLocal" | "HumanRemote" for human-controlled seats only
  *
  *  === REST v1 controller constraint ===
- *  "AI" is not a valid controller value in this API.  Passing "AI" returns
- *  400 BAD_REQUEST.  Server-side AI (for HumanVsAI / AIVsAI modes) is
- *  triggered externally; the client does not configure the AI engine identity
- *  via this endpoint.
+ *  "AI" is not a valid controller value in this API. Passing "AI" returns
+ *  400 BAD_REQUEST. Server-side AI seats are derived from `mode`; the client
+ *  does not configure AI engine identity via this endpoint.
  */
 final case class CreateSessionRequest(
   mode:            Option[String],
@@ -24,8 +24,8 @@ final case class CreateSessionRequest(
 )
 
 object CreateSessionRequest:
-  /** Parse from a JSON string.  Returns Left with a message if the JSON is
-   *  malformed.  Missing fields are treated as None (not an error).
+  /** Parse from a JSON string. Returns Left with a message if the JSON is
+   *  malformed. Missing fields are treated as None (not an error).
    */
   def fromJson(body: String): Either[String, CreateSessionRequest] =
     try

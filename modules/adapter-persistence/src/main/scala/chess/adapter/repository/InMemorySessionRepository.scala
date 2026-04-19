@@ -1,7 +1,7 @@
 package chess.adapter.repository
 
 import chess.application.port.repository.{RepositoryError, SessionRepository}
-import chess.application.session.model.GameSession
+import chess.application.session.model.{GameSession, SessionLifecycle}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import scala.collection.mutable
 
@@ -35,4 +35,9 @@ class InMemorySessionRepository extends SessionRepository:
       store.values
         .find(_.gameId == id)
         .toRight(RepositoryError.NotFound(id.value.toString))
+    }
+
+  override def listActive(): Either[RepositoryError, List[GameSession]] =
+    synchronized {
+      Right(store.values.filter(_.lifecycle != SessionLifecycle.Finished).toList)
     }

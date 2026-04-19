@@ -115,6 +115,30 @@ object WebSocketMessageMapper:
         "reason"    -> reason
       )
 
+    case MoveRejected(sid, gid, move, reason) =>
+      ujson.Obj(
+        "eventType" -> "MoveRejected",
+        "sessionId" -> sid.value.toString,
+        "gameId"    -> gid.value.toString,
+        "move"      -> moveJson(move),
+        "reason"    -> reason
+      )
+
+    case GameResigned(sid, gid, winner) =>
+      ujson.Obj(
+        "eventType" -> "GameResigned",
+        "sessionId" -> sid.value.toString,
+        "gameId"    -> gid.value.toString,
+        "winner"    -> winner.toString
+      )
+
+    case SessionCancelled(sid, gid) =>
+      ujson.Obj(
+        "eventType" -> "SessionCancelled",
+        "sessionId" -> sid.value.toString,
+        "gameId"    -> gid.value.toString
+      )
+
   // ── private helpers ─────────────────────────────────────────────────────────
 
   private def moveJson(move: Move): ujson.Obj =
@@ -125,7 +149,7 @@ object WebSocketMessageMapper:
   /** Mutate `obj` in-place with the status-specific fields.
    *
    *  Although [[AppEvent.GameFinished]] is only published for terminal states,
-   *  all three [[GameStatus]] variants are handled for exhaustiveness.
+   *  all four [[GameStatus]] variants are handled for exhaustiveness.
    */
   private def addStatusFields(obj: ujson.Obj, status: GameStatus): Unit = status match
     case GameStatus.Ongoing(inCheck) =>
@@ -137,3 +161,6 @@ object WebSocketMessageMapper:
     case GameStatus.Draw(reason) =>
       obj("status")     = "Draw"
       obj("drawReason") = reason.toString
+    case GameStatus.Resigned(winner) =>
+      obj("status") = "Resigned"
+      obj("winner") = winner.toString

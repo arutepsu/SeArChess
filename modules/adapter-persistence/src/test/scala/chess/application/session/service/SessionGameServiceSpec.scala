@@ -37,6 +37,15 @@ class SessionGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
       blackController = SideController.HumanLocal
     ).value
 
+  private val storageFailure = RepositoryError.StorageFailure("combined write failed")
+
+  private class RecordingStore(result: Either[RepositoryError, Unit]) extends SessionGameStore:
+    var calls: List[(GameSession, GameState)] = Nil
+
+    override def save(session: GameSession, state: GameState): Either[RepositoryError, Unit] =
+      calls = calls :+ (session, state)
+      result
+
   /** Minimal one-move-to-checkmate position (same layout as SessionServiceEventSpec). */
   private val rb1 = Position.from(1, 0).value  // b1
   private val ra1 = Position.from(0, 0).value  // a1
@@ -136,6 +145,41 @@ class SessionGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
     writeCountAtPublish shouldBe 1  // store.save was called exactly once before MoveApplied fired
   }
 
+  it should "write the updated session and game state together through SessionGameStore" in {
+    val store     = new RecordingStore(Right(()))
+    val collector = CollectingEventPublisher()
+    val service   = new SessionService(new InMemorySessionRepository, _ => ())
+    val svc       = new SessionGameService(service, store, collector)
+    val session   = GameSession.create(
+                      GameId.random(), SessionMode.HumanVsHuman,
+                      SideController.HumanLocal, SideController.HumanLocal)
+    val state     = GameStateFactory.initial()
+    val move      = Move(Position.from(4, 1).value, Position.from(4, 3).value)
+
+    val (nextState, nextSession) = svc.submitMove(session, state, move, SideController.HumanLocal).value
+
+    store.calls should have size 1
+    store.calls.head shouldBe (nextSession, nextState)
+    collector.events.collect { case e: AppEvent.MoveApplied => e } should have size 1
+  }
+
+  it should "surface a combined write failure and publish no events" in {
+    val store     = new RecordingStore(Left(storageFailure))
+    val collector = CollectingEventPublisher()
+    val service   = new SessionService(new InMemorySessionRepository, _ => ())
+    val svc       = new SessionGameService(service, store, collector)
+    val session   = GameSession.create(
+                      GameId.random(), SessionMode.HumanVsHuman,
+                      SideController.HumanLocal, SideController.HumanLocal)
+    val move      = Move(Position.from(4, 1).value, Position.from(4, 3).value)
+
+    val err = svc.submitMove(session, GameStateFactory.initial(), move, SideController.HumanLocal).left.value
+
+    err shouldBe SessionMoveError.PersistenceFailed(SessionError.PersistenceFailed(storageFailure))
+    store.calls should have size 1
+    collector.events shouldBe empty
+  }
+
   it should "persist the updated game state to the game repository" in {
     val (svc, _, gameRepo, _) = freshFixture()
     val session               = createSession(svc)
@@ -184,4 +228,51 @@ class SessionGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
       SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
     ).value
     sessionRepo.load(session.sessionId).isRight shouldBe true
+  }
+
+  it should "surface a combined write failure from newGame and publish no events" in {
+    val store     = new RecordingStore(Left(storageFailure))
+    val collector = CollectingEventPublisher()
+    val service   = new SessionService(new InMemorySessionRepository, _ => ())
+    val svc       = new SessionGameService(service, store, collector)
+
+    val err = svc.newGame(SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal).left.value
+
+    err shouldBe SessionError.PersistenceFailed(storageFailure)
+    store.calls should have size 1
+    collector.events shouldBe empty
+  }
+
+  // resignGame persistence ----------------------------------------------------
+
+  "SessionGameService.resignGame" should "write the resigned state and finished session through SessionGameStore" in {
+    val store     = new RecordingStore(Right(()))
+    val collector = CollectingEventPublisher()
+    val service   = new SessionService(new InMemorySessionRepository, _ => ())
+    val svc       = new SessionGameService(service, store, collector)
+    val session   = GameSession.create(
+                      GameId.random(), SessionMode.HumanVsHuman,
+                      SideController.HumanLocal, SideController.HumanLocal)
+
+    val (state, finished) = svc.resignGame(session, GameStateFactory.initial(), Color.White).value
+
+    state.status       shouldBe GameStatus.Resigned(Color.Black)
+    finished.lifecycle shouldBe SessionLifecycle.Finished
+    store.calls        shouldBe List((finished, state))
+  }
+
+  it should "surface a combined write failure from resignGame and publish no events" in {
+    val store     = new RecordingStore(Left(storageFailure))
+    val collector = CollectingEventPublisher()
+    val service   = new SessionService(new InMemorySessionRepository, _ => ())
+    val svc       = new SessionGameService(service, store, collector)
+    val session   = GameSession.create(
+                      GameId.random(), SessionMode.HumanVsHuman,
+                      SideController.HumanLocal, SideController.HumanLocal)
+
+    val err = svc.resignGame(session, GameStateFactory.initial(), Color.White).left.value
+
+    err shouldBe SessionError.PersistenceFailed(storageFailure)
+    store.calls should have size 1
+    collector.events shouldBe empty
   }

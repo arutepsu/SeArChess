@@ -108,8 +108,8 @@ class GameController(
     // Session-aware: provision a fresh session matching the imported state's lifecycle.
     val session = sessionContext.getSession
     val targetLifecycle = importedState.status match
-      case _: GameStatus.Checkmate | _: GameStatus.Draw => SessionLifecycle.Finished
-      case _                                            => SessionLifecycle.Active
+      case _: GameStatus.Checkmate | _: GameStatus.Draw | _: GameStatus.Resigned => SessionLifecycle.Finished
+      case _                                                                      => SessionLifecycle.Active
     sessionService
       .createSession(GameId.random(), session.mode, session.whiteController, session.blackController)
       .flatMap(newSess => sessionService.updateLifecycle(newSess.sessionId, targetLifecycle))
@@ -353,5 +353,5 @@ object GameController:
 
   private[controller] def resolveSettledGuiState(state: GameState): GuiState =
     state.status match
-      case _: GameStatus.Checkmate | _: GameStatus.Draw => GuiState.GameFinished(state.status)
-      case _                                            => GuiState.WaitingForSelection
+      case _: GameStatus.Checkmate | _: GameStatus.Draw | _: GameStatus.Resigned => GuiState.GameFinished(state.status)
+      case _                                                                      => GuiState.WaitingForSelection

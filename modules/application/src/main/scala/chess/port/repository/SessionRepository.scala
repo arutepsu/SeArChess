@@ -36,3 +36,10 @@ trait SessionRepository:
    *  Returns [[RepositoryError.NotFound]] when no session references that game.
    */
   def loadByGameId(id: GameId): Either[RepositoryError, GameSession]
+
+  /** Return all sessions that have not yet reached [[chess.application.session.model.SessionLifecycle.Finished]].
+   *
+   *  Returns an empty list (not [[RepositoryError.NotFound]]) when no active
+   *  sessions exist.  Order is implementation-defined.
+   */
+  def listActive(): Either[RepositoryError, List[GameSession]]

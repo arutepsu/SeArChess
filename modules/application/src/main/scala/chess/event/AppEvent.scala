@@ -24,13 +24,21 @@ import chess.domain.model.{Color, GameStatus, Move}
  *
  *  === Event categories ===
  *
- *  '''Game flow events''' — always forwarded to transport adapters; meaningful
- *  to any UI that tracks the game:
+ *  '''State-transition events''' — always forwarded to transport adapters; meaningful
+ *  to any UI that tracks the game.  Each one reflects a durable change to game or
+ *  session state that has already been persisted:
  *  - [[SessionCreated]]          — new session ready for play
  *  - [[SessionLifecycleChanged]] — lifecycle phase transition (e.g. Created → Active)
  *  - [[MoveApplied]]             — a move was successfully applied and persisted
  *  - [[PromotionPending]]        — pawn on back rank; promotion choice required
  *  - [[GameFinished]]            — terminal position reached (checkmate or draw)
+ *  - [[GameResigned]]            — a player resigned; game state records the winner
+ *  - [[SessionCancelled]]        — session cancelled administratively; game state unchanged
+ *
+ *  '''Interaction/audit events''' — record attempts that were made but did not result
+ *  in a state change.  Useful for observability and audit trails; subscribers must
+ *  not update game state in response to these:
+ *  - [[MoveRejected]] — a move was attempted and rejected by domain rules
  *
  *  '''AI monitoring events''' — forwarded to all transport adapters but primarily
  *  for observability.  A UI may use them for "AI thinking…" indicators; they do
@@ -135,4 +143,43 @@ object AppEvent:
     sessionId: SessionId,
     gameId:    GameId,
     reason:    String
+  ) extends AppEvent
+
+  /** '''Interaction/audit event''' — published when a move was attempted and
+   *  rejected by domain rules (illegal move, wrong turn, promotion required, etc.).
+   *
+   *  This is NOT a state-transition event: the game state does not change when
+   *  a move is rejected.  It exists solely for observability — audit trails,
+   *  client-side "your move was illegal" indicators, and monitoring of
+   *  malformed requests.  Subscribers must not update game state in response
+   *  to this event.
+   *
+   *  Published only for [[chess.application.session.service.SessionMoveError.DomainRejection]].
+   *  Not published for:
+   *  - Infrastructure failures (persistence errors, session not found) — caller errors
+   *  - Unauthorized-controller rejections — caller policy errors, not game events
+   */
+  final case class MoveRejected(
+    sessionId: SessionId,
+    gameId:    GameId,
+    move:      Move,
+    reason:    String
+  ) extends AppEvent
+
+  /** Published when a player explicitly resigns, ending the game in favour of
+   *  [[winner]].  Always accompanies a [[SessionLifecycleChanged]] event
+   *  (lifecycle → Finished).
+   */
+  final case class GameResigned(
+    sessionId: SessionId,
+    gameId:    GameId,
+    winner:    Color
+  ) extends AppEvent
+
+  /** Published when a session is cancelled before a terminal game state is
+   *  reached.  The associated game state is left unchanged (no winner recorded).
+   */
+  final case class SessionCancelled(
+    sessionId: SessionId,
+    gameId:    GameId
   ) extends AppEvent
