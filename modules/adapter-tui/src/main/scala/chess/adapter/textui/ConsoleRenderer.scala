@@ -75,10 +75,11 @@ object ConsoleRenderer:
     case Color.Black => "Black"
 
   private def statusName(status: GameStatus): String = status match
-    case GameStatus.Ongoing(false) => "Ongoing"
-    case GameStatus.Ongoing(true)  => "Check!"
-    case GameStatus.Checkmate(_)   => "Checkmate!"
-    case GameStatus.Draw(_)        => "Stalemate"
+    case GameStatus.Ongoing(false)   => "Ongoing"
+    case GameStatus.Ongoing(true)    => "Check!"
+    case GameStatus.Checkmate(_)     => "Checkmate!"
+    case GameStatus.Draw(_)          => "Stalemate"
+    case GameStatus.Resigned(winner) => s"Resigned — ${winner} wins!"
 
   private def pieceSymbol(piece: Piece): String =
     val ch = piece.pieceType match

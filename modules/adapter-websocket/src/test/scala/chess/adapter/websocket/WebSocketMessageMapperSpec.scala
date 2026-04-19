@@ -37,7 +37,10 @@ class WebSocketMessageMapperSpec extends AnyFlatSpec with Matchers with EitherVa
       AppEvent.GameFinished(sid, gid, GameStatus.Checkmate(Color.White)),
       AppEvent.AITurnRequested(sid, gid, Color.Black),
       AppEvent.AITurnCompleted(sid, gid, Move(e2, e4)),
-      AppEvent.AITurnFailed(sid, gid, "engine failure: timeout")
+      AppEvent.AITurnFailed(sid, gid, "engine failure: timeout"),
+      AppEvent.MoveRejected(sid, gid, Move(e2, e4), "illegal move"),
+      AppEvent.GameResigned(sid, gid, Color.Black),
+      AppEvent.SessionCancelled(sid, gid)
     )
     events.foreach { e =>
       noException should be thrownBy ujson.read(WebSocketMessageMapper.toMessage(e))
@@ -129,4 +132,31 @@ class WebSocketMessageMapperSpec extends AnyFlatSpec with Matchers with EitherVa
   "AITurnFailed" should "include reason" in {
     val json = parse(AppEvent.AITurnFailed(sid, gid, "no legal moves available"))
     json("reason").str shouldBe "no legal moves available"
+  }
+
+  // MoveRejected --------------------------------------------------------------
+
+  "MoveRejected" should "include the rejected move and reason" in {
+    val json = parse(AppEvent.MoveRejected(sid, gid, Move(e2, e4), "illegal move"))
+    json("eventType").str     shouldBe "MoveRejected"
+    json("move")("from").str  shouldBe "e2"
+    json("move")("to").str    shouldBe "e4"
+    json("reason").str        shouldBe "illegal move"
+  }
+
+  // GameResigned --------------------------------------------------------------
+
+  "GameResigned" should "include the winner" in {
+    val json = parse(AppEvent.GameResigned(sid, gid, Color.Black))
+    json("eventType").str shouldBe "GameResigned"
+    json("winner").str    shouldBe "Black"
+  }
+
+  // SessionCancelled ----------------------------------------------------------
+
+  "SessionCancelled" should "include only the common event identifiers" in {
+    val json = parse(AppEvent.SessionCancelled(sid, gid))
+    json("eventType").str shouldBe "SessionCancelled"
+    json("sessionId").str shouldBe sid.value.toString
+    json("gameId").str    shouldBe gid.value.toString
   }

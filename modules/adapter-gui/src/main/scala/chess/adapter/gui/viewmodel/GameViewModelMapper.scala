@@ -50,3 +50,6 @@ object GameViewModelMapper:
         val winnerName = if winner == Color.White then "White" else "Black"
         s"Checkmate — $winnerName wins!"
       case GameStatus.Draw(DrawReason.Stalemate) => "Stalemate — it's a draw!"
+      case GameStatus.Resigned(winner) =>
+        val winnerName = if winner == Color.White then "White" else "Black"
+        s"$winnerName wins by resignation!"

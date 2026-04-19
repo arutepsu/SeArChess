@@ -9,7 +9,7 @@ import chess.domain.state.{GameState, GameStateFactory}
 
 /** Application façade for the chess game.
  *
- *  Responsibilities:
+ *  Responsibilities: 
  *  - application-level guard checks (turn enforcement)
  *  - command routing
  *  - delegation to [[GameTransitionService]] for state transitions

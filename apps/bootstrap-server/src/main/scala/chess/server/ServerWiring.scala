@@ -3,7 +3,10 @@ package chess.server
 import cats.data.Kleisli
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
+import chess.adapter.ai.FirstLegalMoveProvider
 import chess.adapter.http4s.Http4sApp
+import chess.application.DefaultGameService
+import chess.application.ai.service.AITurnService
 import chess.config.AppConfig
 import chess.server.http.{CorsMiddleware, HealthRoutes}
 import chess.startup.assembly.{AppContext, CoreAssembly, EventAssembly, PersistenceAssembly}
@@ -51,13 +54,14 @@ object ServerWiring:
     // CoreAssembly wires persistence and events into application services.
     // The overload that takes pre-assembled wiring is used here to ensure
     // the app services see the same publisher as the live WebSocket server.
-    val ctx = CoreAssembly.build(persistence, events)
+    val baseCtx = CoreAssembly.build(persistence, events)
+    val ctx     = withServerAi(baseCtx, events)
 
     // ── HTTP surface composition ─────────────────────────────────────────────
     // Operational routes (health) are tried first; unmatched requests fall
     // through to the chess HttpApp.  CORS middleware wraps the entire surface.
     val chessHttpApp: HttpApp[IO] =
-      Http4sApp(ctx.commands, ctx.sessionService, ctx.gameRepository).httpApp
+      Http4sApp(ctx.gameService).httpApp
 
     val composedApp: HttpApp[IO] =
       Kleisli { (req: Request[IO]) =>
@@ -87,3 +91,19 @@ object ServerWiring:
         .unsafeRunSync()
 
     (ctx, ServerRuntime(events.wsServer, shutdownHttp))
+
+  /** Attach the server's configured AI provider to the Game Service boundary.
+   *
+   *  `CoreAssembly` intentionally leaves AI disabled for shared GUI/TUI
+   *  composition. The HTTP server exposes `/games/{id}/ai-move`, so this runtime
+   *  wires the existing AI adapter through the existing AI port and turn service.
+   */
+  private[server] def withServerAi(baseCtx: AppContext, events: chess.startup.assembly.EventWiring): AppContext =
+    val ai = AITurnService(FirstLegalMoveProvider(), baseCtx.commands, events.publisher)
+    baseCtx.copy(gameService = DefaultGameService(
+      commands       = baseCtx.commands,
+      sessionService = baseCtx.sessionService,
+      gameRepository = baseCtx.gameRepository,
+      publisher      = events.publisher,
+      aiService      = Some(ai)
+    ))

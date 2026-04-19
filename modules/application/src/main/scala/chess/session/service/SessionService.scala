@@ -117,6 +117,31 @@ class SessionService(repository: SessionRepository, publisher: EventPublisher):
       case RepositoryError.NotFound(_)         => SessionError.GameSessionNotFound(gameId)
       case err: RepositoryError.StorageFailure => SessionError.PersistenceFailed(err)
 
+  /** Cancel a session by advancing its lifecycle to [[SessionLifecycle.Finished]].
+   *
+   *  Valid for sessions in [[SessionLifecycle.Created]] or [[SessionLifecycle.Active]].
+   *  The underlying game state is left unchanged (no winner is recorded).
+   *  Publishes [[chess.application.event.AppEvent.SessionCancelled]] on success.
+   *
+   *  Returns [[SessionError.InvalidLifecycleTransition]] when the session is
+   *  already [[SessionLifecycle.Finished]].
+   */
+  def cancelSession(
+    sessionId: SessionId,
+    now:       Instant = Instant.now()
+  ): Either[SessionError, GameSession] =
+    updateLifecycle(sessionId, SessionLifecycle.Finished, now).map { updated =>
+      publisher.publish(AppEvent.SessionCancelled(updated.sessionId, updated.gameId))
+      updated
+    }
+
+  /** Return all sessions that have not yet reached [[SessionLifecycle.Finished]].
+   *
+   *  Returns an empty list (not an error) when no active sessions exist.
+   */
+  def listActiveSessions(): Either[SessionError, List[GameSession]] =
+    repository.listActive().left.map(SessionError.PersistenceFailed(_))
+
   /** Return the [[SideController]] responsible for the given [[Color]].
    *
    *  Pure lookup — does not touch the repository.
@@ -213,8 +238,8 @@ class SessionService(repository: SessionRepository, publisher: EventPublisher):
     now:       Instant
   ): Either[SessionMoveError, (GameState, GameSession)] =
     val isTerminal = nextState.status match
-      case GameStatus.Checkmate(_) | GameStatus.Draw(_) => true
-      case _                                            => false
+      case GameStatus.Checkmate(_) | GameStatus.Draw(_) | GameStatus.Resigned(_) => true
+      case _                                                                      => false
 
     val nextLifecycle: Option[SessionLifecycle] = (session.lifecycle, isTerminal) match
       case (_, true)                                   => Some(SessionLifecycle.Finished)

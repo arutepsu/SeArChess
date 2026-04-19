@@ -1,6 +1,8 @@
 package chess.startup.assembly
 
 import chess.adapter.event.NoOpEventPublisher
+import chess.application.DefaultGameService
+import chess.application.GameServiceApi
 import chess.application.port.repository.GameRepository
 import chess.application.session.service.{GameSessionCommands, SessionGameService, SessionService}
 import chess.config.AppConfig
@@ -14,11 +16,13 @@ import chess.config.AppConfig
  *  @param commands       write boundary for game-session mutations ([[GameSessionCommands]])
  *  @param sessionService session read/query and lifecycle service
  *  @param gameRepository read-only game-state port
+ *  @param gameService    unified Game Service boundary ([[GameServiceApi]])
  */
 final case class AppContext(
   commands:       GameSessionCommands,
   sessionService: SessionService,
-  gameRepository: GameRepository
+  gameRepository: GameRepository,
+  gameService:    GameServiceApi
 )
 
 /** Assembles the shared application runtime from infrastructure wiring.
@@ -50,11 +54,22 @@ object CoreAssembly:
    *  injected into the services.  When called from [[chess.server.ServerWiring]],
    *  the publisher is backed by the same registry as the live WebSocket server so
    *  that events flow to connected clients.
+   *
+   *  The [[DefaultGameService]] created here has no AI provider; callers that
+   *  need AI support (e.g. the server wiring) must replace or extend the
+   *  [[GameServiceApi]] instance after construction.
    */
   def build(persistence: PersistenceWiring, events: EventWiring): AppContext =
     val sessionService = SessionService(persistence.sessionRepository, events.publisher)
     val commands       = SessionGameService(sessionService, persistence.store, events.publisher)
-    AppContext(commands, sessionService, persistence.gameRepository)
+    val gameService    = DefaultGameService(
+                           commands       = commands,
+                           sessionService = sessionService,
+                           gameRepository = persistence.gameRepository,
+                           publisher      = events.publisher,
+                           aiService      = None
+                         )
+    AppContext(commands, sessionService, persistence.gameRepository, gameService)
 
   /** Build the application context for GUI/TUI app deployment and tests.
    *

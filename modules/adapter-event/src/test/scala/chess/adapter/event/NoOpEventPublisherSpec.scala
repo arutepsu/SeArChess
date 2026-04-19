@@ -25,7 +25,10 @@ class NoOpEventPublisherSpec extends AnyFlatSpec with Matchers with EitherValues
       AppEvent.GameFinished(sid, gid, GameStatus.Draw(DrawReason.Stalemate)),
       AppEvent.AITurnRequested(sid, gid, Color.Black),
       AppEvent.AITurnCompleted(sid, gid, Move(e2, e4)),
-      AppEvent.AITurnFailed(sid, gid, "engine failure")
+      AppEvent.AITurnFailed(sid, gid, "engine failure"),
+      AppEvent.MoveRejected(sid, gid, Move(e2, e4), "illegal move"),
+      AppEvent.GameResigned(sid, gid, Color.Black),
+      AppEvent.SessionCancelled(sid, gid)
     )
     events.foreach { e =>
       noException should be thrownBy NoOpEventPublisher.publish(e)

@@ -23,8 +23,6 @@ class SessionMapperSpec extends AnyFlatSpec with Matchers with EitherValues:
     updatedAt       = now
   )
 
-  // ── parseMode ──────────────────────────────────────────────────────────────
-
   "SessionMapper.parseMode" should "default to HumanVsHuman when None" in {
     SessionMapper.parseMode(None).value shouldBe SessionMode.HumanVsHuman
   }
@@ -49,8 +47,6 @@ class SessionMapperSpec extends AnyFlatSpec with Matchers with EitherValues:
     SessionMapper.parseMode(Some("blah")).left.value should include("blah")
   }
 
-  // ── parseController ────────────────────────────────────────────────────────
-
   "SessionMapper.parseController" should "default to HumanLocal when None" in {
     SessionMapper.parseController(None).value shouldBe SideController.HumanLocal
   }
@@ -67,11 +63,61 @@ class SessionMapperSpec extends AnyFlatSpec with Matchers with EitherValues:
     SessionMapper.parseController(Some("Robot")).isLeft shouldBe true
   }
 
+  it should "return Left for AI because REST v1 derives AI seats from mode" in {
+    SessionMapper.parseController(Some("AI")).isLeft shouldBe true
+  }
+
   it should "include the offending value in the error message" in {
     SessionMapper.parseController(Some("Robot")).left.value should include("Robot")
   }
 
-  // ── controllerToString ─────────────────────────────────────────────────────
+  "SessionMapper.resolveCreateControllers" should "default HumanVsHuman to two local human controllers" in {
+    val (white, black) = SessionMapper
+      .resolveCreateControllers(SessionMode.HumanVsHuman, None, None)
+      .value
+
+    white shouldBe SideController.HumanLocal
+    black shouldBe SideController.HumanLocal
+  }
+
+  it should "resolve HumanVsAI as White human and Black server AI" in {
+    val (white, black) = SessionMapper
+      .resolveCreateControllers(SessionMode.HumanVsAI, None, None)
+      .value
+
+    white shouldBe SideController.HumanLocal
+    black shouldBe SideController.AI()
+  }
+
+  it should "allow a human controller override for the HumanVsAI human side" in {
+    val (white, black) = SessionMapper
+      .resolveCreateControllers(SessionMode.HumanVsAI, Some("HumanRemote"), None)
+      .value
+
+    white shouldBe SideController.HumanRemote
+    black shouldBe SideController.AI()
+  }
+
+  it should "reject a HumanVsAI blackController override because Black is server AI" in {
+    SessionMapper
+      .resolveCreateControllers(SessionMode.HumanVsAI, None, Some("HumanLocal"))
+      .left.value should include("blackController")
+  }
+
+  it should "resolve AIVsAI as two server AI controllers" in {
+    val (white, black) = SessionMapper
+      .resolveCreateControllers(SessionMode.AIVsAI, None, None)
+      .value
+
+    white shouldBe SideController.AI()
+    black shouldBe SideController.AI()
+  }
+
+  it should "reject controller overrides for AIVsAI" in {
+    SessionMapper
+      .resolveCreateControllers(SessionMode.AIVsAI, Some("HumanLocal"), None)
+      .left.value should include("AIVsAI")
+  }
 
   "SessionMapper.controllerToString" should "serialize HumanLocal" in {
     SessionMapper.controllerToString(SideController.HumanLocal) shouldBe "HumanLocal"
@@ -82,11 +128,9 @@ class SessionMapperSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   it should "serialize AI regardless of engine id" in {
-    SessionMapper.controllerToString(SideController.AI(None))             shouldBe "AI"
+    SessionMapper.controllerToString(SideController.AI(None))              shouldBe "AI"
     SessionMapper.controllerToString(SideController.AI(Some("stockfish"))) shouldBe "AI"
   }
-
-  // ── toSessionResponse ──────────────────────────────────────────────────────
 
   "SessionMapper.toSessionResponse" should "populate all fields from GameSession" in {
     val resp = SessionMapper.toSessionResponse(sess)
@@ -114,8 +158,6 @@ class SessionMapperSpec extends AnyFlatSpec with Matchers with EitherValues:
     val fin = sess.copy(lifecycle = SessionLifecycle.Finished)
     SessionMapper.toSessionResponse(fin).lifecycle shouldBe "Finished"
   }
-
-  // ── toCreateSessionResponse ────────────────────────────────────────────────
 
   "SessionMapper.toCreateSessionResponse" should "bundle session and game data" in {
     val state    = ChessService.createNewGame()

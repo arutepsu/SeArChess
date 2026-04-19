@@ -2,59 +2,57 @@ package chess.adapter.http4s.route
 
 import cats.effect.IO
 import chess.adapter.http4s.route.Http4sRouteSupport.*
-import chess.adapter.rest.contract.dto.{CreateSessionRequest, CreateSessionResponse, SessionResponse}
+import chess.adapter.rest.contract.dto.{CreateSessionRequest, CreateSessionResponse, SessionListResponse, SessionResponse}
 import chess.adapter.rest.contract.mapper.{GameMapper, SessionMapper}
+import chess.application.GameServiceApi
 import chess.application.session.model.SessionIds.SessionId
-import chess.application.session.service.{GameSessionCommands, SessionError, SessionService}
+import chess.application.session.service.SessionError
 import org.http4s.*
 import org.http4s.dsl.io.*
 
 /** http4s routes for the `/sessions` resource.
  *
  *  Routes:
- *  - `POST /sessions`       → [[handleCreate]]  (command — uses [[GameSessionCommands]])
- *  - `GET  /sessions/{id}`  → [[handleGet]]      (query  — uses [[SessionService]])
+ *  - `POST /sessions`              → [[handleCreate]]   (command — create new game)
+ *  - `GET  /sessions`              → [[handleList]]     (query  — list active sessions)
+ *  - `GET  /sessions/{id}`         → [[handleGet]]      (query  — get single session)
+ *  - `POST /sessions/{id}/cancel`  → [[handleCancel]]   (command — cancel session)
  *
- *  The dependency split is intentional:
- *  - `POST` routes to the game-session command boundary ([[GameSessionCommands]]).
- *  - `GET` routes to the read/query side ([[SessionService]]).
- *  This keeps the command path and the query path separately typed, making the
- *  future service extraction boundary visible at the adapter level.
+ *  All operations are routed through [[GameServiceApi]] — the single Game Service
+ *  boundary.  This class has one dependency instead of the previous three
+ *  ([[chess.application.session.service.GameSessionCommands]],
+ *  [[chess.application.session.service.SessionService]], and
+ *  [[chess.application.port.repository.GameRepository]]).
  *
- *  This class is pure logic: no I/O beyond effect-wrapping of synchronous
- *  application calls.  It is tested in-memory via `routes.orNotFound.run(req)`.
- *
- *  DTOs and mappers from `chess.adapter.rest` are reused deliberately — they
- *  are transport-neutral (ujson-based case classes) and there is no reason to
- *  duplicate them for the http4s adapter.
+ *  This class is pure logic tested in-memory via `routes.orNotFound.run(req)`.
  */
-class Http4sSessionRoutes(commands: GameSessionCommands, sessionService: SessionService):
+class Http4sSessionRoutes(gameService: GameServiceApi):
 
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
 
     case req @ POST -> Root / "sessions" =>
       req.bodyText.compile.string.flatMap(handleCreate)
 
+    case GET -> Root / "sessions" =>
+      handleList()
+
     case GET -> Root / "sessions" / id =>
       handleGet(id)
+
+    case POST -> Root / "sessions" / id / "cancel" =>
+      handleCancel(id)
   }
 
   // ── handlers ──────────────────────────────────────────────────────────────
 
-  /** Create a session through the game-session command boundary.
-   *
-   *  [[GameSessionCommands.newGame]] atomically creates a fresh session, generates
-   *  a [[chess.application.session.model.SessionIds.GameId]], and persists the
-   *  initial [[chess.domain.state.GameState]] before returning.
-   */
   private def handleCreate(body: String): IO[Response[IO]] =
     val result =
       for
         req           <- CreateSessionRequest.fromJson(body)
         mode          <- SessionMapper.parseMode(req.mode)
-        white         <- SessionMapper.parseController(req.whiteController)
-        black         <- SessionMapper.parseController(req.blackController)
-        pair          <- commands.newGame(mode, white, black)
+        controllers   <- SessionMapper.resolveCreateControllers(mode, req.whiteController, req.blackController)
+        (white, black) = controllers
+        pair          <- gameService.createGame(mode, white, black)
                            .left.map(sessionErrMsg)
         (state, session) = pair
       yield SessionMapper.toCreateSessionResponse(
@@ -67,14 +65,38 @@ class Http4sSessionRoutes(commands: GameSessionCommands, sessionService: Session
       case Right(resp) => jsonResponse(Status.Created, CreateSessionResponse.toJson(resp))
       case Left(msg)   => jsonError(Status.BadRequest, "BAD_REQUEST", msg)
 
+  private def handleList(): IO[Response[IO]] =
+    gameService.listActiveSessions() match
+      case Left(err) =>
+        jsonError(Status.InternalServerError, "INTERNAL_ERROR", sessionErrMsg(err))
+      case Right(sessions) =>
+        val items = sessions.map(SessionMapper.toSessionResponse)
+        jsonResponse(Status.Ok, SessionListResponse.toJson(SessionListResponse(items)))
+
   private def handleGet(idStr: String): IO[Response[IO]] =
     parseUUID(idStr) match
       case Left(msg) =>
         jsonError(Status.BadRequest, "BAD_REQUEST", msg)
       case Right(uuid) =>
-        sessionService.getSession(SessionId(uuid)) match
+        gameService.getSession(SessionId(uuid)) match
           case Left(SessionError.SessionNotFound(_)) =>
             jsonError(Status.NotFound, "SESSION_NOT_FOUND", s"Session not found: $idStr")
+          case Left(err) =>
+            jsonError(Status.InternalServerError, "INTERNAL_ERROR", sessionErrMsg(err))
+          case Right(session) =>
+            jsonResponse(Status.Ok, SessionResponse.toJson(SessionMapper.toSessionResponse(session)))
+
+  private def handleCancel(idStr: String): IO[Response[IO]] =
+    parseUUID(idStr) match
+      case Left(msg) =>
+        jsonError(Status.BadRequest, "BAD_REQUEST", msg)
+      case Right(uuid) =>
+        gameService.cancelSession(SessionId(uuid)) match
+          case Left(SessionError.SessionNotFound(_)) =>
+            jsonError(Status.NotFound, "SESSION_NOT_FOUND", s"Session not found: $idStr")
+          case Left(SessionError.InvalidLifecycleTransition(reason)) =>
+            jsonError(Status.Conflict, "SESSION_ALREADY_FINISHED",
+              s"Cannot cancel a finished session: $reason")
           case Left(err) =>
             jsonError(Status.InternalServerError, "INTERNAL_ERROR", sessionErrMsg(err))
           case Right(session) =>

@@ -72,3 +72,5 @@ private[pgn] object PgnExporter extends NotationExporter[GameState]:
     case GameStatus.Checkmate(Color.Black) => "0-1"
     case GameStatus.Draw(_)                => "1/2-1/2"
     case GameStatus.Ongoing(_)             => "*"
+    case GameStatus.Resigned(Color.White)  => "1-0"
+    case GameStatus.Resigned(Color.Black)  => "0-1"
