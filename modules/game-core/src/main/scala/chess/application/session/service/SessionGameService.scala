@@ -1,7 +1,7 @@
 package chess.application.session.service
 
 import chess.application.event.AppEvent
-import chess.application.port.event.EventPublisher
+import chess.application.port.event.{EventPublisher, NoOpTerminalEventJsonSerializer, TerminalEventJsonSerializer}
 import chess.application.port.repository.{RepositoryError, SessionGameStore}
 import chess.application.session.model.{GameSession, SessionLifecycle, SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
@@ -42,19 +42,24 @@ import java.time.Instant
  *  @param sessionService pure validation, lifecycle computation, and session-only writes
  *  @param store          combined persistence port for session + game state (command surface)
  *  @param publisher      post-persistence event publication (command surface)
+ *  @param serializer     serialises terminal events to JSON for transactional outbox writes;
+ *                        defaults to no-op when no durable outbox is configured
  */
 class SessionGameService(
   sessionService: SessionService,
   store:          SessionGameStore,
-  publisher:      EventPublisher
+  publisher:      EventPublisher,
+  serializer:     TerminalEventJsonSerializer = NoOpTerminalEventJsonSerializer
 ) extends GameSessionCommands:
 
   /** Apply a move through the session boundary and persist both the updated
    *  session and the new [[GameState]] before publishing any events.
    *
+   *  For terminal moves (checkmate, draw) the session write, the game-state
+   *  write, and the outbox payload are submitted together via
+   *  [[SessionGameStore.saveTerminal]] so that either all three land or none do.
+   *
    *  On success:
-   *  - [[SessionGameStore.save]] is called once with the updated session and
-   *    new game state.
    *  - [[AppEvent.MoveApplied]] is published.
    *  - [[AppEvent.GameFinished]] is published when the game is terminal.
    *  - [[AppEvent.SessionLifecycleChanged]] is published when the lifecycle
@@ -82,7 +87,8 @@ class SessionGameService(
   ): Either[SessionMoveError, (GameState, GameSession)] =
     for
       (nextState, nextSession) <- sessionService.applyMove(session, state, move, controller, now)
-      _                        <- store.save(nextSession, nextState)
+      outboxPayloads            = terminalOutboxPayloads(session, nextState)
+      _                        <- store.saveTerminal(nextSession, nextState, outboxPayloads)
                                     .left.map(e => SessionMoveError.PersistenceFailed(SessionError.PersistenceFailed(e)))
     yield
       publisher.publish(AppEvent.MoveApplied(session.sessionId, session.gameId, move, state.currentPlayer))
@@ -125,7 +131,7 @@ class SessionGameService(
 
   /** Record a resignation: set [[GameStatus.Resigned]] on the game state, advance
    *  the session lifecycle to [[SessionLifecycle.Finished]], and persist both
-   *  atomically via [[SessionGameStore]].
+   *  together with the outbox payload atomically via [[SessionGameStore.saveTerminal]].
    *
    *  On success: publishes [[AppEvent.GameResigned]] followed by
    *  [[AppEvent.SessionLifecycleChanged]].
@@ -143,7 +149,9 @@ class SessionGameService(
       val winner        = resigningSide.opposite
       val resignedState = state.copy(status = GameStatus.Resigned(winner))
       val finishedSess  = GameSession.withLifecycle(session, SessionLifecycle.Finished, now)
-      store.save(finishedSess, resignedState)
+      val event         = AppEvent.GameResigned(session.sessionId, session.gameId, winner)
+      val payloads      = serializer.serialize(event).toList
+      store.saveTerminal(finishedSess, resignedState, payloads)
         .left.map(SessionError.PersistenceFailed(_))
         .map { _ =>
           publisher.publish(AppEvent.GameResigned(session.sessionId, session.gameId, winner))
@@ -188,6 +196,13 @@ class SessionGameService(
     sessionService.updateLifecycle(id, next, now)
 
   // ── private helpers ────────────────────────────────────────────────────────
+
+  private def terminalOutboxPayloads(session: GameSession, nextState: GameState): List[String] =
+    nextState.status match
+      case GameStatus.Checkmate(_) | GameStatus.Draw(_) =>
+        val event = AppEvent.GameFinished(session.sessionId, session.gameId, nextState.status)
+        serializer.serialize(event).toList
+      case _ => Nil
 
   private def isTerminalStatus(status: GameStatus): Boolean = status match
     case GameStatus.Checkmate(_) | GameStatus.Draw(_) | GameStatus.Resigned(_) => true

@@ -11,7 +11,8 @@ import java.util.UUID
 /** SQLite-backed [[SessionRepository]].
  *
  *  Session metadata is stored as flat columns in the `sessions` table.
- *  Transactional multi-table writes are handled at the [[SqliteSessionGameStore]] level.
+ *  Transactional multi-table writes are handled at the [[SqliteSessionGameStore]] level
+ *  for game-state operations and by [[saveCancelWithOutbox]] for session-cancel operations.
  */
 class SqliteSessionRepository(ds: SqliteDataSource) extends SessionRepository:
 
@@ -71,6 +72,32 @@ class SqliteSessionRepository(ds: SqliteDataSource) extends SessionRepository:
       finally
         ps.close()
     }
+
+  /** Persist a cancelled session and its outbox payload in one JDBC transaction.
+   *
+   *  When `outboxPayload` is [[None]] (no-op serialiser or history disabled),
+   *  delegates to [[save]] — same behaviour as before.
+   *
+   *  When `outboxPayload` is [[Some]], the session upsert and the outbox row
+   *  insert share a single transaction.  If either write fails the other is also
+   *  rolled back so the `sessions` row and the `history_event_outbox` row always
+   *  agree.
+   */
+  override def saveCancelWithOutbox(
+    session:       GameSession,
+    outboxPayload: Option[String]
+  ): Either[RepositoryError, Unit] =
+    outboxPayload match
+      case None => save(session)
+      case Some(payload) =>
+        ds.withTransaction { conn =>
+          try
+            upsertSession(conn, session)
+            OutboxInsert(conn, payload)
+          catch
+            case e: java.sql.SQLException =>
+              Left(RepositoryError.StorageFailure(e.getMessage))
+        }
 
   // ── Package-private for use by SqliteSessionGameStore ─────────────────────
 

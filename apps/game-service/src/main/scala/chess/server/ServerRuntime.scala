@@ -13,8 +13,10 @@ import chess.adapter.websocket.ChessWebSocketServer
  *                       enabled in config; call `stop(0)` on the contained
  *                       value to shut down
  *  @param shutdownHttp  effect that cleanly terminates the HTTP server
+ *  @param shutdownEvents effect that stops background event infrastructure
  */
 final case class ServerRuntime(
-  wsServer:     Option[ChessWebSocketServer],
-  shutdownHttp: IO[Unit]
+  wsServer:       Option[ChessWebSocketServer],
+  shutdownHttp:   IO[Unit],
+  shutdownEvents: IO[Unit] = IO.unit
 )

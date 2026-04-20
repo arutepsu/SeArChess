@@ -14,8 +14,8 @@ no broker, no production orchestration, no shared Game Service database access.
   Service over HTTP.
 - History materializes PGN/FEN with the existing notation path and stores its
   own archive record in its own SQLite database.
-- The HTTP forwarding bridge is best-effort. It is useful for local extraction
-  proof, but it is not durable delivery.
+- In SQLite mode, Game Service writes terminal History-facing events to a small
+  SQLite outbox before a background forwarder POSTs them to History.
 
 ## Services
 
@@ -46,6 +46,13 @@ Game Service History forwarding environment:
 | `HISTORY_FORWARDING_ENABLED` | `true` |
 | `HISTORY_SERVICE_BASE_URL` | `http://history-service:8081` |
 | `HISTORY_FORWARDING_TIMEOUT_MILLIS` | `2000` |
+
+Game Service must also run with SQLite persistence for durable forwarding:
+
+| Variable | Value |
+|---|---|
+| `PERSISTENCE_MODE` | `sqlite` |
+| `CHESS_DB_PATH` | `/data/searchess.sqlite` |
 
 History persistence is mounted separately from Game Service:
 
@@ -94,8 +101,9 @@ GAME_ID=$(echo "$SESSION_JSON" | jq -r '.session.gameId')
 curl -s -X POST "http://127.0.0.1:8080/sessions/$SESSION_ID/cancel"
 ```
 
-The cancel command publishes `game.session.cancelled.v1`; Game Service forwards
-that event to History automatically. Verify History owns a stored archive:
+The cancel command publishes `game.session.cancelled.v1`; Game Service writes
+that event to its SQLite outbox and the background forwarder delivers it to
+History automatically. Verify History owns a stored archive:
 
 ```bash
 curl -s "http://127.0.0.1:8081/archives/$GAME_ID"
@@ -105,6 +113,10 @@ docker compose exec history-service ls -l /history-data
 The History record is stored in `/history-data/history.sqlite`, not in the Game
 Service SQLite file.
 
+The Game Service outbox is stored in its own table, `history_event_outbox`,
+inside `/data/searchess.sqlite`. Rows remain pending while `delivered_at` is
+`NULL` and are retried by Game Service after restart.
+
 ## Manual Test Hook
 
 `POST /events/game` remains available as a local/dev test hook for exercising
@@ -113,8 +125,12 @@ History directly, but it is no longer required for the normal compose proof.
 ## Honest Boundary
 
 This is a real extraction step because History is now a separately runnable
-process that depends on Game Service only through HTTP and event JSON. It is
-not yet durable event delivery: if the HTTP bridge cannot reach History, the
-failure is logged/absorbed and gameplay still succeeds. The missing production
-piece is a durable delivery mechanism such as an outbox or broker-backed
-subscriber.
+process that depends on Game Service only through HTTP and event JSON. The
+local/dev SQLite outbox is now durable enough to survive a temporary History
+outage or Game Service restart after the outbox row is written.
+
+This is still not production-grade event delivery. The outbox write is not in
+the same transaction as the Game state/session write, delivery is at-least-once,
+and in-memory Game persistence falls back to best-effort forwarding because
+there is no durable store to reload after restart. See
+`docs/architecture/game-history-outbox.md`.

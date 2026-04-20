@@ -41,6 +41,7 @@ object ServerMain:
     // Drain HTTP and WebSocket on JVM shutdown (SIGINT / SIGTERM).
     Runtime.getRuntime.addShutdownHook(new Thread(() => {
       server.shutdownHttp.unsafeRunSync()
+      server.shutdownEvents.unsafeRunSync()
       server.wsServer.foreach(_.stop(0))
     }))
 

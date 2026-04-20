@@ -14,6 +14,12 @@ import chess.application.session.model.SessionIds.{GameId, SessionId}
  *  - [[loadByGameId]] covers the secondary pattern needed for game-oriented
  *    session lookup (e.g. restoring a session when only the game id is known).
  *
+ *  === Transactional cancel ===
+ *  [[saveCancelWithOutbox]] extends [[save]] with an atomically co-written
+ *  outbox payload.  The default delegates to [[save]] (correct for in-memory
+ *  and no-outbox modes).  The SQLite implementation wraps both writes in one
+ *  JDBC transaction.
+ *
  *  All operations return `Either[RepositoryError, _]` so callers can handle
  *  missing records and storage failures without catching exceptions.
  */
@@ -43,3 +49,24 @@ trait SessionRepository:
    *  sessions exist.  Order is implementation-defined.
    */
   def listActive(): Either[RepositoryError, List[GameSession]]
+
+  /** Persist a cancelled [[GameSession]] and its outbox payload in one atomic
+   *  operation.
+   *
+   *  The default implementation delegates to [[save]] and discards
+   *  `outboxPayload`.  This is correct when no durable outbox is configured
+   *  (in-memory persistence, or no-op serializer).
+   *
+   *  SQLite implementations override this to wrap the session upsert and the
+   *  outbox row insert in a single JDBC transaction.  If either write fails the
+   *  other is also rolled back.
+   *
+   *  @param session       the session with lifecycle advanced to Finished
+   *  @param outboxPayload serialised JSON for the SessionCancelled event, or
+   *                       [[None]] when no outbox is configured
+   */
+  def saveCancelWithOutbox(
+    session:       GameSession,
+    outboxPayload: Option[String]
+  ): Either[RepositoryError, Unit] =
+    save(session)

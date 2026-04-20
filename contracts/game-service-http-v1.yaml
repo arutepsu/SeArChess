@@ -1,0 +1,766 @@
+openapi: 3.0.3
+info:
+  title: Searchess Game Service HTTP API
+  version: "1.0.0"
+  description: >
+    Local/dev Game Service HTTP contract v1. Routes are currently unprefixed;
+    this file documents the existing externally consumable service surface.
+servers:
+  - url: http://localhost:8080
+    description: Local container/default development server
+tags:
+  - name: health
+  - name: sessions
+  - name: games
+  - name: archive
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Liveness check
+      description: Process liveness only. Does not check SQLite, AI, or History dependencies.
+      responses:
+        "200":
+          description: Server process is alive.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: ok
+  /sessions:
+    post:
+      tags: [sessions]
+      summary: Create a new session and initial game
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSessionRequest"
+            example:
+              mode: HumanVsHuman
+              whiteController: HumanLocal
+              blackController: HumanRemote
+      responses:
+        "201":
+          description: Session and initial game created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateSessionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+    get:
+      tags: [sessions]
+      summary: List active sessions
+      responses:
+        "200":
+          description: Active sessions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionListResponse"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /sessions/{sessionId}:
+    parameters:
+      - $ref: "#/components/parameters/SessionId"
+    get:
+      tags: [sessions]
+      summary: Get one session
+      responses:
+        "200":
+          description: Session metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: Session was not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                code: SESSION_NOT_FOUND
+                message: "Session not found: 2e39c1e3-31ef-41c7-a783-f30c507a4232"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /sessions/{sessionId}/cancel:
+    parameters:
+      - $ref: "#/components/parameters/SessionId"
+    post:
+      tags: [sessions]
+      summary: Cancel an existing session
+      description: Existing adjacent endpoint. Closing a session makes its archive snapshot available.
+      responses:
+        "200":
+          description: Updated session metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: Session was not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                code: SESSION_NOT_FOUND
+                message: "Session not found: 2e39c1e3-31ef-41c7-a783-f30c507a4232"
+        "409":
+          description: Session is already finished.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                code: SESSION_ALREADY_FINISHED
+                message: "Cannot cancel a finished session: invalid transition"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /games/{gameId}:
+    parameters:
+      - $ref: "#/components/parameters/GameId"
+    get:
+      tags: [games]
+      summary: Get current game state
+      responses:
+        "200":
+          description: Current game state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Game"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/GameNotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /games/{gameId}/legal-moves:
+    parameters:
+      - $ref: "#/components/parameters/GameId"
+    get:
+      tags: [games]
+      summary: Get legal moves for the current player
+      description: Existing adjacent endpoint.
+      responses:
+        "200":
+          description: Legal moves for the current player.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegalMovesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/GameNotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /games/{gameId}/moves:
+    parameters:
+      - $ref: "#/components/parameters/GameId"
+    post:
+      tags: [games]
+      summary: Submit a move
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitMoveRequest"
+            example:
+              from: e2
+              to: e4
+              promotion: null
+              controller: HumanLocal
+      responses:
+        "200":
+          description: Updated game state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommandGameResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: Controller is not authorized for the side to move.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                code: UNAUTHORIZED_CONTROLLER
+                message: "Controller 'HumanRemote' is not authorized to move for White"
+        "404":
+          description: Game or session was not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                game:
+                  value:
+                    code: GAME_NOT_FOUND
+                    message: Game or session not found
+                session:
+                  value:
+                    code: SESSION_NOT_FOUND
+                    message: Session not found
+        "409":
+          description: Game is already finished.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                code: GAME_FINISHED
+                message: Game is already finished; no further moves are accepted
+        "422":
+          description: Move was syntactically valid JSON but not applicable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalidMove:
+                  value:
+                    code: INVALID_MOVE
+                    message: "Invalid 'from' square: 'z9'"
+                promotionRequired:
+                  value:
+                    code: PROMOTION_REQUIRED
+                    message: A promotion piece must be specified for this move
+                illegalMove:
+                  value:
+                    code: ILLEGAL_MOVE
+                    message: "Illegal move: NoPieceAtSource"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /games/{gameId}/ai-move:
+    parameters:
+      - $ref: "#/components/parameters/GameId"
+    post:
+      tags: [games]
+      summary: Trigger and apply an AI move
+      description: >
+        Always mounted. Deployments without an AI provider return
+        422 AI_NOT_CONFIGURED.
+      responses:
+        "200":
+          description: Updated game state after the AI move.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommandGameResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/GameNotFound"
+        "422":
+          description: AI move cannot be performed in the current deployment or game state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                notConfigured:
+                  value:
+                    code: AI_NOT_CONFIGURED
+                    message: This deployment has no AI provider configured
+                notAiTurn:
+                  value:
+                    code: NOT_AI_TURN
+                    message: It is not the AI's turn
+                rejected:
+                  value:
+                    code: AI_MOVE_REJECTED
+                    message: "AI move rejected: illegal move"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          description: AI provider call failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                code: AI_PROVIDER_FAILED
+                message: "AI provider failed: timeout"
+  /games/{gameId}/resign:
+    parameters:
+      - $ref: "#/components/parameters/GameId"
+    post:
+      tags: [games]
+      summary: Resign a game
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResignRequest"
+            example:
+              side: White
+      responses:
+        "200":
+          description: Updated game state after resignation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommandGameResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: Game or session was not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                game:
+                  value:
+                    code: GAME_NOT_FOUND
+                    message: "Game session not found: 9a07c6f3-70c2-4467-98af-34e0bbf6bde1"
+                session:
+                  value:
+                    code: SESSION_NOT_FOUND
+                    message: "Session not found: 2e39c1e3-31ef-41c7-a783-f30c507a4232"
+        "409":
+          description: Game is already finished.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                code: GAME_ALREADY_FINISHED
+                message: Cannot resign a game that is already finished
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /archive/games/{gameId}:
+    parameters:
+      - $ref: "#/components/parameters/GameId"
+    get:
+      tags: [archive]
+      summary: Get archive snapshot for a closed game
+      description: >
+        Returns the Game-owned archive snapshot consumed by downstream History.
+        The game/session must already be closed.
+      responses:
+        "200":
+          description: Archive snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArchiveSnapshot"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: Archive snapshot source was not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                code: ARCHIVE_NOT_FOUND
+                message: "Archive snapshot not found for game: 9a07c6f3-70c2-4467-98af-34e0bbf6bde1"
+        "409":
+          description: Game exists but is not closed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                code: ARCHIVE_NOT_READY
+                message: "Archive snapshot is not available until the game is closed: 9a07c6f3-70c2-4467-98af-34e0bbf6bde1"
+        "500":
+          $ref: "#/components/responses/InternalError"
+components:
+  parameters:
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    GameId:
+      name: gameId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    BadRequest:
+      description: Malformed request, invalid UUID, or invalid enum value.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: BAD_REQUEST
+            message: "Invalid UUID: 'not-a-uuid'"
+    GameNotFound:
+      description: Game was not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: GAME_NOT_FOUND
+            message: "Game not found: 9a07c6f3-70c2-4467-98af-34e0bbf6bde1"
+    InternalError:
+      description: Internal storage or service failure.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: INTERNAL_ERROR
+            message: Storage error
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+    CreateSessionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        mode:
+          $ref: "#/components/schemas/SessionMode"
+        whiteController:
+          $ref: "#/components/schemas/InboundController"
+        blackController:
+          $ref: "#/components/schemas/InboundController"
+      description: >
+        All fields are optional. Inbound controllers only accept HumanLocal or
+        HumanRemote; AI seats are derived from mode.
+    CreateSessionResponse:
+      type: object
+      required: [session, game]
+      properties:
+        session:
+          $ref: "#/components/schemas/Session"
+        game:
+          $ref: "#/components/schemas/Game"
+    SessionListResponse:
+      type: object
+      required: [sessions]
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Session"
+    Session:
+      type: object
+      required:
+        - sessionId
+        - gameId
+        - mode
+        - lifecycle
+        - whiteController
+        - blackController
+        - createdAt
+        - updatedAt
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        gameId:
+          type: string
+          format: uuid
+        mode:
+          $ref: "#/components/schemas/SessionMode"
+        lifecycle:
+          $ref: "#/components/schemas/SessionLifecycle"
+        whiteController:
+          $ref: "#/components/schemas/OutboundController"
+        blackController:
+          $ref: "#/components/schemas/OutboundController"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    Game:
+      type: object
+      required:
+        - gameId
+        - currentPlayer
+        - status
+        - inCheck
+        - winner
+        - drawReason
+        - fullmoveNumber
+        - halfmoveClock
+        - board
+        - moveHistory
+        - lastMove
+        - promotionPending
+        - legalTargetsByFrom
+      properties:
+        gameId:
+          type: string
+          format: uuid
+        currentPlayer:
+          $ref: "#/components/schemas/Color"
+        status:
+          type: string
+          enum: [Ongoing, Checkmate, Draw, Resigned]
+        inCheck:
+          type: boolean
+        winner:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Color"
+        drawReason:
+          type: string
+          nullable: true
+        fullmoveNumber:
+          type: integer
+          minimum: 1
+        halfmoveClock:
+          type: integer
+          minimum: 0
+        board:
+          type: array
+          items:
+            $ref: "#/components/schemas/Piece"
+        moveHistory:
+          type: array
+          items:
+            $ref: "#/components/schemas/MoveHistoryEntry"
+        lastMove:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/MoveHistoryEntry"
+        promotionPending:
+          type: boolean
+        legalTargetsByFrom:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+              pattern: "^[a-h][1-8]$"
+    Piece:
+      type: object
+      required: [square, color, pieceType]
+      properties:
+        square:
+          type: string
+          pattern: "^[a-h][1-8]$"
+        color:
+          $ref: "#/components/schemas/Color"
+        pieceType:
+          $ref: "#/components/schemas/PieceType"
+    MoveHistoryEntry:
+      type: object
+      required: [from, to, promotion]
+      properties:
+        from:
+          type: string
+          pattern: "^[a-h][1-8]$"
+        to:
+          type: string
+          pattern: "^[a-h][1-8]$"
+        promotion:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/PromotionPiece"
+    SubmitMoveRequest:
+      type: object
+      required: [from, to]
+      additionalProperties: false
+      properties:
+        from:
+          type: string
+          pattern: "^[a-h][1-8]$"
+        to:
+          type: string
+          pattern: "^[a-h][1-8]$"
+        promotion:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/PromotionPiece"
+        controller:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/InboundController"
+    ResignRequest:
+      type: object
+      required: [side]
+      additionalProperties: false
+      properties:
+        side:
+          $ref: "#/components/schemas/Color"
+    CommandGameResponse:
+      type: object
+      required: [game, sessionLifecycle]
+      properties:
+        game:
+          $ref: "#/components/schemas/Game"
+        sessionLifecycle:
+          $ref: "#/components/schemas/SessionLifecycle"
+    LegalMovesResponse:
+      type: object
+      required: [gameId, currentPlayer, moves, legalTargetsByFrom]
+      properties:
+        gameId:
+          type: string
+          format: uuid
+        currentPlayer:
+          $ref: "#/components/schemas/Color"
+        moves:
+          type: array
+          items:
+            $ref: "#/components/schemas/LegalMove"
+        legalTargetsByFrom:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+              pattern: "^[a-h][1-8]$"
+    LegalMove:
+      type: object
+      required: [from, to, promotion]
+      properties:
+        from:
+          type: string
+          pattern: "^[a-h][1-8]$"
+        to:
+          type: string
+          pattern: "^[a-h][1-8]$"
+        promotion:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/PromotionPiece"
+    ArchiveSnapshot:
+      type: object
+      required:
+        - sessionId
+        - gameId
+        - mode
+        - whiteController
+        - blackController
+        - closure
+        - finalState
+        - createdAt
+        - closedAt
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        gameId:
+          type: string
+          format: uuid
+        mode:
+          $ref: "#/components/schemas/SessionMode"
+        whiteController:
+          type: string
+          description: HumanLocal, HumanRemote, AI, or AI:<engine>.
+        blackController:
+          type: string
+          description: HumanLocal, HumanRemote, AI, or AI:<engine>.
+        closure:
+          $ref: "#/components/schemas/ArchiveClosure"
+        finalState:
+          $ref: "#/components/schemas/ArchiveGameState"
+        createdAt:
+          type: string
+          format: date-time
+        closedAt:
+          type: string
+          format: date-time
+    ArchiveClosure:
+      type: object
+      required: [kind, winner, drawReason]
+      properties:
+        kind:
+          type: string
+          enum: [Checkmate, Resigned, Draw, Cancelled]
+        winner:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Color"
+        drawReason:
+          type: string
+          nullable: true
+    ArchiveGameState:
+      type: object
+      required: [game, castlingRights, enPassant]
+      properties:
+        game:
+          $ref: "#/components/schemas/Game"
+        castlingRights:
+          $ref: "#/components/schemas/CastlingRights"
+        enPassant:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/EnPassant"
+    CastlingRights:
+      type: object
+      required: [whiteKingSide, whiteQueenSide, blackKingSide, blackQueenSide]
+      properties:
+        whiteKingSide:
+          type: boolean
+        whiteQueenSide:
+          type: boolean
+        blackKingSide:
+          type: boolean
+        blackQueenSide:
+          type: boolean
+    EnPassant:
+      type: object
+      required: [targetSquare, capturablePawnSquare, pawnColor]
+      properties:
+        targetSquare:
+          type: string
+          pattern: "^[a-h][1-8]$"
+        capturablePawnSquare:
+          type: string
+          pattern: "^[a-h][1-8]$"
+        pawnColor:
+          $ref: "#/components/schemas/Color"
+    SessionMode:
+      type: string
+      enum: [HumanVsHuman, HumanVsAI, AIVsAI]
+    SessionLifecycle:
+      type: string
+      enum: [Created, Active, AwaitingPromotion, Finished]
+    Color:
+      type: string
+      enum: [White, Black]
+    InboundController:
+      type: string
+      enum: [HumanLocal, HumanRemote]
+    OutboundController:
+      type: string
+      enum: [HumanLocal, HumanRemote, AI]
+    PieceType:
+      type: string
+      enum: [King, Queen, Rook, Bishop, Knight, Pawn]
+    PromotionPiece:
+      type: string
+      enum: [Queen, Rook, Bishop, Knight]

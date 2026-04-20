@@ -61,10 +61,10 @@ lazy val gameContract = project
   .settings(commonSettings)
   .dependsOn(domain)
 
-// ── Module: application ───────────────────────────────────────────────────────
+// ── Module: game-core ─────────────────────────────────────────────────────────
 
-lazy val application = project
-  .in(file("modules/application"))
+lazy val gameCore = project
+  .in(file("modules/game-core"))
   .settings(commonSettings)
   .dependsOn(domain, gameContract)
 
@@ -95,7 +95,7 @@ lazy val adapterPersistence = project
     )
   )
   // adapterEvent is only needed for test fixtures (CollectingEventPublisher).
-  .dependsOn(application, adapterEvent % Test)
+  .dependsOn(gameCore, adapterEvent % Test)
 
 // ── Module: adapter-ai ────────────────────────────────────────────────────────
 
@@ -107,7 +107,7 @@ lazy val adapterAi = project
   )
   // adapterPersistence and adapterEvent are only needed for test fixtures
   // (InMemorySessionRepository, CollectingEventPublisher).
-  .dependsOn(application, notation, adapterPersistence % Test, adapterEvent % Test)
+  .dependsOn(gameCore, notation, adapterPersistence % Test, adapterEvent % Test)
 
 // ── Module: adapter-event ─────────────────────────────────────────────────────
 
@@ -115,9 +115,12 @@ lazy val adapterEvent = project
   .in(file("modules/adapter-event"))
   .settings(
     commonSettings,
-    libraryDependencies += "com.lihaoyi" %% "ujson" % "4.0.2"
+    libraryDependencies ++= Seq(
+      "com.lihaoyi" %% "ujson"       % "4.0.2",
+      "org.xerial"   % "sqlite-jdbc" % "3.46.1.3"
+    )
   )
-  .dependsOn(application)
+  .dependsOn(gameCore)
 
 // ── Module: adapter-rest-shared (DTOs and mappers shared by all REST adapters) ─
 
@@ -127,7 +130,7 @@ lazy val adapterRestContract = project
     commonSettings,
     libraryDependencies += "com.lihaoyi" %% "ujson" % "4.0.2"
   )
-  .dependsOn(application, gameContract)
+  .dependsOn(gameCore, gameContract)
 
 
 // ── Module: adapter-rest-http4s (authoritative REST adapter) ──────────────────
@@ -162,7 +165,7 @@ lazy val adapterWebsocket = project
       ".*adapter.websocket.JavaWebSocketConnection.*"
     )
   )
-  .dependsOn(application, adapterEvent)
+  .dependsOn(gameCore, adapterEvent)
 
 // ── Module: adapter-gui ───────────────────────────────────────────────────────
 
@@ -186,7 +189,7 @@ lazy val adapterGui = project
       ".*adapter.gui.assets.SpriteCatalogLoader.*"
     )
   )
-  .dependsOn(application, notation, adapterEvent, adapterPersistence)
+  .dependsOn(gameCore, notation, adapterEvent, adapterPersistence)
 
 // ── Module: adapter-tui ───────────────────────────────────────────────────────
 
@@ -199,7 +202,7 @@ lazy val adapterTui = project
       ".*adapter.textui.Console.*"
     )
   )
-  .dependsOn(application, adapterPersistence)
+  .dependsOn(gameCore, adapterPersistence)
 
 // ── App: startup-shared ──────────────────────────────────────────────────────
 
@@ -220,7 +223,7 @@ lazy val startupShared = project
     )
   )
   .dependsOn(
-    application,
+    gameCore,
     adapterPersistence,
     adapterEvent,
     adapterWebsocket
@@ -327,7 +330,7 @@ lazy val historyService = project
 //   ci       — clean + test + coverage report + coveralls (CI)
 //
 // Per-module test aliases:
-//   testDomain              testNotation            testApplication
+//   testDomain              testNotation            testGameContract testGameCore
 //   testAdapterPersistence  testAdapterAi           testAdapterEvent
 //   testAdapterRestContract testAdapterRestHttp4s
 //   testAdapterWebsocket    testAdapterGui          testAdapterTui
@@ -335,7 +338,7 @@ lazy val historyService = project
 //   testDesktopGui          testTuiCli
 //
 // Grouped aliases by architectural concern:
-//   testCore         — domain + notation + application
+//   testCore         — domain + notation + game-contract + game-core
 //   testInfra        — adapter-persistence + adapter-event + adapter-ai + adapter-websocket
 //   testRest         — adapter-rest-contract + adapter-rest-http4s
 //   testUi           — adapter-gui + adapter-tui
@@ -343,7 +346,7 @@ lazy val historyService = project
 //   testApps         — startup-shared + game-service + history-service + desktop-gui + tui-cli
 //
 // Compile slice aliases:
-//   compileCore      — domain + notation + application
+//   compileCore      — domain + notation + game-contract + game-core
 //   compileRest      — adapter-rest-contract + adapter-rest-http4s
 //   compileUi        — adapter-gui + adapter-tui
 
@@ -362,7 +365,7 @@ addCommandAlias("ci",
 addCommandAlias("testDomain",             "domain/test")
 addCommandAlias("testNotation",           "notation/test")
 addCommandAlias("testGameContract",       "gameContract/test")
-addCommandAlias("testApplication",        "application/test")
+addCommandAlias("testGameCore",           "gameCore/test")
 addCommandAlias("testHistory",            "history/test")
 addCommandAlias("testAdapterPersistence", "adapterPersistence/test")
 addCommandAlias("testAdapterAi",          "adapterAi/test")
@@ -381,7 +384,7 @@ addCommandAlias("testTuiCli",             "tuiCli/test")
 // ── Grouped test: by architectural concern ────────────────────────────────────
 
 addCommandAlias("testCore",
-  ";domain/test;notation/test;gameContract/test;application/test;history/test")
+  ";domain/test;notation/test;gameContract/test;gameCore/test;history/test")
 
 addCommandAlias("testInfra",
   ";adapterPersistence/test;adapterEvent/test;adapterAi/test;adapterWebsocket/test")
@@ -403,7 +406,7 @@ addCommandAlias("testApps",
 // ── Compile slices ────────────────────────────────────────────────────────────
 
 addCommandAlias("compileCore",
-  ";domain/compile;notation/compile;application/compile")
+  ";domain/compile;notation/compile;gameContract/compile;gameCore/compile")
 
 addCommandAlias("compileRest",
   ";adapterRestContract/compile;adapterRestHttp4s/compile")
@@ -426,7 +429,7 @@ lazy val root = project
     coverageEnabled := false
   )
   .aggregate(
-    domain, notation, gameContract, application, history,
+    domain, notation, gameContract, gameCore, history,
     adapterPersistence, adapterAi, adapterEvent,
     adapterRestContract, adapterRestHttp4s,
     adapterWebsocket, adapterGui, adapterTui,
