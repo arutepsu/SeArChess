@@ -24,6 +24,7 @@ package chess.config
  *    AI_REMOTE_BASE_URL  URL for remote AI mode      (default: http://ai-service:8765)
  *    AI_TIMEOUT_MILLIS integer >= 1                 (default: 2000)
  *    AI_DEFAULT_ENGINE_ID optional engine id         (default: unset)
+ *    AI_REMOTE_TEST_MODE optional local/dev test hook(default: unset)
  *  }}}
  *
  *  === Validation ===
@@ -82,7 +83,7 @@ object ConfigLoader:
       aiMode      <- parseAiProviderMode(env("AI_PROVIDER_MODE").getOrElse(DefaultAiMode))
       aiTimeout   <- parsePositiveInt("AI_TIMEOUT_MILLIS", env("AI_TIMEOUT_MILLIS").getOrElse(DefaultAiTimeoutMillis))
       remoteUrl    = env("AI_REMOTE_BASE_URL").orElse(if aiMode == AiProviderMode.Remote then Some(DefaultAiRemoteBaseUrl) else None)
-      remote      <- parseRemoteAiConfig(aiMode, remoteUrl)
+      remote      <- parseRemoteAiConfig(aiMode, remoteUrl, env("AI_REMOTE_TEST_MODE"))
       engineId     = env("AI_DEFAULT_ENGINE_ID")
     yield AppConfig(
       http        = HttpConfig(httpHost, httpPort),
@@ -155,15 +156,17 @@ object ConfigLoader:
 
   private def parseRemoteAiConfig(
     mode:    AiProviderMode,
-    baseUrl: Option[String]
+    baseUrl: Option[String],
+    testMode: Option[String]
   ): Either[String, Option[RemoteAiConfig]] =
+    val normalisedTestMode = testMode.map(_.trim).filter(_.nonEmpty)
     mode match
       case AiProviderMode.Remote =>
         baseUrl match
-          case Some(url) if url.trim.nonEmpty => Right(Some(RemoteAiConfig(url.trim)))
+          case Some(url) if url.trim.nonEmpty => Right(Some(RemoteAiConfig(url.trim, normalisedTestMode)))
           case _ => Left("AI_REMOTE_BASE_URL is required when AI_PROVIDER_MODE is 'remote'")
       case _ =>
-        Right(baseUrl.map(url => RemoteAiConfig(url.trim)).filter(_.baseUrl.nonEmpty))
+        Right(baseUrl.map(url => RemoteAiConfig(url.trim, normalisedTestMode)).filter(_.baseUrl.nonEmpty))
 
   private def parseHistoryForwardingConfig(
     enabled:       Boolean,

@@ -7,7 +7,7 @@ import chess.domain.model.Color
  *
  *  A turn is an AI turn when the [[SideController]] assigned to `currentPlayer`
  *  in the session is [[SideController.AI]].  Engine identity (`engineId`) is not
- *  examined here — that is an [[AIProvider]] concern.
+ *  examined here — that is an [[AiMoveSuggestionClient]] concern.
  *
  *  This policy complements [[chess.application.session.policy.ActorControlPolicy]]:
  *  `ActorControlPolicy` answers "can this controller act?";

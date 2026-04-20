@@ -104,7 +104,7 @@ trait GameServiceApi:
     now:       Instant = Instant.now()
   ): Either[SessionError, GameSession]
 
-  /** Ask the AI provider to generate and submit a move for the current player.
+  /** Ask the configured AI client to suggest and submit a move for the current player.
    *
    *  The AI move passes through the same domain-validation and persistence path
    *  as a human move.
@@ -126,7 +126,7 @@ trait GameServiceApi:
     now:       Instant = Instant.now()
   ): Either[AITurnError, (GameState, GameSession)]
 
-  /** Ask the AI provider to generate and submit a move, resolving the session from a [[GameId]].
+  /** Ask the configured AI client to suggest and submit a move, resolving the session from a [[GameId]].
    *
    *  Equivalent to [[triggerAIMove]] but accepts a [[GameId]] directly, which is the natural
    *  identifier available to REST adapters.  The game-to-session mapping is handled internally,

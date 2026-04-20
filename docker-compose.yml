@@ -33,6 +33,7 @@ services:
       AI_PROVIDER_MODE: remote
       AI_REMOTE_BASE_URL: http://ai-service:8765
       AI_TIMEOUT_MILLIS: 2000
+      AI_REMOTE_TEST_MODE: ${AI_REMOTE_TEST_MODE:-}
     volumes:
       - game-service-data:/data
     healthcheck:

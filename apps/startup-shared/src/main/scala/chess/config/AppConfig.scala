@@ -49,9 +49,9 @@ final case class HistoryForwardingConfig(
 enum EventMode:
   case InProcess
 
-/** AI provider runtime mode.
+/** AI move-suggestion client runtime mode.
  *
- *  - [[Disabled]]: no AI provider is wired; AI HTTP requests return the existing
+ *  - [[Disabled]]: no AI client is wired; AI HTTP requests return the existing
  *    `AI_NOT_CONFIGURED` response.
  *  - [[LocalDeterministic]]: use the in-process deterministic first-legal-move
  *    adapter. This remains as an explicit local/dev fallback only.
@@ -70,12 +70,15 @@ final case class HttpConfig(host: String, port: Int)
 /** Normalised WebSocket server configuration. */
 final case class WebSocketConfig(enabled: Boolean, port: Int)
 
-/** Normalised remote AI provider configuration.
+/** Normalised remote AI client configuration.
  *
- *  [[baseUrl]] is intentionally a string at this layer; the future remote
- *  adapter will parse it into whichever HTTP client URI type it owns.
+ *  [[baseUrl]] is intentionally a string at this layer; the HTTP adapter owns
+ *  transport URI parsing. [[testMode]] is a local/dev verification hook only.
  */
-final case class RemoteAiConfig(baseUrl: String)
+final case class RemoteAiConfig(
+  baseUrl:  String,
+  testMode: Option[String] = None
+)
 
 /** Normalised AI runtime configuration. */
 final case class AiConfig(

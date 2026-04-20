@@ -1,9 +1,9 @@
 package chess.application.ai.service
 
-import chess.adapter.ai.FirstLegalMoveProvider
+import chess.adapter.ai.LocalDeterministicAiClient
 import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionGameStore, InMemorySessionRepository}
 import chess.application.ChessService
-import chess.application.port.ai.{AIError, AIProvider, AIRequestContext, AIResponse}
+import chess.application.port.ai.{AIError, AiMoveSuggestionClient, AIRequestContext, AIResponse}
 import chess.application.session.model.{GameSession, SessionLifecycle, SessionMode, SideController}
 import chess.application.session.model.SessionIds.GameId
 import chess.application.session.service.{SessionGameService, SessionMoveError, SessionService}
@@ -36,7 +36,7 @@ class AITurnServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
       blackController = blackController
     ).value
     val state     = GameStateFactory.initial()
-    val aiService = AITurnService(FirstLegalMoveProvider(), svc, _ => ())
+    val aiService = AITurnService(LocalDeterministicAiClient(), svc, _ => ())
     (aiService, session, state, svc, gameRepo)
 
   // ── happy path ─────────────────────────────────────────────────────────────
@@ -77,7 +77,7 @@ class AITurnServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
   // ── provider failure ───────────────────────────────────────────────────────
 
   it should "return ProviderFailure(NoLegalMove) when the provider signals no legal moves" in {
-    val noMoveProvider = new AIProvider:
+    val noMoveProvider = new AiMoveSuggestionClient:
       def suggestMove(context: AIRequestContext) = Left(AIError.NoLegalMove)
     val sessionRepo    = InMemorySessionRepository()
     val gameRepo       = InMemoryGameRepository()
@@ -97,7 +97,7 @@ class AITurnServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   it should "return ProviderFailure(EngineFailure) when the provider signals an engine error" in {
-    val crashProvider = new AIProvider:
+    val crashProvider = new AiMoveSuggestionClient:
       def suggestMove(context: AIRequestContext) =
         Left(AIError.EngineFailure("timeout"))
     val sessionRepo    = InMemorySessionRepository()
@@ -122,7 +122,7 @@ class AITurnServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
   it should "return IllegalSuggestedMove when the provider suggests a move outside Game legal moves" in {
     // A pawn cannot jump from e2 to e5 — this verifies that the AI move goes
     // through the normal domain validation path and is not applied blindly.
-    val illegalProvider = new AIProvider:
+    val illegalProvider = new AiMoveSuggestionClient:
       def suggestMove(context: AIRequestContext) =
         Right(AIResponse(Move(e2, e5)))
     val sessionRepo    = InMemorySessionRepository()

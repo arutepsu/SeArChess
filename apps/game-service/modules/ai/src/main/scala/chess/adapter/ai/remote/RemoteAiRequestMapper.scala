@@ -11,8 +11,8 @@ import chess.notation.fen.FenSerializer
 /** Builds adapter-level remote AI request DTOs from current Game Service data.
  *
  *  The mapper is deliberately kept out of the application layer. It prepares
- *  the future remote AI contract while preserving the existing `AIProvider`
- *  seam: Game Service still validates and applies whatever move a provider
+ *  the remote AI contract while preserving the `AiMoveSuggestionClient` seam:
+ *  Game Service still validates and applies whatever move the AI service
  *  returns.
  */
 object RemoteAiRequestMapper:
@@ -20,7 +20,8 @@ object RemoteAiRequestMapper:
   def toRequest(
     context:         AIRequestContext,
     timeoutMillis:   Int,
-    defaultEngineId: Option[String]
+    defaultEngineId: Option[String],
+    testMode:        Option[String]
   ): Either[NotationFailure, RemoteAiMoveSuggestionRequest] =
     val state = context.state
     FenSerializer.exportNotation(state, NotationFormat.FEN).map { fen =>
@@ -33,7 +34,7 @@ object RemoteAiRequestMapper:
         legalMoves = legalMoveDtos(state),
         engine     = RemoteAiEngineSelection(context.engineId.orElse(defaultEngineId)),
         limits     = RemoteAiLimits(timeoutMillis),
-        metadata   = RemoteAiMetadata(mode = context.mode.toString)
+        metadata   = RemoteAiMetadata(mode = context.mode.toString, testMode = testMode)
       )
     }
 
@@ -42,12 +43,14 @@ object RemoteAiRequestMapper:
     session:         GameSession,
     state:           GameState,
     timeoutMillis:   Int,
-    defaultEngineId: Option[String] = None
+    defaultEngineId: Option[String] = None,
+    testMode:        Option[String] = None
   ): Either[NotationFailure, RemoteAiMoveSuggestionRequest] =
     toRequest(
       context         = AIRequestContext.fromSession(session, state, requestId),
       timeoutMillis   = timeoutMillis,
-      defaultEngineId = defaultEngineId
+      defaultEngineId = defaultEngineId,
+      testMode        = testMode
     )
 
   private def legalMoveDtos(state: GameState): List[RemoteAiMoveDto] =

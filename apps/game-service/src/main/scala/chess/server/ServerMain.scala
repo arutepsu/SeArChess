@@ -35,7 +35,7 @@ object ServerMain:
       case chess.config.AiProviderMode.Remote             => s"remote @ ${config.ai.remote.map(_.baseUrl).getOrElse("(no URL)")}"
       case chess.config.AiProviderMode.LocalDeterministic => "local-deterministic"
       case chess.config.AiProviderMode.Disabled           => "disabled"
-    println(s"[chess] AI provider: $aiDesc")
+    println(s"[chess] AI client: $aiDesc")
     val (_, server) = ServerWiring.start(config)
 
     // Drain HTTP and WebSocket on JVM shutdown (SIGINT / SIGTERM).

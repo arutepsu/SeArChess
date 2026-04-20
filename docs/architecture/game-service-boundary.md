@@ -256,7 +256,7 @@ The Game Service depends on application ports for all outside effects:
 - `SessionRepository`: session reads and session-only lifecycle updates.
 - `GameRepository`: active game-state reads.
 - `EventPublisher`: game/session/AI event publication.
-- `AIProvider`: AI move proposal.
+- `AiMoveSuggestionClient`: AI move proposal.
 
 These ports are the extraction seams. A future standalone Game Service should
 own its active persistence and publish events for other services rather than
@@ -293,7 +293,7 @@ Game Service internals or sharing active-game persistence tables.
 Likely future services:
 
 - AI Service: owns engine/model execution; Game Service calls it through
-  `AIProvider` and still validates/applies returned moves.
+  `AiMoveSuggestionClient` and still validates/applies returned moves.
 - History/Notation Service: consumes finished-game events or exports and owns
   archive/search/PGN-oriented views.
 - Tournament Service: owns brackets, standings, rounds, and pairings.

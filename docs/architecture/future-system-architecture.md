@@ -375,7 +375,7 @@ The first actual extraction target should be the AI Service.
 
 Reasons:
 
-- The port already exists: `AIProvider`.
+- The port already exists: `AiMoveSuggestionClient`.
 - Game Service already treats AI as a collaborator, not an authority.
 - AI has distinct runtime/scaling needs from active gameplay.
 - AI failures can be isolated behind existing `AI_NOT_CONFIGURED` /

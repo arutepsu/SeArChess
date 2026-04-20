@@ -11,9 +11,9 @@ import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-class FirstLegalMoveProviderSpec extends AnyFlatSpec with Matchers with EitherValues:
+class LocalDeterministicAiClientSpec extends AnyFlatSpec with Matchers with EitherValues:
 
-  private val provider = FirstLegalMoveProvider()
+  private val provider = LocalDeterministicAiClient()
 
   private def context(state: GameState): AIRequestContext =
     AIRequestContext.fromSession(
@@ -24,7 +24,7 @@ class FirstLegalMoveProviderSpec extends AnyFlatSpec with Matchers with EitherVa
 
   // ── suggestMove: legal position ────────────────────────────────────────────
 
-  "FirstLegalMoveProvider.suggestMove" should "return a legal move in the initial position" in {
+  "LocalDeterministicAiClient.suggestMove" should "return a legal move in the initial position" in {
     val state    = GameStateFactory.initial()
     val response = provider.suggestMove(context(state)).value
     val legal    = GameStateRules.legalMoves(state)

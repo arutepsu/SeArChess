@@ -1,7 +1,7 @@
 package chess.server
 
 import chess.adapter.event.CollectingEventPublisher
-import chess.adapter.ai.remote.RemoteAiProvider
+import chess.adapter.ai.remote.RemoteAiMoveSuggestionClient
 import chess.application.ai.service.AITurnError
 import chess.application.session.model.{SessionMode, SideController}
 import chess.config.{
@@ -78,18 +78,18 @@ class ServerWiringSpec extends AnyFlatSpec with Matchers with EitherValues with 
     serverCtx.gameService.triggerAIMoveByGameId(session.gameId).left.value shouldBe AITurnError.NotConfigured
   }
 
-  it should "select the remote AI provider when remote mode is configured" in {
-    val provider = ServerWiring.aiProviderFor(AiConfig(
+  it should "select the remote AI client when remote mode is configured" in {
+    val client = ServerWiring.aiClientFor(AiConfig(
       mode            = AiProviderMode.Remote,
       remote          = Some(chess.config.RemoteAiConfig("http://ai.local")),
       timeoutMillis   = 2000,
       defaultEngineId = Some("stockfish-default")
     ))
 
-    provider.value shouldBe a[RemoteAiProvider]
+    client.value shouldBe a[RemoteAiMoveSuggestionClient]
   }
 
-  it should "select the remote AI provider by default" in {
+  it should "select the remote AI client by default" in {
     val persistence = PersistenceAssembly.assemble(config)
     val events      = EventWiring(CollectingEventPublisher(), wsServer = None)
     val baseCtx     = CoreAssembly.build(persistence, events.coreEvents)

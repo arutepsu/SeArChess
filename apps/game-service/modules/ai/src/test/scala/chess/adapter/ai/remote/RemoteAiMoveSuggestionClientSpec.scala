@@ -16,7 +16,7 @@ import org.scalatest.matchers.should.Matchers
 import java.net.InetSocketAddress
 import java.nio.charset.StandardCharsets
 
-class RemoteAiProviderSpec extends AnyFlatSpec with Matchers with EitherValues:
+class RemoteAiMoveSuggestionClientSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   private def stateFromFen(fen: String): GameState =
     val parsed = FenParser.parse(fen).fold(e => throw RuntimeException(s"FEN parse: $e"), identity)
@@ -57,14 +57,14 @@ class RemoteAiProviderSpec extends AnyFlatSpec with Matchers with EitherValues:
   // Happy path
   // ---------------------------------------------------------------------------
 
-  "RemoteAiProvider.suggestMove" should "map a successful remote response into AIResponse" in {
+  "RemoteAiMoveSuggestionClient.suggestMove" should "map a successful remote response into AIResponse" in {
     var capturedBody = ""
 
     withServer { exchange =>
       capturedBody = requestBody(exchange)
       respond(exchange, 200, """{"requestId":"req-1","move":{"from":"e2","to":"e4"},"engineId":"stockfish"}""")
     } { baseUrl =>
-      val provider   = RemoteAiProvider(baseUrl, timeoutMillis = 1000, defaultEngineId = Some("stockfish"))
+      val provider   = RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 1000, defaultEngineId = Some("stockfish"))
       val aiContext  = context(requestId = "req-1")
       val response   = provider.suggestMove(aiContext).value
 
@@ -117,7 +117,7 @@ class RemoteAiProviderSpec extends AnyFlatSpec with Matchers with EitherValues:
       capturedBody = requestBody(exchange)
       respond(exchange, 200, """{"requestId":"req-case","move":{"from":"e2","to":"e4"}}""")
     } { baseUrl =>
-      RemoteAiProvider(baseUrl, timeoutMillis = 1000)
+      RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 1000)
         .suggestMove(context(requestId = "req-case"))
       ujson.read(capturedBody)("sideToMove").str shouldBe "white"
     }
@@ -131,7 +131,7 @@ class RemoteAiProviderSpec extends AnyFlatSpec with Matchers with EitherValues:
       capturedBody = requestBody(exchange)
       respond(exchange, 200, """{"requestId":"req-promo","move":{"from":"a7","to":"a8","promotion":"queen"}}""")
     } { baseUrl =>
-      RemoteAiProvider(baseUrl, timeoutMillis = 1000)
+      RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 1000)
         .suggestMove(context(state = promoState, requestId = "req-promo"))
 
       val moves = ujson.read(capturedBody)("legalMoves").arr
@@ -151,7 +151,7 @@ class RemoteAiProviderSpec extends AnyFlatSpec with Matchers with EitherValues:
       requestBody(exchange)
       respond(exchange, 422, """{"requestId":"req-err","code":"NO_LEGAL_MOVE","message":"no legal moves"}""")
     } { baseUrl =>
-      val provider = RemoteAiProvider(baseUrl, timeoutMillis = 1000)
+      val provider = RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 1000)
       provider.suggestMove(context(requestId = "req-err")).left.value shouldBe AIError.NoLegalMove
     }
   }
@@ -161,7 +161,7 @@ class RemoteAiProviderSpec extends AnyFlatSpec with Matchers with EitherValues:
       requestBody(exchange)
       respond(exchange, 400, """{"requestId":"req-br","code":"BAD_REQUEST","message":"missing field fen"}""")
     } { baseUrl =>
-      val provider = RemoteAiProvider(baseUrl, timeoutMillis = 1000)
+      val provider = RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 1000)
       provider.suggestMove(context(requestId = "req-br")).left.value shouldBe
         AIError.EngineFailure("BAD_REQUEST: missing field fen")
     }
@@ -172,7 +172,7 @@ class RemoteAiProviderSpec extends AnyFlatSpec with Matchers with EitherValues:
       requestBody(exchange)
       respond(exchange, 422, """{"requestId":"req-bp","code":"BAD_POSITION","message":"invalid FEN"}""")
     } { baseUrl =>
-      val provider = RemoteAiProvider(baseUrl, timeoutMillis = 1000)
+      val provider = RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 1000)
       provider.suggestMove(context(requestId = "req-bp")).left.value shouldBe
         AIError.EngineFailure("BAD_POSITION: invalid FEN")
     }
@@ -183,7 +183,7 @@ class RemoteAiProviderSpec extends AnyFlatSpec with Matchers with EitherValues:
       requestBody(exchange)
       respond(exchange, 503, """{"requestId":"req-eu","code":"ENGINE_UNAVAILABLE","message":"engine missing"}""")
     } { baseUrl =>
-      val provider = RemoteAiProvider(baseUrl, timeoutMillis = 1000)
+      val provider = RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 1000)
       provider.suggestMove(context(requestId = "req-eu")).left.value shouldBe
         AIError.Unavailable("engine missing")
     }
@@ -194,7 +194,7 @@ class RemoteAiProviderSpec extends AnyFlatSpec with Matchers with EitherValues:
       requestBody(exchange)
       respond(exchange, 504, """{"requestId":"req-et","code":"ENGINE_TIMEOUT","message":"timed out after 3000ms"}""")
     } { baseUrl =>
-      val provider = RemoteAiProvider(baseUrl, timeoutMillis = 1000)
+      val provider = RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 1000)
       provider.suggestMove(context(requestId = "req-et")).left.value shouldBe
         AIError.Timeout("timed out after 3000ms")
     }
@@ -205,7 +205,7 @@ class RemoteAiProviderSpec extends AnyFlatSpec with Matchers with EitherValues:
       requestBody(exchange)
       respond(exchange, 500, """{"requestId":"req-ef","code":"ENGINE_FAILURE","message":"internal error"}""")
     } { baseUrl =>
-      val provider = RemoteAiProvider(baseUrl, timeoutMillis = 1000)
+      val provider = RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 1000)
       provider.suggestMove(context(requestId = "req-ef")).left.value shouldBe
         AIError.EngineFailure("ENGINE_FAILURE: internal error")
     }
@@ -216,7 +216,7 @@ class RemoteAiProviderSpec extends AnyFlatSpec with Matchers with EitherValues:
       requestBody(exchange)
       respond(exchange, 500, """{"code":"ENGINE_FAILURE","message":"no request id"}""")
     } { baseUrl =>
-      val provider = RemoteAiProvider(baseUrl, timeoutMillis = 1000)
+      val provider = RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 1000)
       provider.suggestMove(context(requestId = "req-noid")).left.value shouldBe
         AIError.EngineFailure("ENGINE_FAILURE: no request id")
     }
@@ -231,7 +231,7 @@ class RemoteAiProviderSpec extends AnyFlatSpec with Matchers with EitherValues:
       requestBody(exchange)
       respond(exchange, 200, """{"requestId":"req-mal","move":{"from":"e2"}}""")
     } { baseUrl =>
-      val provider = RemoteAiProvider(baseUrl, timeoutMillis = 1000)
+      val provider = RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 1000)
       provider.suggestMove(context(requestId = "req-mal")).left.value shouldBe
         AIError.MalformedResponse("Missing or invalid 'to' in AI response")
     }
@@ -243,7 +243,7 @@ class RemoteAiProviderSpec extends AnyFlatSpec with Matchers with EitherValues:
       Thread.sleep(300)
       respond(exchange, 200, """{"requestId":"req-to","move":{"from":"e2","to":"e4"}}""")
     } { baseUrl =>
-      val provider = RemoteAiProvider(baseUrl, timeoutMillis = 50)
+      val provider = RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 50)
       provider.suggestMove(context(requestId = "req-to")).left.value shouldBe
         AIError.Timeout("timed out after 50ms")
     }

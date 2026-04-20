@@ -251,13 +251,13 @@ has a clear checklist; no code changes are made in this contract-definition slic
 | Error response shape | `{"error": ..., "type": ...}` | Change to `{"requestId": ..., "code": ..., "message": ...}` |
 | Error codes | `"not_found"`, `"adapter_error"`, `"validation_error"` | Map to `BAD_REQUEST`, `BAD_POSITION`, `NO_LEGAL_MOVE`, `ENGINE_UNAVAILABLE`, `ENGINE_TIMEOUT`, `ENGINE_FAILURE` |
 
-### Scala Game Service (`RemoteAiRequestMapper` / `RemoteAiProvider`)
+### Scala Game Service (`RemoteAiRequestMapper` / `RemoteAiMoveSuggestionClient`)
 
 | Location | Current state | Required change |
 |----------|---------------|-----------------|
 | `RemoteAiRequestMapper` — `sideToMove` | `context.sideToMove.toString` → `"White"` / `"Black"` | Change to `.toString.toLowerCase` → `"white"` / `"black"` |
 | `RemoteAiRequestMapper` — `promotion` | `move.promotion.map(_.toString)` → `"Queen"` etc. | Change to `.map(_.toString.toLowerCase)` → `"queen"` etc. |
-| `RemoteAiProvider.mapRemoteError` | Only maps `NO_LEGAL_MOVE` by exact code string | Add explicit mapping for all 6 error codes |
+| `RemoteAiMoveSuggestionClient.mapRemoteError` | Only maps `NO_LEGAL_MOVE` by exact code string | Add explicit mapping for all 6 error codes |
 | `RemoteAiMoveSuggestionResponse` | Has `engineId`, `elapsedMillis` | Add `engineVersion: Option[String]` and `confidence: Option[Double]` |
 
 ---

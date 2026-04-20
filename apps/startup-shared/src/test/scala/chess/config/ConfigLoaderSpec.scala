@@ -10,7 +10,7 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
     val env = values.toMap
     ConfigLoader.loadFrom(key => env.get(key))
 
-  "ConfigLoader" should "default to the remote AI provider" in {
+  "ConfigLoader" should "default to the remote AI client" in {
     val config = load().value
 
     config.ai.mode            shouldBe AiProviderMode.Remote
@@ -61,11 +61,13 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
       "AI_PROVIDER_MODE"    -> "remote",
       "AI_REMOTE_BASE_URL"  -> "http://ai.local:9000",
       "AI_TIMEOUT_MILLIS"   -> "3500",
-      "AI_DEFAULT_ENGINE_ID" -> "stockfish-default"
+      "AI_DEFAULT_ENGINE_ID" -> "stockfish-default",
+      "AI_REMOTE_TEST_MODE"  -> "illegal_move"
     ).value
 
     config.ai.mode                       shouldBe AiProviderMode.Remote
     config.ai.remote.value.baseUrl       shouldBe "http://ai.local:9000"
+    config.ai.remote.value.testMode.value shouldBe "illegal_move"
     config.ai.timeoutMillis              shouldBe 3500
     config.ai.defaultEngineId.value      shouldBe "stockfish-default"
   }

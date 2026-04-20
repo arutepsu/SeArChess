@@ -164,3 +164,33 @@ curl -s -X POST http://127.0.0.1:10000/api/games/{gameId}/ai-move
 
 A successful response is HTTP 200 with the updated game state. If the AI
 service is not reachable, the Game Service returns `503 AI_PROVIDER_FAILED`.
+
+For a repeatable verification of the same flow, run:
+
+```powershell
+.\scripts\verify-remote-ai-flow.ps1
+```
+
+Add `-StartStack` if you want the script to run `docker compose up -d` before
+checking the flow. If local PowerShell execution policy blocks direct script
+execution, run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\verify-remote-ai-flow.ps1 -StartStack
+```
+
+The script calls Game through Envoy, verifies that the Game container is using
+`AI_PROVIDER_MODE=remote` and `AI_REMOTE_BASE_URL=http://ai-service:8765`,
+creates a Human-vs-AI game, submits `e2` to `e4`, triggers
+`POST /api/games/{gameId}/ai-move`, and asserts that move history advances to
+two moves. It also stops `ai-service` briefly to verify that Game surfaces
+`503 AI_PROVIDER_FAILED` instead of falling back to the local deterministic
+adapter, then starts `ai-service` again.
+
+The same script also verifies bad provider output using the AI service's
+local/dev `metadata.testMode` hook. It recreates only `game-service` with
+`AI_REMOTE_TEST_MODE=illegal_move` and then `malformed_response`, triggers an
+AI turn, and expects `422 AI_MOVE_REJECTED` in both cases. After each rejection
+it fetches the game again and asserts that the persisted game state is exactly
+unchanged. Use `-SkipFailurePath` to skip the AI-down check or
+`-SkipRejectionPaths` to skip the bad-output checks.

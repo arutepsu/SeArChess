@@ -32,12 +32,12 @@ import java.time.Instant
  *  - Choosing or registering engine implementations
  *  - Async or background processing
  *
- *  @param provider  outbound port for AI move suggestion
+ *  @param client    outbound port for AI move suggestion
  *  @param commands  game-session command boundary
  *  @param publisher outbound port for event publication
  */
 class AITurnService(
-  provider:  AiMoveSuggestionClient,
+  client:    AiMoveSuggestionClient,
   commands:  GameSessionCommands,
   publisher: EventPublisher
 ):
@@ -49,7 +49,7 @@ class AITurnService(
    *
    *  Events published:
    *  - [[AppEvent.AITurnRequested]] — after the AI-turn guard passes, before the
-   *    provider is called.
+   *    AI client is called.
    *  - [[AppEvent.AITurnCompleted]] — when the move is successfully applied.
    *  - [[AppEvent.AITurnFailed]] — when the provider or move path fails (but NOT
    *    when the guard itself fails, since no turn was actually requested then).
@@ -71,7 +71,7 @@ class AITurnService(
       val aiContext = AIRequestContext.fromSession(session, state)
       val outcome =
         for
-          response <- provider.suggestMove(aiContext)
+          response <- client.suggestMove(aiContext)
                         .left.map(AITurnError.ProviderFailure(_))
           _        <- validateSuggestedMove(state, response.move)
           result   <- commands.submitMove(

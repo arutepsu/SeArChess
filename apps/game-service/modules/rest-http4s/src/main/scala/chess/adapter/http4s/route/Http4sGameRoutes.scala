@@ -31,7 +31,7 @@ import org.http4s.dsl.io.*
  *  [[chess.application.port.repository.GameRepository]]).
  *
  *  AI capability policy: `/games/{gameId}/ai-move` is always mounted. Runtimes
- *  without an AI provider return `422 AI_NOT_CONFIGURED`; configured runtimes
+ *  without an AI client return `422 AI_NOT_CONFIGURED`; configured runtimes
  *  route AI suggestions through the same authoritative Game Service move path.
  *
  *  This class is pure logic tested in-memory via `routes.orNotFound.run(req)`.
