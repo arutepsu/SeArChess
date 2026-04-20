@@ -11,6 +11,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.EitherValues
 
+<<<<<<< HEAD
 /** Integration spec for the Scala RemoteAiMoveSuggestionClient against a live AI provider.
   *
   * Requires the provider to be running at INFERENCE_SERVICE_URL (default http://127.0.0.1:8765).
@@ -18,6 +19,17 @@ import org.scalatest.EitherValues
   *
   * To run: sbt "adapterAi/testOnly chess.adapter.ai.remote.RemoteAiIntegrationSpec"
   */
+=======
+/** Integration spec for the Scala RemoteAiMoveSuggestionClient against the live Python AI service.
+ *
+ *  Requires the Python service to be running at INFERENCE_SERVICE_URL (default
+ *  http://127.0.0.1:8765). The tests are skipped automatically when the service
+ *  is not reachable so they do not break CI.
+ *
+ *  To run:
+ *    sbt "adapterAi/testOnly chess.adapter.ai.remote.RemoteAiIntegrationSpec"
+ */
+>>>>>>> 14542117 (fix ai flow)
 class RemoteAiIntegrationSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   private val baseUrl: String =
@@ -64,10 +76,16 @@ class RemoteAiIntegrationSpec extends AnyFlatSpec with Matchers with EitherValue
       requestId = requestId
     )
 
+<<<<<<< HEAD
   // 30 s to absorb supervised-model cold-start on first inference; warm calls are <2 s.
   private lazy val provider = RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 30000)
 
   "RemoteAiMoveSuggestionClient to AI provider" should "return a legal move suggestion for the initial position" in {
+=======
+  private lazy val provider = RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 5000)
+
+  "RemoteAiMoveSuggestionClient → Python AI service" should "return a legal move suggestion for the initial position" in {
+>>>>>>> 14542117 (fix ai flow)
     assume()
     val ctx = context()
     val result = provider.suggestMove(ctx)
@@ -93,7 +111,11 @@ class RemoteAiIntegrationSpec extends AnyFlatSpec with Matchers with EitherValue
 
   it should "return a contract-shaped BAD_REQUEST when an invalid sideToMove is sent" in {
     assume()
+<<<<<<< HEAD
     // Drive the HTTP layer directly to verify the provider error shape without
+=======
+    // Drive the HTTP layer directly to verify the Python error shape without
+>>>>>>> 14542117 (fix ai flow)
     // going through RemoteAiMoveSuggestionClient's field construction.
     val body =
       """{

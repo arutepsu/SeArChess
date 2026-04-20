@@ -4,7 +4,7 @@ package chess.application.port.ai
  *
  *  - [[NoLegalMove]]: the current position has no legal moves (terminal state).
  *    Callers should detect this condition via domain status before invoking the
- *    provider, but providers may also return it as a defensive signal.
+ *    client, but clients may also return it as a defensive signal.
  *  - [[Unavailable]]: the remote AI service could not be reached.
  *  - [[Timeout]]: the remote AI service did not answer inside the configured
  *    client timeout.

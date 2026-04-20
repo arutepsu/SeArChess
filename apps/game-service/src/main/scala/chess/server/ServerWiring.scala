@@ -4,6 +4,11 @@ import cats.data.Kleisli
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import cats.syntax.semigroupk.*
+<<<<<<< HEAD
+=======
+import chess.adapter.ai.LocalDeterministicAiClient
+import chess.adapter.ai.remote.RemoteAiMoveSuggestionClient
+>>>>>>> 14542117 (fix ai flow)
 import chess.adapter.http4s.Http4sApp
 <<<<<<< HEAD
 import chess.server.assembly.{AppContext, EventWiring}
@@ -91,6 +96,15 @@ object ServerWiring:
 
     (ctx, ServerRuntime(events.wsServer, shutdownHttp, IO { events.shutdown(); ctx.shutdownPersistence() }))
 
+<<<<<<< HEAD
+=======
+  /** Attach the server's configured AI move-suggestion client to the Game Service boundary.
+   *
+   *  `CoreAssembly` intentionally leaves AI disabled for shared GUI/TUI
+   *  composition. The HTTP server exposes `/games/{id}/ai-move`, so this runtime
+   *  wires the configured AI client through the single AI port and turn service.
+   */
+>>>>>>> 14542117 (fix ai flow)
   private[server] def withServerAi(baseCtx: AppContext, events: EventWiring): AppContext =
 <<<<<<< HEAD
     GameServiceComposition.withAi(baseCtx, events)
@@ -107,6 +121,7 @@ object ServerWiring:
       events: EventWiring,
       config: AiConfig
   ): AppContext =
+<<<<<<< HEAD
     GameServiceComposition.withAi(baseCtx, events, config)
 
 <<<<<<< HEAD
@@ -116,16 +131,30 @@ object ServerWiring:
     GameServiceComposition.aiClientFor(config)
 =======
   private[server] def aiProviderFor(config: AiConfig): Option[AiMoveSuggestionClient] =
+=======
+    val aiService = aiClientFor(config).map(client =>
+      AITurnService(client, baseCtx.commands, events.publisher))
+    baseCtx.copy(gameService = DefaultGameService(
+      commands       = baseCtx.commands,
+      sessionService = baseCtx.sessionService,
+      gameRepository = baseCtx.gameRepository,
+      publisher      = events.publisher,
+      aiService      = aiService
+    ))
+
+  private[server] def aiClientFor(config: AiConfig): Option[AiMoveSuggestionClient] =
+>>>>>>> 14542117 (fix ai flow)
     config.mode match
-      case AiProviderMode.LocalDeterministic => Some(FirstLegalMoveProvider())
+      case AiProviderMode.LocalDeterministic => Some(LocalDeterministicAiClient())
       case AiProviderMode.Disabled           => None
       case AiProviderMode.Remote             =>
         config.remote match
           case Some(remote) =>
-            Some(RemoteAiProvider(
+            Some(RemoteAiMoveSuggestionClient(
               baseUrl         = remote.baseUrl,
               timeoutMillis   = config.timeoutMillis,
-              defaultEngineId = config.defaultEngineId
+              defaultEngineId = config.defaultEngineId,
+              testMode        = remote.testMode
             ))
           case None =>
             throw IllegalArgumentException("AI remote mode requires AI_REMOTE_BASE_URL")

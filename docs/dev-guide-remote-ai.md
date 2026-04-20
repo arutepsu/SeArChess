@@ -162,6 +162,7 @@ At startup you will see:
 <<<<<<< HEAD
 ```text
 [chess] AI client: remote @ http://127.0.0.1:8765
+<<<<<<< HEAD
 =======
 ```
 =======
@@ -169,6 +170,8 @@ At startup you will see:
 >>>>>>> abcc8c8c (envoy + ai service prerp)
 [chess] AI provider: remote @ http://127.0.0.1:8765
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
+=======
+>>>>>>> 14542117 (fix ai flow)
 ```
 
 ### Scala server env var reference
@@ -206,9 +209,14 @@ in-process first-legal-move adapter.  `disabled` makes
 =======
 
 `AI_PROVIDER_MODE=local` (also accepted as `local-deterministic`) wires the
-in-process first-legal-move adapter as a transitional/dev-only fallback.
+in-process `LocalDeterministicAiClient` as a transitional/dev-only fallback.
 `disabled` makes `/games/{id}/ai-move` return `422 AI_NOT_CONFIGURED`.
 >>>>>>> abcc8c8c (envoy + ai service prerp)
+
+Inside Game Service, `/games/{id}/ai-move` depends on the single
+`AiMoveSuggestionClient` port. The normal runtime implementation is
+`RemoteAiMoveSuggestionClient`, which calls the Python AI service. The local
+deterministic client is not selected unless `AI_PROVIDER_MODE=local` is set.
 
 ---
 
@@ -229,8 +237,12 @@ entirely; the server assigns the Black seat to its AI provider automatically.
 =======
 `"AI"` is not a valid controller value in REST v1. AI seats are determined
 server-side by the `mode` field. For `HumanVsAI`, omit `blackController`; the
+<<<<<<< HEAD
 server assigns the Black seat to its configured AI provider.
 >>>>>>> abcc8c8c (envoy + ai service prerp)
+=======
+server assigns the Black seat to its configured AI client.
+>>>>>>> 14542117 (fix ai flow)
 
 ```bash
 curl -s -X POST http://127.0.0.1:8080/sessions \
@@ -303,6 +315,7 @@ Those tests skip automatically when the Python service is not reachable.
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 Remote AI client availability, timeout, and engine failures map to
 `503 AI_PROVIDER_FAILED` at the Game Service REST boundary. Malformed provider
 responses and illegal provider suggestions are rejected as
@@ -326,6 +339,9 @@ All AI provider errors map to `503 AI_PROVIDER_FAILED` at the game server
 REST boundary (`AITurnError.ProviderFailure` → `aiErrToHttpErr`).
 =======
 Provider availability, timeout, and engine failures map to
+=======
+Remote AI client availability, timeout, and engine failures map to
+>>>>>>> 14542117 (fix ai flow)
 `503 AI_PROVIDER_FAILED` at the Game Service REST boundary. Malformed provider
 responses and illegal provider suggestions are rejected as
 `422 AI_MOVE_REJECTED`.

@@ -242,6 +242,7 @@ class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
   }
 
   it should "return SessionLookupFailed when the session is unknown (even with AI configured)" in {
+<<<<<<< HEAD
     val collector = CollectingEventPublisher()
     val sessionRepo = new InMemorySessionRepository
     val gameRepo = new InMemoryGameRepository
@@ -252,6 +253,18 @@ class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
       _ => Right(AIResponse(Move(Position.from(4, 1).value, Position.from(4, 3).value)))
     val ai = AITurnService(alwaysLegal, commands, collector)
     val svcWithAI = DefaultGameService(commands, sessionLifecycleService, gameRepo, collector, Some(ai))
+=======
+    val collector      = CollectingEventPublisher()
+    val sessionRepo    = new InMemorySessionRepository
+    val gameRepo       = new InMemoryGameRepository
+    val store          = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionService = new SessionService(sessionRepo, _ => ())
+    val commands       = new SessionGameService(sessionService, store, collector)
+    val alwaysLegal: AiMoveSuggestionClient = _ =>
+      Right(AIResponse(Move(Position.from(4, 1).value, Position.from(4, 3).value)))
+    val ai        = AITurnService(alwaysLegal, commands, collector)
+    val svcWithAI = DefaultGameService(commands, sessionService, gameRepo, collector, Some(ai))
+>>>>>>> 14542117 (fix ai flow)
     svcWithAI.triggerAIMove(SessionId.random()).left.value shouldBe
       a[AITurnError.SessionLookupFailed]
   }
@@ -265,6 +278,7 @@ class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
   }
 
   it should "return SessionLookupFailed for an unknown game id (even with AI configured)" in {
+<<<<<<< HEAD
     val collector = CollectingEventPublisher()
     val sessionRepo = new InMemorySessionRepository
     val gameRepo = new InMemoryGameRepository
@@ -275,6 +289,18 @@ class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
       _ => Right(AIResponse(Move(Position.from(4, 1).value, Position.from(4, 3).value)))
     val ai = AITurnService(alwaysLegal, commands, collector)
     val svcWithAI = DefaultGameService(commands, sessionLifecycleService, gameRepo, collector, Some(ai))
+=======
+    val collector      = CollectingEventPublisher()
+    val sessionRepo    = new InMemorySessionRepository
+    val gameRepo       = new InMemoryGameRepository
+    val store          = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionService = new SessionService(sessionRepo, _ => ())
+    val commands       = new SessionGameService(sessionService, store, collector)
+    val alwaysLegal: AiMoveSuggestionClient = _ =>
+      Right(AIResponse(Move(Position.from(4, 1).value, Position.from(4, 3).value)))
+    val ai        = AITurnService(alwaysLegal, commands, collector)
+    val svcWithAI = DefaultGameService(commands, sessionService, gameRepo, collector, Some(ai))
+>>>>>>> 14542117 (fix ai flow)
     svcWithAI.triggerAIMoveByGameId(GameId.random()).left.value shouldBe
       a[AITurnError.SessionLookupFailed]
   }

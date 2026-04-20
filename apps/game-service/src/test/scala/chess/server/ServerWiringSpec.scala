@@ -128,6 +128,7 @@ class ServerWiringSpec extends AnyFlatSpec with Matchers with EitherValues with 
   }
 
   it should "select the remote AI client when remote mode is configured" in {
+<<<<<<< HEAD
     val client = ServerWiring.aiClientFor(
       AiConfig(
         mode = AiProviderMode.Remote,
@@ -158,9 +159,19 @@ class ServerWiringSpec extends AnyFlatSpec with Matchers with EitherValues with 
       .triggerAIMoveByGameId(session.gameId)
       .left
       .value shouldBe a[AITurnError.ProviderFailure]
+=======
+    val client = ServerWiring.aiClientFor(AiConfig(
+      mode            = AiProviderMode.Remote,
+      remote          = Some(chess.config.RemoteAiConfig("http://ai.local")),
+      timeoutMillis   = 2000,
+      defaultEngineId = Some("stockfish-default")
+    ))
+
+    client.value shouldBe a[RemoteAiMoveSuggestionClient]
+>>>>>>> 14542117 (fix ai flow)
   }
 
-  it should "select the remote AI provider by default" in {
+  it should "select the remote AI client by default" in {
     val persistence = PersistenceAssembly.assemble(config)
     val events      = EventWiring(CollectingEventPublisher(), wsServer = None)
     val baseCtx     = CoreAssembly.build(persistence, events.coreEvents)

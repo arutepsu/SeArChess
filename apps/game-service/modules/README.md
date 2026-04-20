@@ -8,7 +8,11 @@ These modules are owned by the Game Service runtime.
 | `persistence` | In-memory and SQLite active game/session persistence. |
 | `rest-http4s` | Game Service HTTP route implementation. |
 | `websocket` | Live Game event WebSocket transport. |
+<<<<<<< HEAD
 | `ai` | `AiMoveSuggestionClient` adapters: remote internal AI Service client by default, local deterministic dev/test fallback. |
+=======
+| `ai` | `AiMoveSuggestionClient` adapters: remote Python service client by default, local deterministic dev/test fallback. |
+>>>>>>> 14542117 (fix ai flow)
 | `eventing` | Internal in-process event publisher utilities. |
 | `history-delivery` | Game-owned durable outbox and HTTP forwarding to History Service. |
 

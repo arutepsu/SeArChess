@@ -21,6 +21,7 @@ import org.scalatest.matchers.should.Matchers
 class AITurnServiceEventSpec extends AnyFlatSpec with Matchers with EitherValues with OptionValues:
 
   private def freshSetup(provider: AiMoveSuggestionClient = LocalDeterministicAiClient()) =
+<<<<<<< HEAD
     val collector = CollectingEventPublisher()
     val sessionRepo = InMemorySessionRepository()
     val gameRepo = InMemoryGameRepository()
@@ -36,6 +37,21 @@ class AITurnServiceEventSpec extends AnyFlatSpec with Matchers with EitherValues
       )
       .value
     val state = GameStateFactory.initial()
+=======
+    val collector      = CollectingEventPublisher()
+    val sessionRepo    = InMemorySessionRepository()
+    val gameRepo       = InMemoryGameRepository()
+    val store          = InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionService = SessionService(sessionRepo, _ => ())
+    val svc            = SessionGameService(sessionService, store, _ => ())
+    val session        = svc.createSession(
+      gameId          = GameId.random(),
+      mode            = SessionMode.HumanVsAI,
+      whiteController = SideController.AI(),
+      blackController = SideController.HumanLocal
+    ).value
+    val state     = GameStateFactory.initial()
+>>>>>>> 14542117 (fix ai flow)
     val aiService = AITurnService(provider, svc, collector)
     (aiService, collector, session, state)
 
@@ -52,6 +68,7 @@ class AITurnServiceEventSpec extends AnyFlatSpec with Matchers with EitherValues
   }
 
   it should "NOT publish AITurnRequested when the guard fails (not AI turn)" in {
+<<<<<<< HEAD
     val collector = CollectingEventPublisher()
     val sessionRepo = InMemorySessionRepository()
     val gameRepo = InMemoryGameRepository()
@@ -67,6 +84,21 @@ class AITurnServiceEventSpec extends AnyFlatSpec with Matchers with EitherValues
       )
       .value
     val state = GameStateFactory.initial()
+=======
+    val collector      = CollectingEventPublisher()
+    val sessionRepo    = InMemorySessionRepository()
+    val gameRepo       = InMemoryGameRepository()
+    val store          = InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionService = SessionService(sessionRepo, _ => ())
+    val svc            = SessionGameService(sessionService, store, _ => ())
+    val humanSession   = svc.createSession(
+      gameId          = GameId.random(),
+      mode            = SessionMode.HumanVsHuman,
+      whiteController = SideController.HumanLocal,
+      blackController = SideController.HumanLocal
+    ).value
+    val state     = GameStateFactory.initial()
+>>>>>>> 14542117 (fix ai flow)
     val aiService = AITurnService(LocalDeterministicAiClient(), svc, collector)
     aiService.requestAIMove(humanSession, state)
     collector.events should not contain a[AppEvent.AITurnRequested]

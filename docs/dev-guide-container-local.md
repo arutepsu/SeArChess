@@ -309,6 +309,9 @@ curl -s -X POST http://127.0.0.1:10000/api/games/{gameId}/ai-move
 A successful response is HTTP 200 with the updated game state. If the AI
 service is not reachable, the Game Service returns `503 AI_PROVIDER_FAILED`.
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 14542117 (fix ai flow)
 
 For a repeatable verification of the same flow, run:
 
@@ -333,12 +336,17 @@ two moves. It also stops `ai-service` briefly to verify that Game surfaces
 adapter, then starts `ai-service` again.
 
 The same script also verifies bad provider output using the AI service's
+<<<<<<< HEAD
 local/dev `X-Searchess-AI-Test-Mode` header hook. It recreates only `game-service` with
+=======
+local/dev `metadata.testMode` hook. It recreates only `game-service` with
+>>>>>>> 14542117 (fix ai flow)
 `AI_REMOTE_TEST_MODE=illegal_move` and then `malformed_response`, triggers an
 AI turn, and expects `422 AI_MOVE_REJECTED` in both cases. After each rejection
 it fetches the game again and asserts that the persisted game state is exactly
 unchanged. Use `-SkipFailurePath` to skip the AI-down check or
 `-SkipRejectionPaths` to skip the bad-output checks.
+<<<<<<< HEAD
 
 ## Independent Startup Paths
 
@@ -376,3 +384,5 @@ History and AI are internal-only in the Compose topology. Do not add Envoy
 routes or host port mappings for them unless the contract map is updated first.
 =======
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
+=======
+>>>>>>> 14542117 (fix ai flow)

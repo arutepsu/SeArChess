@@ -22,11 +22,3 @@ trait AiMoveSuggestionClient:
    *          [[AIError]] when the engine cannot produce a candidate.
    */
   def suggestMove(context: AIRequestContext): Either[AIError, AIResponse]
-
-/** Backwards-compatible alias while package names and older tests catch up.
- *
- *  New code should prefer [[AiMoveSuggestionClient]]. The alias keeps this
- *  extraction slice focused on ownership/authority instead of a broad rename
- *  campaign.
- */
-type AIProvider = AiMoveSuggestionClient

@@ -9,6 +9,7 @@ import chess.notation.api.{NotationFailure, NotationFormat}
 import chess.notation.fen.FenSerializer
 
 /** Builds adapter-level remote AI request DTOs from current Game Service data.
+<<<<<<< HEAD
   *
   * The mapper is deliberately kept out of the application layer. It prepares the remote AI contract
   * while preserving the `AiMoveSuggestionClient` seam: Game Service still validates and applies
@@ -20,6 +21,21 @@ object RemoteAiRequestMapper:
       context: AIRequestContext,
       timeoutMillis: Int,
       defaultEngineId: Option[String]
+=======
+ *
+ *  The mapper is deliberately kept out of the application layer. It prepares
+ *  the remote AI contract while preserving the `AiMoveSuggestionClient` seam:
+ *  Game Service still validates and applies whatever move the AI service
+ *  returns.
+ */
+object RemoteAiRequestMapper:
+
+  def toRequest(
+    context:         AIRequestContext,
+    timeoutMillis:   Int,
+    defaultEngineId: Option[String],
+    testMode:        Option[String]
+>>>>>>> 14542117 (fix ai flow)
   ): Either[NotationFailure, RemoteAiMoveSuggestionRequest] =
     val state = context.state
     FenSerializer.exportNotation(state, NotationFormat.FEN).map { fen =>
@@ -30,13 +46,20 @@ object RemoteAiRequestMapper:
         sideToMove = context.sideToMove.toString.toLowerCase,
         fen = fen.text,
         legalMoves = legalMoveDtos(state),
+<<<<<<< HEAD
         engine = RemoteAiEngineSelection(context.engineId.orElse(defaultEngineId)),
         limits = RemoteAiLimits(timeoutMillis),
         metadata = RemoteAiMetadata(mode = context.mode.toString)
+=======
+        engine     = RemoteAiEngineSelection(context.engineId.orElse(defaultEngineId)),
+        limits     = RemoteAiLimits(timeoutMillis),
+        metadata   = RemoteAiMetadata(mode = context.mode.toString, testMode = testMode)
+>>>>>>> 14542117 (fix ai flow)
       )
     }
 
   def toRequest(
+<<<<<<< HEAD
       requestId: String,
       session: GameSession,
       state: GameState,
@@ -47,6 +70,20 @@ object RemoteAiRequestMapper:
       context = AIRequestContext.fromSession(session, state, requestId),
       timeoutMillis = timeoutMillis,
       defaultEngineId = defaultEngineId
+=======
+    requestId:       String,
+    session:         GameSession,
+    state:           GameState,
+    timeoutMillis:   Int,
+    defaultEngineId: Option[String] = None,
+    testMode:        Option[String] = None
+  ): Either[NotationFailure, RemoteAiMoveSuggestionRequest] =
+    toRequest(
+      context         = AIRequestContext.fromSession(session, state, requestId),
+      timeoutMillis   = timeoutMillis,
+      defaultEngineId = defaultEngineId,
+      testMode        = testMode
+>>>>>>> 14542117 (fix ai flow)
     )
 
   private def legalMoveDtos(state: GameState): List[RemoteAiMoveDto] =

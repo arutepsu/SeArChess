@@ -28,6 +28,7 @@ import org.http4s.*
 import org.http4s.dsl.io.*
 
 /** http4s routes for the `/games` resource.
+<<<<<<< HEAD
   *
   * Routes:
   *   - `GET /games/{gameId}` → [[handleGetGame]] (query — game state)
@@ -51,6 +52,28 @@ class Http4sGameRoutes(
     gameService: GameServiceApi,
     metrics: DomainMetricsRegistry = new DomainMetricsRegistry()
 ):
+=======
+ *
+ *  Routes:
+ *  - `GET  /games/{gameId}`            → [[handleGetGame]]     (query  — game state)
+ *  - `POST /games/{gameId}/moves`      → [[handleSubmitMove]]  (command — submit move)
+ *  - `POST /games/{gameId}/resign`     → [[handleResign]]      (command — resign)
+ *  - `POST /games/{gameId}/ai-move`    → [[handleAIMove]]      (command — trigger AI)
+ *
+ *  All operations are routed through [[GameServiceApi]] — the single Game Service
+ *  boundary.  This class has one dependency instead of the previous three
+ *  ([[chess.application.session.service.GameSessionCommands]],
+ *  [[chess.application.session.service.SessionService]], and
+ *  [[chess.application.port.repository.GameRepository]]).
+ *
+ *  AI capability policy: `/games/{gameId}/ai-move` is always mounted. Runtimes
+ *  without an AI client return `422 AI_NOT_CONFIGURED`; configured runtimes
+ *  route AI suggestions through the same authoritative Game Service move path.
+ *
+ *  This class is pure logic tested in-memory via `routes.orNotFound.run(req)`.
+ */
+class Http4sGameRoutes(gameService: GameServiceApi):
+>>>>>>> 14542117 (fix ai flow)
 
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
 
