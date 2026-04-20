@@ -24,7 +24,7 @@ class ServerWiringSpec extends AnyFlatSpec with Matchers with EitherValues with 
     eventMode   = EventMode.InProcess,
     cors        = CorsConfig(enabled = false, allowedOrigin = "*"),
     history     = HistoryForwardingConfig(enabled = false, baseUrl = None, timeoutMillis = 2000),
-    ai          = AiConfig(AiProviderMode.LocalDeterministic, remote = None, timeoutMillis = 2000, defaultEngineId = None)
+    ai          = AiConfig(AiProviderMode.Remote, remote = Some(chess.config.RemoteAiConfig("http://ai-service:8765")), timeoutMillis = 2000, defaultEngineId = None)
   )
 
   "ServerWiring.withServerAi" should "configure the Game Service AI endpoint path" in {
@@ -32,7 +32,11 @@ class ServerWiringSpec extends AnyFlatSpec with Matchers with EitherValues with 
     val collector   = CollectingEventPublisher()
     val events      = EventWiring(collector, wsServer = None)
     val baseCtx     = CoreAssembly.build(persistence, events.coreEvents)
-    val serverCtx   = ServerWiring.withServerAi(baseCtx, events)
+    val serverCtx   = ServerWiring.withServerAi(
+      baseCtx,
+      events,
+      AiConfig(AiProviderMode.LocalDeterministic, remote = None, timeoutMillis = 2000, defaultEngineId = None)
+    )
 
     val (_, session) = serverCtx.gameService.createGame(
       mode            = SessionMode.HumanVsAI,
@@ -83,4 +87,19 @@ class ServerWiringSpec extends AnyFlatSpec with Matchers with EitherValues with 
     ))
 
     provider.value shouldBe a[RemoteAiProvider]
+  }
+
+  it should "select the remote AI provider by default" in {
+    val persistence = PersistenceAssembly.assemble(config)
+    val events      = EventWiring(CollectingEventPublisher(), wsServer = None)
+    val baseCtx     = CoreAssembly.build(persistence, events.coreEvents)
+    val serverCtx   = ServerWiring.withServerAi(baseCtx, events)
+
+    val (_, session) = serverCtx.gameService.createGame(
+      mode            = SessionMode.HumanVsAI,
+      whiteController = SideController.AI(),
+      blackController = SideController.HumanLocal
+    ).value
+
+    serverCtx.gameService.triggerAIMoveByGameId(session.gameId).left.value shouldBe a[AITurnError.ProviderFailure]
   }

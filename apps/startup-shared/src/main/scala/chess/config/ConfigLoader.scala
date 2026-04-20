@@ -20,8 +20,8 @@ package chess.config
  *    HISTORY_FORWARDING_ENABLED true/false/1/0/yes/no (default: false)
  *    HISTORY_SERVICE_BASE_URL URL for History Service (required when enabled)
  *    HISTORY_FORWARDING_TIMEOUT_MILLIS integer >= 1  (default: 2000)
- *    AI_PROVIDER_MODE  local | disabled | remote    (default: local)
- *    AI_REMOTE_BASE_URL  URL for remote AI mode      (required for remote)
+ *    AI_PROVIDER_MODE  remote | local | disabled    (default: remote)
+ *    AI_REMOTE_BASE_URL  URL for remote AI mode      (default: http://ai-service:8765)
  *    AI_TIMEOUT_MILLIS integer >= 1                 (default: 2000)
  *    AI_DEFAULT_ENGINE_ID optional engine id         (default: unset)
  *  }}}
@@ -46,7 +46,8 @@ object ConfigLoader:
   private val DefaultCorsAllowOrigin: String = "*"
   private val DefaultHistoryEnabled:  String = "false"
   private val DefaultHistoryTimeout:  String = "2000"
-  private val DefaultAiMode:          String = "local"
+  private val DefaultAiMode:          String = "remote"
+  private val DefaultAiRemoteBaseUrl: String = "http://ai-service:8765"
   private val DefaultAiTimeoutMillis: String = "2000"
 
   // ── Public API ───────────────────────────────────────────────────────────────
@@ -80,7 +81,8 @@ object ConfigLoader:
       history     <- parseHistoryForwardingConfig(histEnabled, env("HISTORY_SERVICE_BASE_URL"), histTimeout)
       aiMode      <- parseAiProviderMode(env("AI_PROVIDER_MODE").getOrElse(DefaultAiMode))
       aiTimeout   <- parsePositiveInt("AI_TIMEOUT_MILLIS", env("AI_TIMEOUT_MILLIS").getOrElse(DefaultAiTimeoutMillis))
-      remote      <- parseRemoteAiConfig(aiMode, env("AI_REMOTE_BASE_URL"))
+      remoteUrl    = env("AI_REMOTE_BASE_URL").orElse(if aiMode == AiProviderMode.Remote then Some(DefaultAiRemoteBaseUrl) else None)
+      remote      <- parseRemoteAiConfig(aiMode, remoteUrl)
       engineId     = env("AI_DEFAULT_ENGINE_ID")
     yield AppConfig(
       http        = HttpConfig(httpHost, httpPort),
@@ -149,7 +151,7 @@ object ConfigLoader:
       case "remote" =>
         Right(AiProviderMode.Remote)
       case _ =>
-        Left(s"AI_PROVIDER_MODE must be 'local', 'disabled', or 'remote', got: '$value'")
+        Left(s"AI_PROVIDER_MODE must be 'remote', 'local', or 'disabled', got: '$value'")
 
   private def parseRemoteAiConfig(
     mode:    AiProviderMode,

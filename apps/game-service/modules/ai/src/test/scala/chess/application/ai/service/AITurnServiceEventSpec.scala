@@ -114,7 +114,7 @@ class AITurnServiceEventSpec extends AnyFlatSpec with Matchers with EitherValues
     aiService.requestAIMove(session, state)
     val failed = collector.events.collectFirst { case e: AppEvent.AITurnFailed => e }
     failed shouldBe defined
-    failed.value.reason should include("move rejected")
+    failed.value.reason should include("illegal AI suggestion")
   }
 
   // ── event ordering ────────────────────────────────────────────────────────

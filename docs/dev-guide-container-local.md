@@ -1,7 +1,8 @@
 # Local Container Deployment
 
-This guide runs the Scala Game Service beside the Python AI service with Docker
-Compose. It is intended for local/dev extraction checks only.
+This guide runs Envoy, the Scala Game Service, the Scala History Service, and
+the Python AI service with Docker Compose. It is intended for local/dev
+extraction checks only.
 
 ## Prerequisites
 
@@ -15,21 +16,45 @@ Compose. It is intended for local/dev extraction checks only.
 docker compose up --build
 ```
 
-Compose starts three services:
+Compose starts four services:
 
 | Service | Container port | Host port | Purpose |
 |---|---:|---:|---|
-| `game-service` | `8080` | `8080` | Scala HTTP API |
-| `game-service` | `9090` | `9090` | Scala WebSocket server |
-| `history-service` | `8081` | `8081` | Scala History archive API |
-| `ai-service` | `8765` | `8765` | Python AI inference API |
+| `envoy` | `10000` | `10000` | Public local/dev edge |
+| `game-service` | `8080` | internal | Scala HTTP API |
+| `game-service` | `9090` | internal | Scala WebSocket server |
+| `history-service` | `8081` | internal | Scala History archive API |
+| `ai-service` | `8765` | internal | Python AI inference API |
 
 Check liveness from the host:
 
 ```bash
-curl http://127.0.0.1:8080/health
-curl http://127.0.0.1:8765/health
+curl http://127.0.0.1:10000/health
 ```
+
+Normal client access should use Envoy. The service container ports are exposed
+only on the Compose network.
+
+## Edge Routing
+
+Envoy uses static local/dev routing:
+
+| Public path | Internal target |
+|---|---|
+| `GET /health` | `game-service:8080/health` |
+| `/api/*` | `game-service:8080/*` with `/api` stripped |
+| `/ws/*` | `game-service:9090/ws/*` with WebSocket upgrade support |
+
+Examples:
+
+```bash
+curl -s -X POST http://127.0.0.1:10000/api/sessions \
+  -H "Content-Type: application/json" \
+  -d '{"mode":"HumanVsAI"}'
+```
+
+Game-to-History and Game-to-AI traffic stays direct inside the Compose network.
+History and AI are not routed through Envoy.
 
 ## Environment
 
@@ -58,6 +83,9 @@ Inside Compose, `game-service` reaches the Python service by DNS name:
 `http://ai-service:8765`. Do not use `localhost` for container-to-container
 traffic; in a container, `localhost` means the same container.
 
+Inside Compose, `game-service` reaches History by DNS name:
+`http://history-service:8081`.
+
 ## SQLite Persistence
 
 The Game Service mounts a named volume:
@@ -82,8 +110,8 @@ When History forwarding is enabled, the Game Service SQLite file also owns the
 read-only inspection is available without opening SQLite manually:
 
 ```bash
-curl -s http://127.0.0.1:8080/ops/history-outbox
-curl -s http://127.0.0.1:8080/ops/history-outbox/pending
+curl -s http://127.0.0.1:10000/api/ops/history-outbox
+curl -s http://127.0.0.1:10000/api/ops/history-outbox/pending
 ```
 
 See `docs/dev-guide-game-service.md` for the response shape and limits of this
@@ -93,7 +121,7 @@ To verify persistence across a Game Service restart:
 
 ```bash
 # Create a Human-vs-AI session and note session.gameId.
-curl -s -X POST http://127.0.0.1:8080/sessions \
+curl -s -X POST http://127.0.0.1:10000/api/sessions \
   -H "Content-Type: application/json" \
   -d '{"mode":"HumanVsAI"}'
 
@@ -101,7 +129,7 @@ curl -s -X POST http://127.0.0.1:8080/sessions \
 docker compose restart game-service
 
 # Replace {gameId}; this should still return HTTP 200 with the saved game.
-curl -s http://127.0.0.1:8080/games/{gameId}
+curl -s http://127.0.0.1:10000/api/games/{gameId}
 ```
 
 To reset local container state:
@@ -115,7 +143,7 @@ docker compose down -v
 Create a Human-vs-AI session:
 
 ```bash
-curl -s -X POST http://127.0.0.1:8080/sessions \
+curl -s -X POST http://127.0.0.1:10000/api/sessions \
   -H "Content-Type: application/json" \
   -d '{"mode":"HumanVsAI"}'
 ```
@@ -123,7 +151,7 @@ curl -s -X POST http://127.0.0.1:8080/sessions \
 Copy the returned `session.gameId`, then submit a human move:
 
 ```bash
-curl -s -X POST http://127.0.0.1:8080/games/{gameId}/moves \
+curl -s -X POST http://127.0.0.1:10000/api/games/{gameId}/moves \
   -H "Content-Type: application/json" \
   -d '{"from":"e2","to":"e4","controller":"HumanLocal"}'
 ```
@@ -131,7 +159,7 @@ curl -s -X POST http://127.0.0.1:8080/games/{gameId}/moves \
 Trigger the Python-backed AI move:
 
 ```bash
-curl -s -X POST http://127.0.0.1:8080/games/{gameId}/ai-move
+curl -s -X POST http://127.0.0.1:10000/api/games/{gameId}/ai-move
 ```
 
 A successful response is HTTP 200 with the updated game state. If the AI

@@ -17,6 +17,16 @@ The repository structure now makes service ownership the default way to read the
 codebase. Shared contracts and reusable libraries stay in root `modules/`;
 service-owned implementation modules live beside the app that owns them.
 
+For local/dev containers, Envoy is the single public edge entrypoint:
+
+```text
+Client -> Envoy :10000 -> Game Service
+Game Service -> History Service  (internal)
+Game Service -> AI Service       (internal)
+```
+
+See [docs/architecture/local-envoy-edge.md](docs/architecture/local-envoy-edge.md).
+
 ## Repository Shape
 
 ```text
@@ -80,6 +90,13 @@ For the local two/three-container service proof, start with:
 - [Container local guide](docs/dev-guide-container-local.md)
 - [Game Service guide](docs/dev-guide-game-service.md)
 - [History Service guide](docs/dev-guide-history-service.md)
+
+Normal host access goes through Envoy:
+
+```powershell
+curl http://127.0.0.1:10000/health
+curl -X POST http://127.0.0.1:10000/api/sessions
+```
 
 ## Build
 

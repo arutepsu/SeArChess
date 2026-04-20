@@ -19,8 +19,10 @@ import chess.application.session.service.{SessionError, SessionMoveError}
  *    distinguish "not found" from a storage failure.
  *  - [[GameStateLookupFailed]]: the game state could not be loaded from
  *    the repository.  Carries the underlying [[RepositoryError]].
- *  - [[ProviderFailure]]: the [[chess.application.port.ai.AIProvider]] could not
+ *  - [[ProviderFailure]]: the [[chess.application.port.ai.AiMoveSuggestionClient]] could not
  *    produce a move candidate (e.g. no legal moves, engine error).
+ *  - [[IllegalSuggestedMove]]: the AI client returned a move that is not in the
+ *    Game Service-computed legal move set.
  *  - [[MoveFailed]]: the AI's proposed move was rejected by the session or
  *    domain move path.  Under a correct provider implementation this should not
  *    happen; it is surfaced here so callers can handle provider bugs explicitly.
@@ -46,5 +48,7 @@ enum AITurnError:
   case GameStateLookupFailed(cause: RepositoryError)
   /** The AI provider could not produce a move candidate. */
   case ProviderFailure(cause: AIError)
+  /** The AI's proposed move was not in Game Service's legal move set. */
+  case IllegalSuggestedMove(move: chess.domain.model.Move)
   /** The AI's proposed move was rejected by the domain or session policy. */
   case MoveFailed(cause: SessionMoveError)

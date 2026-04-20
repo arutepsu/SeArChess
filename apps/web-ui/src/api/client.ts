@@ -15,7 +15,7 @@ import type {
 import { mapGameResponseToGameState } from "./mapper";
 import type { ErrorResponse } from "./backendTypes";
 
-const DEFAULT_API_BASE = "http://localhost:8080";
+const DEFAULT_API_BASE = "http://localhost:10000";
 
 export const apiBaseUrl =
   import.meta.env.VITE_API_BASE_URL?.toString() || DEFAULT_API_BASE;

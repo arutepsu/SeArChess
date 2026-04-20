@@ -2,7 +2,7 @@ package chess.application.port.ai
 
 import chess.domain.model.Move
 
-/** The result of a successful [[AIProvider.suggestMove]] call.
+/** The result of a successful [[AiMoveSuggestionClient.suggestMove]] call.
  *
  *  A dedicated response type — rather than a bare [[Move]] — keeps the port
  *  contract extensible: engine metadata (evaluation score, search depth, etc.)

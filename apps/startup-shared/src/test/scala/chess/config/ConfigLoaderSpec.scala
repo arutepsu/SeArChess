@@ -10,13 +10,20 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
     val env = values.toMap
     ConfigLoader.loadFrom(key => env.get(key))
 
-  "ConfigLoader" should "default to the local deterministic AI provider" in {
+  "ConfigLoader" should "default to the remote AI provider" in {
     val config = load().value
 
-    config.ai.mode            shouldBe AiProviderMode.LocalDeterministic
-    config.ai.remote          shouldBe None
+    config.ai.mode            shouldBe AiProviderMode.Remote
+    config.ai.remote.value.baseUrl shouldBe "http://ai-service:8765"
     config.ai.timeoutMillis   shouldBe 2000
     config.ai.defaultEngineId shouldBe None
+  }
+
+  it should "parse explicit local deterministic AI mode as transitional fallback" in {
+    val config = load("AI_PROVIDER_MODE" -> "local").value
+
+    config.ai.mode   shouldBe AiProviderMode.LocalDeterministic
+    config.ai.remote shouldBe None
   }
 
   it should "default History forwarding to disabled" in {
@@ -63,8 +70,10 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
     config.ai.defaultEngineId.value      shouldBe "stockfish-default"
   }
 
-  it should "reject remote AI mode without a base URL" in {
-    load("AI_PROVIDER_MODE" -> "remote").left.value should include ("AI_REMOTE_BASE_URL is required")
+  it should "use the default compose AI service URL when remote mode omits a base URL" in {
+    val config = load("AI_PROVIDER_MODE" -> "remote").value
+
+    config.ai.remote.value.baseUrl shouldBe "http://ai-service:8765"
   }
 
   it should "reject non-positive AI timeout" in {

@@ -7,6 +7,7 @@ import chess.adapter.rest.contract.dto.{GameResponse, LegalMovesResponse, Resign
 import chess.application.ApplicationError
 import chess.application.GameServiceApi
 import chess.application.ai.service.AITurnError
+import chess.application.port.ai.AIError
 import chess.application.port.repository.RepositoryError
 import chess.application.query.game.GameView
 import chess.application.session.model.SessionIds.{GameId, SessionId}
@@ -217,8 +218,18 @@ class Http4sGameRoutes(gameService: GameServiceApi):
       (Status.NotFound, "GAME_NOT_FOUND", s"Game state not found: $gameIdStr")
     case AITurnError.GameStateLookupFailed(_) =>
       (Status.InternalServerError, "INTERNAL_ERROR", "Failed to load game state for AI turn")
-    case AITurnError.ProviderFailure(err) =>
+    case AITurnError.ProviderFailure(AIError.MalformedResponse(err)) =>
+      (Status.UnprocessableEntity, "AI_MOVE_REJECTED", s"AI provider returned malformed move data: $err")
+    case AITurnError.ProviderFailure(err @ AIError.Unavailable(_)) =>
       (Status.ServiceUnavailable, "AI_PROVIDER_FAILED", s"AI provider failed: $err")
+    case AITurnError.ProviderFailure(err @ AIError.Timeout(_)) =>
+      (Status.ServiceUnavailable, "AI_PROVIDER_FAILED", s"AI provider failed: $err")
+    case AITurnError.ProviderFailure(err @ AIError.EngineFailure(_)) =>
+      (Status.ServiceUnavailable, "AI_PROVIDER_FAILED", s"AI provider failed: $err")
+    case AITurnError.ProviderFailure(err @ AIError.NoLegalMove) =>
+      (Status.ServiceUnavailable, "AI_PROVIDER_FAILED", s"AI provider failed: $err")
+    case AITurnError.IllegalSuggestedMove(move) =>
+      (Status.UnprocessableEntity, "AI_MOVE_REJECTED", s"AI move rejected: illegal suggestion $move")
     case AITurnError.MoveFailed(cause) =>
       (Status.UnprocessableEntity, "AI_MOVE_REJECTED", s"AI move rejected: $cause")
 

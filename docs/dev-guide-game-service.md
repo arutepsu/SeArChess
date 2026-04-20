@@ -26,10 +26,13 @@ The Game Service exposes a small read-only inspection surface:
 These endpoints are for local/dev debugging. They do not retry, replay, delete,
 or mutate outbox rows.
 
+In Docker Compose, call these through Envoy with the `/api` prefix. The service
+container port is not normally published to the host.
+
 ### Summary
 
 ```bash
-curl -s http://127.0.0.1:8080/ops/history-outbox
+curl -s http://127.0.0.1:10000/api/ops/history-outbox
 ```
 
 Example:
@@ -51,7 +54,7 @@ Example:
 ### Pending Rows
 
 ```bash
-curl -s http://127.0.0.1:8080/ops/history-outbox/pending
+curl -s http://127.0.0.1:10000/api/ops/history-outbox/pending
 ```
 
 Rows expose only fields that exist in storage:
@@ -73,7 +76,7 @@ not store one.
 ### Row Detail
 
 ```bash
-curl -s http://127.0.0.1:8080/ops/history-outbox/1
+curl -s http://127.0.0.1:10000/api/ops/history-outbox/1
 ```
 
 The detail response includes `payloadJson`, parsed as JSON, so an engineer can

@@ -54,9 +54,10 @@ enum EventMode:
  *  - [[Disabled]]: no AI provider is wired; AI HTTP requests return the existing
  *    `AI_NOT_CONFIGURED` response.
  *  - [[LocalDeterministic]]: use the in-process deterministic first-legal-move
- *    adapter. This remains the default so current flows are stable.
+ *    adapter. This remains as an explicit local/dev fallback only.
  *  - [[Remote]]: delegate to the Python `searchess-ai-service` via
- *    `POST /v1/move-suggestions`.  Requires `AI_REMOTE_BASE_URL`.
+ *    `POST /v1/move-suggestions`. This is the default Game Service runtime
+ *    path.
  */
 enum AiProviderMode:
   case Disabled
