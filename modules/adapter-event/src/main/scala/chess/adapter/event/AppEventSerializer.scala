@@ -1,6 +1,7 @@
 package chess.adapter.event
 
 import chess.application.event.AppEvent
+import chess.application.port.event.TerminalEventJsonSerializer
 import chess.application.session.model.{SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import chess.domain.model.{Color, DrawReason, GameStatus, Move, PieceType}
@@ -12,6 +13,10 @@ import ujson.Value
  *  `docs/contracts/game-events-v1.md` are serialised.  All other variants
  *  return [[None]] — they are internal events that must not cross service
  *  boundaries.
+ *
+ *  Implements [[TerminalEventJsonSerializer]] so that it can be injected into
+ *  application services as the outbox-write serialiser without requiring those
+ *  services to import adapter-layer types.
  *
  *  === Usage ===
  *  {{{
@@ -30,13 +35,13 @@ import ujson.Value
  *  [[AppEvent.GameFinished]] carrying a non-terminal [[GameStatus]], which
  *  violates the [[AppEvent]] contract and is treated as an `IllegalArgumentException`.
  */
-object AppEventSerializer:
+object AppEventSerializer extends TerminalEventJsonSerializer:
 
   /** Serialise a boundary-relevant event to a JSON string.
    *
    *  @return `Some(json)` for the five wire-contract events; `None` for all others
    */
-  def serialize(event: AppEvent): Option[String] = event match
+  override def serialize(event: AppEvent): Option[String] = event match
     case e: AppEvent.SessionCreated   => Some(ujson.write(sessionCreatedJson(e)))
     case e: AppEvent.MoveApplied      => Some(ujson.write(moveAppliedJson(e)))
     case e: AppEvent.GameFinished     => Some(ujson.write(gameFinishedJson(e)))

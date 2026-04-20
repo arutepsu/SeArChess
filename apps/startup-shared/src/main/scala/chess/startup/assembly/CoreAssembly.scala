@@ -50,18 +50,20 @@ object CoreAssembly:
   /** Build the shared application context from pre-assembled infrastructure.
    *
    *  The preferred call path.  The caller controls which [[EventWiring]]
-   *  (and therefore which [[chess.application.port.event.EventPublisher]]) is
-   *  injected into the services.  When called from [[chess.server.ServerWiring]],
-   *  the publisher is backed by the same registry as the live WebSocket server so
-   *  that events flow to connected clients.
+   *  (and therefore which [[chess.application.port.event.EventPublisher]] and
+   *  [[chess.application.port.event.TerminalEventJsonSerializer]]) is injected
+   *  into the services.  When called from [[chess.server.ServerWiring]], the
+   *  publisher is backed by the same registry as the live WebSocket server so
+   *  that events flow to connected clients, and the serialiser is
+   *  [[chess.adapter.event.AppEventSerializer]] for the SQLite path.
    *
    *  The [[DefaultGameService]] created here has no AI provider; callers that
    *  need AI support (e.g. the server wiring) must replace or extend the
    *  [[GameServiceApi]] instance after construction.
    */
   def build(persistence: PersistenceWiring, events: EventWiring): AppContext =
-    val sessionService = SessionService(persistence.sessionRepository, events.publisher)
-    val commands       = SessionGameService(sessionService, persistence.store, events.publisher)
+    val sessionService = SessionService(persistence.sessionRepository, events.publisher, events.terminalSerializer)
+    val commands       = SessionGameService(sessionService, persistence.store, events.publisher, events.terminalSerializer)
     val gameService    = DefaultGameService(
                            commands       = commands,
                            sessionService = sessionService,
@@ -77,6 +79,9 @@ object CoreAssembly:
    *  are accepted and silently discarded.  No WebSocket server is started.
    *  GUI and TUI apps receive game state updates through [[ObservableGame]]
    *  directly, not through the event publishing path.
+   *
+   *  The [[chess.application.port.event.NoOpTerminalEventJsonSerializer]] default
+   *  in [[EventWiring]] means no outbox writes are performed in this mode.
    *
    *  For server deployment, use [[chess.server.ServerWiring.start]] instead.
    */

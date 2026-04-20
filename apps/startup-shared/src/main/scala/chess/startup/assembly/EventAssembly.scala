@@ -1,20 +1,27 @@
 package chess.startup.assembly
 
-import chess.adapter.event.{FanOutEventPublisher, HistoryHttpEventPublisher}
+import chess.adapter.event.{AppEventSerializer, FanOutEventPublisher, HistoryHttpEventPublisher, HistoryOutboxForwarder, SqliteHistoryEventOutbox}
 import chess.adapter.websocket.{ChessWebSocketServer, WebSocketConnectionRegistry, WebSocketEventPublisher}
-import chess.application.port.event.EventPublisher
-import chess.config.{AppConfig, EventMode}
+import chess.application.port.event.{EventPublisher, NoOpTerminalEventJsonSerializer, TerminalEventJsonSerializer}
+import chess.config.{AppConfig, EventMode, PersistenceMode}
 
 /** Assembled event distribution infrastructure produced by [[EventAssembly.assemble]].
  *
- *  @param publisher ready-to-inject [[EventPublisher]] for application services;
- *                   delivers events to all wired consumers
- *  @param wsServer  live WebSocket server handle, present when WebSocket is enabled
- *                   in config; call `stop(0)` on the contained value to shut down
+ *  @param publisher          ready-to-inject [[EventPublisher]] for application services;
+ *                            delivers events to all wired consumers
+ *  @param wsServer           live WebSocket server handle, present when WebSocket is enabled
+ *                            in config; call `stop(0)` on the contained value to shut down
+ *  @param shutdown           cleanup hook: stops the outbox forwarder and closes the outbox
+ *                            connection when history forwarding is enabled
+ *  @param terminalSerializer serialiser injected into application services for transactional
+ *                            outbox writes; [[NoOpTerminalEventJsonSerializer]] when no durable
+ *                            outbox is configured
  */
 final case class EventWiring(
-  publisher: EventPublisher,
-  wsServer:  Option[ChessWebSocketServer]
+  publisher:          EventPublisher,
+  wsServer:           Option[ChessWebSocketServer],
+  shutdown:           () => Unit = () => (),
+  terminalSerializer: TerminalEventJsonSerializer = NoOpTerminalEventJsonSerializer
 )
 
 /** Assembles the event distribution layer from [[AppConfig]].
@@ -30,12 +37,20 @@ final case class EventWiring(
  *    attached as an optional consumer when [[chess.config.WebSocketConfig.enabled]]
  *    is true; when disabled, the publisher becomes a silent no-op.
  *
- *  === Extension path ===
- *  Future strategies (e.g. `EventMode.Kafka`) would:
- *  1. Add a new `case` to [[EventMode]].
- *  2. Add a new `case` branch in [[assemble]].
- *  3. Implement the corresponding private assembly method here.
- *  Application services, routes, and GUI/TUI adapters are unaffected.
+ *  === History forwarding — SQLite mode ===
+ *  Terminal events (GameFinished, GameResigned, SessionCancelled) are now written
+ *  to `history_event_outbox` inside the same JDBC transaction as the game-state /
+ *  session write via [[chess.application.port.repository.SessionGameStore.saveTerminal]]
+ *  and [[chess.application.port.repository.SessionRepository.saveCancelWithOutbox]].
+ *  [[chess.adapter.event.DurableHistoryEventPublisher]] is therefore NOT added to
+ *  the fan-out for the SQLite path — the transactional write replaced it.
+ *  [[HistoryOutboxForwarder]] continues to drain the outbox and forward payloads
+ *  to History unchanged.
+ *
+ *  === History forwarding — InMemory mode ===
+ *  No durable outbox exists.  [[HistoryHttpEventPublisher]] is used for best-effort
+ *  HTTP delivery (same behaviour as before this change).  The terminal serialiser
+ *  is a no-op so no outbox writes are attempted.
  */
 object EventAssembly:
 
@@ -60,12 +75,7 @@ object EventAssembly:
    *  and silently discards all events — correct when there are no push clients.
    */
   private def assembleInProcess(config: AppConfig): EventWiring =
-    val historyPublisher =
-      if config.history.enabled then
-        config.history.baseUrl.map(url =>
-          HistoryHttpEventPublisher(url, config.history.timeoutMillis)
-        ).toSeq
-      else Seq.empty
+    val (historyPublishers, serializer, shutdownHistory) = historyBridge(config)
 
     if config.webSocket.enabled then
       // Registry is shared: ChessWebSocketServer registers/unregisters live
@@ -74,6 +84,31 @@ object EventAssembly:
       val publisher = WebSocketEventPublisher(registry)
       val server    = ChessWebSocketServer(port = config.webSocket.port, registry)
       server.start()
-      EventWiring(FanOutEventPublisher((Seq(publisher) ++ historyPublisher)*), Some(server))
+      EventWiring(FanOutEventPublisher((Seq(publisher) ++ historyPublishers)*), Some(server), shutdownHistory, serializer)
     else
-      EventWiring(FanOutEventPublisher(historyPublisher*), None)
+      EventWiring(FanOutEventPublisher(historyPublishers*), None, shutdownHistory, serializer)
+
+  private def historyBridge(config: AppConfig): (Seq[EventPublisher], TerminalEventJsonSerializer, () => Unit) =
+    if !config.history.enabled then
+      (Seq.empty, NoOpTerminalEventJsonSerializer, () => ())
+    else
+      val url = config.history.baseUrl.get
+      config.persistence match
+        case PersistenceMode.SQLite =>
+          // Terminal events are committed transactionally in saveTerminal /
+          // saveCancelWithOutbox. DurableHistoryEventPublisher is not in the
+          // fan-out here — the forwarder drains the outbox written by the store.
+          val outbox    = SqliteHistoryEventOutbox(config.sqlite.get.path)
+          val forwarder = HistoryOutboxForwarder(
+            outbox         = outbox,
+            historyBaseUrl = url,
+            timeoutMillis  = config.history.timeoutMillis
+          )
+          forwarder.start()
+          (Seq.empty, AppEventSerializer, () => { forwarder.stop(); outbox.close() })
+
+        case PersistenceMode.InMemory =>
+          System.err.println(
+            "[chess] History forwarding is best-effort because PERSISTENCE_MODE is not sqlite"
+          )
+          (Seq(HistoryHttpEventPublisher(url, config.history.timeoutMillis)), NoOpTerminalEventJsonSerializer, () => ())

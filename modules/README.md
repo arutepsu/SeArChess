@@ -6,7 +6,7 @@ The architecture should follow this dependency shape:
 
 clients / UIs / transports  
 -> adapters  
--> application  
+-> game-core  
 -> domain
 
 And around that:
@@ -14,14 +14,14 @@ And around that:
 - `notation` provides parsing/format support as a separate capability
 - `game-contract` provides small Game Service contract values shared with downstream services
 - `game-service` assembles the runtime
-- persistence/event/AI/websocket/rest adapters connect the outside world to the application layer
+- persistence/event/AI/websocket/rest adapters connect the outside world to Game core
 
 ## Core dependency direction
 
 ### Center of the system
 - `domain` = core business model and rules
 - `game-contract` = cross-service Game Service contract values
-- `application` = use cases and orchestration on top of domain
+- `game-core` = Game Service use cases and orchestration on top of domain
 
 ### Around the center
 - `adapter-rest-contract` = external REST schema
@@ -41,8 +41,9 @@ And around that:
 - `domain`
   - depends on nothing outside itself
 
-- `application`
+- `game-core`
   - depends on `domain`
+  - depends on `game-contract`
   - depends on ports / stable boundaries
   - may depend on `notation.api` if notation is part of use cases
 
@@ -52,39 +53,39 @@ And around that:
   - preferably exposes stable notation-facing APIs
 
 - `adapter-rest-contract`
-  - may depend on stable application/domain-facing data concepts carefully
+  - may depend on stable Game core/domain-facing data concepts carefully
   - must not depend on http4s
-  - must not depend on runtime/bootstrap
+  - must not depend on runtime app wiring
 
 - `adapter-rest-http4s`
   - depends on `adapter-rest-contract`
-  - depends on `application`
+  - depends on Game core through the REST contract/route wiring path
   - depends on http4s libraries
 
 - `adapter-websocket`
-  - depends on `application` event boundaries or shared event contracts
+  - depends on Game core event boundaries or shared event contracts
   - depends on `adapter-event` or event-facing port
 
 - `adapter-event`
-  - depends on application event ports/contracts
+  - depends on Game core event ports/contracts
   - should stay independent from HTTP/UI concerns
 
 - `adapter-persistence`
-  - depends on `application` repository ports
+  - depends on Game core repository ports
   - may depend on `domain` for persistence mapping
   - depends on storage technology
 
 - `adapter-ai`
-  - depends on `application`
+  - depends on Game core
   - may depend on `domain` for strategy reasoning
-  - must not bypass application boundaries
+  - must not bypass Game core boundaries
 
 - `adapter-gui`
-  - depends on `application` or controller boundary
+  - depends on Game core or controller boundary
   - may depend on `domain` only for view-friendly read models if needed carefully
 
 - `adapter-tui`
-  - depends on `application` or controller boundary
+  - depends on Game core or controller boundary
 
 - `web-ui`
   - depends on `adapter-rest-contract` as API contract
@@ -117,25 +118,25 @@ And around that:
 | rest-contract |       |            |          |             |
 +-------+-------+       |            |          |             |
         |               |            |          |             |
-        --------------- application ---------------------------
+        ---------------- game-core ----------------------------
                            |
                            v
                          domain
 
 Clients:
 - web-ui -> rest-contract -> rest-http4s
-- adapter-gui -> application
-- adapter-tui -> application
+- adapter-gui -> game-core
+- adapter-tui -> game-core
 
 Separate capability:
-- notation -> used by application and/or selected adapters through stable APIs
+- notation -> used by Game core and/or selected adapters through stable APIs
 ```
 
 ## Main architectural rules
 
 1. `domain` is the innermost stable core.
-2. `application` is the only use-case entry layer for adapters.
-3. Adapters depend inward on application/domain, not sideways on each other unless explicitly justified.
+2. `game-core` is the Game Service-owned use-case entry layer for adapters.
+3. Adapters depend inward on Game core/domain, not sideways on each other unless explicitly justified.
 4. `adapter-rest-contract` is the stable backend API schema boundary.
 5. `web-ui` consumes contracts, not backend internals.
 6. `adapter-event` is the shared event backbone for live updates.

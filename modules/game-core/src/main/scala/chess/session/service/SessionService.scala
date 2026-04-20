@@ -2,7 +2,7 @@ package chess.application.session.service
 
 import chess.application.ChessService
 import chess.application.event.AppEvent
-import chess.application.port.event.EventPublisher
+import chess.application.port.event.{EventPublisher, NoOpTerminalEventJsonSerializer, TerminalEventJsonSerializer}
 import chess.application.port.repository.{RepositoryError, SessionRepository}
 import chess.application.session.model.{GameSession, SessionLifecycle, SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
@@ -29,8 +29,14 @@ import java.time.Instant
  *
  *  @param repository outbound port for session persistence
  *  @param publisher  outbound port for application-layer event publication
+ *  @param serializer serialises terminal events to JSON for transactional outbox
+ *                    writes; defaults to no-op when no durable outbox is configured
  */
-class SessionService(repository: SessionRepository, publisher: EventPublisher):
+class SessionService(
+  repository: SessionRepository,
+  publisher:  EventPublisher,
+  serializer: TerminalEventJsonSerializer = NoOpTerminalEventJsonSerializer
+):
 
   /** Create a new [[GameSession]] in the [[SessionLifecycle.Created]] phase
    *  and persist it immediately.
@@ -123,6 +129,9 @@ class SessionService(repository: SessionRepository, publisher: EventPublisher):
    *  The underlying game state is left unchanged (no winner is recorded).
    *  Publishes [[chess.application.event.AppEvent.SessionCancelled]] on success.
    *
+   *  In SQLite mode, the session row update and the outbox payload are committed
+   *  in the same JDBC transaction via [[SessionRepository.saveCancelWithOutbox]].
+   *
    *  Returns [[SessionError.InvalidLifecycleTransition]] when the session is
    *  already [[SessionLifecycle.Finished]].
    */
@@ -130,10 +139,17 @@ class SessionService(repository: SessionRepository, publisher: EventPublisher):
     sessionId: SessionId,
     now:       Instant = Instant.now()
   ): Either[SessionError, GameSession] =
-    updateLifecycle(sessionId, SessionLifecycle.Finished, now).map { updated =>
+    for
+      session <- getSession(sessionId)
+      _       <- SessionLifecyclePolicy.validateTransition(session.lifecycle, SessionLifecycle.Finished)
+                   .left.map(SessionError.InvalidLifecycleTransition(_))
+      updated  = GameSession.withLifecycle(session, SessionLifecycle.Finished, now)
+      payload  = serializer.serialize(AppEvent.SessionCancelled(updated.sessionId, updated.gameId))
+      _       <- repository.saveCancelWithOutbox(updated, payload)
+                   .left.map(SessionError.PersistenceFailed(_))
+    yield
       publisher.publish(AppEvent.SessionCancelled(updated.sessionId, updated.gameId))
       updated
-    }
 
   /** Return all sessions that have not yet reached [[SessionLifecycle.Finished]].
    *

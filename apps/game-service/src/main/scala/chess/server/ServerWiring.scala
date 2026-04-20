@@ -92,7 +92,7 @@ object ServerWiring:
         .allocated
         .unsafeRunSync()
 
-    (ctx, ServerRuntime(events.wsServer, shutdownHttp))
+    (ctx, ServerRuntime(events.wsServer, shutdownHttp, IO(events.shutdown())))
 
   /** Attach the server's configured AI provider to the Game Service boundary.
    *

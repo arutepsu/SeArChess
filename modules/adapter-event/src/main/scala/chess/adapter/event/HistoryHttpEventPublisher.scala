@@ -7,11 +7,11 @@ import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.time.Duration
 import scala.util.control.NonFatal
 
-/** Best-effort local/dev bridge from Game Service terminal events to History.
+/** Best-effort direct HTTP bridge from Game Service terminal events to History.
  *
- *  This is intentionally not a durable event platform. It forwards only the
- *  terminal boundary events History can consume today and absorbs transport
- *  failures so gameplay is not coupled to History availability.
+ *  SQLite Game Service deployments should use [[DurableHistoryEventPublisher]]
+ *  plus [[HistoryOutboxForwarder]]. This class remains as the small fallback
+ *  for non-durable in-memory development mode.
  */
 class HistoryHttpEventPublisher(
   historyBaseUrl: String,
@@ -23,7 +23,7 @@ class HistoryHttpEventPublisher(
     URI.create(s"${historyBaseUrl.stripSuffix("/")}/events/game")
 
   override def publish(event: AppEvent): Unit =
-    if isTerminalBoundaryEvent(event) then
+    if DurableHistoryEventPublisher.isTerminalBoundaryEvent(event) then
       try
         AppEventSerializer.serialize(event).foreach(json =>
           sendJson(endpoint, json, timeoutMillis)
@@ -31,12 +31,6 @@ class HistoryHttpEventPublisher(
       catch
         case NonFatal(e) =>
           System.err.println(s"[chess] History event forwarding failed: ${e.getMessage}")
-
-  private def isTerminalBoundaryEvent(event: AppEvent): Boolean = event match
-    case _: AppEvent.GameFinished     => true
-    case _: AppEvent.GameResigned     => true
-    case _: AppEvent.SessionCancelled => true
-    case _                            => false
 
 object HistoryHttpEventPublisher:
 
