@@ -6,6 +6,8 @@ import scala.util.control.NonFatal
 
 class SqliteHistoryEventOutbox(path: String) extends HistoryEventOutbox:
 
+  Class.forName("org.sqlite.JDBC")
+
   private val conn: Connection =
     val c = DriverManager.getConnection(s"jdbc:sqlite:$path")
     c.setAutoCommit(true)

@@ -15,6 +15,8 @@ import java.sql.{Connection, DriverManager}
  */
 class SqliteDataSource(path: String):
 
+  Class.forName("org.sqlite.JDBC")
+
   private val conn: Connection =
     val c = DriverManager.getConnection(s"jdbc:sqlite:$path")
     c.setAutoCommit(true)
