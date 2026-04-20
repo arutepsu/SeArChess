@@ -272,6 +272,7 @@ class Http4sGameRoutes(
       (Status.InternalServerError, "INTERNAL_ERROR", s"Storage error: $cause")
 
   /** Map [[AITurnError]] to (HTTP status, error code, message).
+<<<<<<< HEAD
     *
     * Status rationale for [[AITurnError.NotConfigured]]: 422 is used because the request is
     * syntactically valid but cannot be processed in this deployment configuration. 503 would imply
@@ -338,6 +339,44 @@ class Http4sGameRoutes(
         Left(
           (Status.BadRequest, "BAD_REQUEST", "Query parameter 'ply' must be a non-negative integer")
         )
+=======
+   *
+   *  Status rationale for [[AITurnError.NotConfigured]]: 422 is used because the
+   *  request is syntactically valid but cannot be processed in this deployment
+   *  configuration.  503 would imply temporary unavailability (AI could come back);
+   *  501 (Not Implemented) would also be defensible.  422 is consistent with the
+   *  other "command not applicable in current state" errors in this API.
+   */
+  private def aiErrToHttpErr(err: AITurnError, gameIdStr: String): (Status, String, String) = err match
+    case AITurnError.NotConfigured =>
+      (Status.UnprocessableEntity, "AI_NOT_CONFIGURED",
+        "This deployment has no AI provider configured")
+    case AITurnError.NotAITurn =>
+      (Status.UnprocessableEntity, "NOT_AI_TURN",
+        "It is not the AI's turn")
+    case AITurnError.SessionLookupFailed(SessionError.GameSessionNotFound(_)) =>
+      (Status.NotFound, "GAME_NOT_FOUND", s"Game not found: $gameIdStr")
+    case AITurnError.SessionLookupFailed(_) =>
+      (Status.InternalServerError, "INTERNAL_ERROR", "Failed to load session for AI turn")
+    case AITurnError.GameStateLookupFailed(RepositoryError.NotFound(_)) =>
+      (Status.NotFound, "GAME_NOT_FOUND", s"Game state not found: $gameIdStr")
+    case AITurnError.GameStateLookupFailed(_) =>
+      (Status.InternalServerError, "INTERNAL_ERROR", "Failed to load game state for AI turn")
+    case AITurnError.ProviderFailure(AIError.MalformedResponse(err)) =>
+      (Status.UnprocessableEntity, "AI_MOVE_REJECTED", s"AI provider returned malformed move data: $err")
+    case AITurnError.ProviderFailure(err @ AIError.Unavailable(_)) =>
+      (Status.ServiceUnavailable, "AI_PROVIDER_FAILED", s"AI provider failed: $err")
+    case AITurnError.ProviderFailure(err @ AIError.Timeout(_)) =>
+      (Status.ServiceUnavailable, "AI_PROVIDER_FAILED", s"AI provider failed: $err")
+    case AITurnError.ProviderFailure(err @ AIError.EngineFailure(_)) =>
+      (Status.ServiceUnavailable, "AI_PROVIDER_FAILED", s"AI provider failed: $err")
+    case AITurnError.ProviderFailure(err @ AIError.NoLegalMove) =>
+      (Status.ServiceUnavailable, "AI_PROVIDER_FAILED", s"AI provider failed: $err")
+    case AITurnError.IllegalSuggestedMove(move) =>
+      (Status.UnprocessableEntity, "AI_MOVE_REJECTED", s"AI move rejected: illegal suggestion $move")
+    case AITurnError.MoveFailed(cause) =>
+      (Status.UnprocessableEntity, "AI_MOVE_REJECTED", s"AI move rejected: $cause")
+>>>>>>> abcc8c8c (envoy + ai service prerp)
 
   private def resignErrToHttpErr(err: SessionError): (Status, String, String) = err match
     case SessionError.InvalidLifecycleTransition(_) =>

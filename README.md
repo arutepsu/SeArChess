@@ -96,9 +96,12 @@ For the local two/three-container service proof, start with:
 - [Game Service guide](docs/dev-guide-game-service.md)
 - [History Service guide](docs/dev-guide-history-service.md)
 
+<<<<<<< HEAD
 The container guide is the canonical local topology reference and includes the
 final microservice completion checklist.
 
+=======
+>>>>>>> abcc8c8c (envoy + ai service prerp)
 Normal host access goes through Envoy:
 
 ```powershell

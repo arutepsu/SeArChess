@@ -5,12 +5,22 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import cats.syntax.semigroupk.*
 import chess.adapter.http4s.Http4sApp
+<<<<<<< HEAD
 import chess.server.assembly.{AppContext, EventWiring}
 import chess.server.config.{AiConfig, AppConfig}
 import chess.adapter.http4s.DomainMetricsRegistry
 import chess.server.http.{CorsMiddleware, HealthRoutes, HistoryOutboxOpsRoutes, HttpMetricsMiddleware, HttpMetricsRegistry, HttpRequestLoggingMiddleware, MigrationAdminRoutes}
 import chess.server.http.MetricsRoutes
 import chess.server.migration.MigrationCliRunner
+=======
+import chess.application.DefaultGameService
+import chess.application.ai.service.AITurnService
+import chess.application.port.ai.AiMoveSuggestionClient
+import chess.config.{AiConfig, AiProviderMode, AppConfig}
+import chess.server.assembly.{EventAssembly, EventWiring}
+import chess.server.http.{CorsMiddleware, HealthRoutes, HistoryOutboxOpsRoutes}
+import chess.startup.assembly.{AppContext, CoreAssembly, PersistenceAssembly}
+>>>>>>> abcc8c8c (envoy + ai service prerp)
 import com.comcast.ip4s.{Host, Port}
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.{HttpApp, Request}
@@ -82,7 +92,15 @@ object ServerWiring:
     (ctx, ServerRuntime(events.wsServer, shutdownHttp, IO { events.shutdown(); ctx.shutdownPersistence() }))
 
   private[server] def withServerAi(baseCtx: AppContext, events: EventWiring): AppContext =
+<<<<<<< HEAD
     GameServiceComposition.withAi(baseCtx, events)
+=======
+    withServerAi(
+      baseCtx,
+      events,
+      AiConfig(AiProviderMode.Remote, Some(chess.config.RemoteAiConfig("http://ai-service:8765")), 2000, None)
+    )
+>>>>>>> abcc8c8c (envoy + ai service prerp)
 
   private[server] def withServerAi(
       baseCtx: AppContext,
@@ -91,7 +109,24 @@ object ServerWiring:
   ): AppContext =
     GameServiceComposition.withAi(baseCtx, events, config)
 
+<<<<<<< HEAD
   private[server] def aiClientFor(
       config: AiConfig
   ): Option[chess.application.port.ai.AiMoveSuggestionClient] =
     GameServiceComposition.aiClientFor(config)
+=======
+  private[server] def aiProviderFor(config: AiConfig): Option[AiMoveSuggestionClient] =
+    config.mode match
+      case AiProviderMode.LocalDeterministic => Some(FirstLegalMoveProvider())
+      case AiProviderMode.Disabled           => None
+      case AiProviderMode.Remote             =>
+        config.remote match
+          case Some(remote) =>
+            Some(RemoteAiProvider(
+              baseUrl         = remote.baseUrl,
+              timeoutMillis   = config.timeoutMillis,
+              defaultEngineId = config.defaultEngineId
+            ))
+          case None =>
+            throw IllegalArgumentException("AI remote mode requires AI_REMOTE_BASE_URL")
+>>>>>>> abcc8c8c (envoy + ai service prerp)

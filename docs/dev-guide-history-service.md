@@ -41,15 +41,21 @@ docker compose up --build
 | Service | Host port | Role |
 |---|---:|---|
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> abcc8c8c (envoy + ai service prerp)
 | `envoy` | `10000` | public local/dev edge to Game Service |
 | `game-service` | internal | authoritative Game Service |
 | `history-service` | internal | downstream archive materializer |
 | `ai-service` | internal | remote AI provider |
+<<<<<<< HEAD
 =======
 | `game-service` | `8080` | authoritative Game Service |
 | `history-service` | `8081` | downstream archive materializer |
 | `ai-service` | `8765` | remote AI provider |
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
+=======
+>>>>>>> abcc8c8c (envoy + ai service prerp)
 
 History Service environment:
 
@@ -95,10 +101,14 @@ Game Service:
 
 ```bash
 <<<<<<< HEAD
+<<<<<<< HEAD
 GET http://127.0.0.1:10000/api/archive/games/{gameId}
 =======
 GET http://127.0.0.1:8080/archive/games/{gameId}
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
+=======
+GET http://127.0.0.1:10000/api/archive/games/{gameId}
+>>>>>>> abcc8c8c (envoy + ai service prerp)
 ```
 
 Responses:
@@ -125,10 +135,14 @@ Create and cancel a session:
 
 ```bash
 <<<<<<< HEAD
+<<<<<<< HEAD
 SESSION_JSON=$(curl -s -X POST http://127.0.0.1:10000/api/sessions \
 =======
 SESSION_JSON=$(curl -s -X POST http://127.0.0.1:8080/sessions \
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
+=======
+SESSION_JSON=$(curl -s -X POST http://127.0.0.1:10000/api/sessions \
+>>>>>>> abcc8c8c (envoy + ai service prerp)
   -H "Content-Type: application/json" \
   -d '{}')
 
@@ -136,6 +150,9 @@ SESSION_ID=$(echo "$SESSION_JSON" | jq -r '.session.sessionId')
 GAME_ID=$(echo "$SESSION_JSON" | jq -r '.session.gameId')
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> abcc8c8c (envoy + ai service prerp)
 curl -s -X POST "http://127.0.0.1:10000/api/sessions/$SESSION_ID/cancel"
 ```
 
@@ -145,6 +162,7 @@ History automatically. Verify History owns a stored archive:
 
 ```bash
 docker compose exec history-service curl -s "http://127.0.0.1:8081/archives/$GAME_ID"
+<<<<<<< HEAD
 ```
 
 The History record is stored in History Service Postgres tables, not in the Game
@@ -167,6 +185,8 @@ that event to History automatically. Verify History owns a stored archive:
 
 ```bash
 curl -s "http://127.0.0.1:8081/archives/$GAME_ID"
+=======
+>>>>>>> abcc8c8c (envoy + ai service prerp)
 docker compose exec history-service ls -l /history-data
 ```
 

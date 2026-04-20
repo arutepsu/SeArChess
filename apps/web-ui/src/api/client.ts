@@ -121,6 +121,7 @@ export async function importGameFromNotation(
   return importNotation(payload);
 }
 
+<<<<<<< HEAD
 export async function importNotation(
   payload: ImportNotationRequest
 ): Promise<CreateGameResponse> {
@@ -216,3 +217,15 @@ export async function getHeatmapStats(
     `/api/stats/heatmap?sessionId=${encodeURIComponent(gameId)}&player=${encodeURIComponent(player)}`
   );
 }
+=======
+const mockLegalMoves: Record<string, string[]> = {
+  e2: ["e3", "e4"],
+  d2: ["d3", "d4"],
+  g1: ["f3", "h3"],
+  b1: ["a3", "c3"],
+  e7: ["e6", "e5"],
+  d7: ["d6", "d5"],
+  g8: ["f6", "h6"],
+  b8: ["a6", "c6"]
+};
+>>>>>>> abcc8c8c (envoy + ai service prerp)

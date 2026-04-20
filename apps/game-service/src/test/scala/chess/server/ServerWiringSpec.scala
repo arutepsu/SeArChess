@@ -27,6 +27,7 @@ class ServerWiringSpec extends AnyFlatSpec with Matchers with EitherValues with 
     http = HttpConfig("127.0.0.1", 8080),
     webSocket = WebSocketConfig(enabled = false, port = 9090),
     persistence = PersistenceMode.InMemory,
+<<<<<<< HEAD
     sqlite = None,
     postgres = None,
     mongo = None,
@@ -39,10 +40,18 @@ class ServerWiringSpec extends AnyFlatSpec with Matchers with EitherValues with 
       timeoutMillis = 2000,
       defaultEngineId = None
     )
+=======
+    sqlite      = None,
+    eventMode   = EventMode.InProcess,
+    cors        = CorsConfig(enabled = false, allowedOrigin = "*"),
+    history     = HistoryForwardingConfig(enabled = false, baseUrl = None, timeoutMillis = 2000),
+    ai          = AiConfig(AiProviderMode.Remote, remote = Some(chess.config.RemoteAiConfig("http://ai-service:8765")), timeoutMillis = 2000, defaultEngineId = None)
+>>>>>>> abcc8c8c (envoy + ai service prerp)
   )
 
   "ServerWiring.withServerAi" should "configure the Game Service AI endpoint path" in {
     val persistence = PersistenceAssembly.assemble(config)
+<<<<<<< HEAD
     val collector = CollectingEventPublisher()
     val events = EventWiring(collector, wsServer = None)
     val baseCtx = CoreAssembly.build(persistence, events.coreEvents)
@@ -55,6 +64,15 @@ class ServerWiringSpec extends AnyFlatSpec with Matchers with EitherValues with 
         timeoutMillis = 2000,
         defaultEngineId = None
       )
+=======
+    val collector   = CollectingEventPublisher()
+    val events      = EventWiring(collector, wsServer = None)
+    val baseCtx     = CoreAssembly.build(persistence, events.coreEvents)
+    val serverCtx   = ServerWiring.withServerAi(
+      baseCtx,
+      events,
+      AiConfig(AiProviderMode.LocalDeterministic, remote = None, timeoutMillis = 2000, defaultEngineId = None)
+>>>>>>> abcc8c8c (envoy + ai service prerp)
     )
 
     val (_, session) = serverCtx.gameService
@@ -140,4 +158,19 @@ class ServerWiringSpec extends AnyFlatSpec with Matchers with EitherValues with 
       .triggerAIMoveByGameId(session.gameId)
       .left
       .value shouldBe a[AITurnError.ProviderFailure]
+  }
+
+  it should "select the remote AI provider by default" in {
+    val persistence = PersistenceAssembly.assemble(config)
+    val events      = EventWiring(CollectingEventPublisher(), wsServer = None)
+    val baseCtx     = CoreAssembly.build(persistence, events.coreEvents)
+    val serverCtx   = ServerWiring.withServerAi(baseCtx, events)
+
+    val (_, session) = serverCtx.gameService.createGame(
+      mode            = SessionMode.HumanVsAI,
+      whiteController = SideController.AI(),
+      blackController = SideController.HumanLocal
+    ).value
+
+    serverCtx.gameService.triggerAIMoveByGameId(session.gameId).left.value shouldBe a[AITurnError.ProviderFailure]
   }

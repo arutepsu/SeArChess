@@ -178,25 +178,25 @@ class RemoteAiProviderSpec extends AnyFlatSpec with Matchers with EitherValues:
     }
   }
 
-  it should "map ENGINE_UNAVAILABLE (503) to AIError.EngineFailure" in {
+  it should "map ENGINE_UNAVAILABLE (503) to AIError.Unavailable" in {
     withServer { exchange =>
       requestBody(exchange)
       respond(exchange, 503, """{"requestId":"req-eu","code":"ENGINE_UNAVAILABLE","message":"engine missing"}""")
     } { baseUrl =>
       val provider = RemoteAiProvider(baseUrl, timeoutMillis = 1000)
       provider.suggestMove(context(requestId = "req-eu")).left.value shouldBe
-        AIError.EngineFailure("ENGINE_UNAVAILABLE: engine missing")
+        AIError.Unavailable("engine missing")
     }
   }
 
-  it should "map ENGINE_TIMEOUT (504) to AIError.EngineFailure" in {
+  it should "map ENGINE_TIMEOUT (504) to AIError.Timeout" in {
     withServer { exchange =>
       requestBody(exchange)
       respond(exchange, 504, """{"requestId":"req-et","code":"ENGINE_TIMEOUT","message":"timed out after 3000ms"}""")
     } { baseUrl =>
       val provider = RemoteAiProvider(baseUrl, timeoutMillis = 1000)
       provider.suggestMove(context(requestId = "req-et")).left.value shouldBe
-        AIError.EngineFailure("ENGINE_TIMEOUT: timed out after 3000ms")
+        AIError.Timeout("timed out after 3000ms")
     }
   }
 
@@ -226,18 +226,18 @@ class RemoteAiProviderSpec extends AnyFlatSpec with Matchers with EitherValues:
   // Transport failures
   // ---------------------------------------------------------------------------
 
-  it should "map malformed success responses to EngineFailure" in {
+  it should "map malformed success responses to MalformedResponse" in {
     withServer { exchange =>
       requestBody(exchange)
       respond(exchange, 200, """{"requestId":"req-mal","move":{"from":"e2"}}""")
     } { baseUrl =>
       val provider = RemoteAiProvider(baseUrl, timeoutMillis = 1000)
       provider.suggestMove(context(requestId = "req-mal")).left.value shouldBe
-        AIError.EngineFailure("Missing or invalid 'to' in AI response")
+        AIError.MalformedResponse("Missing or invalid 'to' in AI response")
     }
   }
 
-  it should "map HTTP client timeout to EngineFailure" in {
+  it should "map HTTP client timeout to Timeout" in {
     withServer { exchange =>
       requestBody(exchange)
       Thread.sleep(300)
@@ -245,6 +245,6 @@ class RemoteAiProviderSpec extends AnyFlatSpec with Matchers with EitherValues:
     } { baseUrl =>
       val provider = RemoteAiProvider(baseUrl, timeoutMillis = 50)
       provider.suggestMove(context(requestId = "req-to")).left.value shouldBe
-        AIError.EngineFailure("timeout")
+        AIError.Timeout("timed out after 50ms")
     }
   }
