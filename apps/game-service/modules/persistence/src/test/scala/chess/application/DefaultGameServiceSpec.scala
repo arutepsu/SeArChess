@@ -4,7 +4,7 @@ import chess.adapter.event.CollectingEventPublisher
 import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionGameStore, InMemorySessionRepository}
 import chess.application.ai.service.{AITurnError, AITurnService}
 import chess.application.event.AppEvent
-import chess.application.port.ai.{AIError, AIProvider, AIResponse}
+import chess.application.port.ai.{AIError, AiMoveSuggestionClient, AIResponse}
 import chess.application.port.repository.RepositoryError
 import chess.application.session.model.{SessionLifecycle, SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
@@ -217,7 +217,7 @@ class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
     val store          = new InMemorySessionGameStore(sessionRepo, gameRepo)
     val sessionService = new SessionService(sessionRepo, _ => ())
     val commands       = new SessionGameService(sessionService, store, collector)
-    val alwaysLegal: AIProvider = _ =>
+    val alwaysLegal: AiMoveSuggestionClient = _ =>
       Right(AIResponse(Move(Position.from(4, 1).value, Position.from(4, 3).value)))
     val ai        = AITurnService(alwaysLegal, commands, collector)
     val svcWithAI = DefaultGameService(commands, sessionService, gameRepo, collector, Some(ai))
@@ -240,7 +240,7 @@ class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
     val store          = new InMemorySessionGameStore(sessionRepo, gameRepo)
     val sessionService = new SessionService(sessionRepo, _ => ())
     val commands       = new SessionGameService(sessionService, store, collector)
-    val alwaysLegal: AIProvider = _ =>
+    val alwaysLegal: AiMoveSuggestionClient = _ =>
       Right(AIResponse(Move(Position.from(4, 1).value, Position.from(4, 3).value)))
     val ai        = AITurnService(alwaysLegal, commands, collector)
     val svcWithAI = DefaultGameService(commands, sessionService, gameRepo, collector, Some(ai))

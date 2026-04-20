@@ -21,9 +21,7 @@ object RemoteAiJson:
       "limits"     -> ujson.Obj(
         "timeoutMillis" -> ujson.Num(request.limits.timeoutMillis.toDouble)
       ),
-      "metadata"   -> ujson.Obj(
-        "mode" -> ujson.Str(request.metadata.mode)
-      )
+      "metadata"   -> metadataJson(request.metadata)
     ))
 
   def responseFromJson(text: String): Either[String, RemoteAiMoveSuggestionResponse] =
@@ -56,6 +54,11 @@ object RemoteAiJson:
       "to"   -> ujson.Str(move.to)
     )
     move.promotion.foreach(p => obj("promotion") = ujson.Str(p))
+    obj
+
+  private def metadataJson(metadata: RemoteAiMetadata): Value =
+    val obj = ujson.Obj("mode" -> ujson.Str(metadata.mode))
+    metadata.testMode.foreach(mode => obj("testMode") = ujson.Str(mode))
     obj
 
   private def moveFromJson(json: ujson.Obj): Either[String, RemoteAiMoveDto] =

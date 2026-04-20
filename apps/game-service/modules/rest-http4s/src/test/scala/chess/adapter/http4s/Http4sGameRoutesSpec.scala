@@ -7,7 +7,7 @@ import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionGameStor
 import chess.application.DefaultGameService
 import chess.application.ai.service.AITurnService
 import chess.application.event.AppEvent
-import chess.application.port.ai.{AIError, AIProvider, AIResponse}
+import chess.application.port.ai.{AIError, AiMoveSuggestionClient, AIResponse}
 import chess.application.port.event.EventPublisher
 import chess.application.port.repository.{GameRepository, RepositoryError, SessionGameStore, SessionRepository}
 import chess.application.session.model.{GameSession, SessionMode, SideController}
@@ -131,7 +131,7 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val store          = InMemorySessionGameStore(sessionRepo, gameRepo)
     val sessionService = SessionService(sessionRepo, collector)
     val svc            = SessionGameService(sessionService, store, collector)
-    val provider: AIProvider = _ => Left(AIError.MalformedResponse("missing move.to"))
+    val provider: AiMoveSuggestionClient = _ => Left(AIError.MalformedResponse("missing move.to"))
     val ai          = AITurnService(provider, svc, collector)
     val gameService = DefaultGameService(svc, sessionService, gameRepo, collector, Some(ai))
     val gameRoutes  = Http4sGameRoutes(gameService).routes.orNotFound
@@ -154,7 +154,7 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val store          = InMemorySessionGameStore(sessionRepo, gameRepo)
     val sessionService = SessionService(sessionRepo, collector)
     val svc            = SessionGameService(sessionService, store, collector)
-    val provider: AIProvider = _ => Left(AIError.Unavailable("connection refused"))
+    val provider: AiMoveSuggestionClient = _ => Left(AIError.Unavailable("connection refused"))
     val ai          = AITurnService(provider, svc, collector)
     val gameService = DefaultGameService(svc, sessionService, gameRepo, collector, Some(ai))
     val gameRoutes  = Http4sGameRoutes(gameService).routes.orNotFound
@@ -793,7 +793,7 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val store          = InMemorySessionGameStore(sessionRepo, gameRepo)
     val sessionService = SessionService(sessionRepo, collector)
     val svc            = SessionGameService(sessionService, store, collector)
-    val provider: AIProvider = context =>
+    val provider: AiMoveSuggestionClient = context =>
       val move = GameStateRules.legalMoves(context.state).toSeq
         .sortBy(m => (m.from.file, m.from.rank, m.to.file, m.to.rank))
         .head
@@ -835,7 +835,7 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val svc            = SessionGameService(sessionService, store, collector)
 
     // Provider that always returns e2→e4 — never reached because the guard fires first.
-    val dummyProvider: AIProvider = _ =>
+    val dummyProvider: AiMoveSuggestionClient = _ =>
       Right(AIResponse(Move(Position.from(4, 1).value, Position.from(4, 3).value)))
     val ai          = AITurnService(dummyProvider, svc, collector)
     val gameService = DefaultGameService(svc, sessionService, gameRepo, collector, Some(ai))
@@ -860,7 +860,7 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val store          = InMemorySessionGameStore(sessionRepo, gameRepo)
     val sessionService = SessionService(sessionRepo, collector)
     val svc            = SessionGameService(sessionService, store, collector)
-    val dummyProvider: AIProvider = _ =>
+    val dummyProvider: AiMoveSuggestionClient = _ =>
       Right(AIResponse(Move(Position.from(4, 1).value, Position.from(4, 3).value)))
     val ai          = AITurnService(dummyProvider, svc, collector)
     val gameService = DefaultGameService(svc, sessionService, gameRepo, collector, Some(ai))

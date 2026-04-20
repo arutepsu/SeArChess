@@ -40,7 +40,7 @@ Use synchronous request/response for the first remote contract.
 
 Reasons:
 
-- Current `AIProvider.suggestMove` is synchronous.
+- Current `AiMoveSuggestionClient.suggestMove` is synchronous.
 - `POST /games/{gameId}/ai-move` expects an immediate answer.
 - Game Service must validate/apply the returned move before responding.
 - Async jobs would require request tracking, polling/callbacks, cancellation,
@@ -115,7 +115,7 @@ Error response:
 ```
 
 The Game Service adapter maps this remote contract back into the existing
-`AIProvider` port. The port accepts an application-owned `AIRequestContext`, not
+`AiMoveSuggestionClient` port. The port accepts an application-owned `AIRequestContext`, not
 remote DTOs, so the application layer does not need to know whether the provider
 is in-process or remote.
 
@@ -165,7 +165,7 @@ is allowed to move. That guard belongs to Game Service before the AI call.
 
 ## Scala AI Port Decision
 
-`AIProvider` should not remain state-only for the remote contract.
+`AiMoveSuggestionClient` should not remain state-only for the remote contract.
 
 The state-only seam was sufficient for an in-process toy provider, but the
 cross-service Python inference contract needs stable request correlation and
@@ -288,11 +288,11 @@ be enough for routine correlation.
 
 ## Extraction Roadmap
 
-1. Keep current in-process `AIProvider`.
+1. Keep current in-process `AiMoveSuggestionClient`.
    - It remains the application port.
-   - `FirstLegalMoveProvider` remains a deterministic test/dev adapter.
+   - `LocalDeterministicAiClient` remains a deterministic test/dev adapter.
 
-2. Add a remote AI adapter that implements `AIProvider`.
+2. Add a remote AI adapter that implements `AiMoveSuggestionClient`.
    - It maps `AIRequestContext` to the remote request.
    - It serializes `GameState` to FEN.
    - It derives legal moves from Game Service/domain rules.
@@ -323,7 +323,7 @@ be enough for routine correlation.
 
 ## Recommendation For The Contract-First Slice
 
-Keep `AIProvider` as the application seam, but widen its input from raw
+Keep `AiMoveSuggestionClient` as the application seam, but widen its input from raw
 `GameState` to `AIRequestContext`.
 
 This is the smallest stable contract that avoids fake identifiers while keeping

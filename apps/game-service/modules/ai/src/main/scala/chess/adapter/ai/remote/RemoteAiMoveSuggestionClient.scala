@@ -8,17 +8,18 @@ import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.time.Duration
 import scala.util.control.NonFatal
 
-/** HTTP adapter for a future remote AI Service.
+/** HTTP adapter for the standalone remote AI Service.
  *
  *  Implements the application [[AiMoveSuggestionClient]] port so Game Service and
  *  AI turn orchestration remain unchanged. The remote service still only
  *  proposes a move; Game Service validates and applies it through the normal
  *  command path.
  */
-class RemoteAiProvider(
+class RemoteAiMoveSuggestionClient(
   baseUrl:          String,
   timeoutMillis:    Int,
   defaultEngineId:  Option[String] = None,
+  testMode:         Option[String] = None,
   client:           HttpClient = HttpClient.newHttpClient()
 ) extends AiMoveSuggestionClient:
 
@@ -31,7 +32,8 @@ class RemoteAiProvider(
                    .toRequest(
                      context         = context,
                      timeoutMillis   = timeoutMillis,
-                     defaultEngineId = defaultEngineId
+                     defaultEngineId = defaultEngineId,
+                     testMode        = testMode
                    )
                    .left.map(err => AIError.MalformedResponse(s"failed to build AI request: $err"))
       response <- send(request)

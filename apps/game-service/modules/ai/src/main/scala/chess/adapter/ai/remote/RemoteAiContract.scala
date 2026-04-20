@@ -1,13 +1,13 @@
 package chess.adapter.ai.remote
 
-/** Move DTO used by the future remote AI service contract. */
+/** Move DTO used by the remote AI service contract. */
 final case class RemoteAiMoveDto(
   from:      String,
   to:        String,
   promotion: Option[String] = None
 )
 
-/** Optional engine selection/configuration sent to a remote AI provider. */
+/** Optional engine selection/configuration sent to the remote AI service. */
 final case class RemoteAiEngineSelection(
   engineId: Option[String]
 )
@@ -19,10 +19,11 @@ final case class RemoteAiLimits(
 
 /** Small metadata block for diagnostics and future routing. */
 final case class RemoteAiMetadata(
-  mode: String
+  mode:     String,
+  testMode: Option[String] = None
 )
 
-/** Adapter-level request DTO for the future remote AI move-suggestion API.
+/** Adapter-level request DTO for the remote AI move-suggestion API.
  *
  *  This is intentionally not an application-layer model. It belongs to the AI
  *  adapter boundary and can later be serialized by an HTTP client adapter.
@@ -49,7 +50,7 @@ final case class RemoteAiMoveSuggestionResponse(
   confidence:    Option[Double] = None
 )
 
-/** Adapter-level error DTO for a future remote AI provider response. */
+/** Adapter-level error DTO for a remote AI service error response. */
 final case class RemoteAiErrorResponse(
   requestId: String,
   code:      String,

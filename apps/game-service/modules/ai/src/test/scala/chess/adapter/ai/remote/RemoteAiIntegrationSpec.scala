@@ -11,7 +11,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.EitherValues
 
-/** Integration spec for the Scala RemoteAiProvider against the live Python AI service.
+/** Integration spec for the Scala RemoteAiMoveSuggestionClient against the live Python AI service.
  *
  *  Requires the Python service to be running at INFERENCE_SERVICE_URL (default
  *  http://127.0.0.1:8765). The tests are skipped automatically when the service
@@ -60,9 +60,9 @@ class RemoteAiIntegrationSpec extends AnyFlatSpec with Matchers with EitherValue
       requestId = requestId
     )
 
-  private lazy val provider = RemoteAiProvider(baseUrl, timeoutMillis = 5000)
+  private lazy val provider = RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 5000)
 
-  "RemoteAiProvider → Python AI service" should "return a legal move suggestion for the initial position" in {
+  "RemoteAiMoveSuggestionClient → Python AI service" should "return a legal move suggestion for the initial position" in {
     assume()
     val ctx      = context()
     val result   = provider.suggestMove(ctx)
@@ -89,7 +89,7 @@ class RemoteAiIntegrationSpec extends AnyFlatSpec with Matchers with EitherValue
   it should "return a contract-shaped BAD_REQUEST when an invalid sideToMove is sent" in {
     assume()
     // Drive the HTTP layer directly to verify the Python error shape without
-    // going through RemoteAiProvider's field construction.
+    // going through RemoteAiMoveSuggestionClient's field construction.
     val body =
       """{
         |  "requestId": "integration-bad",
