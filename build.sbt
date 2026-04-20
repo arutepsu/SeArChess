@@ -87,6 +87,7 @@ lazy val gameContract = project
   .settings(commonSettings)
   .dependsOn(domain)
 
+<<<<<<< HEAD
 // Module: game-core
 
 lazy val gameCore = project
@@ -150,6 +151,36 @@ lazy val adapterPersistence = project
     libraryDependencies ++= Seq(
       "com.lihaoyi" %% "ujson"       % "4.0.2",
       "org.xerial"   % "sqlite-jdbc" % "3.46.1.3",
+=======
+// ── Module: history ───────────────────────────────────────────────────────────
+
+lazy val history = project
+  .in(file("modules/history"))
+  .settings(
+    commonSettings,
+    libraryDependencies ++= Seq(
+      "com.lihaoyi" %% "ujson"       % "4.0.2",
+      "org.xerial"   % "sqlite-jdbc" % "3.46.1.3"
+    )
+  )
+  // adapterPersistence and adapterEvent are only needed for test fixtures
+  // (InMemoryGameRepository, CollectingEventPublisher, etc.)
+  .dependsOn(application, notation, adapterPersistence % Test, adapterEvent % Test)
+
+// ── Module: adapter-persistence ───────────────────────────────────────────────
+
+lazy val adapterPersistence = project
+  .in(file("modules/adapter-persistence"))
+  .settings(
+    commonSettings,
+    libraryDependencies ++= Seq(
+      "com.lihaoyi" %% "ujson"        % "4.0.2",
+      "org.xerial"   % "sqlite-jdbc"  % "3.46.1.3"
+    )
+  )
+  // adapterEvent is only needed for test fixtures (CollectingEventPublisher).
+  .dependsOn(application, adapterEvent % Test)
+>>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
 
       // Slick / PostgreSQL
       "com.typesafe.slick" %% "slick"          % slickVersion,
@@ -200,9 +231,18 @@ lazy val adapterAi = project
 // Module: adapter-event (internal in-process publishers/test collectors)
 
 lazy val adapterEvent = project
+<<<<<<< HEAD
   .in(file("apps/game-service/modules/eventing"))
   .settings(commonSettings)
   .dependsOn(gameContract)
+=======
+  .in(file("modules/adapter-event"))
+  .settings(
+    commonSettings,
+    libraryDependencies += "com.lihaoyi" %% "ujson" % "4.0.2"
+  )
+  .dependsOn(application)
+>>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
 
 // Module: game-event-contract (Game event JSON wire serializer)
 
@@ -370,8 +410,13 @@ lazy val tuiCli = project
 
 // ── App: game-service ────────────────────────────────────────────────────────
 
+<<<<<<< HEAD
 lazy val gameService = project
   .in(file("apps/game-service"))
+=======
+lazy val bootstrapServer = project
+  .in(file("apps/bootstrap-server"))
+>>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
   .enablePlugins(JavaAppPackaging)
   .settings(
     commonSettings,
@@ -440,6 +485,7 @@ lazy val historyService = project
       ".*chess.historyservice.HistoryRoutes.*"
     )
   )
+<<<<<<< HEAD
   .dependsOn(history, gameEventContract, observability, gameHistoryDelivery % Test)
 
 // App: ai-service
@@ -532,6 +578,9 @@ lazy val benchmarks = project
     )
   )
   .dependsOn(domain, gameCore, adapterPersistence, adapterRestHttp4s)
+=======
+  .dependsOn(history)
+>>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
 
 // ── Aliases ───────────────────────────────────────────────────────────────────
 //
@@ -579,9 +628,13 @@ addCommandAlias("ci",
 addCommandAlias("testDomain",             "domain/test")
 addCommandAlias("testObservability",      "observability/test")
 addCommandAlias("testNotation",           "notation/test")
+<<<<<<< HEAD
 addCommandAlias("testGameContract",       "gameContract/test")
 addCommandAlias("testAiContract",         "aiContract/test")
 addCommandAlias("testGameCore",           "gameCore/test")
+=======
+addCommandAlias("testApplication",        "application/test")
+>>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
 addCommandAlias("testHistory",            "history/test")
 addCommandAlias("testAdapterPersistence", "adapterPersistence/test")
 addCommandAlias("testAdapterAi",          "adapterAi/test")
@@ -594,16 +647,25 @@ addCommandAlias("testAdapterWebsocket",   "adapterWebsocket/test")
 addCommandAlias("testAdapterGui",         "adapterGui/test")
 addCommandAlias("testAdapterTui",         "adapterTui/test")
 addCommandAlias("testStartupShared",      "startupShared/test")
+<<<<<<< HEAD
 addCommandAlias("testGameService",        "gameService/test")
 addCommandAlias("testHistoryService",     "historyService/test")
 addCommandAlias("testAiService",          "aiService/test")
+=======
+addCommandAlias("testBootstrapServer",    "bootstrapServer/test")
+addCommandAlias("testHistoryService",     "historyService/test")
+>>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
 addCommandAlias("testDesktopGui",         "desktopGui/test")
 addCommandAlias("testTuiCli",             "tuiCli/test")
 
 // ── Grouped test: by architectural concern ────────────────────────────────────
 
 addCommandAlias("testCore",
+<<<<<<< HEAD
   ";domain/test;observability/test;notation/test;gameContract/test;aiContract/test;gameCore/test;history/test")
+=======
+  ";domain/test;notation/test;application/test;history/test")
+>>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
 
 addCommandAlias("testInfra",
   ";adapterPersistence/test;adapterEvent/test;gameEventContract/test;gameHistoryDelivery/test" +
@@ -622,7 +684,11 @@ addCommandAlias("testAllAdapters",
   ";adapterGui/test;adapterTui/test")
 
 addCommandAlias("testApps",
+<<<<<<< HEAD
   ";startupShared/test;gameService/test;historyService/test;aiService/test;desktopGui/test;tuiCli/test")
+=======
+  ";startupShared/test;bootstrapServer/test;historyService/test;desktopGui/test;tuiCli/test")
+>>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
 
 // ── Compile slices ────────────────────────────────────────────────────────────
 
@@ -650,10 +716,18 @@ lazy val root = project
     coverageEnabled := false
   )
   .aggregate(
+<<<<<<< HEAD
     domain, observability, notation, gameContract, aiContract, gameCore, history,
     adapterPersistence, migration, adapterAi, adapterEvent, gameEventContract, gameHistoryDelivery,
     adapterRestContract, adapterRestHttp4s,
     adapterWebsocket, adapterGui, adapterTui,
     startupShared, gameService, historyService, aiService, desktopGui, tuiCli, loadTests, benchmarks,
     lichessBot, chessStreaming
+=======
+    domain, notation, application, history,
+    adapterPersistence, adapterAi, adapterEvent,
+    adapterRestContract, adapterRestHttp4s,
+    adapterWebsocket, adapterGui, adapterTui,
+    startupShared, bootstrapServer, historyService, desktopGui, tuiCli
+>>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
   )

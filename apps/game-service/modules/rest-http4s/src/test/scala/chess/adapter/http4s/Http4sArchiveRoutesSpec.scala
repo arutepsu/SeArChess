@@ -2,6 +2,7 @@ package chess.adapter.http4s
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
+<<<<<<< HEAD:apps/game-service/modules/rest-http4s/src/test/scala/chess/adapter/http4s/Http4sArchiveRoutesSpec.scala
 import chess.adapter.repository.{
   InMemoryGameRepository,
   InMemorySessionGameStore,
@@ -16,6 +17,13 @@ import chess.application.session.service.{
   SessionGameCommandService,
   SessionLifecycleService
 }
+=======
+import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionGameStore, InMemorySessionRepository}
+import chess.application.DefaultGameService
+import chess.application.event.AppEvent
+import chess.application.port.event.EventPublisher
+import chess.application.session.service.{SessionGameService, SessionService}
+>>>>>>> 5e4d1e43 (game and history services. add docker, isolate services):modules/adapter-rest-http4s/src/test/scala/chess/adapter/http4s/Http4sArchiveRoutesSpec.scala
 import org.http4s.*
 import org.http4s.implicits.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -29,6 +37,7 @@ class Http4sArchiveRoutesSpec extends AnyFlatSpec with Matchers:
     val sessionRepo = InMemorySessionRepository()
     val gameRepo = InMemoryGameRepository()
     val store = InMemorySessionGameStore(sessionRepo, gameRepo)
+<<<<<<< HEAD:apps/game-service/modules/rest-http4s/src/test/scala/chess/adapter/http4s/Http4sArchiveRoutesSpec.scala
     val sessionLifecycleService = SessionLifecycleService(sessionRepo, events)
     val commands = SessionGameCommandService(sessionLifecycleService, store, events)
     val persistentSessionService =
@@ -40,6 +49,11 @@ class Http4sArchiveRoutesSpec extends AnyFlatSpec with Matchers:
       gameRepo,
       store
     ).httpApp
+=======
+    val sessionService = SessionService(sessionRepo, events)
+    val commands = SessionGameService(sessionService, store, events)
+    Http4sApp(DefaultGameService(commands, sessionService, gameRepo, events)).httpApp
+>>>>>>> 5e4d1e43 (game and history services. add docker, isolate services):modules/adapter-rest-http4s/src/test/scala/chess/adapter/http4s/Http4sArchiveRoutesSpec.scala
 
   private def run(app: HttpApp[IO], req: Request[IO]): Response[IO] =
     app.run(req).unsafeRunSync()
@@ -57,10 +71,14 @@ class Http4sArchiveRoutesSpec extends AnyFlatSpec with Matchers:
     val sessionId = created("session")("sessionId").str
     val gameId = created("session")("gameId").str
 
+<<<<<<< HEAD:apps/game-service/modules/rest-http4s/src/test/scala/chess/adapter/http4s/Http4sArchiveRoutesSpec.scala
     run(
       http,
       Request[IO](Method.POST, Uri.unsafeFromString(s"/sessions/$sessionId/cancel"))
     ).status shouldBe Status.Ok
+=======
+    run(http, Request[IO](Method.POST, Uri.unsafeFromString(s"/sessions/$sessionId/cancel"))).status shouldBe Status.Ok
+>>>>>>> 5e4d1e43 (game and history services. add docker, isolate services):modules/adapter-rest-http4s/src/test/scala/chess/adapter/http4s/Http4sArchiveRoutesSpec.scala
 
     val resp = run(http, Request[IO](Method.GET, Uri.unsafeFromString(s"/archive/games/$gameId")))
     resp.status shouldBe Status.Ok
@@ -81,4 +99,7 @@ class Http4sArchiveRoutesSpec extends AnyFlatSpec with Matchers:
     resp.status shouldBe Status.Conflict
     bodyJson(resp)("code").str shouldBe "ARCHIVE_NOT_READY"
   }
+<<<<<<< HEAD:apps/game-service/modules/rest-http4s/src/test/scala/chess/adapter/http4s/Http4sArchiveRoutesSpec.scala
 
+=======
+>>>>>>> 5e4d1e43 (game and history services. add docker, isolate services):modules/adapter-rest-http4s/src/test/scala/chess/adapter/http4s/Http4sArchiveRoutesSpec.scala

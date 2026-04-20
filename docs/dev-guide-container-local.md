@@ -1,12 +1,21 @@
 # Local Container Deployment
 
+<<<<<<< HEAD
 This guide runs Envoy, the Scala Game Service, the Scala History Service, and
 the Scala AI Service with Docker Compose. It is the canonical local/dev
 microservice topology.
+=======
+This guide runs the Scala Game Service beside the Python AI service with Docker
+Compose. It is intended for local/dev extraction checks only.
+>>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
 
 ## Prerequisites
 
 - Run commands from the Scala repo root: `searchess`.
+<<<<<<< HEAD
+=======
+- The sibling Python repo must exist at `../searchess-ai-service`.
+>>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
 - Docker Compose must be available.
 
 ## Build And Run
@@ -15,6 +24,7 @@ microservice topology.
 docker compose up --build
 ```
 
+<<<<<<< HEAD
 Compose starts four services:
 
 | Service | Container port | Host port | Purpose |
@@ -24,10 +34,20 @@ Compose starts four services:
 | `game-service` | `9090` | internal | Scala WebSocket server |
 | `history-service` | `8081` | internal | Scala History archive API |
 | `ai-service` | `8765` | internal | Scala AI inference API |
+=======
+Compose starts two services:
+
+| Service | Container port | Host port | Purpose |
+|---|---:|---:|---|
+| `game-service` | `8080` | `8080` | Scala HTTP API |
+| `game-service` | `9090` | `9090` | Scala WebSocket server |
+| `ai-service` | `8765` | `8765` | Python AI inference API |
+>>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
 
 Check liveness from the host:
 
 ```bash
+<<<<<<< HEAD
 curl http://127.0.0.1:10000/health
 ```
 
@@ -55,6 +75,12 @@ curl -s -X POST http://127.0.0.1:10000/api/sessions \
 Game-to-History and Game-to-AI traffic stays direct inside the Compose network.
 History and AI are not routed through Envoy.
 
+=======
+curl http://127.0.0.1:8080/health
+curl http://127.0.0.1:8765/health
+```
+
+>>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
 ## Environment
 
 The compose file sets the Game Service environment explicitly:
@@ -68,6 +94,7 @@ The compose file sets the Game Service environment explicitly:
 | `PERSISTENCE_MODE` | `sqlite` | Use durable SQLite persistence |
 | `CHESS_DB_PATH` | `/data/searchess.sqlite` | SQLite DB file path in the container |
 | `EVENT_MODE` | `in-process` | Current event delivery mode |
+<<<<<<< HEAD
 | `AI_PROVIDER_MODE` | `remote` | Use the internal AI Service |
 | `AI_REMOTE_BASE_URL` | `http://ai-service:8765` | Compose-network URL for AI |
 | `AI_TIMEOUT_MILLIS` | `2000` | Remote AI client timeout |
@@ -87,6 +114,22 @@ traffic; in a container, `localhost` means the same container.
 Inside Compose, `game-service` reaches History by DNS name:
 `http://history-service:8081`.
 
+=======
+| `AI_PROVIDER_MODE` | `remote` | Use the Python AI service |
+| `AI_REMOTE_BASE_URL` | `http://ai-service:8765` | Compose-network URL for Python AI |
+| `AI_TIMEOUT_MILLIS` | `2000` | Remote AI client timeout |
+
+The Python AI service uses:
+
+| Variable | Value | Meaning |
+|---|---|---|
+| `INFERENCE_BACKEND` | `random` | Pick a random legal move for integration tests |
+
+Inside Compose, `game-service` reaches the Python service by DNS name:
+`http://ai-service:8765`. Do not use `localhost` for container-to-container
+traffic; in a container, `localhost` means the same container.
+
+>>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
 ## SQLite Persistence
 
 The Game Service mounts a named volume:
@@ -106,6 +149,7 @@ To inspect the mounted DB path:
 docker compose exec game-service ls -l /data
 ```
 
+<<<<<<< HEAD
 When History forwarding is enabled, the Game Service SQLite file also owns the
 `history_event_outbox` table for terminal Game -> History delivery. Local/dev
 read-only inspection is available without opening SQLite manually:
@@ -118,11 +162,17 @@ curl -s http://127.0.0.1:10000/api/ops/history-outbox/pending
 See `docs/dev-guide-game-service.md` for the response shape and limits of this
 debug surface.
 
+=======
+>>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
 To verify persistence across a Game Service restart:
 
 ```bash
 # Create a Human-vs-AI session and note session.gameId.
+<<<<<<< HEAD
 curl -s -X POST http://127.0.0.1:10000/api/sessions \
+=======
+curl -s -X POST http://127.0.0.1:8080/sessions \
+>>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
   -H "Content-Type: application/json" \
   -d '{"mode":"HumanVsAI"}'
 
@@ -130,7 +180,11 @@ curl -s -X POST http://127.0.0.1:10000/api/sessions \
 docker compose restart game-service
 
 # Replace {gameId}; this should still return HTTP 200 with the saved game.
+<<<<<<< HEAD
 curl -s http://127.0.0.1:10000/api/games/{gameId}
+=======
+curl -s http://127.0.0.1:8080/games/{gameId}
+>>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
 ```
 
 To reset local container state:
@@ -144,7 +198,11 @@ docker compose down -v
 Create a Human-vs-AI session:
 
 ```bash
+<<<<<<< HEAD
 curl -s -X POST http://127.0.0.1:10000/api/sessions \
+=======
+curl -s -X POST http://127.0.0.1:8080/sessions \
+>>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
   -H "Content-Type: application/json" \
   -d '{"mode":"HumanVsAI"}'
 ```
@@ -152,19 +210,31 @@ curl -s -X POST http://127.0.0.1:10000/api/sessions \
 Copy the returned `session.gameId`, then submit a human move:
 
 ```bash
+<<<<<<< HEAD
 curl -s -X POST http://127.0.0.1:10000/api/games/{gameId}/moves \
+=======
+curl -s -X POST http://127.0.0.1:8080/games/{gameId}/moves \
+>>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
   -H "Content-Type: application/json" \
   -d '{"from":"e2","to":"e4","controller":"HumanLocal"}'
 ```
 
+<<<<<<< HEAD
 Trigger the AI-backed move:
 
 ```bash
 curl -s -X POST http://127.0.0.1:10000/api/games/{gameId}/ai-move
+=======
+Trigger the Python-backed AI move:
+
+```bash
+curl -s -X POST http://127.0.0.1:8080/games/{gameId}/ai-move
+>>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
 ```
 
 A successful response is HTTP 200 with the updated game state. If the AI
 service is not reachable, the Game Service returns `503 AI_PROVIDER_FAILED`.
+<<<<<<< HEAD
 
 For a repeatable verification of the same flow, run:
 
@@ -230,3 +300,5 @@ Run this before treating the local microservice foundation as complete:
 
 History and AI are internal-only in the Compose topology. Do not add Envoy
 routes or host port mappings for them unless the contract map is updated first.
+=======
+>>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)

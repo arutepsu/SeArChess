@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 addSbtPlugin("org.scoverage"   %  "sbt-scoverage"       % "2.0.11")
 addSbtPlugin("org.scoverage"   %  "sbt-coveralls"       % "1.3.1")
 addSbtPlugin("com.github.sbt"  %  "sbt-native-packager" % "1.10.4")
@@ -5,3 +6,8 @@ addSbtPlugin("org.scalameta"   %  "sbt-scalafmt"        % "2.5.2")
 addSbtPlugin("org.wartremover" % "sbt-wartremover" % "3.5.6")
 addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.7")
 addSbtPlugin("io.gatling" % "gatling-sbt" % "4.9.0")
+=======
+addSbtPlugin("org.scoverage" % "sbt-scoverage" % "2.0.11")
+addSbtPlugin("org.scoverage" % "sbt-coveralls" % "1.3.1")
+addSbtPlugin("com.github.sbt" % "sbt-native-packager" % "1.10.4")
+>>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
