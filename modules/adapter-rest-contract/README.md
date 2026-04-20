@@ -333,7 +333,7 @@ This is the right separation because:
 ### Must not depend on
 
 It should not depend on:
-- `bootstrap-server`,
+- `game-service`,
 - persistence adapters,
 - websocket adapter,
 - route implementation modules,

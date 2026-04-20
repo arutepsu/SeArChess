@@ -28,7 +28,7 @@ final case class PersistenceWiring(
  *  constructs repository implementations.  Adding a new backend (e.g. Postgres)
  *  means adding a `case` to [[chess.config.PersistenceMode]], a branch in
  *  [[assemble]], and a corresponding private assembly method here — nothing
- *  else in the bootstrap or application layers changes.
+ *  else in the app composition or application layers changes.
  *
  *  === Current strategies ===
  *  - [[PersistenceMode.InMemory]]: all state lives in JVM heap; suitable for

@@ -10,7 +10,7 @@ import org.http4s.implicits.http4sHeaderSyntax
 
 /** Applies http4s CORS middleware to the final composed [[HttpApp]].
  *
- *  This is an operational/runtime concern owned by `bootstrap-server`.
+ *  This is an operational/runtime concern owned by `game-service`.
  *  No CORS logic belongs in business route handlers or application services.
  *
  *  === Origin matching ===

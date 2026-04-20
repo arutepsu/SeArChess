@@ -11,7 +11,7 @@ import org.http4s.HttpApp
  *  Composes route classes into a single [[HttpApp]] ready to be mounted on any
  *  http4s-compatible server.  Server lifecycle (host, port, Ember binding, and
  *  resource acquisition) is the responsibility of the composition root
- *  (`bootstrap-server/Main`).
+ *  (`game-service/Main`).
  *
  *  Both route classes depend only on [[GameServiceApi]] — the single Game Service
  *  boundary.  This replaces the previous three-dependency split

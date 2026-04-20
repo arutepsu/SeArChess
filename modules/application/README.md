@@ -68,6 +68,6 @@ This keeps the architecture clean:
 - domain = business rules and core model
 - application = use cases and orchestration
 - adapters = transport, AI, persistence, event delivery
-- `bootstrap-server` = runtime composition root
+- `game-service` = runtime composition root
 
 If this boundary stays clean, the system remains testable, extensible, and ready for later growth.

@@ -271,7 +271,7 @@ Current outbound adapters:
 - `adapter-ai`: deterministic first-legal-move AI provider used as a real port
   adapter, not as a rule owner.
 
-`bootstrap-server` and `startup-shared` only assemble runtime wiring. They are
+`game-service` and `startup-shared` only assemble runtime wiring. They are
 not business services.
 
 ## Explicitly Out Of Scope

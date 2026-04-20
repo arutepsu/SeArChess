@@ -23,7 +23,7 @@ import scalafx.application.JFXApp3.PrimaryStage
  *  4. [[main]] — launch the JavaFX toolkit
  *
  *  The command boundary ([[GameSessionCommands]]) and session context must be
- *  provided by the composition root (e.g. `bootstrap-server/Main`) so that all
+ *  provided by the composition root (e.g. `game-service/Main`) so that all
  *  adapters (GUI, TUI, REST, WebSocket) operate on the same authoritative game
  *  identity and persistence layer.
  */

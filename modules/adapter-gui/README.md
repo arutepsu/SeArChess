@@ -65,6 +65,6 @@ This keeps the system clean:
 - `adapter-gui` = desktop presentation
 - `application` = use cases
 - `domain` = rules
-- `bootstrap-server` or app bootstrap = runtime assembly
+- `game-service` or app bootstrap = runtime assembly
 
 If this boundary stays clean, the GUI remains testable, replaceable, and consistent with every other client.

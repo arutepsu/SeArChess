@@ -8,7 +8,7 @@ import org.http4s.headers.`Content-Type`
 
 /** Operational health endpoint for the chess server.
  *
- *  Owned by `bootstrap-server` as a runtime operations concern, intentionally
+ *  Owned by `game-service` as a runtime operations concern, intentionally
  *  separate from the chess business REST API in
  *  [[chess.adapter.http4s.Http4sApp]].  Business routes must not be added here.
  *

@@ -1,8 +1,8 @@
-# bootstrap-server Blueprint
+# game-service Blueprint
 
 ## Status and intent
 
-`bootstrap-server` is the **runtime composition root** of the backend.
+`game-service` is the **runtime composition root** of the backend.
 
 Its job is to take the project’s module graph and turn it into **one coherent running backend process**. This means it is responsible for selecting runtime infrastructure, wiring module boundaries together, composing external interfaces, and managing process lifecycle.
 
@@ -10,9 +10,9 @@ It is the place where the abstract architecture becomes a runnable deployment.
 
 That role aligns with the course trajectory as well: HTTP, Web UI, persistence, eventing, and later microservices all need a stable composition root. The current direction should therefore optimize not only for “start a server now”, but for a backend shape that can evolve cleanly later.
 
-## What bootstrap-server is
+## What game-service is
 
-`bootstrap-server` **is**:
+`game-service` **is**:
 
 - the runtime composition root
 - the place where concrete adapters are selected
@@ -20,9 +20,9 @@ That role aligns with the course trajectory as well: HTTP, Web UI, persistence, 
 - the place where REST, WebSocket, and operational endpoints are composed
 - the entry point that starts and stops the backend safely
 
-## What bootstrap-server is not
+## What game-service is not
 
-`bootstrap-server` is **not**:
+`game-service` is **not**:
 
 - a business module
 - a transport adapter
@@ -34,9 +34,9 @@ That boundary matters. Once startup modules start owning business behavior, they
 
 ---
 
-## Inputs to bootstrap-server
+## Inputs to game-service
 
-Conceptually, `bootstrap-server` consumes four categories of inputs.
+Conceptually, `game-service` consumes four categories of inputs.
 
 ### 1. Configuration inputs
 
@@ -90,9 +90,9 @@ Examples:
 
 ---
 
-## Output of bootstrap-server
+## Output of game-service
 
-Conceptually, `bootstrap-server` should produce **one thing**:
+Conceptually, `game-service` should produce **one thing**:
 
 > a coherent running backend process
 
@@ -116,7 +116,7 @@ It is a fully assembled backend runtime.
 
 ## Internal assembly areas
 
-To keep the module durable, `bootstrap-server` should be understood as five assembly areas.
+To keep the module durable, `game-service` should be understood as five assembly areas.
 
 ### 1. Configuration assembly
 
@@ -135,7 +135,7 @@ To keep the module durable, `bootstrap-server` should be understood as five asse
 
 **Produces**
 
-- a normalized runtime configuration model consumed by the rest of bootstrap
+- a normalized runtime configuration model consumed by the rest of game-service startup
 
 ### 2. Infrastructure assembly
 
@@ -218,11 +218,11 @@ Important: this area wires use cases; it does not implement them.
 
 ---
 
-## What bootstrap-server wires
+## What game-service wires
 
 ### A. Core application dependencies
 
-`bootstrap-server` wires:
+`game-service` wires:
 
 - application services to repository implementations
 - application services to event publication implementation
@@ -233,7 +233,7 @@ This is where abstract application ports receive concrete implementations.
 
 ### B. Transport adapters to application services
 
-`bootstrap-server` wires:
+`game-service` wires:
 
 - REST routes to command/query/session services
 - WebSocket endpoint to event/subscription flow
@@ -245,7 +245,7 @@ Transport adapters must not resolve their own dependencies through hidden constr
 
 This is a critical responsibility.
 
-`bootstrap-server` should wire:
+`game-service` should wire:
 
 - application event publication port
 - in-process event bus or event distribution mechanism
@@ -256,7 +256,7 @@ This is the key move that makes later evolution clean.
 
 ### D. Selected persistence profile
 
-`bootstrap-server` should decide:
+`game-service` should decide:
 
 - which repository implementation is active
 - which storage backend is used in this run
@@ -266,7 +266,7 @@ That allows persistence to vary without changing application logic.
 
 ---
 
-## What bootstrap-server must not wire directly
+## What game-service must not wire directly
 
 ### A. It must not wire routes directly to databases
 
@@ -279,7 +279,7 @@ That allows persistence to vary without changing application logic.
 
 - both depend on application services
 - application services depend on ports
-- bootstrap selects the concrete implementation
+- game-service startup selects the concrete implementation
 
 ### B. It must not let WebSocket become a second business path
 
@@ -297,12 +297,12 @@ That allows persistence to vary without changing application logic.
 
 **Bad**
 
-- chess move handling inside bootstrap
+- chess move handling inside game-service startup
 - route-specific game logic in startup code
 
 **Good**
 
-- bootstrap assembles collaborators only
+- game-service startup assembles collaborators only
 
 ---
 
@@ -344,7 +344,7 @@ This is the most important architectural shape to preserve.
 
 ## Top-level mount blueprint
 
-`bootstrap-server` should own the top-level external surface.
+`game-service` should own the top-level external surface.
 
 Suggested structure:
 
@@ -406,7 +406,7 @@ This order reduces ambiguity and makes startup failures easier to reason about.
 
 ## Startup failure model
 
-A good `bootstrap-server` should treat startup as all-or-nothing.
+A good `game-service` should treat startup as all-or-nothing.
 
 Principles:
 
@@ -425,7 +425,7 @@ This becomes even more important once persistence and streaming become real runt
 
 ## Responsibility matrix
 
-### bootstrap-server owns
+### game-service owns
 
 - runtime configuration
 - concrete adapter selection
@@ -434,7 +434,7 @@ This becomes even more important once persistence and streaming become real runt
 - protocol composition
 - final server startup
 
-### bootstrap-server does not own
+### game-service does not own
 
 - chess rules
 - use-case logic
@@ -445,18 +445,18 @@ This becomes even more important once persistence and streaming become real runt
 
 ---
 
-## Architectural rules for bootstrap-server
+## Architectural rules for game-service
 
 These rules should be explicit and stable.
 
 ### Rule 1
-`bootstrap-server` may depend on many modules; other modules must not depend on it.
+`game-service` may depend on many modules; other modules must not depend on it.
 
 ### Rule 2
-`bootstrap-server` assembles collaborators but does not implement business flows.
+`game-service` assembles collaborators but does not implement business flows.
 
 ### Rule 3
-All transport adapters are mounted from `bootstrap-server`, not from each other.
+All transport adapters are mounted from `game-service`, not from each other.
 
 ### Rule 4
 All state-changing client interactions go through application services.
@@ -465,10 +465,10 @@ All state-changing client interactions go through application services.
 WebSocket live updates are fed from shared event flow, not from a separate state model.
 
 ### Rule 6
-Persistence implementations are selected in `bootstrap-server`, not in transport adapters.
+Persistence implementations are selected in `game-service`, not in transport adapters.
 
 ### Rule 7
-Operational concerns like health, metrics, profiles, and later tracing live at the bootstrap level.
+Operational concerns like health, metrics, profiles, and later tracing live at the game-service app level.
 
 ---
 
@@ -477,7 +477,7 @@ Operational concerns like health, metrics, profiles, and later tracing live at t
 Even if you do not create all packages immediately, the module should be thought of in these areas:
 
 ```text
-bootstrap-server
+game-service
   config
   assembly.infrastructure
   assembly.application
@@ -491,7 +491,7 @@ That conceptual structure prevents the module from collapsing into a single star
 
 ## Mapping to the current structure
 
-Current files under `modules/bootstrap-server/src/main/scala/chess`:
+Current files under `apps/game-service/src/main/scala/chess`:
 
 ```text
 config/
@@ -582,10 +582,10 @@ Recommendation:
 
 ## Recommended target package shape
 
-A good next target for `bootstrap-server` would look conceptually like this:
+A good next target for `game-service` would look conceptually like this:
 
 ```text
-bootstrap-server
+game-service
   config
     runtime configuration model
     config loading / validation
@@ -687,7 +687,7 @@ If it is acting as a parallel state propagation model, that is a long-term archi
 
 If there is one design decision to protect now, it is this:
 
-> make event flow part of the bootstrap design from day one
+> make event flow part of the game-service startup design from day one
 
 Not Kafka yet.
 Not distributed infrastructure yet.
@@ -712,7 +712,7 @@ If that shape is correct, a lot of later work becomes incremental instead of arc
 
 ## Final compact blueprint
 
-`bootstrap-server` should:
+`game-service` should:
 
 - load config
 - choose persistence, event, and runtime profile
@@ -723,7 +723,7 @@ If that shape is correct, a lot of later work becomes incremental instead of arc
 - mount external endpoints
 - start the backend process
 
-`bootstrap-server` must not:
+`game-service` must not:
 
 - own business rules
 - bypass application boundaries

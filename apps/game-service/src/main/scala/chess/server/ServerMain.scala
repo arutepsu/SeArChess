@@ -16,7 +16,7 @@ import chess.config.{AppConfig, ConfigLoader}
  *
  *  To run:
  *  {{{
- *    sbt "bootstrapServer/runMain chess.server.ServerMain"
+ *    sbt "gameService/runMain chess.server.ServerMain"
  *  }}}
  */
 object ServerMain:

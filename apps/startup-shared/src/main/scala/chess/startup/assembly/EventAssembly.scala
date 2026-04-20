@@ -23,7 +23,7 @@ final case class EventWiring(
  *  [[chess.application.event.AppEvent]]s are delivered to consumers.  Adding
  *  a new distribution strategy (e.g. Kafka) means adding a new branch in
  *  [[assemble]] and a corresponding [[EventMode]] variant — nothing else
- *  changes in the bootstrap or application layers.
+ *  changes in the app composition or application layers.
  *
  *  === Current strategies ===
  *  - [[EventMode.InProcess]]: fan-out within the same JVM.  WebSocket is

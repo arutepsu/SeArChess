@@ -9,7 +9,7 @@ COPY build.sbt ./
 COPY apps/ apps/
 COPY modules/ modules/
 
-RUN sbt "bootstrapServer / stage"
+RUN sbt "gameService / stage"
 
 FROM eclipse-temurin:21-jre
 
@@ -20,7 +20,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /data
 
-COPY --from=build /build/apps/bootstrap-server/target/universal/stage/ ./
+COPY --from=build /build/apps/game-service/target/universal/stage/ ./
 
 EXPOSE 8080 9090
 

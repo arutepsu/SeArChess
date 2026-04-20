@@ -1,8 +1,8 @@
-# bootstrap-server Blueprint
+# game-service Blueprint
 
 ## Purpose
 
-`bootstrap-server` is the runtime composition root.
+`game-service` is the runtime composition root.
 
 It should:
 - assemble the system from modules
@@ -26,7 +26,7 @@ All wiring happens here.
 
 Correct model:
 
-bootstrap-server  
+game-service  
 -> creates infrastructure  
 -> wires application services  
 -> connects adapters (REST, WebSocket, AI, etc.)  
@@ -62,6 +62,6 @@ This keeps the system clean:
 
 - `application` = use cases  
 - `adapters` = transport/infrastructure  
-- `bootstrap-server` = assembly + runtime  
+- `game-service` = assembly + runtime  
 
 If this stays clean, the backend remains modular, testable, and ready for scaling (microservices, Kafka, etc.).

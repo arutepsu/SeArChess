@@ -80,6 +80,6 @@ Clean split:
 - application = emits meaningful events
 - `adapter-event` = distributes them
 - `adapter-websocket` = streams them to clients
-- `bootstrap-server` = wires everything together
+- `game-service` = wires everything together
 
 If this boundary stays clean, the system can evolve without turning REST or WebSocket into the integration hub.

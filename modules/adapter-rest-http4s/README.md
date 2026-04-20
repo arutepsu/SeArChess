@@ -23,7 +23,7 @@ It must not become:
 - the owner of the REST contract itself
 
 `adapter-rest-contract` owns the external schema.  
-`bootstrap-server` owns runtime assembly and startup.
+`game-service` owns runtime assembly and startup.
 
 ## Current structure
 
@@ -103,6 +103,6 @@ This keeps the backend clean:
 
 - `adapter-rest-contract` = stable external REST schema
 - `adapter-rest-http4s` = concrete HTTP transport adapter
-- `bootstrap-server` = runtime composition root
+- `game-service` = runtime composition root
 
 That separation is what will keep Web UI integration, testing, and later microservice evolution manageable.

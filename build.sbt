@@ -54,12 +54,19 @@ lazy val notation = project
   )
   .dependsOn(domain)
 
+// ── Module: game-contract ─────────────────────────────────────────────────────
+
+lazy val gameContract = project
+  .in(file("modules/game-contract"))
+  .settings(commonSettings)
+  .dependsOn(domain)
+
 // ── Module: application ───────────────────────────────────────────────────────
 
 lazy val application = project
   .in(file("modules/application"))
   .settings(commonSettings)
-  .dependsOn(domain)
+  .dependsOn(domain, gameContract)
 
 // ── Module: history ───────────────────────────────────────────────────────────
 
@@ -72,9 +79,9 @@ lazy val history = project
       "org.xerial"   % "sqlite-jdbc" % "3.46.1.3"
     )
   )
-  // adapterPersistence and adapterEvent are only needed for test fixtures
-  // (InMemoryGameRepository, CollectingEventPublisher, etc.)
-  .dependsOn(application, notation, adapterPersistence % Test, adapterEvent % Test)
+  // adapterPersistence and adapterEvent are only needed for legacy test fixtures
+  // (InMemoryGameRepository, CollectingEventPublisher, etc.).
+  .dependsOn(gameContract, notation, adapterPersistence % Test, adapterEvent % Test)
 
 // ── Module: adapter-persistence ───────────────────────────────────────────────
 
@@ -120,7 +127,7 @@ lazy val adapterRestContract = project
     commonSettings,
     libraryDependencies += "com.lihaoyi" %% "ujson" % "4.0.2"
   )
-  .dependsOn(application)
+  .dependsOn(application, gameContract)
 
 
 // ── Module: adapter-rest-http4s (authoritative REST adapter) ──────────────────
@@ -253,10 +260,10 @@ lazy val tuiCli = project
   )
   .dependsOn(startupShared, adapterTui)
 
-// ── App: bootstrap-server ────────────────────────────────────────────────────
+// ── App: game-service ────────────────────────────────────────────────────────
 
-lazy val bootstrapServer = project
-  .in(file("apps/bootstrap-server"))
+lazy val gameService = project
+  .in(file("apps/game-service"))
   .enablePlugins(JavaAppPackaging)
   .settings(
     commonSettings,
@@ -324,7 +331,7 @@ lazy val historyService = project
 //   testAdapterPersistence  testAdapterAi           testAdapterEvent
 //   testAdapterRestContract testAdapterRestHttp4s
 //   testAdapterWebsocket    testAdapterGui          testAdapterTui
-//   testStartupShared       testBootstrapServer
+//   testStartupShared       testGameService
 //   testDesktopGui          testTuiCli
 //
 // Grouped aliases by architectural concern:
@@ -333,7 +340,7 @@ lazy val historyService = project
 //   testRest         — adapter-rest-contract + adapter-rest-http4s
 //   testUi           — adapter-gui + adapter-tui
 //   testAllAdapters  — all adapter modules
-//   testApps         — startup-shared + bootstrap-server + desktop-gui + tui-cli
+//   testApps         — startup-shared + game-service + history-service + desktop-gui + tui-cli
 //
 // Compile slice aliases:
 //   compileCore      — domain + notation + application
@@ -354,6 +361,7 @@ addCommandAlias("ci",
 
 addCommandAlias("testDomain",             "domain/test")
 addCommandAlias("testNotation",           "notation/test")
+addCommandAlias("testGameContract",       "gameContract/test")
 addCommandAlias("testApplication",        "application/test")
 addCommandAlias("testHistory",            "history/test")
 addCommandAlias("testAdapterPersistence", "adapterPersistence/test")
@@ -365,7 +373,7 @@ addCommandAlias("testAdapterWebsocket",   "adapterWebsocket/test")
 addCommandAlias("testAdapterGui",         "adapterGui/test")
 addCommandAlias("testAdapterTui",         "adapterTui/test")
 addCommandAlias("testStartupShared",      "startupShared/test")
-addCommandAlias("testBootstrapServer",    "bootstrapServer/test")
+addCommandAlias("testGameService",        "gameService/test")
 addCommandAlias("testHistoryService",     "historyService/test")
 addCommandAlias("testDesktopGui",         "desktopGui/test")
 addCommandAlias("testTuiCli",             "tuiCli/test")
@@ -373,7 +381,7 @@ addCommandAlias("testTuiCli",             "tuiCli/test")
 // ── Grouped test: by architectural concern ────────────────────────────────────
 
 addCommandAlias("testCore",
-  ";domain/test;notation/test;application/test;history/test")
+  ";domain/test;notation/test;gameContract/test;application/test;history/test")
 
 addCommandAlias("testInfra",
   ";adapterPersistence/test;adapterEvent/test;adapterAi/test;adapterWebsocket/test")
@@ -390,7 +398,7 @@ addCommandAlias("testAllAdapters",
   ";adapterGui/test;adapterTui/test")
 
 addCommandAlias("testApps",
-  ";startupShared/test;bootstrapServer/test;historyService/test;desktopGui/test;tuiCli/test")
+  ";startupShared/test;gameService/test;historyService/test;desktopGui/test;tuiCli/test")
 
 // ── Compile slices ────────────────────────────────────────────────────────────
 
@@ -418,9 +426,9 @@ lazy val root = project
     coverageEnabled := false
   )
   .aggregate(
-    domain, notation, application, history,
+    domain, notation, gameContract, application, history,
     adapterPersistence, adapterAi, adapterEvent,
     adapterRestContract, adapterRestHttp4s,
     adapterWebsocket, adapterGui, adapterTui,
-    startupShared, bootstrapServer, historyService, desktopGui, tuiCli
+    startupShared, gameService, historyService, desktopGui, tuiCli
   )
