@@ -38,13 +38,13 @@ def excludeFromCoverage(patterns: String*) = Seq(
   }
 )
 
-// ── Module: domain ─────────────────────────────────────────────────────────────
+// Module: domain
 
 lazy val domain = project
   .in(file("modules/domain"))
   .settings(commonSettings)
 
-// ── Module: notation ──────────────────────────────────────────────────────────
+// Module: notation
 
 lazy val notation = project
   .in(file("modules/notation"))
@@ -54,24 +54,24 @@ lazy val notation = project
   )
   .dependsOn(domain)
 
-// ── Module: game-contract ─────────────────────────────────────────────────────
+// Module: game-contract
 
 lazy val gameContract = project
   .in(file("modules/game-contract"))
   .settings(commonSettings)
   .dependsOn(domain)
 
-// ── Module: game-core ─────────────────────────────────────────────────────────
+// Module: game-core
 
 lazy val gameCore = project
-  .in(file("modules/game-core"))
+  .in(file("apps/game-service/modules/core"))
   .settings(commonSettings)
   .dependsOn(domain, gameContract)
 
-// ── Module: history ───────────────────────────────────────────────────────────
+// Module: history
 
 lazy val history = project
-  .in(file("modules/history"))
+  .in(file("apps/history-service/modules/core"))
   .settings(
     commonSettings,
     libraryDependencies ++= Seq(
@@ -83,10 +83,10 @@ lazy val history = project
   // (InMemoryGameRepository, CollectingEventPublisher, etc.).
   .dependsOn(gameContract, notation, adapterPersistence % Test, adapterEvent % Test)
 
-// ── Module: adapter-persistence ───────────────────────────────────────────────
+// Module: adapter-persistence
 
 lazy val adapterPersistence = project
-  .in(file("modules/adapter-persistence"))
+  .in(file("apps/game-service/modules/persistence"))
   .settings(
     commonSettings,
     libraryDependencies ++= Seq(
@@ -94,13 +94,13 @@ lazy val adapterPersistence = project
       "org.xerial"   % "sqlite-jdbc"  % "3.46.1.3"
     )
   )
-  // adapterEvent is only needed for test fixtures (CollectingEventPublisher).
-  .dependsOn(gameCore, adapterEvent % Test)
+  // Event modules are only needed for test fixtures and transactional outbox specs.
+  .dependsOn(gameCore, adapterEvent % Test, gameEventContract % Test, gameHistoryDelivery % Test)
 
-// ── Module: adapter-ai ────────────────────────────────────────────────────────
+// Module: adapter-ai
 
 lazy val adapterAi = project
-  .in(file("modules/adapter-ai"))
+  .in(file("apps/game-service/modules/ai"))
   .settings(
     commonSettings,
     libraryDependencies += "com.lihaoyi" %% "ujson" % "4.0.2"
@@ -109,10 +109,27 @@ lazy val adapterAi = project
   // (InMemorySessionRepository, CollectingEventPublisher).
   .dependsOn(gameCore, notation, adapterPersistence % Test, adapterEvent % Test)
 
-// ── Module: adapter-event ─────────────────────────────────────────────────────
+// Module: adapter-event (internal in-process publishers/test collectors)
 
 lazy val adapterEvent = project
-  .in(file("modules/adapter-event"))
+  .in(file("apps/game-service/modules/eventing"))
+  .settings(commonSettings)
+  .dependsOn(gameContract)
+
+// Module: game-event-contract (Game event JSON wire serializer)
+
+lazy val gameEventContract = project
+  .in(file("modules/game-event-contract"))
+  .settings(
+    commonSettings,
+    libraryDependencies += "com.lihaoyi" %% "ujson" % "4.0.2"
+  )
+  .dependsOn(gameContract)
+
+// Module: game-history-delivery (Game-owned History outbox/forwarder)
+
+lazy val gameHistoryDelivery = project
+  .in(file("apps/game-service/modules/history-delivery"))
   .settings(
     commonSettings,
     libraryDependencies ++= Seq(
@@ -120,9 +137,9 @@ lazy val adapterEvent = project
       "org.xerial"   % "sqlite-jdbc" % "3.46.1.3"
     )
   )
-  .dependsOn(gameCore)
+  .dependsOn(gameContract, gameEventContract)
 
-// ── Module: adapter-rest-shared (DTOs and mappers shared by all REST adapters) ─
+// Module: adapter-rest-contract (wire DTOs/codecs only)
 
 lazy val adapterRestContract = project
   .in(file("modules/adapter-rest-contract"))
@@ -130,13 +147,12 @@ lazy val adapterRestContract = project
     commonSettings,
     libraryDependencies += "com.lihaoyi" %% "ujson" % "4.0.2"
   )
-  .dependsOn(gameCore, gameContract)
 
 
-// ── Module: adapter-rest-http4s (authoritative REST adapter) ──────────────────
+// Module: adapter-rest-http4s (authoritative REST adapter)
 
 lazy val adapterRestHttp4s = project
-  .in(file("modules/adapter-rest-http4s"))
+  .in(file("apps/game-service/modules/rest-http4s"))
   .settings(
     commonSettings,
     libraryDependencies ++= Seq(
@@ -147,13 +163,15 @@ lazy val adapterRestHttp4s = project
     // ARE included in coverage.
     excludeFromCoverage(".*adapter.http4s.Http4sApp.*")
   )
+  // gameCore is required by the HTTP adapter's internal mapping layer; the
+  // public adapter-rest-contract module remains wire-only.
   // adapterPersistence is only needed for test fixtures (InMemoryGameRepository etc.)
-  .dependsOn(adapterRestContract, adapterPersistence % Test)
+  .dependsOn(adapterRestContract, gameCore, adapterPersistence % Test)
 
-// ── Module: adapter-websocket ─────────────────────────────────────────────────
+// Module: adapter-websocket
 
 lazy val adapterWebsocket = project
-  .in(file("modules/adapter-websocket"))
+  .in(file("apps/game-service/modules/websocket"))
   .settings(
     commonSettings,
     libraryDependencies ++= Seq(
@@ -165,12 +183,12 @@ lazy val adapterWebsocket = project
       ".*adapter.websocket.JavaWebSocketConnection.*"
     )
   )
-  .dependsOn(gameCore, adapterEvent)
+  .dependsOn(gameCore)
 
-// ── Module: adapter-gui ───────────────────────────────────────────────────────
+// Module: adapter-gui
 
 lazy val adapterGui = project
-  .in(file("modules/adapter-gui"))
+  .in(file("apps/desktop-gui/modules/gui"))
   .settings(
     commonSettings,
     libraryDependencies ++= Seq(
@@ -189,12 +207,12 @@ lazy val adapterGui = project
       ".*adapter.gui.assets.SpriteCatalogLoader.*"
     )
   )
-  .dependsOn(gameCore, notation, adapterEvent, adapterPersistence)
+  .dependsOn(gameCore, notation, adapterPersistence, adapterEvent % Test)
 
-// ── Module: adapter-tui ───────────────────────────────────────────────────────
+// Module: adapter-tui
 
 lazy val adapterTui = project
-  .in(file("modules/adapter-tui"))
+  .in(file("apps/tui-cli/modules/tui"))
   .settings(
     commonSettings,
     excludeFromCoverage(
@@ -212,21 +230,18 @@ lazy val startupShared = project
     commonSettings,
     coverageMinimumStmtTotal := 0,
     excludeFromCoverage(
-      ".*chess.startup.assembly.EventAssembly.*",
-      ".*chess.startup.assembly.EventWiring.*",
       ".*chess.startup.assembly.PersistenceAssembly.*",
       ".*chess.startup.assembly.PersistenceWiring.*",
       ".*chess.startup.assembly.CoreAssembly.*",
       ".*chess.startup.assembly.AppContext.*",
+      ".*chess.startup.assembly.CoreEventBindings.*",
       ".*chess.startup.assembly.ObservableGame.*",
       ".*chess.config.*"
     )
   )
   .dependsOn(
     gameCore,
-    adapterPersistence,
-    adapterEvent,
-    adapterWebsocket
+    adapterPersistence
   )
 
 // ── App: desktop-gui ─────────────────────────────────────────────────────────
@@ -283,6 +298,8 @@ lazy val gameService = project
       ".*chess.server.ServerMain.*",
       ".*chess.server.ServerWiring.*",
       ".*chess.server.ServerRuntime.*",
+      ".*chess.server.assembly.EventAssembly.*",
+      ".*chess.server.assembly.EventWiring.*",
       ".*chess.server.http.HealthRoutes.*",
       ".*chess.server.http.CorsMiddleware.*"
     )
@@ -293,6 +310,8 @@ lazy val gameService = project
     adapterWebsocket,
     adapterAi,
     adapterEvent,
+    gameEventContract,
+    gameHistoryDelivery,
     adapterPersistence
   )
 
@@ -318,7 +337,7 @@ lazy val historyService = project
       ".*chess.historyservice.HistoryRoutes.*"
     )
   )
-  .dependsOn(history)
+  .dependsOn(history, gameHistoryDelivery % Test)
 
 // ── Aliases ───────────────────────────────────────────────────────────────────
 //
@@ -332,6 +351,7 @@ lazy val historyService = project
 // Per-module test aliases:
 //   testDomain              testNotation            testGameContract testGameCore
 //   testAdapterPersistence  testAdapterAi           testAdapterEvent
+//   testGameEventContract   testGameHistoryDelivery
 //   testAdapterRestContract testAdapterRestHttp4s
 //   testAdapterWebsocket    testAdapterGui          testAdapterTui
 //   testStartupShared       testGameService
@@ -339,7 +359,7 @@ lazy val historyService = project
 //
 // Grouped aliases by architectural concern:
 //   testCore         — domain + notation + game-contract + game-core
-//   testInfra        — adapter-persistence + adapter-event + adapter-ai + adapter-websocket
+//   testInfra        — adapter-persistence + event modules + adapter-ai + adapter-websocket
 //   testRest         — adapter-rest-contract + adapter-rest-http4s
 //   testUi           — adapter-gui + adapter-tui
 //   testAllAdapters  — all adapter modules
@@ -370,6 +390,8 @@ addCommandAlias("testHistory",            "history/test")
 addCommandAlias("testAdapterPersistence", "adapterPersistence/test")
 addCommandAlias("testAdapterAi",          "adapterAi/test")
 addCommandAlias("testAdapterEvent",       "adapterEvent/test")
+addCommandAlias("testGameEventContract",  "gameEventContract/test")
+addCommandAlias("testGameHistoryDelivery","gameHistoryDelivery/test")
 addCommandAlias("testAdapterRestContract","adapterRestContract/test")
 addCommandAlias("testAdapterRestHttp4s",  "adapterRestHttp4s/test")
 addCommandAlias("testAdapterWebsocket",   "adapterWebsocket/test")
@@ -387,7 +409,8 @@ addCommandAlias("testCore",
   ";domain/test;notation/test;gameContract/test;gameCore/test;history/test")
 
 addCommandAlias("testInfra",
-  ";adapterPersistence/test;adapterEvent/test;adapterAi/test;adapterWebsocket/test")
+  ";adapterPersistence/test;adapterEvent/test;gameEventContract/test;gameHistoryDelivery/test" +
+  ";adapterAi/test;adapterWebsocket/test")
 
 addCommandAlias("testRest",
   ";adapterRestContract/test;adapterRestHttp4s/test")
@@ -396,7 +419,8 @@ addCommandAlias("testUi",
   ";adapterGui/test;adapterTui/test")
 
 addCommandAlias("testAllAdapters",
-  ";adapterPersistence/test;adapterEvent/test;adapterAi/test;adapterWebsocket/test" +
+  ";adapterPersistence/test;adapterEvent/test;gameEventContract/test;gameHistoryDelivery/test" +
+  ";adapterAi/test;adapterWebsocket/test" +
   ";adapterRestContract/test;adapterRestHttp4s/test" +
   ";adapterGui/test;adapterTui/test")
 
@@ -430,7 +454,7 @@ lazy val root = project
   )
   .aggregate(
     domain, notation, gameContract, gameCore, history,
-    adapterPersistence, adapterAi, adapterEvent,
+    adapterPersistence, adapterAi, adapterEvent, gameEventContract, gameHistoryDelivery,
     adapterRestContract, adapterRestHttp4s,
     adapterWebsocket, adapterGui, adapterTui,
     startupShared, gameService, historyService, desktopGui, tuiCli

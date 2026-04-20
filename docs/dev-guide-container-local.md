@@ -15,12 +15,13 @@ Compose. It is intended for local/dev extraction checks only.
 docker compose up --build
 ```
 
-Compose starts two services:
+Compose starts three services:
 
 | Service | Container port | Host port | Purpose |
 |---|---:|---:|---|
 | `game-service` | `8080` | `8080` | Scala HTTP API |
 | `game-service` | `9090` | `9090` | Scala WebSocket server |
+| `history-service` | `8081` | `8081` | Scala History archive API |
 | `ai-service` | `8765` | `8765` | Python AI inference API |
 
 Check liveness from the host:
@@ -75,6 +76,18 @@ To inspect the mounted DB path:
 ```bash
 docker compose exec game-service ls -l /data
 ```
+
+When History forwarding is enabled, the Game Service SQLite file also owns the
+`history_event_outbox` table for terminal Game -> History delivery. Local/dev
+read-only inspection is available without opening SQLite manually:
+
+```bash
+curl -s http://127.0.0.1:8080/ops/history-outbox
+curl -s http://127.0.0.1:8080/ops/history-outbox/pending
+```
+
+See `docs/dev-guide-game-service.md` for the response shape and limits of this
+debug surface.
 
 To verify persistence across a Game Service restart:
 

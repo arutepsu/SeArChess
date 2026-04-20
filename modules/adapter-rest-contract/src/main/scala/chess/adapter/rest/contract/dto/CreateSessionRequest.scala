@@ -3,7 +3,7 @@ package chess.adapter.rest.contract.dto
 /** Request body for POST /sessions.
  *
  *  All fields are optional; absent fields use mode-aware defaults in the
- *  mapper layer:
+ *  Game Service mapping layer:
  *  - HumanVsHuman: White HumanLocal, Black HumanLocal
  *  - HumanVsAI: White HumanLocal, Black server AI
  *  - AIVsAI: White server AI, Black server AI

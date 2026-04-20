@@ -21,11 +21,11 @@ final case class SqliteConfig(path: String)
  */
 final case class CorsConfig(enabled: Boolean, allowedOrigin: String)
 
-/** Best-effort History Service event forwarding.
+/** History Service event forwarding.
  *
- *  This is a local/dev bridge, not durable delivery. When enabled, terminal
- *  Game Service events are POSTed to History Service over HTTP and failures are
- *  absorbed by the event adapter so gameplay is not failed by History outages.
+ *  This is a local/dev bridge, not a broker. In SQLite Game Service mode,
+ *  terminal events are written to a durable outbox and retried by the Game
+ *  Service runtime. In in-memory mode, forwarding remains best-effort HTTP.
  */
 final case class HistoryForwardingConfig(
   enabled:       Boolean,
@@ -42,8 +42,9 @@ final case class HistoryForwardingConfig(
  *    optional consumer when `webSocket.enabled` is true.  This is the only
  *    supported mode at present.
  *
- *  Future modes (e.g. `Kafka`) will extend this enum and add a corresponding
- *  branch in [[chess.startup.assembly.EventAssembly]] without touching application services.
+ *  Future modes (e.g. `Kafka`) would extend this enum and add a corresponding
+ *  branch in the owning service runtime assembly without touching application
+ *  services.
  */
 enum EventMode:
   case InProcess
