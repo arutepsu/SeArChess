@@ -2,7 +2,7 @@ package chess.application
 
 import chess.application.ai.service.AITurnError
 import chess.application.port.repository.RepositoryError
-import chess.application.query.game.LegalMovesView
+import chess.application.query.game.{GameArchiveSnapshot, GameView, LegalMovesView}
 import chess.application.query.session.SessionView
 import chess.application.session.model.{GameSession, SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
@@ -147,8 +147,12 @@ trait GameServiceApi:
   /** Load the session view associated with a [[GameId]]. */
   def getSessionByGameId(id: GameId): Either[SessionError, SessionView]
 
-  /** Load the current [[GameState]] by [[GameId]]. */
-  def getGameState(id: GameId): Either[RepositoryError, GameState]
+  /** Load the current game state as an application read model by [[GameId]].
+   *
+   *  Returns a [[GameView]] that includes pre-computed legal moves so that
+   *  adapter mappers do not depend on [[chess.domain.rules.GameStateRules]] directly.
+   */
+  def getGame(id: GameId): Either[RepositoryError, GameView]
 
   /** Return the legal moves available to the current player in the active game.
    *
@@ -159,3 +163,15 @@ trait GameServiceApi:
 
   /** Return all session views that have not yet reached the Finished lifecycle phase. */
   def listActiveSessions(): Either[SessionError, List[SessionView]]
+
+  /** Build an archive snapshot for a finished game session.
+   *
+   *  Returns [[ArchiveError.GameNotFound]] if no session is associated with
+   *  the given [[GameId]], [[ArchiveError.GameNotClosed]] if the session has
+   *  not yet reached `SessionLifecycle.Finished`, or
+   *  [[ArchiveError.StorageFailure]] on infrastructure error.
+   *
+   *  This is the intended entry point for a future History / Notation service
+   *  that consumes terminal game events.
+   */
+  def getArchiveSnapshot(id: GameId): Either[ArchiveError, GameArchiveSnapshot]

@@ -8,6 +8,7 @@ import chess.application.ApplicationError
 import chess.application.GameServiceApi
 import chess.application.ai.service.AITurnError
 import chess.application.port.repository.RepositoryError
+import chess.application.query.game.GameView
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import chess.application.session.service.{SessionError, SessionMoveError}
 import chess.domain.error.DomainError
@@ -61,13 +62,13 @@ class Http4sGameRoutes(gameService: GameServiceApi):
       case Left(msg) =>
         jsonError(Status.BadRequest, "BAD_REQUEST", msg)
       case Right(uuid) =>
-        gameService.getGameState(GameId(uuid)) match
+        gameService.getGame(GameId(uuid)) match
           case Left(RepositoryError.NotFound(_)) =>
             jsonError(Status.NotFound, "GAME_NOT_FOUND", s"Game not found: $gameIdStr")
           case Left(RepositoryError.StorageFailure(msg)) =>
             jsonError(Status.InternalServerError, "INTERNAL_ERROR", msg)
-          case Right(state) =>
-            jsonResponse(Status.Ok, GameResponse.toJson(GameMapper.toGameResponse(gameIdStr, state)))
+          case Right(view) =>
+            jsonResponse(Status.Ok, GameResponse.toJson(GameMapper.toGameResponse(view)))
 
   private def handleGetLegalMoves(gameIdStr: String): IO[Response[IO]] =
     parseUUID(gameIdStr) match
@@ -105,7 +106,7 @@ class Http4sGameRoutes(gameService: GameServiceApi):
                      .left.map(moveErrToHttpErr)
         (nextState, nextSess) = pair
       yield SubmitMoveResponse(
-        game             = GameMapper.toGameResponse(gameIdStr, nextState),
+        game             = GameMapper.toGameResponse(GameView.fromState(gameId, nextState)),
         sessionLifecycle = nextSess.lifecycle.toString
       )
 
@@ -137,7 +138,7 @@ class Http4sGameRoutes(gameService: GameServiceApi):
                      .left.map(e => resignErrToHttpErr(e))
         (nextState, nextSess) = pair
       yield SubmitMoveResponse(
-        game             = GameMapper.toGameResponse(gameIdStr, nextState),
+        game             = GameMapper.toGameResponse(GameView.fromState(gameId, nextState)),
         sessionLifecycle = nextSess.lifecycle.toString
       )
 
@@ -157,11 +158,12 @@ class Http4sGameRoutes(gameService: GameServiceApi):
       case Left(msg) =>
         jsonError(Status.BadRequest, "BAD_REQUEST", msg)
       case Right(uuid) =>
-        gameService.triggerAIMoveByGameId(GameId(uuid)) match
+        val gameId = GameId(uuid)
+        gameService.triggerAIMoveByGameId(gameId) match
           case Right((nextState, nextSess)) =>
             jsonResponse(Status.Ok, SubmitMoveResponse.toJson(
               SubmitMoveResponse(
-                game             = GameMapper.toGameResponse(gameIdStr, nextState),
+                game             = GameMapper.toGameResponse(GameView.fromState(gameId, nextState)),
                 sessionLifecycle = nextSess.lifecycle.toString
               )
             ))

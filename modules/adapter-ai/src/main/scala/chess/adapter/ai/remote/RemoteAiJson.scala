@@ -28,21 +28,26 @@ object RemoteAiJson:
 
   def responseFromJson(text: String): Either[String, RemoteAiMoveSuggestionResponse] =
     for
-      json      <- parse(text)
-      requestId <- requiredString(json, "requestId")
-      moveObj   <- requiredObj(json, "move")
-      move      <- moveFromJson(moveObj)
-      engineId   = optionalString(json, "engineId")
-      elapsed    = optionalInt(json, "elapsedMillis")
-    yield RemoteAiMoveSuggestionResponse(requestId, move, engineId, elapsed)
+      json          <- parse(text)
+      requestId     <- requiredString(json, "requestId")
+      moveObj       <- requiredObj(json, "move")
+      move          <- moveFromJson(moveObj)
+      engineId       = optionalString(json, "engineId")
+      engineVersion  = optionalString(json, "engineVersion")
+      elapsed        = optionalInt(json, "elapsedMillis")
+      confidence     = optionalDouble(json, "confidence")
+    yield RemoteAiMoveSuggestionResponse(requestId, move, engineId, engineVersion, elapsed, confidence)
 
   def errorFromJson(text: String): Option[RemoteAiErrorResponse] =
     responseObj(text).flatMap { json =>
       for
-        requestId <- optionalString(json, "requestId")
-        code      <- optionalString(json, "code")
-        message   <- optionalString(json, "message")
-      yield RemoteAiErrorResponse(requestId, code, message)
+        code    <- optionalString(json, "code")
+        message <- optionalString(json, "message")
+      yield RemoteAiErrorResponse(
+        requestId = optionalString(json, "requestId").getOrElse(""),
+        code      = code,
+        message   = message
+      )
     }
 
   private def moveJson(move: RemoteAiMoveDto): Value =
@@ -76,6 +81,7 @@ object RemoteAiJson:
     json.obj.get(field).collect { case ujson.Str(value) => value }
 
   private def optionalInt(json: ujson.Obj, field: String): Option[Int] =
-    json.obj.get(field).collect {
-      case ujson.Num(value) => value.toInt
-    }
+    json.obj.get(field).collect { case ujson.Num(value) => value.toInt }
+
+  private def optionalDouble(json: ujson.Obj, field: String): Option[Double] =
+    json.obj.get(field).collect { case ujson.Num(value) => value.toDouble }

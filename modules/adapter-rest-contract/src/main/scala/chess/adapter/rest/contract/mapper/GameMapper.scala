@@ -1,33 +1,33 @@
 package chess.adapter.rest.contract.mapper
 
 import chess.adapter.rest.contract.dto.{GameResponse, LegalMoveDto, LegalMovesResponse, MoveHistoryEntry, PieceDto}
-import chess.application.query.game.LegalMovesView
+import chess.application.query.game.{GameView, LegalMovesView}
 import chess.domain.model.GameStatus
-import chess.domain.rules.GameStateRules
-import chess.domain.state.GameState
 
-/** Maps a [[GameState]] to a [[GameResponse]] DTO.
+/** Maps a [[GameView]] to a [[GameResponse]] DTO.
  *
- *  Derives all transport fields from the domain model; no chess logic
- *  is duplicated here.
+ *  Derives all transport fields from the application read model; no domain
+ *  rules are invoked here.  Legal-move derivation is pre-computed in
+ *  [[GameView.fromState]] and carried through [[GameView.legalMoves]].
  */
 object GameMapper:
 
-  /** Build a [[GameResponse]] from a [[GameState]] and its opaque id string.
+  /** Build a [[GameResponse]] from a [[GameView]].
    *
+   *  @param view              application read model for the game position
    *  @param promotionPending  forwarded directly into the DTO; callers set this
    *                           when a promotion choice is required before play
    *                           can continue.  Defaults to `false` (never true
    *                           in the current REST v1 error-driven promotion flow).
    */
-  def toGameResponse(gameId: String, state: GameState, promotionPending: Boolean = false): GameResponse =
-    val (statusStr, inCheck, winner, drawReason) = state.status match
+  def toGameResponse(view: GameView, promotionPending: Boolean = false): GameResponse =
+    val (statusStr, inCheck, winner, drawReason) = view.status match
       case GameStatus.Ongoing(check)    => ("Ongoing",   check, None,                   None)
       case GameStatus.Checkmate(winner) => ("Checkmate", false, Some(winner.toString),  None)
       case GameStatus.Draw(reason)      => ("Draw",      false, None,                   Some(reason.toString))
       case GameStatus.Resigned(winner)  => ("Resigned",  false, Some(winner.toString),  None)
 
-    val board = state.board.pieces
+    val board = view.board
       .map { case (pos, piece) =>
         PieceDto(
           square    = pos.toString,
@@ -37,7 +37,7 @@ object GameMapper:
       }
       .toList
 
-    val history = state.moveHistory.map { m =>
+    val history = view.moveHistory.map { m =>
       MoveHistoryEntry(
         from      = m.from.toString,
         to        = m.to.toString,
@@ -46,24 +46,21 @@ object GameMapper:
     }
 
     val legalTargetsByFrom: Map[String, List[String]] =
-      state.board.pieces
-        .collect { case (pos, piece) if piece.color == state.currentPlayer => pos }
-        .flatMap { pos =>
-          val targets = GameStateRules.legalTargetsFrom(state, pos).map(_.toString).toList.sorted
-          if targets.isEmpty then None
-          else Some(pos.toString -> targets)
-        }
+      view.legalMoves
+        .groupBy(_.from.toString)
+        .view
+        .mapValues(_.map(_.to.toString).toList.sorted)
         .toMap
 
     GameResponse(
-      gameId             = gameId,
-      currentPlayer      = state.currentPlayer.toString,
+      gameId             = view.gameId.value.toString,
+      currentPlayer      = view.currentPlayer.toString,
       status             = statusStr,
       inCheck            = inCheck,
       winner             = winner,
       drawReason         = drawReason,
-      fullmoveNumber     = state.fullmoveNumber,
-      halfmoveClock      = state.halfmoveClock,
+      fullmoveNumber     = view.fullmoveNumber,
+      halfmoveClock      = view.halfmoveClock,
       board              = board,
       moveHistory        = history,
       lastMove           = history.lastOption,

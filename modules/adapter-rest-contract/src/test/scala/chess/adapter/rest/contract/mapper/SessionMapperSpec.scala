@@ -1,6 +1,7 @@
 package chess.adapter.rest.contract.mapper
 
 import chess.application.ChessService
+import chess.application.query.game.GameView
 import chess.application.session.model.{GameSession, SessionLifecycle, SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import java.time.Instant
@@ -161,7 +162,7 @@ class SessionMapperSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   "SessionMapper.toCreateSessionResponse" should "bundle session and game data" in {
     val state    = ChessService.createNewGame()
-    val gameResp = GameMapper.toGameResponse(gid.value.toString, state)
+    val gameResp = GameMapper.toGameResponse(GameView.fromState(gid, state))
     val resp     = SessionMapper.toCreateSessionResponse(sess, gid, gameResp)
     resp.session.sessionId shouldBe sess.sessionId.value.toString
     resp.game.gameId       shouldBe gid.value.toString

@@ -1,6 +1,6 @@
 package chess.startup.assembly
 
-import chess.adapter.event.FanOutEventPublisher
+import chess.adapter.event.{FanOutEventPublisher, HistoryHttpEventPublisher}
 import chess.adapter.websocket.{ChessWebSocketServer, WebSocketConnectionRegistry, WebSocketEventPublisher}
 import chess.application.port.event.EventPublisher
 import chess.config.{AppConfig, EventMode}
@@ -60,6 +60,13 @@ object EventAssembly:
    *  and silently discards all events — correct when there are no push clients.
    */
   private def assembleInProcess(config: AppConfig): EventWiring =
+    val historyPublisher =
+      if config.history.enabled then
+        config.history.baseUrl.map(url =>
+          HistoryHttpEventPublisher(url, config.history.timeoutMillis)
+        ).toSeq
+      else Seq.empty
+
     if config.webSocket.enabled then
       // Registry is shared: ChessWebSocketServer registers/unregisters live
       // connections; WebSocketEventPublisher routes AppEvents to those connections.
@@ -67,6 +74,6 @@ object EventAssembly:
       val publisher = WebSocketEventPublisher(registry)
       val server    = ChessWebSocketServer(port = config.webSocket.port, registry)
       server.start()
-      EventWiring(FanOutEventPublisher(publisher), Some(server))
+      EventWiring(FanOutEventPublisher((Seq(publisher) ++ historyPublisher)*), Some(server))
     else
-      EventWiring(FanOutEventPublisher(), None)
+      EventWiring(FanOutEventPublisher(historyPublisher*), None)

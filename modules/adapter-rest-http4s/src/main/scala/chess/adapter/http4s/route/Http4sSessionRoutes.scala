@@ -5,6 +5,7 @@ import chess.adapter.http4s.route.Http4sRouteSupport.*
 import chess.adapter.rest.contract.dto.{CreateSessionRequest, CreateSessionResponse, SessionListResponse, SessionResponse}
 import chess.adapter.rest.contract.mapper.{GameMapper, SessionMapper}
 import chess.application.GameServiceApi
+import chess.application.query.game.GameView
 import chess.application.session.model.SessionIds.SessionId
 import chess.application.session.service.SessionError
 import org.http4s.*
@@ -58,7 +59,7 @@ class Http4sSessionRoutes(gameService: GameServiceApi):
       yield SessionMapper.toCreateSessionResponse(
               session,
               session.gameId,
-              GameMapper.toGameResponse(session.gameId.value.toString, state)
+              GameMapper.toGameResponse(GameView.fromState(session.gameId, state))
             )
 
     result match

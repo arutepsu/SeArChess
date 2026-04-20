@@ -12,10 +12,14 @@ package chess.config
  *    HTTP_PORT         integer 1–65535             (default: 8080)
  *    WS_ENABLED        true/false/1/0/yes/no       (default: true)
  *    WS_PORT           integer 1–65535             (default: 9090)
- *    PERSISTENCE_MODE  in-memory                   (default: in-memory)
+ *    PERSISTENCE_MODE  in-memory | sqlite           (default: in-memory)
+ *    CHESS_DB_PATH     file path for SQLite DB      (default: chess.db)
  *    EVENT_MODE        in-process                  (default: in-process)
  *    CORS_ENABLED      true/false/1/0/yes/no       (default: false)
  *    CORS_ALLOWED_ORIGIN  * | specific origin URL  (default: *)
+ *    HISTORY_FORWARDING_ENABLED true/false/1/0/yes/no (default: false)
+ *    HISTORY_SERVICE_BASE_URL URL for History Service (required when enabled)
+ *    HISTORY_FORWARDING_TIMEOUT_MILLIS integer >= 1  (default: 2000)
  *    AI_PROVIDER_MODE  local | disabled | remote    (default: local)
  *    AI_REMOTE_BASE_URL  URL for remote AI mode      (required for remote)
  *    AI_TIMEOUT_MILLIS integer >= 1                 (default: 2000)
@@ -36,9 +40,12 @@ object ConfigLoader:
   private val DefaultWsEnabled:       String = "true"
   private val DefaultWsPort:          String = "9090"
   private val DefaultPersistence:     String = "in-memory"
+  private val DefaultSqlitePath:      String = "chess.db"
   private val DefaultEventMode:       String = "in-process"
   private val DefaultCorsEnabled:     String = "false"
   private val DefaultCorsAllowOrigin: String = "*"
+  private val DefaultHistoryEnabled:  String = "false"
+  private val DefaultHistoryTimeout:  String = "2000"
   private val DefaultAiMode:          String = "local"
   private val DefaultAiTimeoutMillis: String = "2000"
 
@@ -64,9 +71,13 @@ object ConfigLoader:
       wsEnabled   <- parseBool("WS_ENABLED", env("WS_ENABLED").getOrElse(DefaultWsEnabled))
       wsPort      <- parsePort("WS_PORT", env("WS_PORT").getOrElse(DefaultWsPort))
       persistence <- parsePersistenceMode(env("PERSISTENCE_MODE").getOrElse(DefaultPersistence))
+      sqlitePath   = env("CHESS_DB_PATH").getOrElse(DefaultSqlitePath)
       eventMode   <- parseEventMode(env("EVENT_MODE").getOrElse(DefaultEventMode))
       corsEnabled <- parseBool("CORS_ENABLED", env("CORS_ENABLED").getOrElse(DefaultCorsEnabled))
       corsOrigin   = env("CORS_ALLOWED_ORIGIN").getOrElse(DefaultCorsAllowOrigin)
+      histEnabled <- parseBool("HISTORY_FORWARDING_ENABLED", env("HISTORY_FORWARDING_ENABLED").getOrElse(DefaultHistoryEnabled))
+      histTimeout <- parsePositiveInt("HISTORY_FORWARDING_TIMEOUT_MILLIS", env("HISTORY_FORWARDING_TIMEOUT_MILLIS").getOrElse(DefaultHistoryTimeout))
+      history     <- parseHistoryForwardingConfig(histEnabled, env("HISTORY_SERVICE_BASE_URL"), histTimeout)
       aiMode      <- parseAiProviderMode(env("AI_PROVIDER_MODE").getOrElse(DefaultAiMode))
       aiTimeout   <- parsePositiveInt("AI_TIMEOUT_MILLIS", env("AI_TIMEOUT_MILLIS").getOrElse(DefaultAiTimeoutMillis))
       remote      <- parseRemoteAiConfig(aiMode, env("AI_REMOTE_BASE_URL"))
@@ -75,8 +86,10 @@ object ConfigLoader:
       http        = HttpConfig(httpHost, httpPort),
       webSocket   = WebSocketConfig(wsEnabled, wsPort),
       persistence = persistence,
+      sqlite      = if persistence == PersistenceMode.SQLite then Some(SqliteConfig(sqlitePath)) else None,
       eventMode   = eventMode,
       cors        = CorsConfig(corsEnabled, corsOrigin),
+      history     = history,
       ai          = AiConfig(
                       mode            = aiMode,
                       remote          = remote,
@@ -119,7 +132,8 @@ object ConfigLoader:
   private def parsePersistenceMode(value: String): Either[String, PersistenceMode] =
     value.toLowerCase match
       case "in-memory" | "inmemory" => Right(PersistenceMode.InMemory)
-      case _                        => Left(s"PERSISTENCE_MODE must be 'in-memory', got: '$value'")
+      case "sqlite"                 => Right(PersistenceMode.SQLite)
+      case _                        => Left(s"PERSISTENCE_MODE must be 'in-memory' or 'sqlite', got: '$value'")
 
   private def parseEventMode(value: String): Either[String, EventMode] =
     value.toLowerCase match
@@ -148,3 +162,15 @@ object ConfigLoader:
           case _ => Left("AI_REMOTE_BASE_URL is required when AI_PROVIDER_MODE is 'remote'")
       case _ =>
         Right(baseUrl.map(url => RemoteAiConfig(url.trim)).filter(_.baseUrl.nonEmpty))
+
+  private def parseHistoryForwardingConfig(
+    enabled:       Boolean,
+    baseUrl:       Option[String],
+    timeoutMillis: Int
+  ): Either[String, HistoryForwardingConfig] =
+    if enabled then
+      baseUrl.map(_.trim).filter(_.nonEmpty) match
+        case Some(url) => Right(HistoryForwardingConfig(true, Some(url), timeoutMillis))
+        case None      => Left("HISTORY_SERVICE_BASE_URL is required when HISTORY_FORWARDING_ENABLED is true")
+    else
+      Right(HistoryForwardingConfig(false, baseUrl.map(_.trim).filter(_.nonEmpty), timeoutMillis))

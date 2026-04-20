@@ -1,0 +1,91 @@
+services:
+  game-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      ai-service:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    environment:
+      HTTP_HOST: 0.0.0.0
+      HTTP_PORT: 8080
+      WS_ENABLED: "true"
+      WS_PORT: 9090
+      PERSISTENCE_MODE: sqlite
+      CHESS_DB_PATH: /data/searchess.sqlite
+      EVENT_MODE: in-process
+      HISTORY_FORWARDING_ENABLED: "true"
+      HISTORY_SERVICE_BASE_URL: http://history-service:8081
+      HISTORY_FORWARDING_TIMEOUT_MILLIS: 2000
+      AI_PROVIDER_MODE: remote
+      AI_REMOTE_BASE_URL: http://ai-service:8765
+      AI_TIMEOUT_MILLIS: 2000
+    volumes:
+      - game-service-data:/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-fsS",
+          "http://127.0.0.1:8080/health"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  history-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.history
+    depends_on:
+      game-service:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    environment:
+      HISTORY_HTTP_HOST: 0.0.0.0
+      HISTORY_HTTP_PORT: 8081
+      GAME_SERVICE_BASE_URL: http://game-service:8080
+      HISTORY_DB_PATH: /history-data/history.sqlite
+      HISTORY_GAME_SERVICE_TIMEOUT_MILLIS: 2000
+    volumes:
+      - history-service-data:/history-data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-fsS",
+          "http://127.0.0.1:8081/health"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  ai-service:
+    build:
+      context: ../searchess-ai-service
+      dockerfile: Dockerfile
+    ports:
+      - "8765:8765"
+    environment:
+      INFERENCE_BACKEND: random
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/health', timeout=2).read()"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  game-service-data:
+  history-service-data:

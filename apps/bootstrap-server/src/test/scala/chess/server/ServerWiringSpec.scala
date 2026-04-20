@@ -6,7 +6,7 @@ import chess.application.ai.service.AITurnError
 import chess.application.session.model.{SessionMode, SideController}
 import chess.config.{
   AiConfig, AiProviderMode, AppConfig, CorsConfig, EventMode, HttpConfig,
-  PersistenceMode, WebSocketConfig
+  HistoryForwardingConfig, PersistenceMode, WebSocketConfig
 }
 import chess.startup.assembly.{CoreAssembly, EventWiring, PersistenceAssembly}
 import org.scalatest.{EitherValues, OptionValues}
@@ -19,8 +19,10 @@ class ServerWiringSpec extends AnyFlatSpec with Matchers with EitherValues with 
     http        = HttpConfig("127.0.0.1", 8080),
     webSocket   = WebSocketConfig(enabled = false, port = 9090),
     persistence = PersistenceMode.InMemory,
+    sqlite      = None,
     eventMode   = EventMode.InProcess,
     cors        = CorsConfig(enabled = false, allowedOrigin = "*"),
+    history     = HistoryForwardingConfig(enabled = false, baseUrl = None, timeoutMillis = 2000),
     ai          = AiConfig(AiProviderMode.LocalDeterministic, remote = None, timeoutMillis = 2000, defaultEngineId = None)
   )
 

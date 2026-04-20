@@ -61,11 +61,32 @@ lazy val application = project
   .settings(commonSettings)
   .dependsOn(domain)
 
+// ── Module: history ───────────────────────────────────────────────────────────
+
+lazy val history = project
+  .in(file("modules/history"))
+  .settings(
+    commonSettings,
+    libraryDependencies ++= Seq(
+      "com.lihaoyi" %% "ujson"       % "4.0.2",
+      "org.xerial"   % "sqlite-jdbc" % "3.46.1.3"
+    )
+  )
+  // adapterPersistence and adapterEvent are only needed for test fixtures
+  // (InMemoryGameRepository, CollectingEventPublisher, etc.)
+  .dependsOn(application, notation, adapterPersistence % Test, adapterEvent % Test)
+
 // ── Module: adapter-persistence ───────────────────────────────────────────────
 
 lazy val adapterPersistence = project
   .in(file("modules/adapter-persistence"))
-  .settings(commonSettings)
+  .settings(
+    commonSettings,
+    libraryDependencies ++= Seq(
+      "com.lihaoyi" %% "ujson"        % "4.0.2",
+      "org.xerial"   % "sqlite-jdbc"  % "3.46.1.3"
+    )
+  )
   // adapterEvent is only needed for test fixtures (CollectingEventPublisher).
   .dependsOn(application, adapterEvent % Test)
 
@@ -85,7 +106,10 @@ lazy val adapterAi = project
 
 lazy val adapterEvent = project
   .in(file("modules/adapter-event"))
-  .settings(commonSettings)
+  .settings(
+    commonSettings,
+    libraryDependencies += "com.lihaoyi" %% "ujson" % "4.0.2"
+  )
   .dependsOn(application)
 
 // ── Module: adapter-rest-shared (DTOs and mappers shared by all REST adapters) ─
@@ -233,8 +257,10 @@ lazy val tuiCli = project
 
 lazy val bootstrapServer = project
   .in(file("apps/bootstrap-server"))
+  .enablePlugins(JavaAppPackaging)
   .settings(
     commonSettings,
+    name := "searchess-game-service",
     coverageMinimumStmtTotal := 0,
     Compile / mainClass := Some("chess.server.ServerMain"),
     run / mainClass     := Some("chess.server.ServerMain"),
@@ -259,6 +285,30 @@ lazy val bootstrapServer = project
     adapterEvent,
     adapterPersistence
   )
+
+// ── App: history-service ─────────────────────────────────────────────────────
+
+lazy val historyService = project
+  .in(file("apps/history-service"))
+  .enablePlugins(JavaAppPackaging)
+  .settings(
+    commonSettings,
+    name := "searchess-history-service",
+    coverageMinimumStmtTotal := 0,
+    Compile / mainClass := Some("chess.historyservice.HistoryServiceMain"),
+    run / mainClass     := Some("chess.historyservice.HistoryServiceMain"),
+    run / fork          := true,
+    libraryDependencies ++= Seq(
+      "org.http4s" %% "http4s-ember-server" % http4sVersion,
+      "org.http4s" %% "http4s-dsl"          % http4sVersion
+    ),
+    excludeFromCoverage(
+      ".*chess.historyservice.HistoryServiceMain.*",
+      ".*chess.historyservice.HistoryServiceConfig.*",
+      ".*chess.historyservice.HistoryRoutes.*"
+    )
+  )
+  .dependsOn(history)
 
 // ── Aliases ───────────────────────────────────────────────────────────────────
 //
@@ -305,6 +355,7 @@ addCommandAlias("ci",
 addCommandAlias("testDomain",             "domain/test")
 addCommandAlias("testNotation",           "notation/test")
 addCommandAlias("testApplication",        "application/test")
+addCommandAlias("testHistory",            "history/test")
 addCommandAlias("testAdapterPersistence", "adapterPersistence/test")
 addCommandAlias("testAdapterAi",          "adapterAi/test")
 addCommandAlias("testAdapterEvent",       "adapterEvent/test")
@@ -315,13 +366,14 @@ addCommandAlias("testAdapterGui",         "adapterGui/test")
 addCommandAlias("testAdapterTui",         "adapterTui/test")
 addCommandAlias("testStartupShared",      "startupShared/test")
 addCommandAlias("testBootstrapServer",    "bootstrapServer/test")
+addCommandAlias("testHistoryService",     "historyService/test")
 addCommandAlias("testDesktopGui",         "desktopGui/test")
 addCommandAlias("testTuiCli",             "tuiCli/test")
 
 // ── Grouped test: by architectural concern ────────────────────────────────────
 
 addCommandAlias("testCore",
-  ";domain/test;notation/test;application/test")
+  ";domain/test;notation/test;application/test;history/test")
 
 addCommandAlias("testInfra",
   ";adapterPersistence/test;adapterEvent/test;adapterAi/test;adapterWebsocket/test")
@@ -338,7 +390,7 @@ addCommandAlias("testAllAdapters",
   ";adapterGui/test;adapterTui/test")
 
 addCommandAlias("testApps",
-  ";startupShared/test;bootstrapServer/test;desktopGui/test;tuiCli/test")
+  ";startupShared/test;bootstrapServer/test;historyService/test;desktopGui/test;tuiCli/test")
 
 // ── Compile slices ────────────────────────────────────────────────────────────
 
@@ -366,9 +418,9 @@ lazy val root = project
     coverageEnabled := false
   )
   .aggregate(
-    domain, notation, application,
+    domain, notation, application, history,
     adapterPersistence, adapterAi, adapterEvent,
     adapterRestContract, adapterRestHttp4s,
     adapterWebsocket, adapterGui, adapterTui,
-    startupShared, bootstrapServer, desktopGui, tuiCli
+    startupShared, bootstrapServer, historyService, desktopGui, tuiCli
   )

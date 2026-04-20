@@ -31,6 +31,11 @@ object ServerMain:
    *  [[AppConfig]] without re-reading environment variables.
    */
   private[chess] def run(args: Array[String], config: AppConfig): Unit =
+    val aiDesc = config.ai.mode match
+      case chess.config.AiProviderMode.Remote             => s"remote @ ${config.ai.remote.map(_.baseUrl).getOrElse("(no URL)")}"
+      case chess.config.AiProviderMode.LocalDeterministic => "local-deterministic"
+      case chess.config.AiProviderMode.Disabled           => "disabled"
+    println(s"[chess] AI provider: $aiDesc")
     val (_, server) = ServerWiring.start(config)
 
     // Drain HTTP and WebSocket on JVM shutdown (SIGINT / SIGTERM).

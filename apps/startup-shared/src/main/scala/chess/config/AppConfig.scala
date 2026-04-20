@@ -1,12 +1,12 @@
 package chess.config
 
-/** Persistence backend for game and session state.
- *
- *  Only [[InMemory]] is supported at present.  Additional modes (e.g.
- *  PostgreSQL) will extend this enum when a concrete adapter exists.
- */
+/** Persistence backend for game and session state. */
 enum PersistenceMode:
   case InMemory
+  case SQLite
+
+/** SQLite persistence configuration. */
+final case class SqliteConfig(path: String)
 
 /** CORS configuration for development-time cross-origin browser access.
  *
@@ -20,6 +20,18 @@ enum PersistenceMode:
  *    origin like `"http://localhost:3000"` for tighter dev control.
  */
 final case class CorsConfig(enabled: Boolean, allowedOrigin: String)
+
+/** Best-effort History Service event forwarding.
+ *
+ *  This is a local/dev bridge, not durable delivery. When enabled, terminal
+ *  Game Service events are POSTed to History Service over HTTP and failures are
+ *  absorbed by the event adapter so gameplay is not failed by History outages.
+ */
+final case class HistoryForwardingConfig(
+  enabled:       Boolean,
+  baseUrl:       Option[String],
+  timeoutMillis: Int
+)
 
 /** Event distribution strategy.
  *
@@ -42,8 +54,8 @@ enum EventMode:
  *    `AI_NOT_CONFIGURED` response.
  *  - [[LocalDeterministic]]: use the in-process deterministic first-legal-move
  *    adapter. This remains the default so current flows are stable.
- *  - [[Remote]]: configuration shape for a future remote AI provider. The
- *    client adapter is introduced in a later slice.
+ *  - [[Remote]]: delegate to the Python `searchess-ai-service` via
+ *    `POST /v1/move-suggestions`.  Requires `AI_REMOTE_BASE_URL`.
  */
 enum AiProviderMode:
   case Disabled
@@ -84,7 +96,9 @@ final case class AppConfig(
   http:        HttpConfig,
   webSocket:   WebSocketConfig,
   persistence: PersistenceMode,
+  sqlite:      Option[SqliteConfig],
   eventMode:   EventMode,
   cors:        CorsConfig,
+  history:     HistoryForwardingConfig,
   ai:          AiConfig
 )
