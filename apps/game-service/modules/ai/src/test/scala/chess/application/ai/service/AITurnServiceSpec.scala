@@ -119,7 +119,7 @@ class AITurnServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   // ── move path not bypassed ─────────────────────────────────────────────────
 
-  it should "return MoveFailed when the provider suggests an illegal move" in {
+  it should "return IllegalSuggestedMove when the provider suggests a move outside Game legal moves" in {
     // A pawn cannot jump from e2 to e5 — this verifies that the AI move goes
     // through the normal domain validation path and is not applied blindly.
     val illegalProvider = new AIProvider:
@@ -139,6 +139,5 @@ class AITurnServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
     val state     = GameStateFactory.initial()
     val aiService = AITurnService(illegalProvider, svc, _ => ())
     val err = aiService.requestAIMove(session, state).left.value
-    err shouldBe a[AITurnError.MoveFailed]
-    err.asInstanceOf[AITurnError.MoveFailed].cause shouldBe a[SessionMoveError.DomainRejection]
+    err shouldBe AITurnError.IllegalSuggestedMove(Move(e2, e5))
   }

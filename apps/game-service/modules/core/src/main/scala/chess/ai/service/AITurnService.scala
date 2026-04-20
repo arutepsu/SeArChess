@@ -2,10 +2,12 @@ package chess.application.ai.service
 
 import chess.application.ai.policy.AITurnPolicy
 import chess.application.event.AppEvent
-import chess.application.port.ai.{AIError, AIProvider, AIRequestContext}
+import chess.application.port.ai.{AIError, AiMoveSuggestionClient, AIRequestContext}
 import chess.application.port.event.EventPublisher
 import chess.application.session.model.{GameSession, SideController}
 import chess.application.session.service.GameSessionCommands
+import chess.domain.model.Move
+import chess.domain.rules.GameStateRules
 import chess.domain.state.GameState
 import java.time.Instant
 
@@ -13,7 +15,7 @@ import java.time.Instant
  *
  *  === Responsibilities ===
  *  - Verify the current turn belongs to an AI controller via [[AITurnPolicy]].
- *  - Request a move candidate from [[AIProvider]].
+ *  - Request a move candidate from [[AiMoveSuggestionClient]].
  *  - Feed the candidate through [[GameSessionCommands.submitMove]] — the game-session
  *    command boundary — so that domain validation, session-lifecycle persistence,
  *    game-state persistence, and event publication all apply to AI moves in exactly
@@ -30,12 +32,12 @@ import java.time.Instant
  *  - Choosing or registering engine implementations
  *  - Async or background processing
  *
- *  @param provider  outbound port for AI move generation
+ *  @param provider  outbound port for AI move suggestion
  *  @param commands  game-session command boundary
  *  @param publisher outbound port for event publication
  */
 class AITurnService(
-  provider:  AIProvider,
+  provider:  AiMoveSuggestionClient,
   commands:  GameSessionCommands,
   publisher: EventPublisher
 ):
@@ -71,6 +73,7 @@ class AITurnService(
         for
           response <- provider.suggestMove(aiContext)
                         .left.map(AITurnError.ProviderFailure(_))
+          _        <- validateSuggestedMove(state, response.move)
           result   <- commands.submitMove(
                         session    = session,
                         state      = state,
@@ -92,8 +95,19 @@ class AITurnService(
     if AITurnPolicy.isAITurn(session, state.currentPlayer) then Right(())
     else Left(AITurnError.NotAITurn)
 
+  private def validateSuggestedMove(state: GameState, move: Move): Either[AITurnError, Unit] =
+    if GameStateRules.legalMoves(state).contains(move) then Right(())
+    else Left(AITurnError.IllegalSuggestedMove(move))
+
   private def reasonFor(err: AITurnError): String = err match
     case AITurnError.ProviderFailure(AIError.NoLegalMove)        => "no legal moves available"
+    case AITurnError.ProviderFailure(AIError.Unavailable(msg))    => s"provider unavailable: $msg"
+    case AITurnError.ProviderFailure(AIError.Timeout(msg))        => s"provider timeout: $msg"
+    case AITurnError.ProviderFailure(AIError.MalformedResponse(msg)) => s"malformed provider response: $msg"
     case AITurnError.ProviderFailure(AIError.EngineFailure(msg)) => s"engine failure: $msg"
+    case AITurnError.IllegalSuggestedMove(move)                   => s"illegal AI suggestion: $move"
     case AITurnError.MoveFailed(cause)                           => s"move rejected: $cause"
     case AITurnError.NotAITurn                                   => "not AI turn"
+    case AITurnError.NotConfigured                               => "AI not configured"
+    case AITurnError.SessionLookupFailed(cause)                  => s"session lookup failed: $cause"
+    case AITurnError.GameStateLookupFailed(cause)                => s"game state lookup failed: $cause"

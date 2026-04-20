@@ -7,7 +7,7 @@ import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionGameStor
 import chess.application.DefaultGameService
 import chess.application.ai.service.AITurnService
 import chess.application.event.AppEvent
-import chess.application.port.ai.{AIProvider, AIResponse}
+import chess.application.port.ai.{AIError, AIProvider, AIResponse}
 import chess.application.port.event.EventPublisher
 import chess.application.port.repository.{GameRepository, RepositoryError, SessionGameStore, SessionRepository}
 import chess.application.session.model.{GameSession, SessionMode, SideController}
@@ -122,6 +122,52 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val resp    = run(gameRoutes, Request[IO](Method.GET, Uri.unsafeFromString(s"/games/$unknown")))
     resp.status                  shouldBe Status.NotFound
     bodyJson(resp)("code").str   shouldBe "GAME_NOT_FOUND"
+  }
+
+  it should "return 422 AI_MOVE_REJECTED when AI provider returns malformed move data" in {
+    val collector      = new TestEventPublisher
+    val sessionRepo    = InMemorySessionRepository()
+    val gameRepo       = InMemoryGameRepository()
+    val store          = InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionService = SessionService(sessionRepo, collector)
+    val svc            = SessionGameService(sessionService, store, collector)
+    val provider: AIProvider = _ => Left(AIError.MalformedResponse("missing move.to"))
+    val ai          = AITurnService(provider, svc, collector)
+    val gameService = DefaultGameService(svc, sessionService, gameRepo, collector, Some(ai))
+    val gameRoutes  = Http4sGameRoutes(gameService).routes.orNotFound
+    val sessRoutes  = Http4sSessionRoutes(gameService).routes.orNotFound
+
+    val createReq  = Request[IO](Method.POST, uri"/sessions").withBodyStream(jsonBody("""{"mode":"AIVsAI"}"""))
+    val createJson = bodyJson(run(sessRoutes, createReq))
+    val gameId     = createJson("session")("gameId").str
+
+    val resp = run(gameRoutes, Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/ai-move")))
+
+    resp.status                shouldBe Status.UnprocessableEntity
+    bodyJson(resp)("code").str shouldBe "AI_MOVE_REJECTED"
+  }
+
+  it should "return 503 AI_PROVIDER_FAILED when AI service is unavailable" in {
+    val collector      = new TestEventPublisher
+    val sessionRepo    = InMemorySessionRepository()
+    val gameRepo       = InMemoryGameRepository()
+    val store          = InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionService = SessionService(sessionRepo, collector)
+    val svc            = SessionGameService(sessionService, store, collector)
+    val provider: AIProvider = _ => Left(AIError.Unavailable("connection refused"))
+    val ai          = AITurnService(provider, svc, collector)
+    val gameService = DefaultGameService(svc, sessionService, gameRepo, collector, Some(ai))
+    val gameRoutes  = Http4sGameRoutes(gameService).routes.orNotFound
+    val sessRoutes  = Http4sSessionRoutes(gameService).routes.orNotFound
+
+    val createReq  = Request[IO](Method.POST, uri"/sessions").withBodyStream(jsonBody("""{"mode":"AIVsAI"}"""))
+    val createJson = bodyJson(run(sessRoutes, createReq))
+    val gameId     = createJson("session")("gameId").str
+
+    val resp = run(gameRoutes, Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/ai-move")))
+
+    resp.status                shouldBe Status.ServiceUnavailable
+    bodyJson(resp)("code").str shouldBe "AI_PROVIDER_FAILED"
   }
 
   it should "return 400 for a non-UUID game id" in {

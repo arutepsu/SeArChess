@@ -1,6 +1,6 @@
 import type { WsEvent } from "./wsTypes";
 
-const DEFAULT_WS_BASE = "ws://localhost:9090/ws";
+const DEFAULT_WS_BASE = "ws://localhost:10000/ws";
 
 export const wsBaseUrl =
   import.meta.env.VITE_WS_URL?.toString() || DEFAULT_WS_BASE;

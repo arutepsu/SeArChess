@@ -9,7 +9,7 @@ import chess.adapter.ai.remote.RemoteAiProvider
 import chess.adapter.http4s.Http4sApp
 import chess.application.DefaultGameService
 import chess.application.ai.service.AITurnService
-import chess.application.port.ai.AIProvider
+import chess.application.port.ai.AiMoveSuggestionClient
 import chess.config.{AiConfig, AiProviderMode, AppConfig}
 import chess.server.assembly.{EventAssembly, EventWiring}
 import chess.server.http.{CorsMiddleware, HealthRoutes, HistoryOutboxOpsRoutes}
@@ -105,7 +105,11 @@ object ServerWiring:
    *  wires the existing AI adapter through the existing AI port and turn service.
    */
   private[server] def withServerAi(baseCtx: AppContext, events: EventWiring): AppContext =
-    withServerAi(baseCtx, events, AiConfig(AiProviderMode.LocalDeterministic, None, 2000, None))
+    withServerAi(
+      baseCtx,
+      events,
+      AiConfig(AiProviderMode.Remote, Some(chess.config.RemoteAiConfig("http://ai-service:8765")), 2000, None)
+    )
 
   private[server] def withServerAi(
     baseCtx: AppContext,
@@ -122,7 +126,7 @@ object ServerWiring:
       aiService      = aiService
     ))
 
-  private[server] def aiProviderFor(config: AiConfig): Option[AIProvider] =
+  private[server] def aiProviderFor(config: AiConfig): Option[AiMoveSuggestionClient] =
     config.mode match
       case AiProviderMode.LocalDeterministic => Some(FirstLegalMoveProvider())
       case AiProviderMode.Disabled           => None

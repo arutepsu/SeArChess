@@ -27,9 +27,10 @@ docker compose up --build
 
 | Service | Host port | Role |
 |---|---:|---|
-| `game-service` | `8080` | authoritative Game Service |
-| `history-service` | `8081` | downstream archive materializer |
-| `ai-service` | `8765` | remote AI provider |
+| `envoy` | `10000` | public local/dev edge to Game Service |
+| `game-service` | internal | authoritative Game Service |
+| `history-service` | internal | downstream archive materializer |
+| `ai-service` | internal | remote AI provider |
 
 History Service environment:
 
@@ -67,7 +68,7 @@ history-service-data:/history-data
 Game Service:
 
 ```bash
-GET http://127.0.0.1:8080/archive/games/{gameId}
+GET http://127.0.0.1:10000/api/archive/games/{gameId}
 ```
 
 Responses:
@@ -93,14 +94,14 @@ Service does not call `localhost` for History.
 Create and cancel a session:
 
 ```bash
-SESSION_JSON=$(curl -s -X POST http://127.0.0.1:8080/sessions \
+SESSION_JSON=$(curl -s -X POST http://127.0.0.1:10000/api/sessions \
   -H "Content-Type: application/json" \
   -d '{}')
 
 SESSION_ID=$(echo "$SESSION_JSON" | jq -r '.session.sessionId')
 GAME_ID=$(echo "$SESSION_JSON" | jq -r '.session.gameId')
 
-curl -s -X POST "http://127.0.0.1:8080/sessions/$SESSION_ID/cancel"
+curl -s -X POST "http://127.0.0.1:10000/api/sessions/$SESSION_ID/cancel"
 ```
 
 The cancel command publishes `game.session.cancelled.v1`; Game Service writes
@@ -108,7 +109,7 @@ that event to its SQLite outbox and the background forwarder delivers it to
 History automatically. Verify History owns a stored archive:
 
 ```bash
-curl -s "http://127.0.0.1:8081/archives/$GAME_ID"
+docker compose exec history-service curl -s "http://127.0.0.1:8081/archives/$GAME_ID"
 docker compose exec history-service ls -l /history-data
 ```
 

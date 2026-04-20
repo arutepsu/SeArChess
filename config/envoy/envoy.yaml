@@ -1,0 +1,78 @@
+static_resources:
+  listeners:
+    - name: public_edge
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 10000
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: searchess_edge
+                codec_type: AUTO
+                upgrade_configs:
+                  - upgrade_type: websocket
+                route_config:
+                  name: local_route
+                  virtual_hosts:
+                    - name: searchess_game_service
+                      domains:
+                        - "*"
+                      routes:
+                        - match:
+                            path: /health
+                          route:
+                            cluster: game_service_http
+                        - match:
+                            prefix: /api/
+                          route:
+                            cluster: game_service_http
+                            prefix_rewrite: /
+                        - match:
+                            prefix: /ws/
+                          route:
+                            cluster: game_service_ws
+                        - match:
+                            prefix: /
+                          direct_response:
+                            status: 404
+                            body:
+                              inline_string: "not found\n"
+                http_filters:
+                  - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+
+  clusters:
+    - name: game_service_http
+      type: STRICT_DNS
+      connect_timeout: 1s
+      load_assignment:
+        cluster_name: game_service_http
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: game-service
+                      port_value: 8080
+    - name: game_service_ws
+      type: STRICT_DNS
+      connect_timeout: 1s
+      load_assignment:
+        cluster_name: game_service_ws
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: game-service
+                      port_value: 9090
+
+admin:
+  address:
+    socket_address:
+      address: 127.0.0.1
+      port_value: 9901
