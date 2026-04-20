@@ -70,7 +70,7 @@ And not:
 1. Application depends on repository ports; persistence implements them.
 2. Transport adapters must not access persistence directly.
 3. Persistence models must not become the public API or domain model by accident.
-4. Storage technology choice belongs to `bootstrap-server`, not to routes or services.
+4. Storage technology choice belongs to `game-service`, not to routes or services.
 5. `adapter-persistence` must stay replaceable for in-memory, Postgres, Mongo, or other backends later.
 
 ## Why this matters
@@ -80,6 +80,6 @@ This keeps the architecture clean:
 - application = use cases and repository ports
 - `adapter-persistence` = concrete storage implementation
 - transport adapters = client access only
-- `bootstrap-server` = selects which persistence adapter is active
+- `game-service` = selects which persistence adapter is active
 
 That separation is what makes testing, swapping storage backends, and later microservice evolution manageable.

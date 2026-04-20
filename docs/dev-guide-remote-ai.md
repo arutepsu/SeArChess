@@ -80,7 +80,7 @@ up (either via Docker or Option B above) before starting the Scala server.
 cd searchess
 AI_PROVIDER_MODE=remote \
 AI_REMOTE_BASE_URL=http://127.0.0.1:8765 \
-sbt "bootstrapServer/runMain chess.server.ServerMain"
+sbt "gameService/runMain chess.server.ServerMain"
 ```
 
 At startup you will see:

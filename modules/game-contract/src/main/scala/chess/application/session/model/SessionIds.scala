@@ -4,13 +4,9 @@ import java.util.UUID
 
 /** Opaque ID wrappers for session and game identity.
  *
- *  Using Scala 3 opaque types: zero runtime overhead, strong compile-time
- *  type safety, and no extra churn on call sites that construct IDs.
- *
- *  A [[SessionId]] identifies the orchestration lifecycle around a game.
- *  A [[GameId]] identifies the game record itself (the sequence of moves /
- *  board truth).  They are separate because one session might restart or
- *  rematch under a new game while keeping the same session participants.
+ *  These IDs cross service boundaries in Game Service HTTP payloads and event
+ *  JSON, so they live in the small game-contract module even though their
+ *  package is preserved for low-churn compatibility.
  */
 object SessionIds:
 

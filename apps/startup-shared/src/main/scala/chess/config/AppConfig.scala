@@ -10,7 +10,7 @@ final case class SqliteConfig(path: String)
 
 /** CORS configuration for development-time cross-origin browser access.
  *
- *  Applied to the entire composed HTTP surface in `bootstrap-server`.
+ *  Applied to the entire composed HTTP surface in `game-service`.
  *  Business routes do not contain any CORS logic.
  *
  *  - [[enabled]]: when `false` (the default) no CORS headers are added;

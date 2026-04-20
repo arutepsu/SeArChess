@@ -62,7 +62,7 @@ AI adapter
 2. AI must not bypass the same rules enforced for human players.
 3. AI strategy should be replaceable without changing application logic.
 4. `adapter-ai` may choose actions, but application/domain decides whether they are valid.
-5. `bootstrap-server` wires this adapter into the runtime; `adapter-ai` does not start or assemble the system.
+5. `game-service` wires this adapter into the runtime; `adapter-ai` does not start or assemble the system.
 
 ## Why this matters
 
@@ -71,6 +71,6 @@ This keeps the backend clean:
 - application/domain = rules and use cases
 - `adapter-ai` = automated decision-making client
 - `adapter-event` = shared event backbone
-- `bootstrap-server` = runtime composition root
+- `game-service` = runtime composition root
 
 That separation keeps AI testable, replaceable, and aligned with the same source of truth as every other client.

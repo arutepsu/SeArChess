@@ -77,7 +77,7 @@ That means:
 
 - the backend speaks REST through this adapter
 - the Web UI talks to this adapter
-- bootstrap-server mounts this adapter
+- game-service mounts this adapter
 - future operational middleware is applied around this adapter
 - if another HTTP engine is ever introduced, it should be a separate adapter, not mixed into this one
 
@@ -243,7 +243,7 @@ In practice, that means:
 - or a final `HttpApp`
 - representing the REST API of the backend
 
-This output is consumed by `bootstrap-server`, which then mounts and runs it inside the backend process.
+This output is consumed by `game-service`, which then mounts and runs it inside the backend process.
 
 So this module should stop at:
 “Here is the HTTP adapter”
@@ -394,7 +394,7 @@ A good long-term mount structure for this adapter is:
 - `/api/games`
 - later `/api/notation`
 
-And then `bootstrap-server` mounts:
+And then `game-service` mounts:
 - REST app from this module
 - WebSocket endpoint from websocket adapter
 - health/metrics/admin endpoints from bootstrap or dedicated adapters
@@ -483,7 +483,7 @@ Rule 4
 HTTP concerns are handled here; business concerns are handled in application/domain.
 
 Rule 5  
-This module produces an HTTP adapter surface; `bootstrap-server` owns runtime startup and mounting into the overall backend process.
+This module produces an HTTP adapter surface; `game-service` owns runtime startup and mounting into the overall backend process.
 
 Rule 6  
 State-changing requests must enter the system through application service boundaries.
@@ -530,4 +530,4 @@ So the intended split is:
 
 - `adapter-rest-contract` = stable REST-facing schema
 - `adapter-rest-http4s` = http4s implementation of that schema
-- `bootstrap-server` = runtime composition root that mounts and runs it
+- `game-service` = runtime composition root that mounts and runs it

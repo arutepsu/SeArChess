@@ -12,13 +12,15 @@ clients / UIs / transports
 And around that:
 
 - `notation` provides parsing/format support as a separate capability
-- `bootstrap-server` assembles the runtime
+- `game-contract` provides small Game Service contract values shared with downstream services
+- `game-service` assembles the runtime
 - persistence/event/AI/websocket/rest adapters connect the outside world to the application layer
 
 ## Core dependency direction
 
 ### Center of the system
 - `domain` = core business model and rules
+- `game-contract` = cross-service Game Service contract values
 - `application` = use cases and orchestration on top of domain
 
 ### Around the center
@@ -32,7 +34,7 @@ And around that:
 - `adapter-tui` = text UI adapter
 - `web-ui` = browser UI client
 - `notation` = PGN/FEN/JSON notation capability
-- `bootstrap-server` = runtime composition root
+- `game-service` = runtime composition root
 
 ## Recommended dependency map
 
@@ -89,7 +91,7 @@ And around that:
   - talks to backend over REST/WebSocket
   - does not depend on backend internals
 
-- `bootstrap-server`
+- `game-service`
   - depends on many modules
   - wires them together
   - must sit at the top
@@ -99,7 +101,7 @@ And around that:
 
 ```text
                  +----------------------+
-                 |   bootstrap-server   |
+                 |   game-service   |
                  | runtime composition  |
                  +----------+-----------+
                             |
@@ -137,7 +139,7 @@ Separate capability:
 4. `adapter-rest-contract` is the stable backend API schema boundary.
 5. `web-ui` consumes contracts, not backend internals.
 6. `adapter-event` is the shared event backbone for live updates.
-7. `bootstrap-server` assembles everything, but no one depends on it.
+7. `game-service` assembles everything, but no one depends on it.
 
 ## Why this matters
 

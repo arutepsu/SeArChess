@@ -67,7 +67,7 @@ That means WebSocket does not invent its own state model.
 2. REST and WebSocket must observe the same backend truth.
 3. Live updates come from application-emitted events, not ad hoc route-local pushes.
 4. If WebSocket supports inbound commands later, they must be forwarded into application services.
-5. `bootstrap-server` mounts this adapter; it does not start the system by itself.
+5. `game-service` mounts this adapter; it does not start the system by itself.
 
 ## Why this matters
 
@@ -76,6 +76,6 @@ This keeps the architecture clean:
 - `adapter-rest-http4s` = command/query HTTP transport
 - `adapter-websocket` = live event transport
 - shared event flow = single update backbone
-- `bootstrap-server` = runtime composition root
+- `game-service` = runtime composition root
 
 That separation is what makes live UI updates, reactive streams, and later Kafka/microservice evolution much easier.

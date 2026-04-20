@@ -6,7 +6,7 @@ import chess.domain.state.GameState
  *
  *  Adapters (GUI, TUI) depend on this trait to observe and propagate game
  *  state changes without importing a concrete mutable class.  The concrete
- *  implementation lives in the composition root (bootstrapserver) so that
+ *  implementation lives in the composition root (game-service) so that
  *  no adapter depends on another adapter's infrastructure.
  *
  *  === Thread-safety contract ===

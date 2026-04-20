@@ -20,7 +20,7 @@ import scalafx.scene.layout.{BorderPane, Pane, StackPane}
  *
  *  The session dependencies — [[GameSessionCommands]], [[SessionService]], and the
  *  current [[DesktopSessionContext]] — are provided by the composition root
- *  (e.g. `bootstrap-server/Main`). GUI, TUI, and any other adapters share the
+ *  (e.g. `game-service/Main`). GUI, TUI, and any other adapters share the
  *  same command boundary and session identity so that moves from any adapter are
  *  authoritative over the same repository-backed game state.
  *

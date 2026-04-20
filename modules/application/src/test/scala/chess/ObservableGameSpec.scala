@@ -10,7 +10,7 @@ import scala.collection.mutable
  *
  *  Uses a minimal local concrete implementation to verify the behavioural
  *  contract that any [[GameStateObservable]] implementation must satisfy.
- *  The production concrete class lives in bootstrapserver; tests for its
+ *  The production concrete class lives in game-service; tests for its
  *  thread-safety are in that module.
  */
 class ObservableGameSpec extends AnyFlatSpec with Matchers:
