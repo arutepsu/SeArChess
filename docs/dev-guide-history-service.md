@@ -3,6 +3,8 @@
 This is the first concrete History extraction seam. It is intentionally small:
 no broker, no production orchestration, no shared Game Service database access.
 
+Contract reference: `docs/contracts/history-service-http-v1.md`.
+
 ## Decision Summary
 
 - Game Service remains authoritative for sessions, game state, and closure.
@@ -130,7 +132,8 @@ local/dev SQLite outbox is now durable enough to survive a temporary History
 outage or Game Service restart after the outbox row is written.
 
 This is still not production-grade event delivery. The outbox write is not in
-the same transaction as the Game state/session write, delivery is at-least-once,
-and in-memory Game persistence falls back to best-effort forwarding because
-there is no durable store to reload after restart. See
-`docs/architecture/game-history-outbox.md`.
+the same transaction as the external History HTTP delivery, and delivery is
+at-least-once. In SQLite mode, the Game state/session write and the durable
+outbox insert are committed together; in-memory Game persistence still falls
+back to best-effort forwarding because there is no durable store to reload
+after restart. See `docs/architecture/game-history-outbox.md`.

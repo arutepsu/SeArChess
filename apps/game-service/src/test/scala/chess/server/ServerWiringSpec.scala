@@ -8,7 +8,8 @@ import chess.config.{
   AiConfig, AiProviderMode, AppConfig, CorsConfig, EventMode, HttpConfig,
   HistoryForwardingConfig, PersistenceMode, WebSocketConfig
 }
-import chess.startup.assembly.{CoreAssembly, EventWiring, PersistenceAssembly}
+import chess.server.assembly.EventWiring
+import chess.startup.assembly.{CoreAssembly, PersistenceAssembly}
 import org.scalatest.{EitherValues, OptionValues}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -30,7 +31,7 @@ class ServerWiringSpec extends AnyFlatSpec with Matchers with EitherValues with 
     val persistence = PersistenceAssembly.assemble(config)
     val collector   = CollectingEventPublisher()
     val events      = EventWiring(collector, wsServer = None)
-    val baseCtx     = CoreAssembly.build(persistence, events)
+    val baseCtx     = CoreAssembly.build(persistence, events.coreEvents)
     val serverCtx   = ServerWiring.withServerAi(baseCtx, events)
 
     val (_, session) = serverCtx.gameService.createGame(
@@ -45,7 +46,7 @@ class ServerWiringSpec extends AnyFlatSpec with Matchers with EitherValues with 
   it should "leave the shared CoreAssembly context explicit about AI absence" in {
     val persistence = PersistenceAssembly.assemble(config)
     val events      = EventWiring(CollectingEventPublisher(), wsServer = None)
-    val baseCtx     = CoreAssembly.build(persistence, events)
+    val baseCtx     = CoreAssembly.build(persistence, events.coreEvents)
     val (_, session) = baseCtx.gameService.createGame(
       mode            = SessionMode.HumanVsAI,
       whiteController = SideController.AI(),
@@ -58,7 +59,7 @@ class ServerWiringSpec extends AnyFlatSpec with Matchers with EitherValues with 
   it should "leave AI unconfigured when server AI mode is disabled" in {
     val persistence = PersistenceAssembly.assemble(config)
     val events      = EventWiring(CollectingEventPublisher(), wsServer = None)
-    val baseCtx     = CoreAssembly.build(persistence, events)
+    val baseCtx     = CoreAssembly.build(persistence, events.coreEvents)
     val serverCtx   = ServerWiring.withServerAi(
       baseCtx,
       events,
