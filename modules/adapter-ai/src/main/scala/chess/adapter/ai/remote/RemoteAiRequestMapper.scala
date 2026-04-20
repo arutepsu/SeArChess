@@ -28,7 +28,7 @@ object RemoteAiRequestMapper:
         requestId  = context.requestId,
         gameId     = context.gameId.value.toString,
         sessionId  = context.sessionId.value.toString,
-        sideToMove = context.sideToMove.toString,
+        sideToMove = context.sideToMove.toString.toLowerCase,
         fen        = fen.text,
         legalMoves = legalMoveDtos(state),
         engine     = RemoteAiEngineSelection(context.engineId.orElse(defaultEngineId)),
@@ -61,5 +61,5 @@ object RemoteAiRequestMapper:
     RemoteAiMoveDto(
       from      = move.from.toString,
       to        = move.to.toString,
-      promotion = move.promotion.map(_.toString)
+      promotion = move.promotion.map(_.toString.toLowerCase)
     )

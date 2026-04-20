@@ -1,8 +1,9 @@
 package chess.startup.assembly
 
 import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionGameStore, InMemorySessionRepository}
+import chess.adapter.repository.sqlite.{SqliteDataSource, SqliteGameRepository, SqliteSchema, SqliteSessionGameStore, SqliteSessionRepository}
 import chess.application.port.repository.{GameRepository, SessionGameStore, SessionRepository}
-import chess.config.{AppConfig, PersistenceMode}
+import chess.config.{AppConfig, PersistenceMode, SqliteConfig}
 
 /** Assembled persistence infrastructure produced by [[PersistenceAssembly.assemble]].
  *
@@ -51,6 +52,7 @@ object PersistenceAssembly:
   def assemble(config: AppConfig): PersistenceWiring =
     config.persistence match
       case PersistenceMode.InMemory => assembleInMemory()
+      case PersistenceMode.SQLite   => assembleSQLite(config.sqlite.get)
 
   // ── Strategy: InMemory ──────────────────────────────────────────────────────
 
@@ -59,4 +61,15 @@ object PersistenceAssembly:
     val sessionRepo = InMemorySessionRepository()
     val gameRepo    = InMemoryGameRepository()
     val store       = InMemorySessionGameStore(sessionRepo, gameRepo)
+    PersistenceWiring(sessionRepo, gameRepo, store)
+
+  // ── Strategy: SQLite ────────────────────────────────────────────────────────
+
+  /** Embedded SQLite via JDBC; state survives JVM restart. */
+  private def assembleSQLite(cfg: SqliteConfig): PersistenceWiring =
+    val ds = SqliteDataSource(cfg.path)
+    ds.withConnection(SqliteSchema.createTables)
+    val sessionRepo = SqliteSessionRepository(ds)
+    val gameRepo    = SqliteGameRepository(ds)
+    val store       = SqliteSessionGameStore(ds, sessionRepo, gameRepo)
     PersistenceWiring(sessionRepo, gameRepo, store)

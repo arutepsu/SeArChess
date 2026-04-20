@@ -39,12 +39,14 @@ final case class RemoteAiMoveSuggestionRequest(
   metadata:   RemoteAiMetadata
 )
 
-/** Adapter-level response DTO for a successful future remote AI suggestion. */
+/** Adapter-level response DTO for a successful remote AI suggestion. */
 final case class RemoteAiMoveSuggestionResponse(
-  requestId:   String,
-  move:        RemoteAiMoveDto,
-  engineId:    Option[String] = None,
-  elapsedMillis: Option[Int]  = None
+  requestId:     String,
+  move:          RemoteAiMoveDto,
+  engineId:      Option[String] = None,
+  engineVersion: Option[String] = None,
+  elapsedMillis: Option[Int]    = None,
+  confidence:    Option[Double] = None
 )
 
 /** Adapter-level error DTO for a future remote AI provider response. */

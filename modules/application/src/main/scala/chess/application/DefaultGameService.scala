@@ -4,7 +4,8 @@ import chess.application.ai.service.{AITurnError, AITurnService}
 import chess.application.event.AppEvent
 import chess.application.port.event.EventPublisher
 import chess.application.port.repository.{GameRepository, RepositoryError, SessionGameStore}
-import chess.application.query.game.LegalMovesView
+import chess.application.session.model.SessionLifecycle
+import chess.application.query.game.{GameArchiveSnapshot, GameClosure, GameView, LegalMovesView}
 import chess.application.query.session.SessionView
 import chess.application.session.model.{GameSession, SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
@@ -180,8 +181,8 @@ class DefaultGameService(
   def getSessionByGameId(id: GameId): Either[SessionError, SessionView] =
     sessionService.getSessionByGameId(id).map(SessionView.fromSession)
 
-  def getGameState(id: GameId): Either[RepositoryError, GameState] =
-    gameRepository.load(id)
+  def getGame(id: GameId): Either[RepositoryError, GameView] =
+    gameRepository.load(id).map(GameView.fromState(id, _))
 
   def getLegalMoves(id: GameId): Either[RepositoryError, LegalMovesView] =
     gameRepository.load(id).map { state =>
@@ -194,3 +195,32 @@ class DefaultGameService(
 
   def listActiveSessions(): Either[SessionError, List[SessionView]] =
     sessionService.listActiveSessions().map(_.map(SessionView.fromSession))
+
+  def getArchiveSnapshot(id: GameId): Either[ArchiveError, GameArchiveSnapshot] =
+    for
+      session <- sessionService.getSessionByGameId(id)
+                   .left.map {
+                     case SessionError.GameSessionNotFound(_) => ArchiveError.GameNotFound(id)
+                     case e                                   => ArchiveError.StorageFailure(e.toString)
+                   }
+      _       <- Either.cond(
+                   session.lifecycle == SessionLifecycle.Finished,
+                   (),
+                   ArchiveError.GameNotClosed(id)
+                 )
+      state   <- gameRepository.load(id)
+                   .left.map {
+                     case RepositoryError.NotFound(_)         => ArchiveError.GameNotFound(id)
+                     case RepositoryError.StorageFailure(msg) => ArchiveError.StorageFailure(msg)
+                   }
+    yield GameArchiveSnapshot(
+      sessionId       = session.sessionId,
+      gameId          = id,
+      mode            = session.mode,
+      whiteController = session.whiteController,
+      blackController = session.blackController,
+      closure         = GameClosure.fromStatus(state.status),
+      finalState      = GameView.fromState(id, state),
+      createdAt       = session.createdAt,
+      closedAt        = session.updatedAt
+    )

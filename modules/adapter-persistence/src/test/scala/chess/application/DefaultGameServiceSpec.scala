@@ -27,7 +27,7 @@ import org.scalatest.matchers.should.Matchers
  *   - [[DefaultGameService.resignGame]]   — loads session+state; delegates to commands.resignGame
  *   - [[DefaultGameService.cancelSession]] — delegates to sessionService.cancelSession
  *   - [[DefaultGameService.triggerAIMove]] — NotAITurn when aiService=None; delegates when Some
- *   - Query delegation: getSession, getSessionByGameId, getGameState, listActiveSessions
+ *   - Query delegation: getSession, getSessionByGameId, getGame, listActiveSessions
  */
 class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues with OptionValues:
 
@@ -272,16 +272,19 @@ class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
     svc.getSessionByGameId(GameId.random()).isLeft shouldBe true
   }
 
-  "DefaultGameService.getGameState" should "return the persisted game state" in {
+  "DefaultGameService.getGame" should "return a GameView for the persisted game state" in {
     val (svc, _, _, _) = freshFixture()
     val (initialState, session) = createGame(svc).value
-    val loaded = svc.getGameState(session.gameId).value
-    loaded.moveHistory shouldBe initialState.moveHistory
+    val view = svc.getGame(session.gameId).value
+    view.gameId        shouldBe session.gameId
+    view.moveHistory   shouldBe initialState.moveHistory
+    view.currentPlayer shouldBe initialState.currentPlayer
+    view.legalMoves    should have size 20
   }
 
   it should "return RepositoryError for an unknown game id" in {
     val (svc, _, _, _) = freshFixture()
-    svc.getGameState(GameId.random()).isLeft shouldBe true
+    svc.getGame(GameId.random()).isLeft shouldBe true
   }
 
   "DefaultGameService.getLegalMoves" should "return legal moves for the current player" in {
