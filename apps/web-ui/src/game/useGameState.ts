@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { BoardMatrix, GameState, PlayerColor, SessionMode } from "../api/types";
+import type { BoardMatrix, GameState, PlayableGameMode, PlayerColor } from "../api/types";
+import type { CreateGameRequest, GameSnapshot, PromotionPiece } from "../api/backendTypes";
 import {
-  exportPgn,
+  createGame,
   getGameState,
   getStatus,
-  redoMove,
   requestAiMove,
-  startNewGame,
-  submitMove,
-  undoMove
+  resignGame,
+  submitMove
 } from "../api/client";
+import { mapGameSnapshotToGameState } from "../api/mapper";
 import type { BoardAnimation } from "../animation/animationTypes";
 import { planAnimation } from "../animation/planAnimation";
 import { useSession } from "../session/SessionProvider";
@@ -30,10 +30,14 @@ function isTerminal(game: GameState): boolean {
   return game.status === "checkmate" || game.status === "draw" || game.status === "resigned";
 }
 
-function promotionChoiceFromUser(): string | undefined {
+function isClosedLifecycle(session: SessionContext | null): boolean {
+  return session?.lifecycle === "Finished" || session?.lifecycle === "Cancelled";
+}
+
+function promotionChoiceFromUser(): PromotionPiece | undefined {
   const raw = window.prompt("Promote pawn to Queen, Rook, Bishop, or Knight", "Queen");
   if (raw === null) return undefined;
-  return promotionChoices[raw.trim().toLowerCase()];
+  return promotionChoices[raw.trim().toLowerCase()] as PromotionPiece | undefined;
 }
 
 function controllerFor(session: SessionContext | null, color: PlayerColor): string | undefined {
@@ -41,8 +45,12 @@ function controllerFor(session: SessionContext | null, color: PlayerColor): stri
 }
 
 function isAiTurn(session: SessionContext | null, game: GameState): boolean {
-  if (isTerminal(game)) return false;
+  if (isTerminal(game) || isClosedLifecycle(session)) return false;
   return controllerFor(session, game.activeColor) === "AI";
+}
+
+function isStaleHydrationError(error: unknown): boolean {
+  return error instanceof Error && error.message.startsWith("GAME_NOT_FOUND:");
 }
 
 // ---------------------------------------------------------------------------
@@ -56,24 +64,21 @@ export type UseGameStateReturn = {
   legalMoves: string[];
   busy: boolean;
   message: string | undefined;
-  pgnExport: string;
   animationPlan: BoardAnimation | null;
-  gameMode: SessionMode;
+  gameMode: PlayableGameMode;
+  sessionLifecycle: SessionContext["lifecycle"] | undefined;
 
   // ── Actions ───────────────────────────────────────────────────────────────
   /** Initial load: get/create game and set game state. Re-throws on error so
    *  the caller (App) can update its connection state. */
   loadGame: () => Promise<void>;
-  /** Fetch the latest game state from the server and commit it. */
+  /** Fetch the latest GameSnapshot and commit it through the canonical mapper. */
   refreshFromServer: () => Promise<void>;
   handleSelect: (square: string) => Promise<void>;
-  setGameMode: (mode: SessionMode) => void;
+  setGameMode: (mode: PlayableGameMode) => void;
   handleNewGame: () => Promise<void>;
-  handleUndo: () => Promise<void>;
-  handleRedo: () => Promise<void>;
-  handleExport: () => Promise<void>;
+  handleResign: () => Promise<void>;
   handleAnimationFinished: (id: number) => void;
-  clearPgnExport: () => void;
 
   // ── Transitional setters ──────────────────────────────────────────────────
   // Exposed only for the WS message handler in App until Stage 6 (useWsSync)
@@ -94,16 +99,17 @@ export function useGameState(): UseGameStateReturn {
   const [legalMoves, setLegalMoves] = useState<string[]>([]);
   const [busy, setBusyState] = useState(false);
   const [message, setMessageState] = useState<string | undefined>(undefined);
-  const [pgnExport, setPgnExport] = useState("");
   const [animationPlan, setAnimationPlan] = useState<BoardAnimation | null>(null);
-  const [gameMode, setGameMode] = useState<SessionMode>("HumanVsHuman");
+  const [gameMode, setGameMode] = useState<PlayableGameMode>("HumanVsHuman");
 
   // boardRef holds the board that was rendered most recently.
-  // Async callbacks (refreshFromServer, undo, redo) read this ref so they
+  // Async callbacks (refreshFromServer, submit move, AI move) read this ref so they
   // always plan animation against the board that was on screen when the
   // operation started, not a stale closure capture.
   const boardRef = useRef<BoardMatrix | null>(null);
   const animationCounter = useRef(0);
+  const refreshPromiseRef = useRef<Promise<void> | null>(null);
+  const refreshQueuedRef = useRef(false);
 
   // Stale-response guard.
   // Every async operation that writes game state bumps this counter before
@@ -128,6 +134,35 @@ export function useGameState(): UseGameStateReturn {
     setBusyState(isBusy);
   }, []);
 
+  const commitGameSnapshot = useCallback(
+    (
+      snapshot: GameSnapshot,
+      options: {
+        previousBoard?: BoardMatrix | null;
+        clearInteraction?: boolean;
+      } = {}
+    ): GameState => {
+      const nextGame = mapGameSnapshotToGameState(snapshot);
+      setGame(nextGame);
+
+      if (options.clearInteraction ?? true) {
+        setSelectedSquare(undefined);
+        setLegalMoves([]);
+      }
+
+      if (options.previousBoard) {
+        setAnimationPlan(
+          planAnimation(options.previousBoard, nextGame, ++animationCounter.current)
+        );
+      } else {
+        setAnimationPlan(null);
+      }
+
+      return nextGame;
+    },
+    []
+  );
+
   // ── Async operations ──────────────────────────────────────────────────────
 
   const loadGame = useCallback(async (): Promise<void> => {
@@ -135,47 +170,90 @@ export function useGameState(): UseGameStateReturn {
     try {
       await getStatus();
       const existingGameId = getGameId();
-      const result = existingGameId
-        ? { game: await getGameState(existingGameId), session: null }
-        : await startNewGame({ mode: "HumanVsHuman" });
+      if (!existingGameId) {
+        if (thisGen !== generation.current) return;
+        setGame(undefined);
+        setAnimationPlan(null);
+        setLegalMoves([]);
+        setSelectedSquare(undefined);
+        setMessageState("Start a new game to play.");
+        return;
+      }
+
+      let hydratedSnapshot: GameSnapshot;
+      try {
+        hydratedSnapshot = await getGameState(existingGameId);
+      } catch (error) {
+        if (thisGen !== generation.current) return;
+        if (isStaleHydrationError(error)) {
+          setSession(null);
+          setGame(undefined);
+          setAnimationPlan(null);
+          setLegalMoves([]);
+          setSelectedSquare(undefined);
+          setMessageState("Previous game was not found. Start a new game to play.");
+          return;
+        }
+        setMessageState(
+          error instanceof Error
+            ? `Could not restore previous game. ${error.message}`
+            : "Could not restore previous game."
+        );
+        throw error;
+      }
+
       if (thisGen !== generation.current) return;
-      if (result.session) setSession(result.session);
-      setGame(result.game);
-      setAnimationPlan(null);
-      setLegalMoves([]);
+      commitGameSnapshot(hydratedSnapshot);
       setMessageState(undefined);
     } catch (error) {
       if (thisGen !== generation.current) return;
+      setGame(undefined);
+      setAnimationPlan(null);
+      setLegalMoves([]);
+      setSelectedSquare(undefined);
       setMessageState(
         error instanceof Error
-          ? `Service offline. ${error.message}`
-          : "Service offline."
+          ? `Could not restore previous game. ${error.message}`
+          : "Could not restore previous game."
       );
       throw error; // re-throw so App can update its connection state
     }
   }, [getGameId, setSession]);
 
+  const runRefreshFromServer = useCallback(async (): Promise<void> => {
+    do {
+      refreshQueuedRef.current = false;
+
+      const thisGen = ++generation.current;
+      const previousBoard = boardRef.current;
+      const gameId = getGameId();
+      if (!gameId) return;
+      // Throws on error - caller (App WS handler) is responsible for the
+      // error message and busy state in that path.
+      const snapshot = await getGameState(gameId);
+      if (thisGen !== generation.current) continue;
+      commitGameSnapshot(snapshot, { previousBoard });
+      setMessageState(undefined);
+    } while (refreshQueuedRef.current);
+  }, [commitGameSnapshot, getGameId]);
+
   const refreshFromServer = useCallback(async (): Promise<void> => {
-    const thisGen = ++generation.current;
-    const previousBoard = boardRef.current;
-    const gameId = getGameId();
-    if (!gameId) return;
-    // Throws on error — caller (App WS handler) is responsible for the
-    // error message and busy state in that path.
-    const latestGame = await getGameState(gameId);
-    if (thisGen !== generation.current) return;
-    setGame(latestGame);
-    setLegalMoves([]);
-    setSelectedSquare(undefined);
-    if (previousBoard) {
-      setAnimationPlan(
-        planAnimation(previousBoard, latestGame, ++animationCounter.current)
-      );
-    } else {
-      setAnimationPlan(null);
+    const inFlight = refreshPromiseRef.current;
+    if (inFlight) {
+      refreshQueuedRef.current = true;
+      return inFlight;
     }
-    setMessageState(undefined);
-  }, [getGameId]);
+
+    const refreshPromise = runRefreshFromServer();
+    refreshPromiseRef.current = refreshPromise;
+    try {
+      await refreshPromise;
+    } finally {
+      if (refreshPromiseRef.current === refreshPromise) {
+        refreshPromiseRef.current = null;
+      }
+    }
+  }, [runRefreshFromServer]);
 
   const applyAiMoveIfNeeded = useCallback(
     async (
@@ -190,15 +268,12 @@ export function useGameState(): UseGameStateReturn {
       setBusyState(true);
       const previousBoard = currentGame.board;
       try {
-        const { game: aiGame, lifecycle } = await requestAiMove(gameId);
+        const response = await requestAiMove(gameId);
         if (thisGen !== generation.current) return;
-        setGame(aiGame);
+        commitGameSnapshot(response.game, { previousBoard });
         if (sessionSnapshot) {
-          setSession({ ...sessionSnapshot, lifecycle });
+          setSession({ ...sessionSnapshot, lifecycle: response.sessionLifecycle });
         }
-        setAnimationPlan(
-          planAnimation(previousBoard, aiGame, ++animationCounter.current)
-        );
         setMessageState(undefined);
       } catch (error) {
         if (thisGen !== generation.current) return;
@@ -207,13 +282,24 @@ export function useGameState(): UseGameStateReturn {
         );
       }
     },
-    [setSession]
+    [commitGameSnapshot, setSession]
   );
 
   const handleSelect = useCallback(
     async (square: string): Promise<void> => {
       if (!game || busy) return;
       const normalizedSquare = square.toLowerCase();
+
+      if (isClosedLifecycle(session)) {
+        setSelectedSquare(undefined);
+        setLegalMoves([]);
+        setMessageState(
+          session?.lifecycle === "Cancelled"
+            ? "This session was cancelled. Start a new game to keep playing."
+            : "This game is finished. Start a new game to keep playing."
+        );
+        return;
+      }
 
       if (isTerminal(game)) {
         setSelectedSquare(undefined);
@@ -271,15 +357,12 @@ export function useGameState(): UseGameStateReturn {
       setLegalMoves([]);
       setBusyState(true);
       try {
-        const { game: nextGame } = await submitMove(gameId, { from: selectedSquare, to: normalizedSquare });
+        const response = await submitMove(gameId, { from: selectedSquare, to: normalizedSquare });
         if (thisGen !== generation.current) return;
-        setGame(nextGame);
+        const nextGame = commitGameSnapshot(response.game, { previousBoard: prevBoard });
         if (session) {
-          setSession({ ...session, lifecycle: isTerminal(nextGame) ? "Finished" : "Active" });
+          setSession({ ...session, lifecycle: response.sessionLifecycle });
         }
-        setAnimationPlan(
-          planAnimation(prevBoard, nextGame, ++animationCounter.current)
-        );
         setMessageState(undefined);
         await applyAiMoveIfNeeded(gameId, session, nextGame, thisGen);
       } catch (error) {
@@ -291,19 +374,16 @@ export function useGameState(): UseGameStateReturn {
             return;
           }
           try {
-            const { game: nextGame } = await submitMove(gameId, {
+            const response = await submitMove(gameId, {
               from: selectedSquare,
               to: normalizedSquare,
               promotion
             });
             if (thisGen !== generation.current) return;
-            setGame(nextGame);
+            const nextGame = commitGameSnapshot(response.game, { previousBoard: prevBoard });
             if (session) {
-              setSession({ ...session, lifecycle: isTerminal(nextGame) ? "Finished" : "Active" });
+              setSession({ ...session, lifecycle: response.sessionLifecycle });
             }
-            setAnimationPlan(
-              planAnimation(prevBoard, nextGame, ++animationCounter.current)
-            );
             setMessageState(undefined);
             await applyAiMoveIfNeeded(gameId, session, nextGame, thisGen);
           } catch (retryError) {
@@ -321,21 +401,20 @@ export function useGameState(): UseGameStateReturn {
         setBusyState(false);
       }
     },
-    [applyAiMoveIfNeeded, busy, game, getGameId, legalMoves, selectedSquare, session, setSession]
+    [applyAiMoveIfNeeded, busy, commitGameSnapshot, game, getGameId, legalMoves, selectedSquare, session, setSession]
   );
 
   const handleNewGame = useCallback(async (): Promise<void> => {
     const thisGen = ++generation.current;
+    const request: CreateGameRequest = { mode: gameMode };
     setBusyState(true);
+    setMessageState("Creating game...");
     try {
-      const { game: nextGame, session } = await startNewGame({ mode: gameMode });
+      const response = await createGame(request);
       if (thisGen !== generation.current) return;
-      setSession(session);
-      setGame(nextGame);
+      setSession(response.session);
+      commitGameSnapshot(response.game);
       setMessageState(undefined);
-      setSelectedSquare(undefined);
-      setLegalMoves([]);
-      setAnimationPlan(null);
       // Clock reset is NOT called here: App watches game?.id and calls
       // resetClocks reactively via a useEffect, which is equivalent.
     } catch (error) {
@@ -346,86 +425,46 @@ export function useGameState(): UseGameStateReturn {
     } finally {
       setBusyState(false);
     }
-  }, [gameMode, setSession]);
+  }, [commitGameSnapshot, gameMode, setSession]);
 
-  const handleUndo = useCallback(async (): Promise<void> => {
-    const thisGen = ++generation.current;
-    // Read ref, not closure, so this callback needs no dep on game.board
-    const prevBoard = boardRef.current;
+  const handleResign = useCallback(async (): Promise<void> => {
+    if (!game || busy || isTerminal(game) || isClosedLifecycle(session)) return;
+
     const gameId = getGameId();
     if (!gameId) return;
-    setBusyState(true);
-    try {
-      const nextGame = await undoMove(gameId);
-      if (thisGen !== generation.current) return;
-      setGame(nextGame);
-      setSelectedSquare(undefined);
-      setLegalMoves([]);
-      if (prevBoard) {
-        setAnimationPlan(
-          planAnimation(prevBoard, nextGame, ++animationCounter.current)
-        );
-      }
-    } catch (error) {
-      if (thisGen !== generation.current) return;
-      setMessageState(
-        error instanceof Error ? error.message : "Undo failed."
-      );
-    } finally {
-      setBusyState(false);
-    }
-  }, [getGameId]);
 
-  const handleRedo = useCallback(async (): Promise<void> => {
-    const thisGen = ++generation.current;
-    const prevBoard = boardRef.current;
-    const gameId = getGameId();
-    if (!gameId) return;
-    setBusyState(true);
-    try {
-      const nextGame = await redoMove(gameId);
-      if (thisGen !== generation.current) return;
-      setGame(nextGame);
-      setSelectedSquare(undefined);
-      setLegalMoves([]);
-      if (prevBoard) {
-        setAnimationPlan(
-          planAnimation(prevBoard, nextGame, ++animationCounter.current)
-        );
-      }
-    } catch (error) {
-      if (thisGen !== generation.current) return;
-      setMessageState(
-        error instanceof Error ? error.message : "Redo failed."
-      );
-    } finally {
-      setBusyState(false);
+    if (controllerFor(session, game.activeColor) === "AI") {
+      setMessageState("Wait for the AI move before resigning.");
+      return;
     }
-  }, [getGameId]);
 
-  const handleExport = useCallback(async (): Promise<void> => {
+    const resigningSide = game.activeColor === "white" ? "White" : "Black";
+    if (!window.confirm(`${resigningSide} resigns?`)) return;
+
     const thisGen = ++generation.current;
+    const previousBoard = game.board;
     setBusyState(true);
+    setMessageState(`${resigningSide} is resigning...`);
     try {
-      const result = await exportPgn();
+      const response = await resignGame(gameId, { side: resigningSide });
       if (thisGen !== generation.current) return;
-      setPgnExport(result.pgn);
+      commitGameSnapshot(response.game, { previousBoard });
+      if (session) {
+        setSession({ ...session, lifecycle: response.sessionLifecycle });
+      }
+      setMessageState(undefined);
     } catch (error) {
       if (thisGen !== generation.current) return;
       setMessageState(
-        error instanceof Error ? error.message : "Export failed."
+        error instanceof Error ? error.message : "Resign failed."
       );
     } finally {
       setBusyState(false);
     }
-  }, []);
+  }, [busy, commitGameSnapshot, game, getGameId, session, setSession]);
 
   const handleAnimationFinished = useCallback((id: number): void => {
     setAnimationPlan((current) => (current?.id === id ? null : current));
-  }, []);
-
-  const clearPgnExport = useCallback((): void => {
-    setPgnExport("");
   }, []);
 
   return {
@@ -434,19 +473,16 @@ export function useGameState(): UseGameStateReturn {
     legalMoves,
     busy,
     message,
-    pgnExport,
     animationPlan,
     gameMode,
+    sessionLifecycle: session?.lifecycle,
     loadGame,
     refreshFromServer,
     handleSelect,
     setGameMode,
     handleNewGame,
-    handleUndo,
-    handleRedo,
-    handleExport,
+    handleResign,
     handleAnimationFinished,
-    clearPgnExport,
     setMessage,
     setBusy
   };

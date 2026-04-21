@@ -38,11 +38,12 @@ All structured errors use:
 
 `SessionMode`: `"HumanVsHuman" | "HumanVsAI" | "AIVsAI"`
 
-`SessionLifecycle`: `"Created" | "Active" | "AwaitingPromotion" | "Finished"`
+`SessionLifecycle`: `"Created" | "Active" | "AwaitingPromotion" | "Finished" | "Cancelled"`
 
 REST v1 normally returns `"Active"` or `"Finished"` from move/resign/AI
-commands. Promotion is handled by rejecting a move without a promotion choice,
-not by leaving the session in `AwaitingPromotion`.
+commands. Administrative cancellation returns `"Cancelled"` from session routes
+and websocket lifecycle events. Promotion is handled by rejecting a move without
+a promotion choice, not by leaving the session in `AwaitingPromotion`.
 
 `Controller` in responses: `"HumanLocal" | "HumanRemote" | "AI"`
 
@@ -57,6 +58,19 @@ Clients do not submit `"AI"` as a controller. AI seats are derived from
 Squares use algebraic notation such as `"e2"` and `"e4"`.
 
 ## Core JSON Shapes
+
+Canonical transport names:
+
+| Name | Used by |
+|---|---|
+| `GameSnapshot` | `POST /sessions`, `GET /games/{gameId}`, command responses, and future full-state WebSocket updates |
+| `CreateGameRequest` | request body for `POST /sessions` |
+| `CreateGameResponse` | response body for `POST /sessions` |
+| `CommandGameResponse` | response body for game-state-changing commands |
+
+The create endpoint remains `POST /sessions` for wire compatibility, and
+response bodies keep the field name `"game"`. That field contains a full
+`GameSnapshot`.
 
 ### Session
 
@@ -73,7 +87,7 @@ Squares use algebraic notation such as `"e2"` and `"e4"`.
 }
 ```
 
-### Game
+### GameSnapshot
 
 ```json
 {
@@ -117,9 +131,9 @@ This is liveness, not deep readiness. It does not check SQLite, AI, or History.
 
 ### POST /sessions
 
-Create a session and its initial game.
+Create a playable game and its session.
 
-Request body: all fields optional.
+Request body: `CreateGameRequest`. All fields are optional.
 
 ```json
 {
@@ -145,9 +159,12 @@ Response `201 Created`:
 ```json
 {
   "session": { "...": "Session" },
-  "game": { "...": "Game" }
+  "game": { "...": "GameSnapshot" }
 }
 ```
+
+Response body: `CreateGameResponse`. The `game` field is the full initial
+`GameSnapshot`, not just a game id.
 
 Errors:
 
@@ -179,7 +196,7 @@ Errors:
 
 Fetch one session by UUID.
 
-Response `200 OK`: `Session`
+Response `200 OK`: `Session` with `lifecycle: "Cancelled"`.
 
 Errors:
 
@@ -211,7 +228,7 @@ Errors:
 
 Fetch current game state by UUID.
 
-Response `200 OK`: `Game`
+Response `200 OK`: `GameSnapshot`
 
 Errors:
 
@@ -270,10 +287,12 @@ Response `200 OK`:
 
 ```json
 {
-  "game": { "...": "Game" },
+  "game": { "...": "GameSnapshot" },
   "sessionLifecycle": "Active"
 }
 ```
+
+Response body: `CommandGameResponse`.
 
 Errors:
 
@@ -302,10 +321,12 @@ Response `200 OK`:
 
 ```json
 {
-  "game": { "...": "Game" },
+  "game": { "...": "GameSnapshot" },
   "sessionLifecycle": "Active"
 }
 ```
+
+Response body: `CommandGameResponse`.
 
 Errors:
 
@@ -335,10 +356,12 @@ Response `200 OK`:
 
 ```json
 {
-  "game": { "...": "Game" },
+  "game": { "...": "GameSnapshot" },
   "sessionLifecycle": "Finished"
 }
 ```
+
+Response body: `CommandGameResponse`.
 
 Errors:
 
@@ -371,7 +394,7 @@ Response `200 OK`:
     "drawReason": null
   },
   "finalState": {
-    "game": { "...": "Game" },
+    "game": { "...": "GameSnapshot" },
     "castlingRights": {
       "whiteKingSide": true,
       "whiteQueenSide": true,

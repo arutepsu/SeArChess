@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PieceCode, PlayerColor } from "./api/types";
 import type { SpriteCatalog } from "./assets/spriteCatalog";
 import { loadSpriteCatalog } from "./assets/spriteCatalog";
-import { apiBaseUrl } from "./api/client";
 import { connectWebSocket, type WsClient } from "./api/ws";
 import type { WsEvent } from "./api/wsTypes";
 import { useGameState } from "./game/useGameState";
@@ -24,6 +23,24 @@ const backgrounds = [
   { id: "forest", label: "Forest", url: "/assets/backgrounds/new.jpg" }
 ];
 
+function isGameStateRefreshHint(event: WsEvent): boolean {
+  switch (event.eventType) {
+    case "MoveApplied":
+    case "GameFinished":
+    case "SessionLifecycleChanged":
+    case "PromotionPending":
+    case "AITurnCompleted":
+    case "GameResigned":
+    case "SessionCancelled":
+      return true;
+    case "AITurnRequested":
+    case "AITurnFailed":
+    case "MoveRejected":
+    case "SessionCreated":
+      return false;
+  }
+}
+
 export default function App() {
   const {
     game,
@@ -33,18 +50,18 @@ export default function App() {
     message,
     animationPlan,
     gameMode,
-    pgnExport,
+    sessionLifecycle,
     loadGame,
     refreshFromServer,
     handleSelect,
     setGameMode,
     handleNewGame,
+    handleResign,
     handleAnimationFinished,
-    clearPgnExport,
     setMessage,
     setBusy,
   } = useGameState();
-  const { getSessionId } = useSession();
+  const { session, setSession, getSessionId } = useSession();
 
   const [connection, setConnection] = useState<ConnectionState>("loading");
   const [liveConnection, setLiveConnection] = useState<LiveConnectionState>("idle");
@@ -59,6 +76,12 @@ export default function App() {
     const status = game?.status;
     return status === "active" || status === "check";
   }, [game?.status]);
+  const sessionClosed = sessionLifecycle === "Finished" || sessionLifecycle === "Cancelled";
+  const activeController = game?.activeColor === "white"
+    ? session?.whiteController
+    : session?.blackController;
+  const boardInteractionDisabled = busy || sessionClosed || !clockRunning;
+  const canResign = Boolean(game) && !busy && !sessionClosed && clockRunning && activeController !== "AI";
 
   const resetClocks = useCallback(() => {
     setWhiteClockMs(baseClockMs);
@@ -93,11 +116,17 @@ export default function App() {
     let active = true;
     setLiveConnection("connecting");
 
-    const refreshAfterSignal = async (event: WsEvent): Promise<void> => {
+    const refreshGameSnapshotAfterHint = async (event: WsEvent): Promise<void> => {
       try {
         await refreshFromServer();
         setBusy(false);
+        if (event.eventType === "SessionLifecycleChanged" && session?.sessionId === event.sessionId) {
+          setSession({ ...session, lifecycle: event.to });
+        }
         if (event.eventType === "SessionCancelled") {
+          if (session?.sessionId === event.sessionId) {
+            setSession({ ...session, lifecycle: "Cancelled" });
+          }
           setMessage("This session was cancelled.");
         }
       } catch (error) {
@@ -126,6 +155,14 @@ export default function App() {
       onMessage: (event) => {
         if (!active) return;
 
+        // WebSocket messages are scoped live hints, not authoritative game
+        // state. Any event that can affect board/turn/status is followed by
+        // GET /api/games/{gameId}, then committed through GameSnapshot mapping.
+        if (isGameStateRefreshHint(event)) {
+          void refreshGameSnapshotAfterHint(event);
+          return;
+        }
+
         switch (event.eventType) {
           case "AITurnRequested":
             setBusy(true);
@@ -138,15 +175,6 @@ export default function App() {
           case "MoveRejected":
             setBusy(false);
             setMessage(`Move rejected. ${event.reason}`);
-            return;
-          case "MoveApplied":
-          case "GameFinished":
-          case "SessionLifecycleChanged":
-          case "PromotionPending":
-          case "AITurnCompleted":
-          case "GameResigned":
-          case "SessionCancelled":
-            void refreshAfterSignal(event);
             return;
           case "SessionCreated":
             return;
@@ -163,7 +191,7 @@ export default function App() {
         wsClientRef.current = null;
       }
     };
-  }, [game?.id, getSessionId, refreshFromServer, setBusy, setMessage]);
+  }, [game?.id, getSessionId, refreshFromServer, session, setBusy, setMessage, setSession]);
 
   const clockStateRef = useRef({
     running: false,
@@ -269,6 +297,7 @@ export default function App() {
             legalMoves={legalMoves}
             animation={animationPlan}
             idleAnimation={true}
+            disabled={boardInteractionDisabled}
             onSelect={handleSelect}
             onAnimationFinished={handleAnimationFinished}
           />
@@ -286,8 +315,10 @@ export default function App() {
             activeColor={game?.activeColor}
             clockRunning={clockRunning}
             gameMode={gameMode}
+            canResign={canResign}
             onGameModeChange={setGameMode}
             onNewGame={handleNewGame}
+            onResign={handleResign}
           />
           <section className="panel background-panel">
             <header>
@@ -344,18 +375,6 @@ export default function App() {
           </section>
         </aside>
       </main>
-      {pgnExport ? (
-        <section className="panel export">
-          <div className="export-header">
-            <h2>PGN Export</h2>
-            <button type="button" onClick={clearPgnExport}>
-              Close
-            </button>
-          </div>
-          <pre>{pgnExport}</pre>
-          <span className="hint">API base: {apiBaseUrl}</span>
-        </section>
-      ) : null}
     </div>
   );
 }

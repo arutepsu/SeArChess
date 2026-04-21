@@ -8,11 +8,11 @@ final case class MoveHistoryEntry(from: String, to: String, promotion: Option[St
 /** A single occupied square on the board. */
 final case class PieceDto(square: String, color: String, pieceType: String)
 
-/** Wire representation of a game state response.
+/** Canonical wire representation of authoritative game state.
  *
  *  @param gameId              opaque UUID string identifying the game record
  *  @param currentPlayer       "White" or "Black"
- *  @param status              "Ongoing", "Checkmate", or "Draw"
+ *  @param status              "Ongoing", "Checkmate", "Draw", or "Resigned"
  *  @param inCheck             true when status is Ongoing and the current player is in check
  *  @param winner              present when status is "Checkmate"; "White" or "Black"
  *  @param drawReason          present when status is "Draw"; e.g. "Stalemate"
@@ -26,7 +26,7 @@ final case class PieceDto(square: String, color: String, pieceType: String)
  *  @param legalTargetsByFrom  legal target squares for each current-player source square;
  *                             keys are source squares with at least one legal move
  */
-final case class GameResponse(
+final case class GameSnapshot(
   gameId:             String,
   currentPlayer:      String,
   status:             String,
@@ -42,8 +42,8 @@ final case class GameResponse(
   legalTargetsByFrom: Map[String, List[String]]
 )
 
-object GameResponse:
-  def toJson(r: GameResponse): Value =
+object GameSnapshot:
+  def toJson(r: GameSnapshot): Value =
     def moveEntryJson(m: MoveHistoryEntry): Value =
       ujson.Obj(
         "from"      -> ujson.Str(m.from),
@@ -74,3 +74,43 @@ object GameResponse:
         sq -> (ujson.Arr.from(targets.map(ujson.Str(_))): Value)
       })
     )
+
+/** Temporary source-compatible alias for pre-cleanup DTO naming.
+ *
+ *  New code should use [[GameSnapshot]]. The JSON wire shape is unchanged.
+ */
+type GameResponse = GameSnapshot
+
+object GameResponse:
+  def apply(
+    gameId:             String,
+    currentPlayer:      String,
+    status:             String,
+    inCheck:            Boolean,
+    winner:             Option[String],
+    drawReason:         Option[String],
+    fullmoveNumber:     Int,
+    halfmoveClock:      Int,
+    board:              List[PieceDto],
+    moveHistory:        List[MoveHistoryEntry],
+    lastMove:           Option[MoveHistoryEntry],
+    promotionPending:   Boolean,
+    legalTargetsByFrom: Map[String, List[String]]
+  ): GameSnapshot =
+    GameSnapshot(
+      gameId,
+      currentPlayer,
+      status,
+      inCheck,
+      winner,
+      drawReason,
+      fullmoveNumber,
+      halfmoveClock,
+      board,
+      moveHistory,
+      lastMove,
+      promotionPending,
+      legalTargetsByFrom
+    )
+
+  def toJson(r: GameSnapshot): Value = GameSnapshot.toJson(r)

@@ -170,12 +170,12 @@ class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
 
   // ── cancelSession ─────────────────────────────────────────────────────────
 
-  "DefaultGameService.cancelSession" should "advance the session lifecycle to Finished" in {
+  "DefaultGameService.cancelSession" should "advance the session lifecycle to Cancelled" in {
     val (svc, sessionRepo, _, _) = freshFixture()
     val (_, session) = createGame(svc).value
     val updated = svc.cancelSession(session.sessionId).value
-    updated.lifecycle shouldBe SessionLifecycle.Finished
-    sessionRepo.load(session.sessionId).value.lifecycle shouldBe SessionLifecycle.Finished
+    updated.lifecycle shouldBe SessionLifecycle.Cancelled
+    sessionRepo.load(session.sessionId).value.lifecycle shouldBe SessionLifecycle.Cancelled
   }
 
   it should "publish SessionCancelled" in {
@@ -194,7 +194,7 @@ class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
     svc.cancelSession(SessionId.random()).isLeft shouldBe true
   }
 
-  it should "return InvalidLifecycleTransition when the session is already Finished" in {
+  it should "return InvalidLifecycleTransition when the session is already Cancelled" in {
     val (svc, _, _, _) = freshFixture()
     val (_, session) = createGame(svc).value
     svc.cancelSession(session.sessionId)

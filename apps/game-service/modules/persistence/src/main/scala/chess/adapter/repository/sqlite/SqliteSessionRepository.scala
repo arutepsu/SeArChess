@@ -59,7 +59,7 @@ class SqliteSessionRepository(ds: SqliteDataSource) extends SessionRepository:
   override def listActive(): Either[RepositoryError, List[GameSession]] =
     ds.withConnection { conn =>
       val ps = conn.prepareStatement(
-        "SELECT * FROM sessions WHERE lifecycle != 'Finished'"
+        "SELECT * FROM sessions WHERE lifecycle NOT IN ('Finished', 'Cancelled')"
       )
       try
         val rs = ps.executeQuery()
@@ -153,6 +153,7 @@ class SqliteSessionRepository(ds: SqliteDataSource) extends SessionRepository:
     case SessionLifecycle.Active            => "Active"
     case SessionLifecycle.AwaitingPromotion => "AwaitingPromotion"
     case SessionLifecycle.Finished          => "Finished"
+    case SessionLifecycle.Cancelled         => "Cancelled"
 
   // ── Decoders ──────────────────────────────────────────────────────────────
 
@@ -174,4 +175,5 @@ class SqliteSessionRepository(ds: SqliteDataSource) extends SessionRepository:
     case "Active"            => SessionLifecycle.Active
     case "AwaitingPromotion" => SessionLifecycle.AwaitingPromotion
     case "Finished"          => SessionLifecycle.Finished
+    case "Cancelled"         => SessionLifecycle.Cancelled
     case other               => throw IllegalStateException(s"Unknown lifecycle in DB: $other")

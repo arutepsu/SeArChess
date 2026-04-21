@@ -18,14 +18,17 @@ package chess.application.session.model
  *    so that session policy and UI can surface the promotion prompt explicitly
  *    without embedding that concern in the domain layer.
  *
- *  - [[Finished]]: the game has ended (checkmate, draw, resignation, timeout,
- *    abandonment).  No further moves are accepted.  The outcome is recorded in
- *    the domain [[chess.domain.model.GameStatus]]; [[Finished]] here signals
- *    that the session-layer cleanup (scoring, rematch offer, persistence) may
- *    proceed.
+ *  - [[Finished]]: the game has ended with a chess/game result (checkmate,
+ *    draw, resignation, timeout).  No further moves are accepted.  The outcome
+ *    is recorded in the domain [[chess.domain.model.GameStatus]].
+ *
+ *  - [[Cancelled]]: the session was administratively closed without producing
+ *    a chess/game result.  The underlying game state is intentionally left as
+ *    it was; no further moves are accepted.
  */
 enum SessionLifecycle:
   case Created
   case Active
   case AwaitingPromotion
   case Finished
+  case Cancelled
