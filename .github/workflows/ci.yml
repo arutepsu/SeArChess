@@ -38,17 +38,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-sbt-
 
-      - name: Test with coverage
-        run: sbt coverage test coverageReport
+      - name: Test with aggregated coverage
+        if: github.event_name != 'push' || github.ref != 'refs/heads/main'
+        run: sbt report
 
-      - name: Lint (scalafix)
-        run: sbt "scalafixAll --check"
-
-      - name: Upload coverage to Coveralls
+      - name: Test with aggregated coverage and upload to Coveralls
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
-        run: sbt coveralls
+        run: sbt ci
+
+      - name: Lint (scalafix)
+        run: sbt "scalafixAll --check"
 
   frontend:
     name: Frontend (React / TypeScript / Vite)
