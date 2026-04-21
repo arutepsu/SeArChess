@@ -25,7 +25,10 @@ class HistoryOutboxOpsRoutesSpec extends AnyFlatSpec with Matchers:
     ujson.read(response.bodyText.compile.string.unsafeRunSync())
 
   private def append(outbox: SqliteHistoryEventOutbox, event: AppEvent): Long =
-    outbox.append(AppEventSerializer.serialize(event).value).toOption.get
+    outbox
+      .append(AppEventSerializer.serialize(event).value)
+      .toOption
+      .getOrElse(fail("outbox.append returned Left"))
 
   "HistoryOutboxOpsRoutes" should "return an empty summary for an empty outbox" in {
     val outbox = SqliteHistoryEventOutbox(tempDb())
@@ -51,14 +54,17 @@ class HistoryOutboxOpsRoutesSpec extends AnyFlatSpec with Matchers:
       val id = append(outbox, event)
       val routes = HistoryOutboxOpsRoutes(Some(outbox)).routes.orNotFound
 
-      val summary = bodyJson(run(routes, Request[IO](Method.GET, Uri.unsafeFromString("/ops/history-outbox"))))
+      val summary =
+        bodyJson(run(routes, Request[IO](Method.GET, Uri.unsafeFromString("/ops/history-outbox"))))
       summary("pendingCount").num.toInt shouldBe 1
       summary("deliveredCount").num.toInt shouldBe 0
       summary("retryingCount").num.toInt shouldBe 0
       summary("pendingByType")("game.resigned.v1").num.toInt shouldBe 1
       summary("oldestPendingAt").str should not be empty
 
-      val list = bodyJson(run(routes, Request[IO](Method.GET, Uri.unsafeFromString("/ops/history-outbox/pending"))))
+      val list = bodyJson(
+        run(routes, Request[IO](Method.GET, Uri.unsafeFromString("/ops/history-outbox/pending")))
+      )
       list("items").arr should have size 1
       list("items")(0)("id").num.toLong shouldBe id
       list("items")(0)("eventType").str shouldBe "game.resigned.v1"
@@ -72,15 +78,21 @@ class HistoryOutboxOpsRoutesSpec extends AnyFlatSpec with Matchers:
     try
       val event = AppEvent.SessionCancelled(SessionId.random(), GameId.random())
       val id = append(outbox, event)
-      outbox.markAttempted(id).toOption.get
-      outbox.markFailed(id, "history down").toOption.get
+      outbox.markAttempted(id).toOption.getOrElse(fail("outbox.markAttempted returned Left"))
+      outbox
+        .markFailed(id, "history down")
+        .toOption
+        .getOrElse(fail("outbox.markFailed returned Left"))
       val routes = HistoryOutboxOpsRoutes(Some(outbox)).routes.orNotFound
 
-      val summary = bodyJson(run(routes, Request[IO](Method.GET, Uri.unsafeFromString("/ops/history-outbox"))))
+      val summary =
+        bodyJson(run(routes, Request[IO](Method.GET, Uri.unsafeFromString("/ops/history-outbox"))))
       summary("pendingCount").num.toInt shouldBe 1
       summary("retryingCount").num.toInt shouldBe 1
 
-      val detail = bodyJson(run(routes, Request[IO](Method.GET, Uri.unsafeFromString(s"/ops/history-outbox/$id"))))
+      val detail = bodyJson(
+        run(routes, Request[IO](Method.GET, Uri.unsafeFromString(s"/ops/history-outbox/$id")))
+      )
       detail("status").str shouldBe "retrying"
       detail("attempts").num.toInt shouldBe 1
       detail("lastAttemptedAt").str should not be empty
@@ -92,19 +104,28 @@ class HistoryOutboxOpsRoutesSpec extends AnyFlatSpec with Matchers:
   it should "show delivered counts while excluding delivered rows from pending list" in {
     val outbox = SqliteHistoryEventOutbox(tempDb())
     try
-      val event = AppEvent.GameFinished(SessionId.random(), GameId.random(), GameStatus.Checkmate(Color.White))
+      val event = AppEvent.GameFinished(
+        SessionId.random(),
+        GameId.random(),
+        GameStatus.Checkmate(Color.White)
+      )
       val id = append(outbox, event)
-      outbox.markDelivered(id).toOption.get
+      outbox.markDelivered(id).toOption.getOrElse(fail("outbox.markDelivered returned Left"))
       val routes = HistoryOutboxOpsRoutes(Some(outbox)).routes.orNotFound
 
-      val summary = bodyJson(run(routes, Request[IO](Method.GET, Uri.unsafeFromString("/ops/history-outbox"))))
+      val summary =
+        bodyJson(run(routes, Request[IO](Method.GET, Uri.unsafeFromString("/ops/history-outbox"))))
       summary("pendingCount").num.toInt shouldBe 0
       summary("deliveredCount").num.toInt shouldBe 1
 
-      val list = bodyJson(run(routes, Request[IO](Method.GET, Uri.unsafeFromString("/ops/history-outbox/pending"))))
+      val list = bodyJson(
+        run(routes, Request[IO](Method.GET, Uri.unsafeFromString("/ops/history-outbox/pending")))
+      )
       list("items").arr shouldBe empty
 
-      val detail = bodyJson(run(routes, Request[IO](Method.GET, Uri.unsafeFromString(s"/ops/history-outbox/$id"))))
+      val detail = bodyJson(
+        run(routes, Request[IO](Method.GET, Uri.unsafeFromString(s"/ops/history-outbox/$id")))
+      )
       detail("status").str shouldBe "delivered"
       detail("pending").bool shouldBe false
       detail("deliveredAt").str should not be empty

@@ -8,8 +8,8 @@ import chess.domain.model.*
 
 class PromotionApplierSpec extends AnyFlatSpec with Matchers with EitherValues:
 
-  private val square    = Position.from(0, 7).value  // a8 — White promotion rank (7)
-  private val color     = Color.White
+  private val square = Position.from(0, 7).value // a8 — White promotion rank (7)
+  private val color = Color.White
   private val pawnBoard = Board.empty.place(square, Piece(color, PieceType.Pawn))
 
   // ── success ────────────────────────────────────────────────────────────────
@@ -35,14 +35,15 @@ class PromotionApplierSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   it should "preserve the correct color for a Black promotion" in {
-    val blackSquare = Position.from(0, 0).value  // a1 — Black promotion rank (0)
+    val blackSquare = Position.from(0, 0).value // a1 — Black promotion rank (0)
     val board = Board.empty.place(blackSquare, Piece(Color.Black, PieceType.Pawn))
-    val result = PromotionApplier.applyPromotion(board, blackSquare, Color.Black, PieceType.Queen).value
+    val result =
+      PromotionApplier.applyPromotion(board, blackSquare, Color.Black, PieceType.Queen).value
     result.pieceAt(blackSquare) shouldBe Some(Piece(Color.Black, PieceType.Queen))
   }
 
   it should "leave the rest of the board unchanged" in {
-    val other = Position.from(4, 4).value  // e5
+    val other = Position.from(4, 4).value // e5
     val board = pawnBoard.place(other, Piece(Color.Black, PieceType.King))
     val result = PromotionApplier.applyPromotion(board, square, color, PieceType.Queen).value
     result.pieceAt(other) shouldBe Some(Piece(Color.Black, PieceType.King))
@@ -80,7 +81,7 @@ class PromotionApplierSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   it should "fail with InvalidPromotionState when the square is not on the correct promotion rank" in {
-    val e4    = Position.from(4, 3).value  // e4 — not a promotion rank
+    val e4 = Position.from(4, 3).value // e4 — not a promotion rank
     val board = Board.empty.place(e4, Piece(Color.White, PieceType.Pawn))
     PromotionApplier.applyPromotion(board, e4, Color.White, PieceType.Queen).left.value shouldBe
       DomainError.InvalidPromotionState

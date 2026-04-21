@@ -3,7 +3,12 @@ package chess.adapter.http4s.route
 import cats.effect.IO
 import chess.adapter.http4s.mapper.{GameMapper, SessionMapper}
 import chess.adapter.http4s.route.Http4sRouteSupport.*
-import chess.adapter.rest.contract.dto.{CreateSessionRequest, CreateSessionResponse, SessionListResponse, SessionResponse}
+import chess.adapter.rest.contract.dto.{
+  CreateSessionRequest,
+  CreateSessionResponse,
+  SessionListResponse,
+  SessionResponse
+}
 import chess.application.GameServiceApi
 import chess.application.query.game.GameView
 import chess.application.session.model.SessionIds.SessionId
@@ -12,21 +17,21 @@ import org.http4s.*
 import org.http4s.dsl.io.*
 
 /** http4s routes for the `/sessions` resource.
- *
- *  Routes:
- *  - `POST /sessions`              → [[handleCreate]]   (command — create new game)
- *  - `GET  /sessions`              → [[handleList]]     (query  — list active sessions)
- *  - `GET  /sessions/{id}`         → [[handleGet]]      (query  — get single session)
- *  - `POST /sessions/{id}/cancel`  → [[handleCancel]]   (command — cancel session)
- *
- *  All operations are routed through [[GameServiceApi]] — the single Game Service
- *  boundary.  This class has one dependency instead of the previous three
- *  ([[chess.application.session.service.GameSessionCommands]],
- *  [[chess.application.session.service.SessionService]], and
- *  [[chess.application.port.repository.GameRepository]]).
- *
- *  This class is pure logic tested in-memory via `routes.orNotFound.run(req)`.
- */
+  *
+  * Routes:
+  *   - `POST /sessions` → [[handleCreate]] (command — create new game)
+  *   - `GET /sessions` → [[handleList]] (query — list active sessions)
+  *   - `GET /sessions/{id}` → [[handleGet]] (query — get single session)
+  *   - `POST /sessions/{id}/cancel` → [[handleCancel]] (command — cancel session)
+  *
+  * All operations are routed through [[GameServiceApi]] — the single Game Service boundary. This
+  * class has one dependency instead of the previous three
+  * ([[chess.application.session.service.GameSessionCommands]],
+  * [[chess.application.session.service.SessionService]], and
+  * [[chess.application.port.repository.GameRepository]]).
+  *
+  * This class is pure logic tested in-memory via `routes.orNotFound.run(req)`.
+  */
 class Http4sSessionRoutes(gameService: GameServiceApi):
 
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
@@ -49,18 +54,21 @@ class Http4sSessionRoutes(gameService: GameServiceApi):
   private def handleCreate(body: String): IO[Response[IO]] =
     val result =
       for
-        req           <- CreateSessionRequest.fromJson(body)
-        mode          <- SessionMapper.parseMode(req.mode)
-        controllers   <- SessionMapper.resolveCreateControllers(mode, req.whiteController, req.blackController)
+        req <- CreateSessionRequest.fromJson(body)
+        mode <- SessionMapper.parseMode(req.mode)
+        controllers <- SessionMapper.resolveCreateControllers(
+          mode,
+          req.whiteController,
+          req.blackController
+        )
         (white, black) = controllers
-        pair          <- gameService.createGame(mode, white, black)
-                           .left.map(sessionErrMsg)
+        pair <- gameService.createGame(mode, white, black).left.map(sessionErrMsg)
         (state, session) = pair
       yield SessionMapper.toCreateSessionResponse(
-              session,
-              session.gameId,
-              GameMapper.toGameResponse(GameView.fromState(session.gameId, state))
-            )
+        session,
+        session.gameId,
+        GameMapper.toGameResponse(GameView.fromState(session.gameId, state))
+      )
 
     result match
       case Right(resp) => jsonResponse(Status.Created, CreateSessionResponse.toJson(resp))
@@ -85,7 +93,10 @@ class Http4sSessionRoutes(gameService: GameServiceApi):
           case Left(err) =>
             jsonError(Status.InternalServerError, "INTERNAL_ERROR", sessionErrMsg(err))
           case Right(session) =>
-            jsonResponse(Status.Ok, SessionResponse.toJson(SessionMapper.toSessionResponse(session)))
+            jsonResponse(
+              Status.Ok,
+              SessionResponse.toJson(SessionMapper.toSessionResponse(session))
+            )
 
   private def handleCancel(idStr: String): IO[Response[IO]] =
     parseUUID(idStr) match
@@ -96,12 +107,18 @@ class Http4sSessionRoutes(gameService: GameServiceApi):
           case Left(SessionError.SessionNotFound(_)) =>
             jsonError(Status.NotFound, "SESSION_NOT_FOUND", s"Session not found: $idStr")
           case Left(SessionError.InvalidLifecycleTransition(reason)) =>
-            jsonError(Status.Conflict, "SESSION_ALREADY_FINISHED",
-              s"Cannot cancel a finished session: $reason")
+            jsonError(
+              Status.Conflict,
+              "SESSION_ALREADY_FINISHED",
+              s"Cannot cancel a finished session: $reason"
+            )
           case Left(err) =>
             jsonError(Status.InternalServerError, "INTERNAL_ERROR", sessionErrMsg(err))
           case Right(session) =>
-            jsonResponse(Status.Ok, SessionResponse.toJson(SessionMapper.toSessionResponse(session)))
+            jsonResponse(
+              Status.Ok,
+              SessionResponse.toJson(SessionMapper.toSessionResponse(session))
+            )
 
   // ── helpers ───────────────────────────────────────────────────────────────
 

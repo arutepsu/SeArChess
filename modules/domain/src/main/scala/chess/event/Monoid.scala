@@ -7,8 +7,7 @@ trait Monoid[A]:
 
 object Monoid:
   given listDomainEvent: Monoid[List[DomainEvent]] with
-    def empty                                        = Nil
+    def empty = Nil
     def combine(a: List[DomainEvent], b: List[DomainEvent]) = a ++ b
 
-extension [A](a: A)(using m: Monoid[A])
-  def |+|(b: A): A = m.combine(a, b)
+extension [A](a: A)(using m: Monoid[A]) def |+|(b: A): A = m.combine(a, b)

@@ -1,14 +1,23 @@
 package chess.application
 
 import chess.adapter.event.CollectingEventPublisher
-import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionGameStore, InMemorySessionRepository}
+import chess.adapter.repository.{
+  InMemoryGameRepository,
+  InMemorySessionGameStore,
+  InMemorySessionRepository
+}
 import chess.application.ai.service.{AITurnError, AITurnService}
 import chess.application.event.AppEvent
 import chess.application.port.ai.{AIError, AiMoveSuggestionClient, AIResponse}
 import chess.application.port.repository.RepositoryError
 import chess.application.session.model.{SessionLifecycle, SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
-import chess.application.session.service.{SessionError, SessionGameService, SessionMoveError, SessionService}
+import chess.application.session.service.{
+  SessionError,
+  SessionGameService,
+  SessionMoveError,
+  SessionService
+}
 import chess.domain.model.{Color, GameStatus, Move, Position}
 import chess.domain.state.{GameState, GameStateFactory}
 import org.scalatest.{EitherValues, OptionValues}
@@ -16,39 +25,44 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 /** Unit tests for [[DefaultGameService]].
- *
- *  All storage is in-memory.  Tests are deterministic and require no network
- *  or file I/O.  The [[CollectingEventPublisher]] is used to verify event
- *  publication side-effects.
- *
- *  Coverage scope:
- *   - [[DefaultGameService.createGame]]   — delegates to commands.newGame
- *   - [[DefaultGameService.submitMove]]   — loads session+state; publishes MoveRejected on domain rejection
- *   - [[DefaultGameService.resignGame]]   — loads session+state; delegates to commands.resignGame
- *   - [[DefaultGameService.cancelSession]] — delegates to sessionService.cancelSession
- *   - [[DefaultGameService.triggerAIMove]] — NotAITurn when aiService=None; delegates when Some
- *   - Query delegation: getSession, getSessionByGameId, getGame, listActiveSessions
- */
+  *
+  * All storage is in-memory. Tests are deterministic and require no network or file I/O. The
+  * [[CollectingEventPublisher]] is used to verify event publication side-effects.
+  *
+  * Coverage scope:
+  *   - [[DefaultGameService.createGame]] — delegates to commands.newGame
+  *   - [[DefaultGameService.submitMove]] — loads session+state; publishes MoveRejected on domain
+  *     rejection
+  *   - [[DefaultGameService.resignGame]] — loads session+state; delegates to commands.resignGame
+  *   - [[DefaultGameService.cancelSession]] — delegates to sessionService.cancelSession
+  *   - [[DefaultGameService.triggerAIMove]] — NotAITurn when aiService=None; delegates when Some
+  *   - Query delegation: getSession, getSessionByGameId, getGame, listActiveSessions
+  */
 class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues with OptionValues:
 
   // ── Shared fixture ────────────────────────────────────────────────────────
 
   private def freshFixture(
-    collector: CollectingEventPublisher = CollectingEventPublisher(),
-    aiService: Option[AITurnService]    = None
-  ): (DefaultGameService, InMemorySessionRepository, InMemoryGameRepository, CollectingEventPublisher) =
-    val sessionRepo    = new InMemorySessionRepository
-    val gameRepo       = new InMemoryGameRepository
-    val store          = new InMemorySessionGameStore(sessionRepo, gameRepo)
+      collector: CollectingEventPublisher = CollectingEventPublisher(),
+      aiService: Option[AITurnService] = None
+  ): (
+      DefaultGameService,
+      InMemorySessionRepository,
+      InMemoryGameRepository,
+      CollectingEventPublisher
+  ) =
+    val sessionRepo = new InMemorySessionRepository
+    val gameRepo = new InMemoryGameRepository
+    val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
     val sessionService = new SessionService(sessionRepo, collector)
-    val commands       = new SessionGameService(sessionService, store, collector)
-    val svc            = DefaultGameService(
-                           commands       = commands,
-                           sessionService = sessionService,
-                           gameRepository = gameRepo,
-                           publisher      = collector,
-                           aiService      = aiService
-                         )
+    val commands = new SessionGameService(sessionService, store, collector)
+    val svc = DefaultGameService(
+      commands = commands,
+      sessionService = sessionService,
+      gameRepository = gameRepo,
+      publisher = collector,
+      aiService = aiService
+    )
     (svc, sessionRepo, gameRepo, collector)
 
   /** Create a game through the service and return the result. */
@@ -71,14 +85,14 @@ class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
     val (state, session) = createGame(svc).value
     state.moveHistory shouldBe empty
     session.lifecycle shouldBe SessionLifecycle.Created
-    session.mode      shouldBe SessionMode.HumanVsHuman
+    session.mode shouldBe SessionMode.HumanVsHuman
   }
 
   it should "persist the session and game state" in {
     val (svc, sessionRepo, gameRepo, _) = freshFixture()
     val (_, session) = createGame(svc).value
     sessionRepo.load(session.sessionId).isRight shouldBe true
-    gameRepo.load(session.gameId).isRight       shouldBe true
+    gameRepo.load(session.gameId).isRight shouldBe true
   }
 
   it should "publish SessionCreated" in {
@@ -94,7 +108,8 @@ class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
   "DefaultGameService.submitMove" should "apply a legal move and return updated state and session" in {
     val (svc, _, gameRepo, _) = freshFixture()
     val (_, session) = createGame(svc).value
-    val (nextState, _) = svc.submitMove(session.gameId, validFirstMove, SideController.HumanLocal).value
+    val (nextState, _) =
+      svc.submitMove(session.gameId, validFirstMove, SideController.HumanLocal).value
     nextState.moveHistory.size shouldBe 1
     gameRepo.load(session.gameId).value.moveHistory.size shouldBe 1
   }
@@ -113,9 +128,9 @@ class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
     collector.clear()
     svc.submitMove(session.gameId, illegalMove, SideController.HumanLocal)
     val rejected = collector.events.collectFirst { case e: AppEvent.MoveRejected => e }
-    rejected         shouldBe defined
-    rejected.value.gameId    shouldBe session.gameId
-    rejected.value.move      shouldBe illegalMove
+    rejected shouldBe defined
+    rejected.value.gameId shouldBe session.gameId
+    rejected.value.move shouldBe illegalMove
   }
 
   it should "not publish MoveRejected when the game is not found" in {
@@ -131,8 +146,8 @@ class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
     val (svc, _, gameRepo, _) = freshFixture()
     val (_, session) = createGame(svc).value
     val (finalState, finalSession) = svc.resignGame(session.sessionId, Color.White).value
-    finalState.status              shouldBe GameStatus.Resigned(Color.Black)
-    finalSession.lifecycle         shouldBe SessionLifecycle.Finished
+    finalState.status shouldBe GameStatus.Resigned(Color.Black)
+    finalSession.lifecycle shouldBe SessionLifecycle.Finished
     gameRepo.load(session.gameId).value.status shouldBe GameStatus.Resigned(Color.Black)
   }
 
@@ -150,7 +165,7 @@ class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
     collector.clear()
     svc.resignGame(session.sessionId, Color.White)
     val resigned = collector.events.collectFirst { case e: AppEvent.GameResigned => e }
-    resigned       shouldBe defined
+    resigned shouldBe defined
     resigned.value.winner shouldBe Color.Black
   }
 
@@ -211,15 +226,15 @@ class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
   }
 
   it should "return SessionLookupFailed when the session is unknown (even with AI configured)" in {
-    val collector      = CollectingEventPublisher()
-    val sessionRepo    = new InMemorySessionRepository
-    val gameRepo       = new InMemoryGameRepository
-    val store          = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val collector = CollectingEventPublisher()
+    val sessionRepo = new InMemorySessionRepository
+    val gameRepo = new InMemoryGameRepository
+    val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
     val sessionService = new SessionService(sessionRepo, _ => ())
-    val commands       = new SessionGameService(sessionService, store, collector)
-    val alwaysLegal: AiMoveSuggestionClient = _ =>
-      Right(AIResponse(Move(Position.from(4, 1).value, Position.from(4, 3).value)))
-    val ai        = AITurnService(alwaysLegal, commands, collector)
+    val commands = new SessionGameService(sessionService, store, collector)
+    val alwaysLegal: AiMoveSuggestionClient =
+      _ => Right(AIResponse(Move(Position.from(4, 1).value, Position.from(4, 3).value)))
+    val ai = AITurnService(alwaysLegal, commands, collector)
     val svcWithAI = DefaultGameService(commands, sessionService, gameRepo, collector, Some(ai))
     svcWithAI.triggerAIMove(SessionId.random()).left.value shouldBe
       a[AITurnError.SessionLookupFailed]
@@ -234,15 +249,15 @@ class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
   }
 
   it should "return SessionLookupFailed for an unknown game id (even with AI configured)" in {
-    val collector      = CollectingEventPublisher()
-    val sessionRepo    = new InMemorySessionRepository
-    val gameRepo       = new InMemoryGameRepository
-    val store          = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val collector = CollectingEventPublisher()
+    val sessionRepo = new InMemorySessionRepository
+    val gameRepo = new InMemoryGameRepository
+    val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
     val sessionService = new SessionService(sessionRepo, _ => ())
-    val commands       = new SessionGameService(sessionService, store, collector)
-    val alwaysLegal: AiMoveSuggestionClient = _ =>
-      Right(AIResponse(Move(Position.from(4, 1).value, Position.from(4, 3).value)))
-    val ai        = AITurnService(alwaysLegal, commands, collector)
+    val commands = new SessionGameService(sessionService, store, collector)
+    val alwaysLegal: AiMoveSuggestionClient =
+      _ => Right(AIResponse(Move(Position.from(4, 1).value, Position.from(4, 3).value)))
+    val ai = AITurnService(alwaysLegal, commands, collector)
     val svcWithAI = DefaultGameService(commands, sessionService, gameRepo, collector, Some(ai))
     svcWithAI.triggerAIMoveByGameId(GameId.random()).left.value shouldBe
       a[AITurnError.SessionLookupFailed]
@@ -276,10 +291,10 @@ class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
     val (svc, _, _, _) = freshFixture()
     val (initialState, session) = createGame(svc).value
     val view = svc.getGame(session.gameId).value
-    view.gameId        shouldBe session.gameId
-    view.moveHistory   shouldBe initialState.moveHistory
+    view.gameId shouldBe session.gameId
+    view.moveHistory shouldBe initialState.moveHistory
     view.currentPlayer shouldBe initialState.currentPlayer
-    view.legalMoves    should have size 20
+    view.legalMoves should have size 20
   }
 
   it should "return RepositoryError for an unknown game id" in {

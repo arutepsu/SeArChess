@@ -3,18 +3,16 @@ package chess.adapter.repository.sqlite
 import java.sql.Connection
 
 /** DDL for the SQLite schema used by the persistence adapters.
- *
- *  All tables use `CREATE TABLE IF NOT EXISTS` so [[createTables]] is safe to
- *  call on every startup without a migrations framework.
- *
- *  `history_event_outbox` is included here so the table exists whenever
- *  [[SqliteSessionGameStore.saveTerminal]] or
- *  [[SqliteSessionRepository.saveCancelWithOutbox]] perform a transactional
- *  outbox write.  [[chess.adapter.event.SqliteHistoryEventOutbox]] also
- *  creates the table independently in its own `initialize()` call so it
- *  continues to work in isolation (e.g. tests that instantiate it directly
- *  without running the full schema).
- */
+  *
+  * All tables use `CREATE TABLE IF NOT EXISTS` so [[createTables]] is safe to call on every startup
+  * without a migrations framework.
+  *
+  * `history_event_outbox` is included here so the table exists whenever
+  * [[SqliteSessionGameStore.saveTerminal]] or [[SqliteSessionRepository.saveCancelWithOutbox]]
+  * perform a transactional outbox write. [[chess.adapter.event.SqliteHistoryEventOutbox]] also
+  * creates the table independently in its own `initialize()` call so it continues to work in
+  * isolation (e.g. tests that instantiate it directly without running the full schema).
+  */
 object SqliteSchema:
 
   private val createSessions =
@@ -60,5 +58,4 @@ object SqliteSchema:
       stmt.execute(createGameStates)
       stmt.execute(createHistoryEventOutbox)
       stmt.execute(createHistoryEventOutboxIndex)
-    finally
-      stmt.close()
+    finally stmt.close()

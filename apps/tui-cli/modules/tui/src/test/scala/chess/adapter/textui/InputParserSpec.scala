@@ -52,7 +52,9 @@ class InputParserSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   it should "return WrongArgumentCount when move has three arguments" in {
-    InputParser.parse("move e2 e4 e6").left.value shouldBe InputParseError.WrongArgumentCount("move")
+    InputParser.parse("move e2 e4 e6").left.value shouldBe InputParseError.WrongArgumentCount(
+      "move"
+    )
   }
 
   it should "pass through unvalidated square tokens (validation deferred to domain)" in {
@@ -114,7 +116,9 @@ class InputParserSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   it should "return InvalidPromotionToken for an unknown promotion token" in {
-    InputParser.parse("promote frog").left.value shouldBe InputParseError.InvalidPromotionToken("frog")
+    InputParser.parse("promote frog").left.value shouldBe InputParseError.InvalidPromotionToken(
+      "frog"
+    )
   }
 
   it should "return WrongArgumentCount for 'promote' with no arguments" in {
@@ -122,5 +126,7 @@ class InputParserSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   it should "return WrongArgumentCount for 'promote' with two arguments" in {
-    InputParser.parse("promote q q").left.value shouldBe InputParseError.WrongArgumentCount("promote")
+    InputParser.parse("promote q q").left.value shouldBe InputParseError.WrongArgumentCount(
+      "promote"
+    )
   }

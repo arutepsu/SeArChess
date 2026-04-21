@@ -8,9 +8,9 @@ class PieceRenderInfoSpec extends AnyFlatSpec with Matchers:
 
   "PieceRenderInfo" should "default frameIndex to 0 when not provided" in {
     val info = PieceRenderInfo(
-      piece       = (Color.White, PieceType.Pawn),
-      x           = 100.0,
-      y           = 200.0,
+      piece = (Color.White, PieceType.Pawn),
+      x = 100.0,
+      y = 200.0,
       visualState = VisualState.Move
     )
 
@@ -19,9 +19,9 @@ class PieceRenderInfoSpec extends AnyFlatSpec with Matchers:
 
   it should "default segmentAssetKey to None when not provided" in {
     val info = PieceRenderInfo(
-      piece       = (Color.White, PieceType.Pawn),
-      x           = 100.0,
-      y           = 200.0,
+      piece = (Color.White, PieceType.Pawn),
+      x = 100.0,
+      y = 200.0,
       visualState = VisualState.Move
     )
 
@@ -30,11 +30,11 @@ class PieceRenderInfoSpec extends AnyFlatSpec with Matchers:
 
   it should "keep explicitly provided frameIndex and segmentAssetKey values" in {
     val info = PieceRenderInfo(
-      piece           = (Color.Black, PieceType.Knight),
-      x               = 50.0,
-      y               = 75.0,
-      visualState     = VisualState.Attack,
-      frameIndex      = 3,
+      piece = (Color.Black, PieceType.Knight),
+      x = 50.0,
+      y = 75.0,
+      visualState = VisualState.Attack,
+      frameIndex = 3,
       segmentAssetKey = Some("classic/black_knight_attack")
     )
 

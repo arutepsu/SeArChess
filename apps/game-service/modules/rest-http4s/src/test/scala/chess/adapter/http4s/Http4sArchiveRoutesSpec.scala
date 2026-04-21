@@ -2,7 +2,11 @@ package chess.adapter.http4s
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionGameStore, InMemorySessionRepository}
+import chess.adapter.repository.{
+  InMemoryGameRepository,
+  InMemorySessionGameStore,
+  InMemorySessionRepository
+}
 import chess.application.DefaultGameService
 import chess.application.event.AppEvent
 import chess.application.port.event.EventPublisher
@@ -40,7 +44,10 @@ class Http4sArchiveRoutesSpec extends AnyFlatSpec with Matchers:
     val sessionId = created("session")("sessionId").str
     val gameId = created("session")("gameId").str
 
-    run(http, Request[IO](Method.POST, Uri.unsafeFromString(s"/sessions/$sessionId/cancel"))).status shouldBe Status.Ok
+    run(
+      http,
+      Request[IO](Method.POST, Uri.unsafeFromString(s"/sessions/$sessionId/cancel"))
+    ).status shouldBe Status.Ok
 
     val resp = run(http, Request[IO](Method.GET, Uri.unsafeFromString(s"/archive/games/$gameId")))
     resp.status shouldBe Status.Ok

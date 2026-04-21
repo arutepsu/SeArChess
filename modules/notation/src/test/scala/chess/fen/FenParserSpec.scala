@@ -8,16 +8,15 @@ import org.scalatest.Assertions.fail
 import org.scalatest.EitherValues.convertLeftProjectionToValuable
 
 /** Tests the public [[FenParser]] contract.
- *
- *  Verifies:
- *  - format declaration
- *  - success cases preserve the raw input string
- *  - parser-local [[FenRecord]] is converted correctly to shared [[FenData]]
- *  - failures are surfaced through the public [[ParseFailure]] contract
- *
- *  No semantic chess-legality checks are tested here because the parser does
- *  not perform them.
- */
+  *
+  * Verifies:
+  *   - format declaration
+  *   - success cases preserve the raw input string
+  *   - parser-local [[FenRecord]] is converted correctly to shared [[FenData]]
+  *   - failures are surfaced through the public [[ParseFailure]] contract
+  *
+  * No semantic chess-legality checks are tested here because the parser does not perform them.
+  */
 final class FenParserSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   // ── Constants ──────────────────────────────────────────────────────────────
@@ -83,14 +82,14 @@ final class FenParserSpec extends AnyFlatSpec with Matchers with EitherValues:
   it should "return a FenRecord with correct fields for the initial position" in {
     val record = FenParser.parseRecord(InitialFen).value
 
-    record.activeColor            shouldBe FenColor.White
+    record.activeColor shouldBe FenColor.White
     record.castling.whiteKingSide shouldBe true
     record.castling.whiteQueenSide shouldBe true
     record.castling.blackKingSide shouldBe true
     record.castling.blackQueenSide shouldBe true
-    record.enPassant              shouldBe FenEnPassantTarget.Absent
-    record.halfmoveClock          shouldBe 0
-    record.fullmoveNumber         shouldBe 1
+    record.enPassant shouldBe FenEnPassantTarget.Absent
+    record.halfmoveClock shouldBe 0
+    record.fullmoveNumber shouldBe 1
     record.ranks should have size 8
     all(record.ranks.map(_.size)) shouldBe 8
   }
@@ -186,93 +185,120 @@ final class FenParserSpec extends AnyFlatSpec with Matchers with EitherValues:
   // ── Public failure contract under combinator parsing ───────────────────────
 
   it should "return SyntaxError for too few fields" in {
-    FenParser.parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0")
-      .left.value shouldBe a[ParseFailure.SyntaxError]
+    FenParser
+      .parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0")
+      .left
+      .value shouldBe a[ParseFailure.SyntaxError]
   }
 
   it should "return SyntaxError for too many fields" in {
-    FenParser.parse(s"$InitialFen extra")
-      .left.value shouldBe a[ParseFailure.SyntaxError]
+    FenParser.parse(s"$InitialFen extra").left.value shouldBe a[ParseFailure.SyntaxError]
   }
 
   it should "return SyntaxError for too few ranks (7)" in {
-    FenParser.parse("8/8/8/8/8/8/8 w - - 0 1")
-      .left.value shouldBe a[ParseFailure.SyntaxError]
+    FenParser.parse("8/8/8/8/8/8/8 w - - 0 1").left.value shouldBe a[ParseFailure.SyntaxError]
   }
 
   it should "return SyntaxError for too many ranks (9)" in {
-    FenParser.parse("8/8/8/8/8/8/8/8/8 w - - 0 1")
-      .left.value shouldBe a[ParseFailure.SyntaxError]
+    FenParser.parse("8/8/8/8/8/8/8/8/8 w - - 0 1").left.value shouldBe a[ParseFailure.SyntaxError]
   }
 
   it should "return SyntaxError for an illegal piece symbol in a rank" in {
-    FenParser.parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNX w KQkq - 0 1")
-      .left.value shouldBe a[ParseFailure.SyntaxError]
+    FenParser
+      .parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNX w KQkq - 0 1")
+      .left
+      .value shouldBe a[ParseFailure.SyntaxError]
   }
 
   it should "return SyntaxError when a rank expands to fewer than 8 squares" in {
-    FenParser.parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/7 w KQkq - 0 1")
-      .left.value shouldBe a[ParseFailure.SyntaxError]
+    FenParser
+      .parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/7 w KQkq - 0 1")
+      .left
+      .value shouldBe a[ParseFailure.SyntaxError]
   }
 
   it should "return SyntaxError when a rank expands to more than 8 squares" in {
-    FenParser.parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/81 w KQkq - 0 1")
-      .left.value shouldBe a[ParseFailure.SyntaxError]
+    FenParser
+      .parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/81 w KQkq - 0 1")
+      .left
+      .value shouldBe a[ParseFailure.SyntaxError]
   }
 
   it should "return SyntaxError for an invalid active color token" in {
-    FenParser.parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR x KQkq - 0 1")
-      .left.value shouldBe a[ParseFailure.SyntaxError]
+    FenParser
+      .parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR x KQkq - 0 1")
+      .left
+      .value shouldBe a[ParseFailure.SyntaxError]
   }
 
   it should "return SyntaxError for an invalid castling symbol" in {
-    FenParser.parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w X - 0 1")
-      .left.value shouldBe a[ParseFailure.SyntaxError]
+    FenParser
+      .parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w X - 0 1")
+      .left
+      .value shouldBe a[ParseFailure.SyntaxError]
   }
 
   it should "return SyntaxError for a duplicate castling symbol" in {
-    FenParser.parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KK - 0 1")
-      .left.value shouldBe a[ParseFailure.SyntaxError]
+    FenParser
+      .parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KK - 0 1")
+      .left
+      .value shouldBe a[ParseFailure.SyntaxError]
   }
 
   it should "return SyntaxError for a malformed en passant square (bad file)" in {
-    FenParser.parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq z3 0 1")
-      .left.value shouldBe a[ParseFailure.SyntaxError]
+    FenParser
+      .parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq z3 0 1")
+      .left
+      .value shouldBe a[ParseFailure.SyntaxError]
   }
 
   it should "return SyntaxError for a malformed en passant square (bad rank)" in {
-    FenParser.parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq e9 0 1")
-      .left.value shouldBe a[ParseFailure.SyntaxError]
+    FenParser
+      .parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq e9 0 1")
+      .left
+      .value shouldBe a[ParseFailure.SyntaxError]
   }
 
   it should "return SyntaxError for a malformed en passant square (too long)" in {
-    FenParser.parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq e33 0 1")
-      .left.value shouldBe a[ParseFailure.SyntaxError]
+    FenParser
+      .parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq e33 0 1")
+      .left
+      .value shouldBe a[ParseFailure.SyntaxError]
   }
 
   it should "return SyntaxError for a non-integer halfmove clock" in {
-    FenParser.parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - abc 1")
-      .left.value shouldBe a[ParseFailure.SyntaxError]
+    FenParser
+      .parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - abc 1")
+      .left
+      .value shouldBe a[ParseFailure.SyntaxError]
   }
 
   it should "return SyntaxError for a negative halfmove clock" in {
-    FenParser.parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - -1 1")
-      .left.value shouldBe a[ParseFailure.SyntaxError]
+    FenParser
+      .parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - -1 1")
+      .left
+      .value shouldBe a[ParseFailure.SyntaxError]
   }
 
   it should "return SyntaxError for a non-integer fullmove number" in {
-    FenParser.parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 one")
-      .left.value shouldBe a[ParseFailure.SyntaxError]
+    FenParser
+      .parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 one")
+      .left
+      .value shouldBe a[ParseFailure.SyntaxError]
   }
 
   it should "return SyntaxError for fullmove number 0 (not positive)" in {
-    FenParser.parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 0")
-      .left.value shouldBe a[ParseFailure.SyntaxError]
+    FenParser
+      .parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 0")
+      .left
+      .value shouldBe a[ParseFailure.SyntaxError]
   }
 
   it should "return SyntaxError for a negative fullmove number" in {
-    FenParser.parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 -1")
-      .left.value shouldBe a[ParseFailure.SyntaxError]
+    FenParser
+      .parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 -1")
+      .left
+      .value shouldBe a[ParseFailure.SyntaxError]
   }
 
   // ── Failure message quality ────────────────────────────────────────────────

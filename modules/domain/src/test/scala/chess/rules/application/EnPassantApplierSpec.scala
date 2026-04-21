@@ -7,7 +7,10 @@ import chess.domain.state.EnPassantState
 
 class EnPassantApplierSpec extends AnyFlatSpec with Matchers:
 
-  private def at(alg: String): Position = Position.fromAlgebraic(alg).toOption.get
+  private def at(alg: String): Position = Position
+    .fromAlgebraic(alg)
+    .toOption
+    .getOrElse(scala.sys.error(s"invalid algebraic position: $alg"))
 
   "EnPassantApplier.applyEnPassant" should "move the capturing pawn to the en passant target square" in {
     val board = Board.empty
@@ -60,7 +63,7 @@ class EnPassantApplierSpec extends AnyFlatSpec with Matchers:
       pawnColor = Color.Black
     )
 
-    val ex = the [AssertionError] thrownBy {
+    val ex = the[AssertionError] thrownBy {
       EnPassantApplier.applyEnPassant(
         board,
         Move(at("e5"), at("d6")),
@@ -68,5 +71,5 @@ class EnPassantApplierSpec extends AnyFlatSpec with Matchers:
       )
     }
 
-    ex.getMessage should include ("Capturing pawn missing after EnPassantValidator")
+    ex.getMessage should include("Capturing pawn missing after EnPassantValidator")
   }

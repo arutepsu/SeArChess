@@ -8,17 +8,18 @@ private[fen] object FenCombinatorGrammar extends RegexParsers, FenGrammar:
   override val skipWhitespace: Boolean = false
 
   def parseRecord(input: String): Either[ParseFailure, FenRecord] =
-    if input.isEmpty then
-      Left(ParseFailure.UnexpectedEndOfInput("FEN string is empty"))
+    if input.isEmpty then Left(ParseFailure.UnexpectedEndOfInput("FEN string is empty"))
     else
       parseAll(fenRecord, input) match
         case Success(record, _) =>
           Right(record)
         case NoSuccess(msg, next) =>
           val pos = next.pos
-          Left(ParseFailure.SyntaxError(
-            s"[line ${pos.line}, column ${pos.column}] failed parsing FEN: $msg"
-          ))
+          Left(
+            ParseFailure.SyntaxError(
+              s"[line ${pos.line}, column ${pos.column}] failed parsing FEN: $msg"
+            )
+          )
 
   private def fenRecord: Parser[FenRecord] =
     piecePlacement ~ space ~ activeColor ~ space ~ castling ~ space ~ enPassant ~ space ~ halfmoveClock ~ space ~ fullmoveNumber ^^ {
@@ -60,15 +61,15 @@ private[fen] object FenCombinatorGrammar extends RegexParsers, FenGrammar:
     }
 
   private def pieceSquare: Parser[FenSquare] =
-    "K" ^^^ FenSquare.Occupied(FenColor.White, FenPieceSymbol.King)   |
-      "Q" ^^^ FenSquare.Occupied(FenColor.White, FenPieceSymbol.Queen)  |
-      "R" ^^^ FenSquare.Occupied(FenColor.White, FenPieceSymbol.Rook)   |
+    "K" ^^^ FenSquare.Occupied(FenColor.White, FenPieceSymbol.King) |
+      "Q" ^^^ FenSquare.Occupied(FenColor.White, FenPieceSymbol.Queen) |
+      "R" ^^^ FenSquare.Occupied(FenColor.White, FenPieceSymbol.Rook) |
       "B" ^^^ FenSquare.Occupied(FenColor.White, FenPieceSymbol.Bishop) |
       "N" ^^^ FenSquare.Occupied(FenColor.White, FenPieceSymbol.Knight) |
-      "P" ^^^ FenSquare.Occupied(FenColor.White, FenPieceSymbol.Pawn)   |
-      "k" ^^^ FenSquare.Occupied(FenColor.Black, FenPieceSymbol.King)   |
-      "q" ^^^ FenSquare.Occupied(FenColor.Black, FenPieceSymbol.Queen)  |
-      "r" ^^^ FenSquare.Occupied(FenColor.Black, FenPieceSymbol.Rook)   |
+      "P" ^^^ FenSquare.Occupied(FenColor.White, FenPieceSymbol.Pawn) |
+      "k" ^^^ FenSquare.Occupied(FenColor.Black, FenPieceSymbol.King) |
+      "q" ^^^ FenSquare.Occupied(FenColor.Black, FenPieceSymbol.Queen) |
+      "r" ^^^ FenSquare.Occupied(FenColor.Black, FenPieceSymbol.Rook) |
       "b" ^^^ FenSquare.Occupied(FenColor.Black, FenPieceSymbol.Bishop) |
       "n" ^^^ FenSquare.Occupied(FenColor.Black, FenPieceSymbol.Knight) |
       "p" ^^^ FenSquare.Occupied(FenColor.Black, FenPieceSymbol.Pawn)

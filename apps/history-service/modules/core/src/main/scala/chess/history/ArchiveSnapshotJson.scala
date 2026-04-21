@@ -28,19 +28,20 @@ object ArchiveSnapshotJson:
         legalMoves = Set.empty
       )
 
-      Right(GameArchiveSnapshot(
-        sessionId       = SessionId(UUID.fromString(json("sessionId").str)),
-        gameId          = gameId,
-        mode            = parseMode(json("mode").str),
-        whiteController = parseController(json("whiteController").str),
-        blackController = parseController(json("blackController").str),
-        closure         = closureFromJson(json("closure")),
-        finalState      = state,
-        createdAt       = Instant.parse(json("createdAt").str),
-        closedAt        = Instant.parse(json("closedAt").str)
-      ))
-    catch
-      case e: Exception => Left(s"Invalid archive snapshot JSON: ${e.getMessage}")
+      Right(
+        GameArchiveSnapshot(
+          sessionId = SessionId(UUID.fromString(json("sessionId").str)),
+          gameId = gameId,
+          mode = parseMode(json("mode").str),
+          whiteController = parseController(json("whiteController").str),
+          blackController = parseController(json("blackController").str),
+          closure = closureFromJson(json("closure")),
+          finalState = state,
+          createdAt = Instant.parse(json("createdAt").str),
+          closedAt = Instant.parse(json("closedAt").str)
+        )
+      )
+    catch case e: Exception => Left(s"Invalid archive snapshot JSON: ${e.getMessage}")
 
   private def closureFromJson(json: ujson.Value): GameClosure =
     json("kind").str match
@@ -51,7 +52,10 @@ object ArchiveSnapshotJson:
       case other       => throw IllegalArgumentException(s"unknown closure kind: $other")
 
   private def pieceFromJson(json: ujson.Value): (Position, Piece) =
-    parsePosition(json("square").str) -> Piece(parseColor(json("color").str), parsePieceType(json("pieceType").str))
+    parsePosition(json("square").str) -> Piece(
+      parseColor(json("color").str),
+      parsePieceType(json("pieceType").str)
+    )
 
   private def moveFromJson(json: ujson.Value): Move =
     Move(
@@ -64,9 +68,9 @@ object ArchiveSnapshotJson:
 
   private def castlingFromJson(json: ujson.Value): CastlingRights =
     CastlingRights(
-      whiteKingSide  = json("whiteKingSide").bool,
+      whiteKingSide = json("whiteKingSide").bool,
       whiteQueenSide = json("whiteQueenSide").bool,
-      blackKingSide  = json("blackKingSide").bool,
+      blackKingSide = json("blackKingSide").bool,
       blackQueenSide = json("blackQueenSide").bool
     )
 
@@ -74,11 +78,13 @@ object ArchiveSnapshotJson:
     json match
       case ujson.Null => None
       case value =>
-        Some(EnPassantState(
-          targetSquare         = parsePosition(value("targetSquare").str),
-          capturablePawnSquare = parsePosition(value("capturablePawnSquare").str),
-          pawnColor            = parseColor(value("pawnColor").str)
-        ))
+        Some(
+          EnPassantState(
+            targetSquare = parsePosition(value("targetSquare").str),
+            capturablePawnSquare = parsePosition(value("capturablePawnSquare").str),
+            pawnColor = parseColor(value("pawnColor").str)
+          )
+        )
 
   private def parseStatus(json: ujson.Value): GameStatus =
     json("status").str match
@@ -89,24 +95,34 @@ object ArchiveSnapshotJson:
       case other       => throw IllegalArgumentException(s"unknown status: $other")
 
   private def parseMode(value: String): SessionMode =
-    SessionMode.values.find(_.toString == value).getOrElse(throw IllegalArgumentException(s"unknown mode: $value"))
+    SessionMode.values
+      .find(_.toString == value)
+      .getOrElse(throw IllegalArgumentException(s"unknown mode: $value"))
 
   private def parseController(value: String): SideController =
     value match
-      case "HumanLocal"  => SideController.HumanLocal
-      case "HumanRemote" => SideController.HumanRemote
-      case "AI"          => SideController.AI(None)
+      case "HumanLocal"             => SideController.HumanLocal
+      case "HumanRemote"            => SideController.HumanRemote
+      case "AI"                     => SideController.AI(None)
       case v if v.startsWith("AI:") => SideController.AI(Some(v.stripPrefix("AI:")))
-      case other => throw IllegalArgumentException(s"unknown controller: $other")
+      case other                    => throw IllegalArgumentException(s"unknown controller: $other")
 
   private def parseColor(value: String): Color =
-    Color.values.find(_.toString == value).getOrElse(throw IllegalArgumentException(s"unknown color: $value"))
+    Color.values
+      .find(_.toString == value)
+      .getOrElse(throw IllegalArgumentException(s"unknown color: $value"))
 
   private def parseDrawReason(value: String): DrawReason =
-    DrawReason.values.find(_.toString == value).getOrElse(throw IllegalArgumentException(s"unknown draw reason: $value"))
+    DrawReason.values
+      .find(_.toString == value)
+      .getOrElse(throw IllegalArgumentException(s"unknown draw reason: $value"))
 
   private def parsePieceType(value: String): PieceType =
-    PieceType.values.find(_.toString == value).getOrElse(throw IllegalArgumentException(s"unknown piece type: $value"))
+    PieceType.values
+      .find(_.toString == value)
+      .getOrElse(throw IllegalArgumentException(s"unknown piece type: $value"))
 
   private def parsePosition(value: String): Position =
-    Position.fromAlgebraic(value).fold(err => throw IllegalArgumentException(err.toString), identity)
+    Position
+      .fromAlgebraic(value)
+      .fold(err => throw IllegalArgumentException(err.toString), identity)

@@ -6,26 +6,25 @@ import java.net.URI
 import scala.util.control.NonFatal
 
 final case class HistoryOutboxDrainResult(
-  readError: Option[String],
-  attempted: Int,
-  delivered: Int,
-  failed: Int
+    readError: Option[String],
+    attempted: Int,
+    delivered: Int,
+    failed: Int
 )
 
 /** Small background drain loop for the Game-to-History outbox.
- *
- *  Delivery is at-least-once. A successful HTTP 2xx response marks the row
- *  delivered. Before each HTTP send, the row is marked attempted. Any failure
- *  records `last_error` and leaves the row pending for the next loop or the
- *  next Game Service restart.
- */
+  *
+  * Delivery is at-least-once. A successful HTTP 2xx response marks the row delivered. Before each
+  * HTTP send, the row is marked attempted. Any failure records `last_error` and leaves the row
+  * pending for the next loop or the next Game Service restart.
+  */
 class HistoryOutboxForwarder(
-  outbox:             HistoryEventOutbox,
-  historyBaseUrl:     String,
-  timeoutMillis:      Int,
-  pollIntervalMillis: Int = 1000,
-  batchSize:          Int = 25,
-  sendJson:           (URI, String, Int) => Unit = HistoryHttpEventPublisher.defaultSend
+    outbox: HistoryEventOutbox,
+    historyBaseUrl: String,
+    timeoutMillis: Int,
+    pollIntervalMillis: Int = 1000,
+    batchSize: Int = 25,
+    sendJson: (URI, String, Int) => Unit = HistoryHttpEventPublisher.defaultSend
 ):
 
   private val endpoint: URI =
@@ -73,7 +72,12 @@ class HistoryOutboxForwarder(
         logWarn("history_outbox_mark_attempted_failed", entry, "error" -> err)
         DeliveryResult.AttemptNotRecorded
       case Right(_) =>
-        logInfo("history_outbox_delivery_attempted", entry, "attempt" -> (entry.attempts + 1), "endpoint" -> endpoint.toString)
+        logInfo(
+          "history_outbox_delivery_attempted",
+          entry,
+          "attempt" -> (entry.attempts + 1),
+          "endpoint" -> endpoint.toString
+        )
         try
           sendJson(endpoint, entry.payloadJson, timeoutMillis)
           outbox.markDelivered(entry.id) match
@@ -81,17 +85,37 @@ class HistoryOutboxForwarder(
               logInfo("history_outbox_delivery_succeeded", entry, "attempt" -> (entry.attempts + 1))
               DeliveryResult.Delivered
             case Left(err) =>
-              logWarn("history_outbox_mark_delivered_failed", entry, "attempt" -> (entry.attempts + 1), "error" -> err)
+              logWarn(
+                "history_outbox_mark_delivered_failed",
+                entry,
+                "attempt" -> (entry.attempts + 1),
+                "error" -> err
+              )
               outbox.markFailed(entry.id, s"mark-delivered failed: $err").left.foreach { markErr =>
-                logWarn("history_outbox_mark_failed_failed", entry, "attempt" -> (entry.attempts + 1), "error" -> markErr)
+                logWarn(
+                  "history_outbox_mark_failed_failed",
+                  entry,
+                  "attempt" -> (entry.attempts + 1),
+                  "error" -> markErr
+                )
               }
               DeliveryResult.Failed
         catch
           case NonFatal(e) =>
             val message = Option(e.getMessage).getOrElse(e.getClass.getSimpleName)
-            logWarn("history_outbox_delivery_failed", entry, "attempt" -> (entry.attempts + 1), "error" -> message)
+            logWarn(
+              "history_outbox_delivery_failed",
+              entry,
+              "attempt" -> (entry.attempts + 1),
+              "error" -> message
+            )
             outbox.markFailed(entry.id, message).left.foreach { err =>
-              logWarn("history_outbox_mark_failed_failed", entry, "attempt" -> (entry.attempts + 1), "error" -> err)
+              logWarn(
+                "history_outbox_mark_failed_failed",
+                entry,
+                "attempt" -> (entry.attempts + 1),
+                "error" -> err
+              )
             }
             DeliveryResult.Failed
 

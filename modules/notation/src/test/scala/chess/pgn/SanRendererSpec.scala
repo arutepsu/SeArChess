@@ -8,41 +8,38 @@ import chess.domain.state.{GameState, GameStateFactory}
 import chess.notation.api.ExportFailure
 
 /** Unit tests for [[SanRenderer.render]].
- *
- *  SanRenderer is private[pgn]; this spec lives in the same package.
- *
- *  Branches targeted:
- *  1. render - no piece at move.from  => SerializationError("move.from", ...)
- *  2. render - applyMove fails        => SerializationError("move", ...)
- *  3. pieceChar King                  => "K"
- *  4. pieceChar Rook                  => "R"
- *  5. disambiguate by rank            => rank digit suffix
- *  6. castling O-O-O                  => "O-O-O"
- *  7. promotion to R, B, N            => "=R", "=B", "=N"
- *  8. check suffix "+"
- *  9. checkmate suffix "#"
- */
+  *
+  * SanRenderer is private[pgn]; this spec lives in the same package.
+  *
+  * Branches targeted:
+  *   1. render - no piece at move.from => SerializationError("move.from", ...) 2. render -
+  *      applyMove fails => SerializationError("move", ...) 3. pieceChar King => "K" 4. pieceChar
+  *      Rook => "R" 5. disambiguate by rank => rank digit suffix 6. castling O-O-O => "O-O-O" 7.
+  *      promotion to R, B, N => "=R", "=B", "=N" 8. check suffix "+" 9. checkmate suffix "#"
+  */
 class SanRendererSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   private def pos(algebraic: String): Position =
-    Position.fromAlgebraic(algebraic)
+    Position
+      .fromAlgebraic(algebraic)
       .getOrElse(throw AssertionError(s"Bad algebraic: $algebraic"))
 
   private def mv(from: String, to: String, promo: Option[PieceType] = None): Move =
     Move(pos(from), pos(to), promo)
 
   private def stateAfter(tokens: String*): GameState =
-    PgnReplayService.replayFrom(GameStateFactory.initial(), tokens.toVector)
+    PgnReplayService
+      .replayFrom(GameStateFactory.initial(), tokens.toVector)
       .getOrElse(throw AssertionError(s"Replay failed for: ${tokens.mkString(" ")}"))
 
-  /** Minimal position with a White pawn on c7 and c8 empty, ready for a
-   *  straight promotion.  Kings are placed so no side is in check.
-   *
-   *  Note: the earlier sequence "dxc7" / "O-O" leaves Black's c8 bishop on c8,
-   *  blocking the straight push.  This direct setup avoids that ambiguity.
-   */
+  /** Minimal position with a White pawn on c7 and c8 empty, ready for a straight promotion. Kings
+    * are placed so no side is in check.
+    *
+    * Note: the earlier sequence "dxc7" / "O-O" leaves Black's c8 bishop on c8, blocking the
+    * straight push. This direct setup avoids that ambiguity.
+    */
   private val promoState: GameState =
     val board = Board.empty
       .place(pos("c7"), Piece(Color.White, PieceType.Pawn))
@@ -53,15 +50,15 @@ class SanRendererSpec extends AnyFlatSpec with Matchers with EitherValues:
   // ── 1. No piece at move.from ──────────────────────────────────────────────
 
   "SanRenderer.render" should "return SerializationError when no piece exists at move.from" in {
-    val state  = GameStateFactory.initial()
+    val state = GameStateFactory.initial()
     val result = SanRenderer.render(state, mv("e4", "e5"))
-    val err    = result.left.value.asInstanceOf[ExportFailure.SerializationError]
-    err.field   shouldBe "move.from"
+    val err = result.left.value.asInstanceOf[ExportFailure.SerializationError]
+    err.field shouldBe "move.from"
     err.message should include("e4")
   }
 
   it should "include the from-square in the SerializationError message" in {
-    val state  = GameStateFactory.initial()
+    val state = GameStateFactory.initial()
     val result = SanRenderer.render(state, mv("d5", "d6"))
     result.left.value.message should include("d5")
   }
@@ -70,14 +67,14 @@ class SanRendererSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   it should "return SerializationError with field 'move' when applyMove fails" in {
     val result = SanRenderer.render(promoState, mv("c7", "c8"))
-    val err    = result.left.value.asInstanceOf[ExportFailure.SerializationError]
+    val err = result.left.value.asInstanceOf[ExportFailure.SerializationError]
     err.field shouldBe "move"
     err.message should include("c7")
   }
   // ── 3. King prefix ────────────────────────────────────────────────────────
 
   it should "prefix King moves with 'K'" in {
-    val state  = stateAfter("e4", "e5", "Nf3", "Nc6", "Be2", "Nf6", "O-O")
+    val state = stateAfter("e4", "e5", "Nf3", "Nc6", "Be2", "Nf6", "O-O")
     val result = SanRenderer.render(state, mv("g1", "h1"))
     result.value shouldBe "Kh1"
   }
@@ -85,7 +82,7 @@ class SanRendererSpec extends AnyFlatSpec with Matchers with EitherValues:
   // ── 4. Rook prefix ───────────────────────────────────────────────────────
 
   it should "prefix Rook moves with 'R'" in {
-    val state  = stateAfter("e4", "e5", "Nf3", "Nc6", "Be2", "Nf6", "O-O")
+    val state = stateAfter("e4", "e5", "Nf3", "Nc6", "Be2", "Nf6", "O-O")
     val result = SanRenderer.render(state, mv("f1", "e1"))
     result.value shouldBe "Re1"
   }
@@ -105,7 +102,7 @@ class SanRendererSpec extends AnyFlatSpec with Matchers with EitherValues:
       .place(pos("a3"), Piece(Color.White, PieceType.Rook))
       .place(pos("e1"), Piece(Color.White, PieceType.King))
       .place(pos("e8"), Piece(Color.Black, PieceType.King))
-    val state  = GameStateFactory.initial().copy(board = board)
+    val state = GameStateFactory.initial().copy(board = board)
     val result = SanRenderer.render(state, mv("a1", "a2"))
     result.value shouldBe "R1a2"
   }
@@ -113,13 +110,13 @@ class SanRendererSpec extends AnyFlatSpec with Matchers with EitherValues:
   // ── 6. Queen-side castling ────────────────────────────────────────────────
 
   it should "render queen-side castling as 'O-O-O'" in {
-    val state  = stateAfter("d4", "d5", "Nc3", "Nc6", "Bf4", "Bf5", "Qd2", "Qd7")
+    val state = stateAfter("d4", "d5", "Nc3", "Nc6", "Bf4", "Bf5", "Qd2", "Qd7")
     val result = SanRenderer.render(state, mv("e1", "c1"))
     result.value shouldBe "O-O-O"
   }
 
   it should "render king-side castling as 'O-O'" in {
-    val state  = stateAfter("e4", "e5", "Nf3", "d6", "Be2", "Be7")
+    val state = stateAfter("e4", "e5", "Nf3", "d6", "Be2", "Be7")
     val result = SanRenderer.render(state, mv("e1", "g1"))
     result.value shouldBe "O-O"
   }
@@ -145,7 +142,7 @@ class SanRendererSpec extends AnyFlatSpec with Matchers with EitherValues:
   // ── 8. Check suffix "+" ───────────────────────────────────────────────────
 
   it should "append '+' for a move that gives check" in {
-    val state  = stateAfter("e4", "d5")
+    val state = stateAfter("e4", "d5")
     val result = SanRenderer.render(state, mv("f1", "b5"))
     result.value shouldBe "Bb5+"
   }
@@ -153,7 +150,7 @@ class SanRendererSpec extends AnyFlatSpec with Matchers with EitherValues:
   // ── 9. Checkmate suffix "#" ───────────────────────────────────────────────
 
   it should "append '#' for the final move of fool's mate" in {
-    val state  = stateAfter("f3", "e5", "g4")
+    val state = stateAfter("f3", "e5", "g4")
     val result = SanRenderer.render(state, mv("d8", "h4"))
     result.value shouldBe "Qh4#"
   }
@@ -161,19 +158,19 @@ class SanRendererSpec extends AnyFlatSpec with Matchers with EitherValues:
   // ── Piece chars: Queen, Bishop, Knight ───────────────────────────────────
 
   it should "prefix Queen moves with 'Q'" in {
-    val state  = stateAfter("d4", "d5")
+    val state = stateAfter("d4", "d5")
     val result = SanRenderer.render(state, mv("d1", "d3"))
     result.value shouldBe "Qd3"
   }
 
   it should "prefix Bishop moves with 'B'" in {
-    val state  = stateAfter("e4", "e5")
+    val state = stateAfter("e4", "e5")
     val result = SanRenderer.render(state, mv("f1", "c4"))
     result.value shouldBe "Bc4"
   }
 
   it should "prefix Knight moves with 'N'" in {
-    val state  = GameStateFactory.initial()
+    val state = GameStateFactory.initial()
     val result = SanRenderer.render(state, mv("g1", "f3"))
     result.value shouldBe "Nf3"
   }
@@ -181,7 +178,7 @@ class SanRendererSpec extends AnyFlatSpec with Matchers with EitherValues:
   // ── No suffix for quiet move ──────────────────────────────────────────────
 
   it should "return no suffix for a quiet move that leaves the game ongoing" in {
-    val state  = GameStateFactory.initial()
+    val state = GameStateFactory.initial()
     val result = SanRenderer.render(state, mv("e2", "e4"))
     result.value shouldBe "e4"
   }

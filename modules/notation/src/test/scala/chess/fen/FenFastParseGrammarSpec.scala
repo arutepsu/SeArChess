@@ -167,7 +167,9 @@ final class FenFastParseGrammarSpec extends AnyFlatSpec with Matchers with Eithe
 
   it should "reject fullmove number zero" in {
     parse("8/8/8/8/8/8/8/8 w - - 0 0").left.value shouldBe a[ParseFailure.SyntaxError]
-    syntaxErrorMessage("8/8/8/8/8/8/8/8 w - - 0 0") should include("fullmove number must be a positive integer")
+    syntaxErrorMessage("8/8/8/8/8/8/8/8 w - - 0 0") should include(
+      "fullmove number must be a positive integer"
+    )
   }
 
   it should "reject non-numeric fullmove number" in {
@@ -188,12 +190,16 @@ final class FenFastParseGrammarSpec extends AnyFlatSpec with Matchers with Eithe
 
   it should "reject a rank that expands to 7 squares" in {
     parse("7/8/8/8/8/8/8/8 w - - 0 1").left.value shouldBe a[ParseFailure.SyntaxError]
-    syntaxErrorMessage("7/8/8/8/8/8/8/8 w - - 0 1") should include("rank expands to 7 squares; expected 8")
+    syntaxErrorMessage("7/8/8/8/8/8/8/8 w - - 0 1") should include(
+      "rank expands to 7 squares; expected 8"
+    )
   }
 
   it should "reject a rank that expands to 9 squares" in {
     parse("81/8/8/8/8/8/8/8 w - - 0 1").left.value shouldBe a[ParseFailure.SyntaxError]
-    syntaxErrorMessage("81/8/8/8/8/8/8/8 w - - 0 1") should include("rank expands to 9 squares; expected 8")
+    syntaxErrorMessage("81/8/8/8/8/8/8/8 w - - 0 1") should include(
+      "rank expands to 9 squares; expected 8"
+    )
   }
 
   it should "reject illegal piece symbols" in {

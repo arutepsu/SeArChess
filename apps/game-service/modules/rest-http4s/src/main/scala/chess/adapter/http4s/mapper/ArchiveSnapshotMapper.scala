@@ -9,30 +9,30 @@ object ArchiveSnapshotMapper:
 
   def toResponse(snapshot: GameArchiveSnapshot): ArchiveSnapshotResponse =
     ArchiveSnapshotResponse(
-      sessionId       = snapshot.sessionId.value.toString,
-      gameId          = snapshot.gameId.value.toString,
-      mode            = snapshot.mode.toString,
+      sessionId = snapshot.sessionId.value.toString,
+      gameId = snapshot.gameId.value.toString,
+      mode = snapshot.mode.toString,
       whiteController = controllerString(snapshot.whiteController),
       blackController = controllerString(snapshot.blackController),
-      closure         = closureResponse(snapshot.closure),
-      finalState      = ArchiveGameStateResponse(
+      closure = closureResponse(snapshot.closure),
+      finalState = ArchiveGameStateResponse(
         game = GameMapper.toGameResponse(snapshot.finalState),
         castlingRights = CastlingRightsDto(
-          whiteKingSide  = snapshot.finalState.castlingRights.whiteKingSide,
+          whiteKingSide = snapshot.finalState.castlingRights.whiteKingSide,
           whiteQueenSide = snapshot.finalState.castlingRights.whiteQueenSide,
-          blackKingSide  = snapshot.finalState.castlingRights.blackKingSide,
+          blackKingSide = snapshot.finalState.castlingRights.blackKingSide,
           blackQueenSide = snapshot.finalState.castlingRights.blackQueenSide
         ),
         enPassant = snapshot.finalState.enPassantState.map(ep =>
           EnPassantDto(
-            targetSquare         = ep.targetSquare.toString,
+            targetSquare = ep.targetSquare.toString,
             capturablePawnSquare = ep.capturablePawnSquare.toString,
-            pawnColor            = ep.pawnColor.toString
+            pawnColor = ep.pawnColor.toString
           )
         )
       ),
-      createdAt       = snapshot.createdAt.toString,
-      closedAt        = snapshot.closedAt.toString
+      createdAt = snapshot.createdAt.toString,
+      closedAt = snapshot.closedAt.toString
     )
 
   private def closureResponse(closure: GameClosure): ArchiveClosureResponse = closure match

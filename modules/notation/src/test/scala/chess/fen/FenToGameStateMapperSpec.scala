@@ -9,11 +9,15 @@ import chess.domain.state.{CastlingRights, EnPassantState}
 import org.scalatest.OptionValues
 
 /** Unit tests for [[FenToGameStateMapper]].
- *
- *  Uses [[FenParser.parse]] to obtain valid [[chess.notation.api.FenData]] values
- *  without hand-constructing them.
- */
-class FenToGameStateMapperSpec extends AnyFlatSpec with Matchers with EitherValues with OptionValues:
+  *
+  * Uses [[FenParser.parse]] to obtain valid [[chess.notation.api.FenData]] values without
+  * hand-constructing them.
+  */
+class FenToGameStateMapperSpec
+    extends AnyFlatSpec
+    with Matchers
+    with EitherValues
+    with OptionValues:
 
   private def data(fen: String) =
     FenParser.parse(fen).value.asInstanceOf[ParsedNotation.ParsedFen].data
@@ -88,9 +92,9 @@ class FenToGameStateMapperSpec extends AnyFlatSpec with Matchers with EitherValu
 
   it should "map partial castling 'Kq'" in {
     val cr = map("r3k2r/8/8/8/8/8/8/4K2R w Kq - 0 1").castlingRights
-    cr.whiteKingSide  shouldBe true
+    cr.whiteKingSide shouldBe true
     cr.whiteQueenSide shouldBe false
-    cr.blackKingSide  shouldBe false
+    cr.blackKingSide shouldBe false
     cr.blackQueenSide shouldBe true
   }
 
@@ -104,18 +108,18 @@ class FenToGameStateMapperSpec extends AnyFlatSpec with Matchers with EitherValu
     // After 1.e4: target = e3, White's pawn is on e4
     val state = map("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
     val ep = state.enPassantState.value
-    ep.targetSquare         shouldBe pos(4, 2)   // e3
-    ep.capturablePawnSquare shouldBe pos(4, 3)   // e4
-    ep.pawnColor            shouldBe Color.White
+    ep.targetSquare shouldBe pos(4, 2) // e3
+    ep.capturablePawnSquare shouldBe pos(4, 3) // e4
+    ep.pawnColor shouldBe Color.White
   }
 
   it should "produce a correct EnPassantState when White is to move (Black advanced)" in {
     // After 1...d5: target = d6, Black's pawn is on d5
     val state = map("rnbqkbnr/ppp1pppp/8/3p4/8/8/PPPPPPPP/RNBQKBNR w KQkq d6 0 1")
     val ep = state.enPassantState.value
-    ep.targetSquare         shouldBe pos(3, 5)   // d6
-    ep.capturablePawnSquare shouldBe pos(3, 4)   // d5
-    ep.pawnColor            shouldBe Color.Black
+    ep.targetSquare shouldBe pos(3, 5) // d6
+    ep.capturablePawnSquare shouldBe pos(3, 4) // d5
+    ep.pawnColor shouldBe Color.Black
   }
 
   // ── Mandatory snapshot fields ────────────────────────────────────────────────
@@ -145,7 +149,8 @@ class FenToGameStateMapperSpec extends AnyFlatSpec with Matchers with EitherValu
   // ── Status derivation ────────────────────────────────────────────────────────
 
   it should "derive Ongoing status for the initial position" in {
-    map("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").status shouldBe GameStatus.Ongoing(false)
+    map("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").status shouldBe GameStatus
+      .Ongoing(false)
   }
 
   it should "derive Check status for a position where the king is in check" in {

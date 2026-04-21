@@ -11,7 +11,8 @@ class VisualResolverSpec extends AnyFlatSpec with Matchers:
   private def resolve(color: Color, pt: PieceType, state: VisualState): VisualDescriptor =
     VisualResolver.resolve(PieceVisualId(color, pt, state))
 
-  private def idleWhite(pt: PieceType): VisualDescriptor = resolve(Color.White, pt, VisualState.Idle)
+  private def idleWhite(pt: PieceType): VisualDescriptor =
+    resolve(Color.White, pt, VisualState.Idle)
 
   // ── Asset key — all piece types (White / Idle, covers pieceType branches) ──
 
@@ -42,17 +43,29 @@ class VisualResolverSpec extends AnyFlatSpec with Matchers:
   // ── Asset key — Black color branch ──────────────────────────────────────────
 
   it should "produce the correct asset key for a black king (Idle)" in {
-    resolve(Color.Black, PieceType.King, VisualState.Idle).assetKey shouldBe "classic/black_king_idle"
+    resolve(
+      Color.Black,
+      PieceType.King,
+      VisualState.Idle
+    ).assetKey shouldBe "classic/black_king_idle"
   }
 
   // ── Asset key — all visual states (White / King, covers state branches) ─────
 
   it should "produce the correct asset key for a Move state" in {
-    resolve(Color.White, PieceType.King, VisualState.Move).assetKey shouldBe "classic/white_king_move"
+    resolve(
+      Color.White,
+      PieceType.King,
+      VisualState.Move
+    ).assetKey shouldBe "classic/white_king_move"
   }
 
   it should "produce the correct asset key for an Attack state" in {
-    resolve(Color.White, PieceType.King, VisualState.Attack).assetKey shouldBe "classic/white_king_attack"
+    resolve(
+      Color.White,
+      PieceType.King,
+      VisualState.Attack
+    ).assetKey shouldBe "classic/white_king_attack"
   }
 
   it should "produce the correct asset key for a Hit state" in {
@@ -60,7 +73,11 @@ class VisualResolverSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "produce the correct asset key for a Dead state" in {
-    resolve(Color.White, PieceType.King, VisualState.Dead).assetKey shouldBe "classic/white_king_dead"
+    resolve(
+      Color.White,
+      PieceType.King,
+      VisualState.Dead
+    ).assetKey shouldBe "classic/white_king_dead"
   }
 
   // ── Descriptor carries only key and fallback — no sprite-sheet metadata ────
@@ -75,7 +92,7 @@ class VisualResolverSpec extends AnyFlatSpec with Matchers:
   it should "match the PieceSymbol fallback for all piece type + color combinations" in {
     for
       color <- Seq(Color.White, Color.Black)
-      pt    <- PieceType.values
+      pt <- PieceType.values
     do
       val descriptor = resolve(color, pt, VisualState.Idle)
       descriptor.fallbackSymbol shouldBe PieceSymbol.symbol(color, pt)

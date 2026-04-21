@@ -10,7 +10,7 @@ object StatusRenderer:
 
   def create(vm: GameViewModel): Label =
     val lbl = new Label:
-      font  = Font("System Bold", 16)
+      font = Font("System Bold", 16)
       style = "-fx-padding: 8 12 8 12;"
     update(lbl, vm)
     lbl

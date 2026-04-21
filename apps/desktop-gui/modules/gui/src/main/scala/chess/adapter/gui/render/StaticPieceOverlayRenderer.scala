@@ -10,19 +10,19 @@ import scalafx.scene.layout.Pane
 import scala.collection.mutable
 
 /** Renders all non-animated board pieces on a separate mouse-transparent overlay.
- *
- *  This decouples visual sprite size from board hit detection. Board clicks are
- *  handled entirely by the background grid; pieces are pure visuals here.
- *
- *  Static pieces continuously loop through their Idle animation frames.
- */
+  *
+  * This decouples visual sprite size from board hit detection. Board clicks are handled entirely by
+  * the background grid; pieces are pure visuals here.
+  *
+  * Static pieces continuously loop through their Idle animation frames.
+  */
 object StaticPieceOverlayRenderer:
 
   /** Idle playback speed in frames per second. */
   private val IdleFps: Double = 6.0
 
-  private val paneState   = mutable.Map.empty[Pane, (GameViewModel, Option[Position])]
-  private val paneTimers  = mutable.Map.empty[Pane, JfxAnimationTimer]
+  private val paneState = mutable.Map.empty[Pane, (GameViewModel, Option[Position])]
+  private val paneTimers = mutable.Map.empty[Pane, JfxAnimationTimer]
 
   def create(
       vm: GameViewModel,
@@ -31,9 +31,9 @@ object StaticPieceOverlayRenderer:
   ): Pane =
     val pane = new Pane:
       mouseTransparent = true
-      pickOnBounds     = false
-      prefWidth        = BoardRenderer.SquareSize * 8
-      prefHeight       = BoardRenderer.SquareSize * 8
+      pickOnBounds = false
+      prefWidth = BoardRenderer.SquareSize * 8
+      prefHeight = BoardRenderer.SquareSize * 8
 
     paneState.update(pane, (vm, suppressPos))
     startIdleLoopIfNeeded(pane, factory)
@@ -81,7 +81,7 @@ object StaticPieceOverlayRenderer:
       val x = col * BoardRenderer.SquareSize
       val y = row * BoardRenderer.SquareSize
 
-      val id         = PieceVisualId(color, pieceType, VisualState.Idle)
+      val id = PieceVisualId(color, pieceType, VisualState.Idle)
       val frameCount = factory.frameCountFor(id)
       val frameIndex =
         if frameCount <= 1 then 0
@@ -89,12 +89,12 @@ object StaticPieceOverlayRenderer:
 
       val pieceNode =
         factory.positioned(
-          id         = id,
-          x          = x,
-          y          = y,
+          id = id,
+          x = x,
+          y = y,
           squareSize = BoardRenderer.SquareSize,
           frameIndex = frameIndex,
-          flipX      = PieceFacingPolicy.flipX(color)
+          flipX = PieceFacingPolicy.flipX(color)
         )
 
       pieceNode.mouseTransparent = true

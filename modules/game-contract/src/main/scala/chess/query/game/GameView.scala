@@ -6,21 +6,21 @@ import chess.domain.rules.GameStateRules
 import chess.domain.state.{CastlingRights, EnPassantState, GameState}
 
 /** Contract read model for the current or final state of a Game Service game.
- *
- *  This is intentionally not a REST DTO. Game Service maps it to transport
- *  payloads, while downstream services can use it as a boundary snapshot.
- */
+  *
+  * This is intentionally not a REST DTO. Game Service maps it to transport payloads, while
+  * downstream services can use it as a boundary snapshot.
+  */
 final case class GameView(
-  gameId:         GameId,
-  currentPlayer:  Color,
-  status:         GameStatus,
-  board:          Seq[(Position, Piece)],
-  moveHistory:    List[Move],
-  castlingRights: CastlingRights,
-  enPassantState: Option[EnPassantState],
-  halfmoveClock:  Int,
-  fullmoveNumber: Int,
-  legalMoves:     Set[Move]
+    gameId: GameId,
+    currentPlayer: Color,
+    status: GameStatus,
+    board: Seq[(Position, Piece)],
+    moveHistory: List[Move],
+    castlingRights: CastlingRights,
+    enPassantState: Option[EnPassantState],
+    halfmoveClock: Int,
+    fullmoveNumber: Int,
+    legalMoves: Set[Move]
 ):
   /** Reconstruct a domain [[GameState]] from this view. */
   def toGameState: GameState =
@@ -28,27 +28,27 @@ final case class GameView(
       b.place(pos, piece)
     }
     GameState(
-      board          = reconstructedBoard,
-      currentPlayer  = currentPlayer,
-      moveHistory    = moveHistory,
-      status         = status,
+      board = reconstructedBoard,
+      currentPlayer = currentPlayer,
+      moveHistory = moveHistory,
+      status = status,
       castlingRights = castlingRights,
       enPassantState = enPassantState,
-      halfmoveClock  = halfmoveClock,
+      halfmoveClock = halfmoveClock,
       fullmoveNumber = fullmoveNumber
     )
 
 object GameView:
   def fromState(gameId: GameId, state: GameState): GameView =
     GameView(
-      gameId         = gameId,
-      currentPlayer  = state.currentPlayer,
-      status         = state.status,
-      board          = state.board.pieces,
-      moveHistory    = state.moveHistory,
+      gameId = gameId,
+      currentPlayer = state.currentPlayer,
+      status = state.status,
+      board = state.board.pieces,
+      moveHistory = state.moveHistory,
       castlingRights = state.castlingRights,
       enPassantState = state.enPassantState,
-      halfmoveClock  = state.halfmoveClock,
+      halfmoveClock = state.halfmoveClock,
       fullmoveNumber = state.fullmoveNumber,
-      legalMoves     = GameStateRules.legalMoves(state)
+      legalMoves = GameStateRules.legalMoves(state)
     )

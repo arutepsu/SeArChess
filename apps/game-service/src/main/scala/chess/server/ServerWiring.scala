@@ -34,10 +34,14 @@ object ServerWiring:
     val httpApp: HttpApp[IO] =
       CorsMiddleware(config.cors, composedApp)
 
-    val host = Host.fromString(config.http.host)
+    val host = Host
+      .fromString(config.http.host)
       .getOrElse(throw RuntimeException(s"[chess] Invalid HTTP host: '${config.http.host}'"))
-    val port = Port.fromInt(config.http.port)
-      .getOrElse(throw RuntimeException(s"[chess] HTTP port out of ip4s range: ${config.http.port}"))
+    val port = Port
+      .fromInt(config.http.port)
+      .getOrElse(
+        throw RuntimeException(s"[chess] HTTP port out of ip4s range: ${config.http.port}")
+      )
 
     val (_, shutdownHttp) =
       EmberServerBuilder
@@ -55,11 +59,13 @@ object ServerWiring:
     GameServiceComposition.withAi(baseCtx, events)
 
   private[server] def withServerAi(
-    baseCtx: AppContext,
-    events:  EventWiring,
-    config:  AiConfig
+      baseCtx: AppContext,
+      events: EventWiring,
+      config: AiConfig
   ): AppContext =
     GameServiceComposition.withAi(baseCtx, events, config)
 
-  private[server] def aiClientFor(config: AiConfig): Option[chess.application.port.ai.AiMoveSuggestionClient] =
+  private[server] def aiClientFor(
+      config: AiConfig
+  ): Option[chess.application.port.ai.AiMoveSuggestionClient] =
     GameServiceComposition.aiClientFor(config)

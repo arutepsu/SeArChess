@@ -7,14 +7,14 @@ import org.scalatest.matchers.should.Matchers
 class AnimationStateSpec extends AnyFlatSpec with Matchers:
 
   private def mkPos(f: Int, r: Int): Position =
-    Position.from(f, r).getOrElse(throw AssertionError(s"Bad pos: $f,$r"))
+    Position.from(f, r).getOrElse(scala.sys.error(s"Bad pos: $f,$r"))
 
   private val from = mkPos(0, 1)
-  private val to   = mkPos(0, 3)
+  private val to = mkPos(0, 3)
   private val plan = AnimationPlan(
-    movingPiece   = (Color.White, PieceType.Pawn),
-    from          = from,
-    to            = to,
+    movingPiece = (Color.White, PieceType.Pawn),
+    from = from,
+    to = to,
     capturedPiece = None
   )
 

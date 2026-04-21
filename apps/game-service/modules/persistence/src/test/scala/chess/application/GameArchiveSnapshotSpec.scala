@@ -1,7 +1,11 @@
 package chess.application
 
 import chess.adapter.event.CollectingEventPublisher
-import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionGameStore, InMemorySessionRepository}
+import chess.adapter.repository.{
+  InMemoryGameRepository,
+  InMemorySessionGameStore,
+  InMemorySessionRepository
+}
 import chess.application.query.game.{GameArchiveSnapshot, GameClosure}
 import chess.application.session.model.{SessionMode, SideController}
 import chess.application.session.model.SessionIds.GameId
@@ -13,30 +17,33 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 /** Tests for [[DefaultGameService.getArchiveSnapshot]].
- *
- *  Terminal state setup:
- *  - Resigned  — via `svc.resignGame`, which correctly sets `GameStatus.Resigned`
- *  - Cancelled — via `svc.cancelSession`, which leaves state `Ongoing`
- *  - Checkmate / Draw — state saved directly to `gameRepo` then session closed
- *    via `cancelSession`; snapshot derives closure from `state.status`
- */
+  *
+  * Terminal state setup:
+  *   - Resigned — via `svc.resignGame`, which correctly sets `GameStatus.Resigned`
+  *   - Cancelled — via `svc.cancelSession`, which leaves state `Ongoing`
+  *   - Checkmate / Draw — state saved directly to `gameRepo` then session closed via
+  *     `cancelSession`; snapshot derives closure from `state.status`
+  */
 class GameArchiveSnapshotSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   private def freshFixture() =
-    val collector   = CollectingEventPublisher()
+    val collector = CollectingEventPublisher()
     val sessionRepo = new InMemorySessionRepository
-    val gameRepo    = new InMemoryGameRepository
-    val store       = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val svc         = DefaultGameService(
-      commands       = new SessionGameService(new SessionService(sessionRepo, collector), store, collector),
+    val gameRepo = new InMemoryGameRepository
+    val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val svc = DefaultGameService(
+      commands =
+        new SessionGameService(new SessionService(sessionRepo, collector), store, collector),
       sessionService = new SessionService(sessionRepo, collector),
       gameRepository = gameRepo,
-      publisher      = collector
+      publisher = collector
     )
     (svc, gameRepo)
 
   private def createHvH(svc: DefaultGameService) =
-    svc.createGame(SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal).value
+    svc
+      .createGame(SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal)
+      .value
 
   // ── Resigned ───────────────────────────────────────────────────────────────
 
@@ -47,10 +54,10 @@ class GameArchiveSnapshotSpec extends AnyFlatSpec with Matchers with EitherValue
     svc.resignGame(session.sessionId, Color.White).value
 
     val snap = svc.getArchiveSnapshot(session.gameId).value
-    snap.closure          shouldBe GameClosure.Resigned(Color.Black)
-    snap.gameId           shouldBe session.gameId
-    snap.sessionId        shouldBe session.sessionId
-    snap.mode             shouldBe SessionMode.HumanVsHuman
+    snap.closure shouldBe GameClosure.Resigned(Color.Black)
+    snap.gameId shouldBe session.gameId
+    snap.sessionId shouldBe session.sessionId
+    snap.mode shouldBe SessionMode.HumanVsHuman
   }
 
   it should "return Resigned(White) closure when Black resigns" in {
@@ -74,7 +81,9 @@ class GameArchiveSnapshotSpec extends AnyFlatSpec with Matchers with EitherValue
 
     val snap = svc.getArchiveSnapshot(session.gameId).value
     snap.finalState.moveHistory should have size 1
-    snap.finalState.moveHistory.head.from shouldBe chess.domain.model.Position.fromAlgebraic("e2").value
+    snap.finalState.moveHistory.head.from shouldBe chess.domain.model.Position
+      .fromAlgebraic("e2")
+      .value
   }
 
   // ── Cancelled ──────────────────────────────────────────────────────────────
@@ -95,8 +104,8 @@ class GameArchiveSnapshotSpec extends AnyFlatSpec with Matchers with EitherValue
     svc.cancelSession(session.sessionId).value
 
     val snap = svc.getArchiveSnapshot(session.gameId).value
-    snap.finalState.board         should have size 32
-    snap.finalState.moveHistory   shouldBe empty
+    snap.finalState.board should have size 32
+    snap.finalState.moveHistory shouldBe empty
   }
 
   // ── Checkmate ──────────────────────────────────────────────────────────────
@@ -107,7 +116,7 @@ class GameArchiveSnapshotSpec extends AnyFlatSpec with Matchers with EitherValue
 
     val checkmateState = GameStateFactory.initial().copy(status = GameStatus.Checkmate(Color.White))
     gameRepo.save(session.gameId, checkmateState).value
-    svc.cancelSession(session.sessionId).value  // close the session
+    svc.cancelSession(session.sessionId).value // close the session
 
     val snap = svc.getArchiveSnapshot(session.gameId).value
     snap.closure shouldBe GameClosure.Checkmate(Color.White)
@@ -133,7 +142,9 @@ class GameArchiveSnapshotSpec extends AnyFlatSpec with Matchers with EitherValue
     val (svc, _) = freshFixture()
     val (_, session) = createHvH(svc)
 
-    svc.getArchiveSnapshot(session.gameId).left.value shouldBe ArchiveError.GameNotClosed(session.gameId)
+    svc.getArchiveSnapshot(session.gameId).left.value shouldBe ArchiveError.GameNotClosed(
+      session.gameId
+    )
   }
 
   // ── Unknown id ─────────────────────────────────────────────────────────────
@@ -148,26 +159,31 @@ class GameArchiveSnapshotSpec extends AnyFlatSpec with Matchers with EitherValue
   // ── Session metadata ───────────────────────────────────────────────────────
 
   it should "include correct controller metadata in the snapshot" in {
-    val collector   = CollectingEventPublisher()
+    val collector = CollectingEventPublisher()
     val sessionRepo = new InMemorySessionRepository
-    val gameRepo    = new InMemoryGameRepository
-    val store       = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val svc         = DefaultGameService(
-      commands       = new SessionGameService(new SessionService(sessionRepo, collector), store, collector),
+    val gameRepo = new InMemoryGameRepository
+    val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val svc = DefaultGameService(
+      commands =
+        new SessionGameService(new SessionService(sessionRepo, collector), store, collector),
       sessionService = new SessionService(sessionRepo, collector),
       gameRepository = gameRepo,
-      publisher      = collector
+      publisher = collector
     )
 
-    val (_, session) = svc.createGame(
-      SessionMode.HumanVsAI, SideController.HumanLocal, SideController.AI()
-    ).value
+    val (_, session) = svc
+      .createGame(
+        SessionMode.HumanVsAI,
+        SideController.HumanLocal,
+        SideController.AI()
+      )
+      .value
     svc.cancelSession(session.sessionId).value
 
     val snap = svc.getArchiveSnapshot(session.gameId).value
-    snap.mode             shouldBe SessionMode.HumanVsAI
-    snap.whiteController  shouldBe SideController.HumanLocal
-    snap.blackController  shouldBe SideController.AI()
+    snap.mode shouldBe SessionMode.HumanVsAI
+    snap.whiteController shouldBe SideController.HumanLocal
+    snap.blackController shouldBe SideController.AI()
   }
 
   it should "set closedAt from session updatedAt at close time" in {
@@ -178,6 +194,6 @@ class GameArchiveSnapshotSpec extends AnyFlatSpec with Matchers with EitherValue
 
     val snap = svc.getArchiveSnapshot(session.gameId).value
     snap.createdAt shouldBe session.createdAt
-    snap.closedAt  shouldBe closeTime
-    snap.closedAt  should be > snap.createdAt
+    snap.closedAt shouldBe closeTime
+    snap.closedAt should be > snap.createdAt
   }

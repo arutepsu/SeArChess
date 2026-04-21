@@ -23,8 +23,8 @@ class HistoryOutboxSpec extends AnyFlatSpec with Matchers with OptionValues:
     AppEvent.GameFinished(sid, gid, GameStatus.Draw(DrawReason.Stalemate))
 
   private def nonTerminalEvent: AppEvent.MoveApplied =
-    val e2 = Position.from(4, 1).toOption.get
-    val e4 = Position.from(4, 3).toOption.get
+    val e2 = Position.from(4, 1).toOption.getOrElse(fail("invalid position (4,1)"))
+    val e4 = Position.from(4, 3).toOption.getOrElse(fail("invalid position (4,3)"))
     AppEvent.MoveApplied(sid, gid, Move(e2, e4), Color.White)
 
   "DurableHistoryEventPublisher" should "write terminal events to the outbox" in {
@@ -32,7 +32,7 @@ class HistoryOutboxSpec extends AnyFlatSpec with Matchers with OptionValues:
     try
       DurableHistoryEventPublisher(outbox).publish(terminalEvent)
 
-      val pending = outbox.pending(10).toOption.get
+      val pending = outbox.pending(10).toOption.getOrElse(fail("pending() returned Left"))
       pending should have size 1
       pending.head.eventType shouldBe "game.finished.v1"
       pending.head.sessionId shouldBe sid.value.toString
@@ -46,7 +46,7 @@ class HistoryOutboxSpec extends AnyFlatSpec with Matchers with OptionValues:
     try
       DurableHistoryEventPublisher(outbox).publish(nonTerminalEvent)
 
-      outbox.pending(10).toOption.get shouldBe empty
+      outbox.pending(10).toOption.getOrElse(fail("pending() returned Left")) shouldBe empty
     finally outbox.close()
   }
 
@@ -66,15 +66,15 @@ class HistoryOutboxSpec extends AnyFlatSpec with Matchers with OptionValues:
 
   "HistoryOutboxForwarder" should "mark an entry delivered after successful POST" in {
     val outbox = SqliteHistoryEventOutbox(tempDb())
-    val posts  = mutable.Buffer.empty[(URI, String, Int)]
+    val posts = mutable.Buffer.empty[(URI, String, Int)]
     try
       DurableHistoryEventPublisher(outbox).publish(AppEvent.GameResigned(sid, gid, Color.Black))
 
       val forwarder = HistoryOutboxForwarder(
-        outbox         = outbox,
+        outbox = outbox,
         historyBaseUrl = "http://history.local:8081/",
-        timeoutMillis  = 777,
-        sendJson       = (uri, json, timeout) => posts += ((uri, json, timeout))
+        timeoutMillis = 777,
+        sendJson = (uri, json, timeout) => posts += ((uri, json, timeout))
       )
       val result = forwarder.runOnce()
 
@@ -84,7 +84,7 @@ class HistoryOutboxSpec extends AnyFlatSpec with Matchers with OptionValues:
       result.failed shouldBe 0
       posts.head._1.toString shouldBe s"http://history.local:8081${GameHistoryIngestionContract.GameEventsPath}"
       posts.head._3 shouldBe 777
-      outbox.pending(10).toOption.get shouldBe empty
+      outbox.pending(10).toOption.getOrElse(fail("pending() returned Left")) shouldBe empty
     finally outbox.close()
   }
 
@@ -94,51 +94,52 @@ class HistoryOutboxSpec extends AnyFlatSpec with Matchers with OptionValues:
       DurableHistoryEventPublisher(outbox).publish(AppEvent.SessionCancelled(sid, gid))
 
       val forwarder = HistoryOutboxForwarder(
-        outbox         = outbox,
+        outbox = outbox,
         historyBaseUrl = "http://history.local:8081",
-        timeoutMillis  = 500,
-        sendJson       = (_, _, _) => throw RuntimeException("history down")
+        timeoutMillis = 500,
+        sendJson = (_, _, _) => scala.sys.error("history down")
       )
       val result = forwarder.runOnce()
 
-      val pending = outbox.pending(10).toOption.get
+      val pending = outbox.pending(10).toOption.getOrElse(fail("pending() returned Left"))
       pending should have size 1
       result.attempted shouldBe 1
       result.delivered shouldBe 0
       result.failed shouldBe 1
       pending.head.attempts shouldBe 1
       pending.head.lastAttemptedAt.value should not be null
-      pending.head.lastError.value should include ("history down")
+      pending.head.lastError.value should include("history down")
       pending.head.deliveredAt shouldBe None
     finally outbox.close()
   }
 
   it should "record each retry attempt until delivery succeeds" in {
     val outbox = SqliteHistoryEventOutbox(tempDb())
-    var fail = true
+    var shouldFail = true
     try
       DurableHistoryEventPublisher(outbox).publish(AppEvent.SessionCancelled(sid, gid))
 
       val forwarder = HistoryOutboxForwarder(
-        outbox         = outbox,
+        outbox = outbox,
         historyBaseUrl = "http://history.local:8081",
-        timeoutMillis  = 500,
-        sendJson       = (_, _, _) =>
-          if fail then
-            fail = false
-            throw RuntimeException("history down")
+        timeoutMillis = 500,
+        sendJson = (_, _, _) =>
+          if shouldFail then
+            shouldFail = false
+            scala.sys.error("history down")
       )
 
       forwarder.runOnce().failed shouldBe 1
-      val afterFailure = outbox.pending(10).toOption.get.head
+      val afterFailure = outbox.pending(10).toOption.getOrElse(fail("pending() returned Left")).head
       afterFailure.attempts shouldBe 1
-      afterFailure.lastError.value should include ("history down")
+      afterFailure.lastError.value should include("history down")
 
       val recovery = forwarder.runOnce()
 
       recovery.delivered shouldBe 1
-      outbox.pending(10).toOption.get shouldBe empty
-      val delivered = outbox.find(afterFailure.id).toOption.get.value
+      outbox.pending(10).toOption.getOrElse(fail("pending() returned Left")) shouldBe empty
+      val delivered =
+        outbox.find(afterFailure.id).toOption.getOrElse(fail("find() returned Left")).value
       delivered.attempts shouldBe 2
       delivered.lastError shouldBe None
       delivered.deliveredAt.value should not be null
@@ -149,13 +150,13 @@ class HistoryOutboxSpec extends AnyFlatSpec with Matchers with OptionValues:
     val db = tempDb()
     val outbox1 = SqliteHistoryEventOutbox(db)
     DurableHistoryEventPublisher(outbox1).publish(terminalEvent)
-    val id = outbox1.pending(10).toOption.get.head.id
+    val id = outbox1.pending(10).toOption.getOrElse(fail("pending() returned Left")).head.id
     outbox1.close()
 
     val outbox2 = SqliteHistoryEventOutbox(db)
     try
-      val pending = outbox2.pending(10).toOption.get
-      pending.map(_.id) should contain (id)
+      val pending = outbox2.pending(10).toOption.getOrElse(fail("pending() returned Left"))
+      pending.map(_.id) should contain(id)
       pending.head.payloadJson shouldBe AppEventSerializer.serialize(terminalEvent).value
     finally outbox2.close()
   }

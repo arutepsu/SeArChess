@@ -1,4 +1,5 @@
 import org.scoverage.coveralls.CoverallsPlugin
+import wartremover.WartRemover.autoImport._
 
 // ── Versions ──────────────────────────────────────────────────────────────────
 
@@ -25,7 +26,25 @@ lazy val commonSettings = Seq(
   // individual modules inherit ThisBuild-level coverageEnabled.
   coverageFailOnMinimum := true,
   coverageMinimumStmtTotal := 80,
-  coverageHighlighting := true
+  coverageHighlighting := true,
+  // WartRemover: errors on rules safe for this codebase today.
+  // Null/Return/OptionPartial have zero legitimate uses in functional Scala 3.
+  wartremoverErrors ++= Seq(
+    Wart.OptionPartial
+  ),
+
+  // Warnings for rules that fire on intentional patterns (see notes below):
+  //   Throw       – domain uses throw AssertionError as unreachable-branch guards
+  //   Var         – adapters and concurrency code use var legitimately
+  //   AsInstanceOf / IsInstanceOf – worth surfacing but not blocking
+  wartremoverWarnings ++= Seq(
+    Wart.Null,
+    Wart.Return,
+    Wart.Throw,
+    Wart.Var,
+    Wart.AsInstanceOf,
+    Wart.IsInstanceOf
+  )
 )
 
 // Coverage exclusion helper: produces the -coverage-exclude-files scalac flag

@@ -9,17 +9,17 @@ import chess.domain.model.{Color, PieceType, Position}
 import chess.domain.state.GameState
 
 /** Specification for [[PgnNotationFacade.executeImport]] (Stage 3: real PGN import).
- *
- *  Covers:
- *  - successful replay of a mainline move sequence
- *  - correct final [[GameState]] (board state, current player, move count)
- *  - [[ImportResult.GameImportResult]] structure and metadata fields
- *  - rejection of [[ImportTarget.PositionTarget]] for PGN
- *  - rejection of SetUp/FEN header games (non-standard starting positions)
- *  - rejection of non-PGN [[ParsedNotation]] types
- *  - failure on illegal SAN tokens
- *  - empty move list → initial game state
- */
+  *
+  * Covers:
+  *   - successful replay of a mainline move sequence
+  *   - correct final [[GameState]] (board state, current player, move count)
+  *   - [[ImportResult.GameImportResult]] structure and metadata fields
+  *   - rejection of [[ImportTarget.PositionTarget]] for PGN
+  *   - rejection of SetUp/FEN header games (non-standard starting positions)
+  *   - rejection of non-PGN [[ParsedNotation]] types
+  *   - failure on illegal SAN tokens
+  *   - empty move list → initial game state
+  */
 class PgnImporterSpec extends AnyFlatSpec with Matchers with EitherValues with OptionValues:
 
   private def pos(file: Int, rank: Int) =
@@ -27,7 +27,9 @@ class PgnImporterSpec extends AnyFlatSpec with Matchers with EitherValues with O
 
   private def importGame(pgn: String): ImportResult.GameImportResult[GameState] =
     val parsed = PgnNotationFacade.parse(NotationFormat.PGN, pgn).value
-    PgnNotationFacade.executeImport(parsed, ImportTarget.GameTarget).value
+    PgnNotationFacade
+      .executeImport(parsed, ImportTarget.GameTarget)
+      .value
       .asInstanceOf[ImportResult.GameImportResult[GameState]]
 
   // ── Target routing ───────────────────────────────────────────────────────────
@@ -35,27 +37,28 @@ class PgnImporterSpec extends AnyFlatSpec with Matchers with EitherValues with O
   "PgnNotationFacade.executeImport" should "return IncompatibleTarget for PositionTarget" in {
     val parsed = ParsedNotation.ParsedPgn("1. e4", PgnData(Map.empty, Vector("e4"), None))
     val result = PgnNotationFacade.executeImport(parsed, ImportTarget.PositionTarget)
-    val err    = result.left.value.asInstanceOf[ImportFailure.IncompatibleTarget]
+    val err = result.left.value.asInstanceOf[ImportFailure.IncompatibleTarget]
     err.parsedKind shouldBe ParsedNotationKind.Pgn
-    err.target     shouldBe ImportTarget.PositionTarget
+    err.target shouldBe ImportTarget.PositionTarget
   }
 
   it should "return IncompatibleTarget for a non-PGN ParsedNotation" in {
     val jsonGame = ParsedNotation.ParsedJsonGame("{}")
-    val result   = PgnNotationFacade.executeImport(jsonGame, ImportTarget.GameTarget)
-    val err      = result.left.value.asInstanceOf[ImportFailure.IncompatibleTarget]
+    val result = PgnNotationFacade.executeImport(jsonGame, ImportTarget.GameTarget)
+    val err = result.left.value.asInstanceOf[ImportFailure.IncompatibleTarget]
     err.parsedKind shouldBe ParsedNotationKind.JsonGame
   }
 
   // ── Setup/FEN rejection ──────────────────────────────────────────────────────
 
   it should "return CompatibilityFailure for PGN with SetUp+FEN headers" in {
-    val pgn    = ParsedNotation.ParsedPgn(
+    val pgn = ParsedNotation.ParsedPgn(
       "...",
       PgnData(
-        headers    = Map("SetUp" -> "1", "FEN" -> "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"),
+        headers =
+          Map("SetUp" -> "1", "FEN" -> "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"),
         moveTokens = Vector("e4"),
-        result     = None
+        result = None
       )
     )
     val result = PgnNotationFacade.executeImport(pgn, ImportTarget.GameTarget)
@@ -78,11 +81,13 @@ class PgnImporterSpec extends AnyFlatSpec with Matchers with EitherValues with O
   // ── Empty move list ──────────────────────────────────────────────────────────
 
   it should "succeed with the initial GameState for an empty move list" in {
-    val pgn    = ParsedNotation.ParsedPgn("", PgnData(Map.empty, Vector.empty, None))
-    val result = PgnNotationFacade.executeImport(pgn, ImportTarget.GameTarget).value
+    val pgn = ParsedNotation.ParsedPgn("", PgnData(Map.empty, Vector.empty, None))
+    val result = PgnNotationFacade
+      .executeImport(pgn, ImportTarget.GameTarget)
+      .value
       .asInstanceOf[ImportResult.GameImportResult[GameState]]
     result.data.currentPlayer shouldBe Color.White
-    result.data.moveHistory   shouldBe Nil
+    result.data.moveHistory shouldBe Nil
   }
 
   // ── Successful replay ────────────────────────────────────────────────────────
@@ -127,13 +132,13 @@ class PgnImporterSpec extends AnyFlatSpec with Matchers with EitherValues with O
     val result = importGame("1. e4")
     import chess.domain.model.{Piece, PieceType, Color}
     result.data.board.pieceAt(pos(4, 3)) shouldBe Some(Piece(Color.White, PieceType.Pawn))
-    result.data.board.pieceAt(pos(4, 1)) shouldBe None  // e2 vacated
+    result.data.board.pieceAt(pos(4, 1)) shouldBe None // e2 vacated
   }
 
   it should "replay a Ruy Lopez opening correctly" in {
     val result = importGame("1. e4 e5 2. Nf3 Nc6 3. Bb5 a6")
     result.data.currentPlayer shouldBe Color.White
-    result.data.moveHistory   should have size 6
+    result.data.moveHistory should have size 6
   }
 
   it should "replay castling: O-O" in {
@@ -152,10 +157,20 @@ class PgnImporterSpec extends AnyFlatSpec with Matchers with EitherValues with O
     // Simplest: use a direct PgnData with the right token
     val tokens = Vector(
       // White d4, Black e5, White d5, Black Nf6, White d6, Black Be7, White dxc7, Black 0-0 (castling), White cxd8=Q
-      "d4", "e5", "d5", "Nf6", "d6", "Be7", "dxc7", "O-O", "cxd8=Q"
+      "d4",
+      "e5",
+      "d5",
+      "Nf6",
+      "d6",
+      "Be7",
+      "dxc7",
+      "O-O",
+      "cxd8=Q"
     )
     val pgn = ParsedNotation.ParsedPgn("", PgnData(Map.empty, tokens, None))
-    val result = PgnNotationFacade.executeImport(pgn, ImportTarget.GameTarget).value
+    val result = PgnNotationFacade
+      .executeImport(pgn, ImportTarget.GameTarget)
+      .value
       .asInstanceOf[ImportResult.GameImportResult[GameState]]
     import chess.domain.model.{Piece, PieceType, Color}
     result.data.board.pieceAt(pos(3, 7)) shouldBe Some(Piece(Color.White, PieceType.Queen))
@@ -164,14 +179,14 @@ class PgnImporterSpec extends AnyFlatSpec with Matchers with EitherValues with O
   // ── Failure on illegal SAN ────────────────────────────────────────────────────
 
   it should "return ValidationFailure for an unrecognisable SAN token" in {
-    val pgn    = ParsedNotation.ParsedPgn("", PgnData(Map.empty, Vector("Zz9"), None))
+    val pgn = ParsedNotation.ParsedPgn("", PgnData(Map.empty, Vector("Zz9"), None))
     val result = PgnNotationFacade.executeImport(pgn, ImportTarget.GameTarget)
     result.left.value shouldBe a[ValidationFailure]
   }
 
   it should "return ValidationFailure for a SAN move that is illegal in the position" in {
     // e5 as first move is illegal (pawn can only go 1 or 2 squares from rank 1)
-    val pgn    = ParsedNotation.ParsedPgn("", PgnData(Map.empty, Vector("e5"), None))
+    val pgn = ParsedNotation.ParsedPgn("", PgnData(Map.empty, Vector("e5"), None))
     val result = PgnNotationFacade.executeImport(pgn, ImportTarget.GameTarget)
     result.left.value shouldBe a[ValidationFailure]
   }
@@ -179,7 +194,8 @@ class PgnImporterSpec extends AnyFlatSpec with Matchers with EitherValues with O
   // ── parseAndImport integration ────────────────────────────────────────────────
 
   it should "produce a GameImportResult via parseAndImport" in {
-    val result = PgnNotationFacade.parseAndImport(NotationFormat.PGN, "1. e4 e5", ImportTarget.GameTarget)
+    val result =
+      PgnNotationFacade.parseAndImport(NotationFormat.PGN, "1. e4 e5", ImportTarget.GameTarget)
     result.value shouldBe a[ImportResult.GameImportResult[?]]
   }
 
@@ -199,7 +215,7 @@ class PgnImporterSpec extends AnyFlatSpec with Matchers with EitherValues with O
 
   it should "accept the capture SAN token when the move is a genuine capture" in {
     val tokens = Vector("e4", "e5", "Nf3", "Nc6", "Bc4", "Nf6", "Ng5", "d5", "Nxh7")
-    val pgn    = ParsedNotation.ParsedPgn("", PgnData(Map.empty, tokens, None))
+    val pgn = ParsedNotation.ParsedPgn("", PgnData(Map.empty, tokens, None))
     val result = PgnNotationFacade.executeImport(pgn, ImportTarget.GameTarget)
     result.value shouldBe a[ImportResult.GameImportResult[?]]
   }
@@ -217,7 +233,7 @@ class PgnImporterSpec extends AnyFlatSpec with Matchers with EitherValues with O
     import chess.domain.state.GameStateFactory
     // Replay a single move from the initial state
     val initial = GameStateFactory.initial()
-    val result  = PgnReplayService.replayFrom(initial, Vector("e4"))
+    val result = PgnReplayService.replayFrom(initial, Vector("e4"))
     result.value.currentPlayer shouldBe Color.Black
-    result.value.moveHistory   should have size 1
+    result.value.moveHistory should have size 1
   }

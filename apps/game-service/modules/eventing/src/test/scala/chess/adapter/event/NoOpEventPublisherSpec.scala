@@ -12,12 +12,18 @@ class NoOpEventPublisherSpec extends AnyFlatSpec with Matchers with EitherValues
 
   private val sid = SessionId.random()
   private val gid = GameId.random()
-  private val e2  = Position.from(4, 1).value  // e2
-  private val e4  = Position.from(4, 3).value  // e4
+  private val e2 = Position.from(4, 1).value // e2
+  private val e4 = Position.from(4, 3).value // e4
 
   "NoOpEventPublisher" should "silently discard every AppEvent variant without throwing" in {
     val events: List[AppEvent] = List(
-      AppEvent.SessionCreated(sid, gid, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal),
+      AppEvent.SessionCreated(
+        sid,
+        gid,
+        SessionMode.HumanVsHuman,
+        SideController.HumanLocal,
+        SideController.HumanLocal
+      ),
       AppEvent.SessionLifecycleChanged(sid, gid, SessionLifecycle.Created, SessionLifecycle.Active),
       AppEvent.MoveApplied(sid, gid, Move(e2, e4), Color.White),
       AppEvent.PromotionPending(sid, gid),
