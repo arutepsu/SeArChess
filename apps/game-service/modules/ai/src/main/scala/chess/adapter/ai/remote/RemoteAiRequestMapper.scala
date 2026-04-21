@@ -33,9 +33,13 @@ object RemoteAiRequestMapper:
   def toRequest(
     context:         AIRequestContext,
     timeoutMillis:   Int,
+<<<<<<< HEAD
     defaultEngineId: Option[String],
     testMode:        Option[String]
 >>>>>>> 14542117 (fix ai flow)
+=======
+    defaultEngineId: Option[String]
+>>>>>>> ce08c01e (local microservices)
   ): Either[NotationFailure, RemoteAiMoveSuggestionRequest] =
     val state = context.state
     FenSerializer.exportNotation(state, NotationFormat.FEN).map { fen =>
@@ -53,8 +57,12 @@ object RemoteAiRequestMapper:
 =======
         engine     = RemoteAiEngineSelection(context.engineId.orElse(defaultEngineId)),
         limits     = RemoteAiLimits(timeoutMillis),
+<<<<<<< HEAD
         metadata   = RemoteAiMetadata(mode = context.mode.toString, testMode = testMode)
 >>>>>>> 14542117 (fix ai flow)
+=======
+        metadata   = RemoteAiMetadata(mode = context.mode.toString)
+>>>>>>> ce08c01e (local microservices)
       )
     }
 
@@ -75,15 +83,18 @@ object RemoteAiRequestMapper:
     session:         GameSession,
     state:           GameState,
     timeoutMillis:   Int,
-    defaultEngineId: Option[String] = None,
-    testMode:        Option[String] = None
+    defaultEngineId: Option[String] = None
   ): Either[NotationFailure, RemoteAiMoveSuggestionRequest] =
     toRequest(
       context         = AIRequestContext.fromSession(session, state, requestId),
       timeoutMillis   = timeoutMillis,
+<<<<<<< HEAD
       defaultEngineId = defaultEngineId,
       testMode        = testMode
 >>>>>>> 14542117 (fix ai flow)
+=======
+      defaultEngineId = defaultEngineId
+>>>>>>> ce08c01e (local microservices)
     )
 
   private def legalMoveDtos(state: GameState): List[RemoteAiMoveDto] =

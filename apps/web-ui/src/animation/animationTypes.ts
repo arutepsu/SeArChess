@@ -16,6 +16,7 @@ export type BoardAnimation = {
   to: string;
   movingPiece: PieceCode;
   capturedPiece?: PieceCode;
+<<<<<<< HEAD
   capturedSquare?: string;
   isCapture: boolean;
   castlingRook?: {
@@ -23,4 +24,7 @@ export type BoardAnimation = {
     to: string;
     piece: PieceCode;
   };
+=======
+  isCapture: boolean;
+>>>>>>> ce08c01e (local microservices)
 };

@@ -15,6 +15,7 @@ Contract reference: `docs/contracts/history-service-http-v1.md`.
   contract.
 - Game Service forwards terminal Game event JSON to History Service at
 <<<<<<< HEAD
+<<<<<<< HEAD
   `POST /internal/events/game` over HTTP in local/dev compose.
 - The event is only a trigger. History then pulls the archive snapshot from Game
   Service over HTTP.
@@ -24,6 +25,9 @@ Contract reference: `docs/contracts/history-service-http-v1.md`.
   SQLite outbox before a background forwarder POSTs them to History.
 =======
   `POST /events/game` over HTTP in local/dev compose.
+=======
+  `POST /internal/events/game` over HTTP in local/dev compose.
+>>>>>>> ce08c01e (local microservices)
 - The event is only a trigger. History then pulls the archive snapshot from Game
   Service over HTTP.
 - History materializes PGN/FEN with the existing notation path and stores its
@@ -70,7 +74,11 @@ History Service environment:
 =======
 | `HISTORY_DB_PATH` | `/history-data/history.sqlite` |
 | `HISTORY_GAME_SERVICE_TIMEOUT_MILLIS` | `2000` |
+<<<<<<< HEAD
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
+=======
+| `HISTORY_ACCEPT_LEGACY_INGESTION_PATH` | `false` |
+>>>>>>> ce08c01e (local microservices)
 
 Game Service History forwarding environment:
 
@@ -176,6 +184,7 @@ inside `/data/searchess.sqlite`. Rows remain pending while `delivered_at` is
 
 `POST /events/game` remains available only when
 `HISTORY_ACCEPT_LEGACY_INGESTION_PATH=true` as a local/dev compatibility hook for exercising
+<<<<<<< HEAD
 =======
 curl -s -X POST "http://127.0.0.1:8080/sessions/$SESSION_ID/cancel"
 ```
@@ -197,6 +206,8 @@ Service SQLite file.
 
 `POST /events/game` remains available as a local/dev test hook for exercising
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
+=======
+>>>>>>> ce08c01e (local microservices)
 History directly, but it is no longer required for the normal compose proof.
 
 ## Honest Boundary

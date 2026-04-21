@@ -17,5 +17,10 @@ object GameHistoryIngestionContract:
   val Interaction: String = "asynchronous-http-delivery"
 
   val GameEventsPath:       String = "/internal/events/game"
+<<<<<<< HEAD
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
+=======
+
+  /** Temporary compatibility alias. History Service keeps it disabled unless explicitly configured. */
+>>>>>>> ce08c01e (local microservices)
   val LegacyGameEventsPath: String = "/events/game"

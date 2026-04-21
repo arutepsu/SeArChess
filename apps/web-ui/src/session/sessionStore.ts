@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import type { SessionResponse } from "../api/backendTypes";
 
 export type SessionContext = SessionResponse;
@@ -50,3 +51,15 @@ export function persistSession(session: SessionContext | null): void {
     // Storage can fail in private browsing or locked-down browser contexts.
   }
 }
+=======
+export type SessionContext = {
+  sessionId: string;
+  gameId: string;
+  mode: string;
+  lifecycle: string;
+  whiteController: string;
+  blackController: string;
+  createdAt: string;
+  updatedAt: string;
+};
+>>>>>>> ce08c01e (local microservices)

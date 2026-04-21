@@ -15,7 +15,11 @@ import type {
 } from "./types";
 import { squareToIndex } from "../domain/board";
 
+<<<<<<< HEAD
 function mapPieceCode(color: Color, pieceType: PieceType): PieceCode | null {
+=======
+function mapPieceCode(color: string, pieceType: string): PieceCode | null {
+>>>>>>> ce08c01e (local microservices)
   const prefix = color === "White" ? "w" : color === "Black" ? "b" : null;
   if (!prefix) return null;
 

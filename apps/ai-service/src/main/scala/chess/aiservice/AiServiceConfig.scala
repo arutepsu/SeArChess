@@ -17,9 +17,13 @@ final case class AiServiceConfig(
 final case class AiServiceConfig(
   host:      String,
   port:      Int,
+<<<<<<< HEAD
   engineId:  String,
   testMode:  Option[String]
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
+=======
+  engineId:  String
+>>>>>>> ce08c01e (local microservices)
 )
 
 object AiServiceConfig:
@@ -56,9 +60,13 @@ object AiServiceConfig:
     yield AiServiceConfig(
       host     = env("AI_HTTP_HOST").getOrElse("0.0.0.0"),
       port     = port,
+<<<<<<< HEAD
       engineId = env("AI_ENGINE_ID").getOrElse("random-legal"),
       testMode = env("AI_REMOTE_TEST_MODE").map(_.trim).filter(_.nonEmpty)
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
+=======
+      engineId = env("AI_ENGINE_ID").getOrElse("random-legal")
+>>>>>>> ce08c01e (local microservices)
     )
 
   private def parsePort(name: String, value: String): Either[String, Int] =

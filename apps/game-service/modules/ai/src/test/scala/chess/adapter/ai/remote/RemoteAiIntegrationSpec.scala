@@ -12,6 +12,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.EitherValues
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 /** Integration spec for the Scala RemoteAiMoveSuggestionClient against a live AI provider.
   *
   * Requires the provider to be running at INFERENCE_SERVICE_URL (default http://127.0.0.1:8765).
@@ -21,8 +22,11 @@ import org.scalatest.EitherValues
   */
 =======
 /** Integration spec for the Scala RemoteAiMoveSuggestionClient against the live Python AI service.
+=======
+/** Integration spec for the Scala RemoteAiMoveSuggestionClient against a live AI provider.
+>>>>>>> ce08c01e (local microservices)
  *
- *  Requires the Python service to be running at INFERENCE_SERVICE_URL (default
+ *  Requires the provider to be running at INFERENCE_SERVICE_URL (default
  *  http://127.0.0.1:8765). The tests are skipped automatically when the service
  *  is not reachable so they do not break CI.
  *
@@ -84,8 +88,12 @@ class RemoteAiIntegrationSpec extends AnyFlatSpec with Matchers with EitherValue
 =======
   private lazy val provider = RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 5000)
 
+<<<<<<< HEAD
   "RemoteAiMoveSuggestionClient → Python AI service" should "return a legal move suggestion for the initial position" in {
 >>>>>>> 14542117 (fix ai flow)
+=======
+  "RemoteAiMoveSuggestionClient to AI provider" should "return a legal move suggestion for the initial position" in {
+>>>>>>> ce08c01e (local microservices)
     assume()
     val ctx = context()
     val result = provider.suggestMove(ctx)
@@ -112,10 +120,14 @@ class RemoteAiIntegrationSpec extends AnyFlatSpec with Matchers with EitherValue
   it should "return a contract-shaped BAD_REQUEST when an invalid sideToMove is sent" in {
     assume()
 <<<<<<< HEAD
+<<<<<<< HEAD
     // Drive the HTTP layer directly to verify the provider error shape without
 =======
     // Drive the HTTP layer directly to verify the Python error shape without
 >>>>>>> 14542117 (fix ai flow)
+=======
+    // Drive the HTTP layer directly to verify the provider error shape without
+>>>>>>> ce08c01e (local microservices)
     // going through RemoteAiMoveSuggestionClient's field construction.
     val body =
       """{

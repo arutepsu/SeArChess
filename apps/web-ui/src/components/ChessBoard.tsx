@@ -1,11 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+<<<<<<< HEAD
 import type { BoardMatrix, BoardSquare, PieceCode, GameStatus, PlayerColor } from "../api/types";
 import { displayToIndex, displayToSquare, indexToSquare, squareToDisplayCoords } from "../domain/board";
+=======
+import type { BoardMatrix, BoardSquare, PieceCode } from "../api/types";
+import { displayToIndex, displayToSquare, squareToDisplayCoords } from "../domain/board";
+>>>>>>> ce08c01e (local microservices)
 import type { PlaybackMode, SpriteCatalog, StatePlaybackEntry } from "../assets/spriteCatalog";
 import { loadSpriteCatalog } from "../assets/spriteCatalog";
 import type { BoardAnimation } from "../animation/animationTypes";
 import { captureTimings, idleFps, moveDurationMs } from "../animation/animationConfig";
+<<<<<<< HEAD
 import type { PromotionPiece } from "../api/backendTypes";
+=======
+>>>>>>> ce08c01e (local microservices)
 import "./ChessBoard.css";
 
 type ChessBoardProps = {
@@ -48,11 +56,14 @@ type MotionStyle =
   | { kind: "attack"; overshootFraction: number };
 
 
+<<<<<<< HEAD
 const PIECE_SCALE = 2;
 
 const pieceTransform = (flipX: boolean, scale: number = PIECE_SCALE): string =>
   `scaleX(${flipX ? -1 : 1}) scale(${scale})`;
 
+=======
+>>>>>>> ce08c01e (local microservices)
 const indices = Array.from({ length: 8 }, (_, index) => index);
 
 const pieceLabel = (piece: BoardSquare): string => {
@@ -530,11 +541,17 @@ export default function ChessBoard({
     (square: string): { x: number; y: number } | null => {
       const coords = squareToDisplayCoords(square);
       if (!coords) return null;
+<<<<<<< HEAD
       const displayCol = orientation === "black" ? 7 - coords.displayCol : coords.displayCol;
       const displayRow = orientation === "black" ? 7 - coords.displayRow : coords.displayRow;
       return {
         x: displayCol * squareSize,
         y: displayRow * squareSize
+=======
+      return {
+        x: coords.displayCol * squareSize,
+        y: coords.displayRow * squareSize
+>>>>>>> ce08c01e (local microservices)
       };
     },
     [squareSize, orientation]
@@ -827,6 +844,7 @@ export default function ChessBoard({
         {indices.map((rowIndex) => (
           <div key={`row-${rowIndex}`} className="board-row" role="row">
             {indices.map((colIndex) => {
+<<<<<<< HEAD
               const mappedRow = orientation === "black" ? 7 - rowIndex : rowIndex;
               const mappedCol = orientation === "black" ? 7 - colIndex : colIndex;
               const square = displayToSquare(mappedRow, mappedCol);
@@ -834,6 +852,11 @@ export default function ChessBoard({
               const suppressed = square === suppressedSquare ||
                 square === suppressedCapturedSquare ||
                 square === suppressedCastlingRookSquare;
+=======
+              const square = displayToSquare(rowIndex, colIndex);
+              const piece = boardPieceAt(rowIndex, colIndex);
+              const suppressed = square === suppressedSquare;
+>>>>>>> ce08c01e (local microservices)
               const spriteClass = piece ? spriteClasses(piece) : "";
               return (
                 <button

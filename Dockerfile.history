@@ -50,7 +50,12 @@ ENV HISTORY_HTTP_HOST=0.0.0.0 \
     HISTORY_ACCEPT_LEGACY_INGESTION_PATH=false
 =======
     HISTORY_DB_PATH=/history-data/history.sqlite \
+<<<<<<< HEAD
     HISTORY_GAME_SERVICE_TIMEOUT_MILLIS=2000
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
+=======
+    HISTORY_GAME_SERVICE_TIMEOUT_MILLIS=2000 \
+    HISTORY_ACCEPT_LEGACY_INGESTION_PATH=false
+>>>>>>> ce08c01e (local microservices)
 
 CMD ["bin/searchess-history-service"]

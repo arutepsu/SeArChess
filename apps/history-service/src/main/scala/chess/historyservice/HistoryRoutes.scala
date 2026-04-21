@@ -49,13 +49,15 @@ class HistoryRoutes(
   val internalArchiveRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
 =======
   ingestion:  HistoryIngestionService,
-  repository: SqliteArchiveRepository
+  repository: SqliteArchiveRepository,
+  acceptLegacyIngestionPath: Boolean = false
 ):
 
   /** Operational liveness only; no upstream/dependency checks. */
   val operationalRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
     case GET -> Root / "health" =>
       json(Status.Ok, ujson.Obj(
+<<<<<<< HEAD
         "status"                  -> "ok",
         "downstreamIngestionPath" -> GameHistoryIngestionContract.GameEventsPath
       ))
@@ -67,6 +69,20 @@ class HistoryRoutes(
   /** Archive query surface. This may later become edge-facing read API. */
   val publicArchiveRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
+=======
+        "status"                     -> "ok",
+        "service"                    -> "searchess-history-service",
+        "check"                      -> "process-liveness",
+        "gameServiceDependency"      -> "optional-for-health",
+        "downstreamIngestionPath"    -> GameHistoryIngestionContract.GameEventsPath,
+        "legacyIngestionPathEnabled" -> acceptLegacyIngestionPath,
+        "archiveReadAudience"        -> "internal-for-now"
+      ))
+  }
+
+  /** History-owned archive query surface. Internal for now; not routed through the public edge. */
+  val internalArchiveRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
+>>>>>>> ce08c01e (local microservices)
     case GET -> Root / "archives" / gameId =>
       handleGetArchive(gameId)
   }
@@ -82,18 +98,23 @@ class HistoryRoutes(
   }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
   /** Temporary compatibility alias for the pre-boundary-audit ingestion path. Disabled unless
     * explicitly configured.
     */
 =======
   /** Compatibility alias for the pre-boundary-audit ingestion path. */
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
+=======
+  /** Temporary compatibility alias for the pre-boundary-audit ingestion path. Disabled unless explicitly configured. */
+>>>>>>> ce08c01e (local microservices)
   val legacyDownstreamIngestionRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
     case req @ POST -> Root / "events" / "game" =>
       req.bodyText.compile.string.flatMap(handleEvent)
   }
 
   val routes: HttpRoutes[IO] =
+<<<<<<< HEAD
 <<<<<<< HEAD
     val baseRoutes = operationalRoutes <+> internalArchiveRoutes <+> downstreamIngestionRoutes
     if acceptLegacyIngestionPath then baseRoutes <+> legacyDownstreamIngestionRoutes else baseRoutes
@@ -102,6 +123,10 @@ class HistoryRoutes(
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
 =======
     operationalRoutes <+> publicArchiveRoutes <+> downstreamIngestionRoutes <+> legacyDownstreamIngestionRoutes
+=======
+    val baseRoutes = operationalRoutes <+> internalArchiveRoutes <+> downstreamIngestionRoutes
+    if acceptLegacyIngestionPath then baseRoutes <+> legacyDownstreamIngestionRoutes else baseRoutes
+>>>>>>> ce08c01e (local microservices)
 
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
   private def handleEvent(body: String): IO[Response[IO]] =

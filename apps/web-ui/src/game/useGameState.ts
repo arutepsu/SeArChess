@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+<<<<<<< HEAD
 import type {
   BoardMatrix,
   GameState,
@@ -74,6 +75,22 @@ function isAiTurn(session: SessionContext | null, game: GameState): boolean {
 function isStaleHydrationError(error: unknown): boolean {
   return error instanceof Error && error.message.startsWith("GAME_NOT_FOUND:");
 }
+=======
+import type { BoardMatrix, GameState } from "../api/types";
+import {
+  exportPgn,
+  getGameState,
+  getLegalMoves,
+  getStatus,
+  redoMove,
+  startNewGame,
+  submitMove,
+  undoMove
+} from "../api/client";
+import type { BoardAnimation } from "../animation/animationTypes";
+import { planAnimation } from "../animation/planAnimation";
+import { useSession } from "../session/SessionProvider";
+>>>>>>> ce08c01e (local microservices)
 
 // ---------------------------------------------------------------------------
 // Public contract
@@ -86,6 +103,7 @@ export type UseGameStateReturn = {
   legalMoves: string[];
   busy: boolean;
   message: string | undefined;
+<<<<<<< HEAD
   animationPlan: BoardAnimation | null;
   gameMode: PlayableGameMode;
   notation: GameNotationResponse | undefined;
@@ -112,6 +130,29 @@ export type UseGameStateReturn = {
   handleCancelPromotion: () => void;
 
   // ── Transitional setters ──────────────────────────────────────────────────
+=======
+  pgnExport: string;
+  animationPlan: BoardAnimation | null;
+
+  // ── Actions ───────────────────────────────────────────────────────────────
+  /** Initial load: get/create game and set game state. Re-throws on error so
+   *  the caller (App) can update its connection state. */
+  loadGame: () => Promise<void>;
+  /** Fetch the latest game state from the server and commit it.
+   *  Called by the WS handler whenever a server-side event fires. */
+  refreshFromServer: () => Promise<void>;
+  handleSelect: (square: string) => Promise<void>;
+  handleNewGame: () => Promise<void>;
+  handleUndo: () => Promise<void>;
+  handleRedo: () => Promise<void>;
+  handleExport: () => Promise<void>;
+  handleAnimationFinished: (id: number) => void;
+  clearPgnExport: () => void;
+
+  // ── Transitional setters ──────────────────────────────────────────────────
+  // Exposed only for the WS message handler in App until Stage 6 (useWsSync)
+  // consolidates WS-driven side-effects into its own hook.
+>>>>>>> ce08c01e (local microservices)
   setMessage: (msg: string | undefined) => void;
   setBusy: (isBusy: boolean) => void;
 };
@@ -121,6 +162,7 @@ export type UseGameStateReturn = {
 // ---------------------------------------------------------------------------
 
 export function useGameState(): UseGameStateReturn {
+<<<<<<< HEAD
   const { session, setSession, getSessionId, getGameId } = useSession();
 
   const [game, setGame] = useState<GameState | undefined>(undefined);
@@ -148,10 +190,43 @@ export function useGameState(): UseGameStateReturn {
 
   const generation = useRef(0);
 
+=======
+  const { setSession, getGameId } = useSession();
+
+  const [game, setGame] = useState<GameState | undefined>(undefined);
+  const [selectedSquare, setSelectedSquare] = useState<string | undefined>(undefined);
+  const [legalMoves, setLegalMoves] = useState<string[]>([]);
+  const [busy, setBusyState] = useState(false);
+  const [message, setMessageState] = useState<string | undefined>(undefined);
+  const [pgnExport, setPgnExport] = useState("");
+  const [animationPlan, setAnimationPlan] = useState<BoardAnimation | null>(null);
+
+  // boardRef holds the board that was rendered most recently.
+  // Async callbacks (refreshFromServer, undo, redo) read this ref so they
+  // always plan animation against the board that was on screen when the
+  // operation started, not a stale closure capture.
+  const boardRef = useRef<BoardMatrix | null>(null);
+  const animationCounter = useRef(0);
+
+  // Stale-response guard.
+  // Every async operation that writes game state bumps this counter before
+  // awaiting and checks it after.  If the value changed while awaiting, a
+  // newer operation started → discard this result.
+  // setBusy(false) in finally blocks always runs regardless of the guard
+  // so the busy flag can never get permanently stuck.
+  const generation = useRef(0);
+
+  // Keep boardRef current so in-flight async closures read the right board.
+>>>>>>> ce08c01e (local microservices)
   useEffect(() => {
     boardRef.current = game?.board ?? null;
   }, [game?.board]);
 
+<<<<<<< HEAD
+=======
+  // ── Stable transitional setters for App's WS handler ─────────────────────
+
+>>>>>>> ce08c01e (local microservices)
   const setMessage = useCallback((msg: string | undefined) => {
     setMessageState(msg);
   }, []);
@@ -160,6 +235,7 @@ export function useGameState(): UseGameStateReturn {
     setBusyState(isBusy);
   }, []);
 
+<<<<<<< HEAD
   const commitGameSnapshot = useCallback(
     (
       snapshot: GameSnapshot,
@@ -358,11 +434,62 @@ export function useGameState(): UseGameStateReturn {
         });
     }
   }, [game, session, commitGameSnapshot, refreshNotation, setSession]);
+=======
+  // ── Async operations ──────────────────────────────────────────────────────
+
+  const loadGame = useCallback(async (): Promise<void> => {
+    const thisGen = ++generation.current;
+    try {
+      await getStatus();
+      const existingGameId = getGameId();
+      const result = existingGameId
+        ? { game: await getGameState(existingGameId), session: null }
+        : await startNewGame({});
+      if (thisGen !== generation.current) return;
+      if (result.session) setSession(result.session);
+      setGame(result.game);
+      setAnimationPlan(null);
+      setLegalMoves([]);
+      setMessageState(undefined);
+    } catch (error) {
+      if (thisGen !== generation.current) return;
+      setMessageState(
+        error instanceof Error
+          ? `Service offline. ${error.message}`
+          : "Service offline."
+      );
+      throw error; // re-throw so App can update its connection state
+    }
+  }, [getGameId, setSession]);
+
+  const refreshFromServer = useCallback(async (): Promise<void> => {
+    const thisGen = ++generation.current;
+    const previousBoard = boardRef.current;
+    const gameId = getGameId();
+    if (!gameId) return;
+    // Throws on error — caller (App WS handler) is responsible for the
+    // error message and busy state in that path.
+    const latestGame = await getGameState(gameId);
+    if (thisGen !== generation.current) return;
+    setGame(latestGame);
+    setLegalMoves([]);
+    setSelectedSquare(undefined);
+    if (previousBoard) {
+      setAnimationPlan(
+        planAnimation(previousBoard, latestGame, ++animationCounter.current)
+      );
+    } else {
+      setAnimationPlan(null);
+    }
+    setMessageState(undefined);
+  }, [getGameId]);
+>>>>>>> ce08c01e (local microservices)
 
   const handleSelect = useCallback(
     async (square: string): Promise<void> => {
       if (!game || busy) return;
 
+<<<<<<< HEAD
       const normalizedSquare = square.toLowerCase();
 
       if (isClosedLifecycle(session)) {
@@ -390,10 +517,19 @@ export function useGameState(): UseGameStateReturn {
         setSelectedSquare(undefined);
         setLegalMoves([]);
 
+=======
+      // Deselect: user clicked the already-selected square
+      if (selectedSquare === square) {
+        // Bump generation to cancel any in-flight getLegalMoves for this square
+        ++generation.current;
+        setSelectedSquare(undefined);
+        setLegalMoves([]);
+>>>>>>> ce08c01e (local microservices)
         return;
       }
 
       const gameId = getGameId();
+<<<<<<< HEAD
 
       if (!gameId) return;
 
@@ -477,6 +613,47 @@ export function useGameState(): UseGameStateReturn {
           return;
         }
 
+=======
+      if (!gameId) return;
+
+      // First click: select a piece and fetch its legal moves
+      if (!selectedSquare) {
+        const thisGen = ++generation.current;
+        setSelectedSquare(square);
+        try {
+          const result = await getLegalMoves(gameId, square);
+          if (thisGen !== generation.current) return;
+          setLegalMoves(result.moves);
+        } catch {
+          if (thisGen !== generation.current) return;
+          setLegalMoves([]);
+        }
+        return;
+      }
+
+      // Second click: submit the move if the target is legal
+      if (legalMoves.length > 0 && !legalMoves.includes(square)) {
+        setMessageState("Select a legal target square.");
+        return;
+      }
+
+      const prevBoard = game.board; // snapshot before any await
+      const thisGen = ++generation.current;
+      setSelectedSquare(undefined);
+      setLegalMoves([]);
+      setBusyState(true);
+      try {
+        const { game: nextGame, lifecycle } = await submitMove(gameId, { from: selectedSquare, to: square });
+        if (thisGen !== generation.current) return;
+        setGame(nextGame);
+        setSession((prev) => prev ? { ...prev, lifecycle } : prev);
+        setAnimationPlan(
+          planAnimation(prevBoard, nextGame, ++animationCounter.current)
+        );
+        setMessageState(undefined);
+      } catch (error) {
+        if (thisGen !== generation.current) return;
+>>>>>>> ce08c01e (local microservices)
         setMessageState(
           error instanceof Error ? error.message : "Move rejected by service."
         );
@@ -484,6 +661,7 @@ export function useGameState(): UseGameStateReturn {
         setBusyState(false);
       }
     },
+<<<<<<< HEAD
     [
       busy,
       commitGameSnapshot,
@@ -572,12 +750,34 @@ export function useGameState(): UseGameStateReturn {
     } catch (error) {
       if (thisGen !== generation.current) return;
 
+=======
+    [busy, game, getGameId, legalMoves, selectedSquare, setSession]
+  );
+
+  const handleNewGame = useCallback(async (): Promise<void> => {
+    const thisGen = ++generation.current;
+    setBusyState(true);
+    try {
+      const { game: nextGame, session } = await startNewGame({});
+      if (thisGen !== generation.current) return;
+      setSession(session);
+      setGame(nextGame);
+      setMessageState(undefined);
+      setSelectedSquare(undefined);
+      setLegalMoves([]);
+      setAnimationPlan(null);
+      // Clock reset is NOT called here: App watches game?.id and calls
+      // resetClocks reactively via a useEffect, which is equivalent.
+    } catch (error) {
+      if (thisGen !== generation.current) return;
+>>>>>>> ce08c01e (local microservices)
       setMessageState(
         error instanceof Error ? error.message : "Failed to start game."
       );
     } finally {
       setBusyState(false);
     }
+<<<<<<< HEAD
   }, [commitGameSnapshot, gameMode, refreshNotation, setSession]);
 
   const handleImportNotation = useCallback(
@@ -803,17 +1003,100 @@ export function useGameState(): UseGameStateReturn {
     session,
     setSession
   ]);
+=======
+  }, [setSession]);
+
+  const handleUndo = useCallback(async (): Promise<void> => {
+    const thisGen = ++generation.current;
+    // Read ref, not closure, so this callback needs no dep on game.board
+    const prevBoard = boardRef.current;
+    const gameId = getGameId();
+    if (!gameId) return;
+    setBusyState(true);
+    try {
+      const nextGame = await undoMove(gameId);
+      if (thisGen !== generation.current) return;
+      setGame(nextGame);
+      setSelectedSquare(undefined);
+      setLegalMoves([]);
+      if (prevBoard) {
+        setAnimationPlan(
+          planAnimation(prevBoard, nextGame, ++animationCounter.current)
+        );
+      }
+    } catch (error) {
+      if (thisGen !== generation.current) return;
+      setMessageState(
+        error instanceof Error ? error.message : "Undo failed."
+      );
+    } finally {
+      setBusyState(false);
+    }
+  }, [getGameId]);
+
+  const handleRedo = useCallback(async (): Promise<void> => {
+    const thisGen = ++generation.current;
+    const prevBoard = boardRef.current;
+    const gameId = getGameId();
+    if (!gameId) return;
+    setBusyState(true);
+    try {
+      const nextGame = await redoMove(gameId);
+      if (thisGen !== generation.current) return;
+      setGame(nextGame);
+      setSelectedSquare(undefined);
+      setLegalMoves([]);
+      if (prevBoard) {
+        setAnimationPlan(
+          planAnimation(prevBoard, nextGame, ++animationCounter.current)
+        );
+      }
+    } catch (error) {
+      if (thisGen !== generation.current) return;
+      setMessageState(
+        error instanceof Error ? error.message : "Redo failed."
+      );
+    } finally {
+      setBusyState(false);
+    }
+  }, [getGameId]);
+
+  const handleExport = useCallback(async (): Promise<void> => {
+    const thisGen = ++generation.current;
+    setBusyState(true);
+    try {
+      const result = await exportPgn();
+      if (thisGen !== generation.current) return;
+      setPgnExport(result.pgn);
+    } catch (error) {
+      if (thisGen !== generation.current) return;
+      setMessageState(
+        error instanceof Error ? error.message : "Export failed."
+      );
+    } finally {
+      setBusyState(false);
+    }
+  }, []);
+>>>>>>> ce08c01e (local microservices)
 
   const handleAnimationFinished = useCallback((id: number): void => {
     setAnimationPlan((current) => (current?.id === id ? null : current));
   }, []);
 
+<<<<<<< HEAD
+=======
+  const clearPgnExport = useCallback((): void => {
+    setPgnExport("");
+  }, []);
+
+>>>>>>> ce08c01e (local microservices)
   return {
     game,
     selectedSquare,
     legalMoves,
     busy,
     message,
+<<<<<<< HEAD
     animationPlan,
     gameMode,
     notation,
@@ -833,6 +1116,19 @@ export function useGameState(): UseGameStateReturn {
     handleAnimationFinished,
     handleResolvePromotion,
     handleCancelPromotion,
+=======
+    pgnExport,
+    animationPlan,
+    loadGame,
+    refreshFromServer,
+    handleSelect,
+    handleNewGame,
+    handleUndo,
+    handleRedo,
+    handleExport,
+    handleAnimationFinished,
+    clearPgnExport,
+>>>>>>> ce08c01e (local microservices)
     setMessage,
     setBusy
   };

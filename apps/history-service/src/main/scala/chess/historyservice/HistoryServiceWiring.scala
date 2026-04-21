@@ -34,11 +34,15 @@ object HistoryServiceWiring:
     )
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> ce08c01e (local microservices)
     val httpApp = HistoryRoutes(
       ingestion,
       repository,
       acceptLegacyIngestionPath = config.acceptLegacyIngestionPath
     ).routes.orNotFound
+<<<<<<< HEAD
     val host = Host
       .fromString(config.host)
       .getOrElse(throw RuntimeException(s"Invalid HISTORY_HTTP_HOST: ${config.host}"))
@@ -47,6 +51,8 @@ object HistoryServiceWiring:
       .getOrElse(throw RuntimeException(s"Invalid HISTORY_HTTP_PORT: ${config.port}"))
 =======
     val httpApp = HistoryRoutes(ingestion, repository).routes.orNotFound
+=======
+>>>>>>> ce08c01e (local microservices)
     val host = Host.fromString(config.host).getOrElse(throw RuntimeException(s"Invalid HISTORY_HTTP_HOST: ${config.host}"))
     val port = Port.fromInt(config.port).getOrElse(throw RuntimeException(s"Invalid HISTORY_HTTP_PORT: ${config.port}"))
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)

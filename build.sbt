@@ -133,7 +133,11 @@ lazy val history = project
   )
   // adapterPersistence and adapterEvent are only needed for legacy test fixtures
   // (InMemoryGameRepository, CollectingEventPublisher, etc.).
+<<<<<<< HEAD
   .dependsOn(gameContract, gameEventContract, notation, observability, adapterPersistence % Test, adapterEvent % Test)
+=======
+  .dependsOn(gameContract, notation, observability, adapterPersistence % Test, adapterEvent % Test)
+>>>>>>> ce08c01e (local microservices)
 
 // Module: adapter-persistence
 
@@ -487,10 +491,14 @@ lazy val historyService = project
   )
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   .dependsOn(history, gameEventContract, observability, gameHistoryDelivery % Test)
 =======
   .dependsOn(history, gameEventContract, gameHistoryDelivery % Test)
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
+=======
+  .dependsOn(history, gameEventContract, observability, gameHistoryDelivery % Test)
+>>>>>>> ce08c01e (local microservices)
 
 // App: ai-service
 
@@ -513,6 +521,7 @@ lazy val aiService = project
       ".*chess.aiservice.*"
     )
   )
+<<<<<<< HEAD
 <<<<<<< HEAD
   .dependsOn(aiContract, observability, domain, notation)
 
@@ -589,6 +598,9 @@ lazy val benchmarks = project
 =======
   .dependsOn(adapterAi)
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
+=======
+  .dependsOn(aiContract, observability)
+>>>>>>> ce08c01e (local microservices)
 
 // ── Aliases ───────────────────────────────────────────────────────────────────
 //
@@ -673,10 +685,14 @@ addCommandAlias("testTuiCli",             "tuiCli/test")
 
 addCommandAlias("testCore",
 <<<<<<< HEAD
+<<<<<<< HEAD
   ";domain/test;observability/test;notation/test;gameContract/test;aiContract/test;gameCore/test;history/test")
 =======
   ";domain/test;notation/test;application/test;history/test")
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
+=======
+  ";domain/test;observability/test;notation/test;gameContract/test;aiContract/test;gameCore/test;history/test")
+>>>>>>> ce08c01e (local microservices)
 
 addCommandAlias("testInfra",
   ";adapterPersistence/test;adapterEvent/test;gameEventContract/test;gameHistoryDelivery/test" +
@@ -732,8 +748,13 @@ lazy val root = project
   )
   .aggregate(
 <<<<<<< HEAD
+<<<<<<< HEAD
     domain, observability, notation, gameContract, aiContract, gameCore, history,
     adapterPersistence, migration, adapterAi, adapterEvent, gameEventContract, gameHistoryDelivery,
+=======
+    domain, observability, notation, gameContract, aiContract, gameCore, history,
+    adapterPersistence, adapterAi, adapterEvent, gameEventContract, gameHistoryDelivery,
+>>>>>>> ce08c01e (local microservices)
     adapterRestContract, adapterRestHttp4s,
     adapterWebsocket, adapterGui, adapterTui,
 <<<<<<< HEAD

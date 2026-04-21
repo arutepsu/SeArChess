@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import type { BoardMatrix, GameState, PieceCode } from "../api/types";
+=======
+import type { BoardMatrix, GameState } from "../api/types";
+>>>>>>> ce08c01e (local microservices)
 import { pieceAt } from "../domain/board";
 import type { BoardAnimation } from "./animationTypes";
 
@@ -26,6 +30,7 @@ export function planAnimation(
   const movingPiece = pieceAt(prevBoard, from);
   if (!movingPiece) return null;
 
+<<<<<<< HEAD
   let capturedPiece = pieceAt(prevBoard, to) ?? undefined;
   let capturedSquare: string | undefined = undefined;
   let isCapture = Boolean(capturedPiece);
@@ -55,6 +60,9 @@ export function planAnimation(
       piece: `${color}R` as PieceCode
     };
   }
+=======
+  const capturedPiece = pieceAt(prevBoard, to) ?? undefined;
+>>>>>>> ce08c01e (local microservices)
 
   return {
     id: nextId,
@@ -62,8 +70,12 @@ export function planAnimation(
     to,
     movingPiece,
     capturedPiece,
+<<<<<<< HEAD
     capturedSquare,
     isCapture,
     castlingRook
+=======
+    isCapture: Boolean(capturedPiece)
+>>>>>>> ce08c01e (local microservices)
   };
 }

@@ -3,6 +3,7 @@ package chess.historyservice
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import chess.adapter.event.GameHistoryIngestionContract
+<<<<<<< HEAD
 import chess.application.session.model.SessionIds.GameId
 import chess.history.{ArchiveMaterializer, ArchiveRecord, ArchiveRepository, ArchiveRepositoryError, HistoryIngestionService, RemoteGameArchiveClient}
 import fs2.Stream
@@ -25,13 +26,38 @@ class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherV
 
   "HistoryServiceConfig" should "disable the legacy ingestion alias by default" in {
     val config = HistoryServiceConfig.load(withEnv()).value
+=======
+import chess.history.{ArchiveMaterializer, HistoryIngestionService, RemoteGameArchiveClient}
+import chess.history.sqlite.SqliteArchiveRepository
+import fs2.Stream
+import org.http4s.{HttpApp, Method, Request, Status, Uri}
+import org.scalatest.EitherValues
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+
+class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherValues:
+
+  "HistoryServiceConfig" should "disable the legacy ingestion alias by default" in {
+    val config = HistoryServiceConfig.load(_ => None).value
+
+>>>>>>> ce08c01e (local microservices)
     config.acceptLegacyIngestionPath shouldBe false
   }
 
   it should "allow the legacy ingestion alias to be explicitly enabled" in {
+<<<<<<< HEAD
     val config = HistoryServiceConfig
       .load(withEnv("HISTORY_ACCEPT_LEGACY_INGESTION_PATH" -> "true"))
       .value
+=======
+    val config = HistoryServiceConfig.load(key =>
+      Map("HISTORY_ACCEPT_LEGACY_INGESTION_PATH" -> "true").get(key)
+    ).value
+
+>>>>>>> ce08c01e (local microservices)
     config.acceptLegacyIngestionPath shouldBe true
   }
 
@@ -39,6 +65,7 @@ class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherV
     HistoryServiceConfig
       .load(key => Map("HISTORY_ACCEPT_LEGACY_INGESTION_PATH" -> "yes").get(key))
       .left
+<<<<<<< HEAD
       .value should include("HISTORY_ACCEPT_LEGACY_INGESTION_PATH must be true or false")
   }
 
@@ -76,28 +103,45 @@ class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherV
       .load(withEnv("HISTORY_INGESTION_MODE" -> "redis-stream"))
       .left
       .value should include("HISTORY_REDIS_URL or REDIS_HOST is required")
+=======
+      .value should include ("HISTORY_ACCEPT_LEGACY_INGESTION_PATH must be true or false")
+>>>>>>> ce08c01e (local microservices)
   }
 
   "HistoryRoutes" should "keep the legacy ingestion alias disabled by default" in {
     withRoutes() { http =>
+<<<<<<< HEAD
       val response =
         http.run(post(GameHistoryIngestionContract.LegacyGameEventsPath, "{}")).unsafeRunSync()
+=======
+      val response = http.run(post(GameHistoryIngestionContract.LegacyGameEventsPath, "{}")).unsafeRunSync()
+
+>>>>>>> ce08c01e (local microservices)
       response.status shouldBe Status.NotFound
     }
   }
 
   it should "enable the legacy ingestion alias only when explicitly configured" in {
     withRoutes(acceptLegacy = true) { http =>
+<<<<<<< HEAD
       val response =
         http.run(post(GameHistoryIngestionContract.LegacyGameEventsPath, "{}")).unsafeRunSync()
+=======
+      val response = http.run(post(GameHistoryIngestionContract.LegacyGameEventsPath, "{}")).unsafeRunSync()
+
+>>>>>>> ce08c01e (local microservices)
       response.status shouldBe Status.BadRequest
     }
   }
 
   it should "report internal boundary details from health without checking optional dependencies" in {
     withRoutes() { http =>
+<<<<<<< HEAD
       val response =
         http.run(Request[IO](Method.GET, Uri.unsafeFromString("/health"))).unsafeRunSync()
+=======
+      val response = http.run(Request[IO](Method.GET, Uri.unsafeFromString("/health"))).unsafeRunSync()
+>>>>>>> ce08c01e (local microservices)
       val body = response.bodyText.compile.string.unsafeRunSync()
       val json = ujson.read(body)
 
@@ -110,6 +154,7 @@ class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherV
   }
 
   private def withRoutes(acceptLegacy: Boolean = false)(test: HttpApp[IO] => Unit): Unit =
+<<<<<<< HEAD
     val historyRepo = TestArchiveRepository()
     val ingestion = HistoryIngestionService(
       archiveClient = RemoteGameArchiveClient("http://127.0.0.1:1", timeoutMillis = 50),
@@ -122,10 +167,31 @@ class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherV
       acceptLegacyIngestionPath = acceptLegacy
     ).routes.orNotFound
     test(http)
+=======
+    val historyDb = Files.createTempFile("searchess-history-boundary-", ".sqlite")
+    val historyRepo = SqliteArchiveRepository(historyDb.toString)
+    val ingestion = HistoryIngestionService(
+      archiveClient = RemoteGameArchiveClient("http://127.0.0.1:1", timeoutMillis = 50),
+      materializer = ArchiveMaterializer(),
+      repository = historyRepo
+    )
+
+    try
+      val http = HistoryRoutes(
+        ingestion,
+        historyRepo,
+        acceptLegacyIngestionPath = acceptLegacy
+      ).routes.orNotFound
+      test(http)
+    finally
+      historyRepo.close()
+      Files.deleteIfExists(historyDb)
+>>>>>>> ce08c01e (local microservices)
 
   private def post(path: String, body: String): Request[IO] =
     Request[IO](
       method = Method.POST,
+<<<<<<< HEAD
       uri    = Uri.unsafeFromString(path),
       body   = Stream.emits(body.getBytes("UTF-8")).covary[IO]
     )
@@ -139,3 +205,8 @@ private class TestArchiveRepository extends ArchiveRepository:
     store(r.gameId) = r; Right(())
   override def findByGameId(id: GameId): Either[ArchiveRepositoryError, Option[ArchiveRecord]] =
     Right(store.get(id))
+=======
+      uri = Uri.unsafeFromString(path),
+      body = Stream.emits(body.getBytes(StandardCharsets.UTF_8)).covary[IO]
+    )
+>>>>>>> ce08c01e (local microservices)

@@ -25,11 +25,15 @@ object HistoryServiceMain:
       "httpHost" -> config.host,
       "httpPort" -> config.port,
       "gameServiceArchiveBaseUrl" -> config.gameServiceBaseUrl,
+<<<<<<< HEAD
       "storage" -> "postgres-slick",
       "postgresSchema" -> config.postgresSchema,
       "deliveryMode" -> config.deliveryMode.toString,
       "redisStream" -> config.redisStream,
       "redisGroup" -> config.redisGroup,
+=======
+      "dbPath" -> config.dbPath,
+>>>>>>> ce08c01e (local microservices)
       "acceptLegacyIngestionPath" -> config.acceptLegacyIngestionPath
     )
 

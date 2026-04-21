@@ -30,8 +30,13 @@ static_resources:
 >>>>>>> abcc8c8c (envoy + ai service prerp)
 =======
                         # Public edge: expose Game Service health, gameplay API, and WebSocket only.
+<<<<<<< HEAD
                         # AI Service and History ingestion remain internal container-network surfaces.
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
+=======
+                        # Do not route AI /v1/move-suggestions, History /internal/events/game,
+                        # the legacy History /events/game alias, or History /archives through Envoy.
+>>>>>>> ce08c01e (local microservices)
                         - match:
                             path: /health
                           route:

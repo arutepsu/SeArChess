@@ -7,6 +7,7 @@ host-run AI HTTP provider for local development, and what to verify before
 treating the boundary as stable. The canonical Compose topology uses the Scala
 `ai-service` container documented in
 [`docs/dev-guide-container-local.md`](dev-guide-container-local.md).
+<<<<<<< HEAD
 =======
 # Developer Guide — Remote AI Mode
 =======
@@ -17,6 +18,8 @@ This guide explains how to run the Scala Game Service against the Python
 `searchess-ai-service` for local development, and what to verify before
 treating the boundary as stable.
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
+=======
+>>>>>>> ce08c01e (local microservices)
 
 ---
 
@@ -53,9 +56,14 @@ uv run uvicorn searchess_ai.api.app:create_app \
 | AI inference service (Python) | `searchess-ai-service` | `http://127.0.0.1:8765` |
 =======
 | Game Service (Scala, host-run) | `searchess` | `http://127.0.0.1:8080` |
+<<<<<<< HEAD
 | AI inference service (Python, host-run) | `searchess-ai-service` | `http://127.0.0.1:8765` |
 | AI inference service (Compose) | `searchess-ai-service` | `http://ai-service:8765` |
 >>>>>>> abcc8c8c (envoy + ai service prerp)
+=======
+| External AI provider (host-run) | optional separate process | `http://127.0.0.1:8765` |
+| AI Service (Compose) | `searchess` | `http://ai-service:8765` |
+>>>>>>> ce08c01e (local microservices)
 
 The Game Service calls the AI service at `POST /v1/move-suggestions`. Remote
 mode is the default runtime path; the AI service calls back nothing and remains
@@ -66,20 +74,27 @@ For the full local container deployment, see
 
 ---
 
-## Python service in Docker
+## External provider on the host
 
-Build and start the Python AI service from the AI repo:
+If you are testing against an external AI provider, start it on the host:
 
 ```bash
+# Example only; use the provider's own run command.
 cd searchess-ai-service
+<<<<<<< HEAD
 docker compose up --build
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
+=======
+uv run uvicorn searchess_ai.api.app:create_app \
+  --factory --host 127.0.0.1 --port 8765 --reload
+>>>>>>> ce08c01e (local microservices)
 ```
 
 Verify it is up:
 
 ```bash
 curl http://127.0.0.1:8765/health
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 ```
@@ -100,36 +115,16 @@ sbt against a host-run AI provider:
 =======
 # {"status":"ok","service":"searchess-ai-service","version":"0.1.0"}
 >>>>>>> abcc8c8c (envoy + ai service prerp)
+=======
+>>>>>>> ce08c01e (local microservices)
 ```
 
 When running the Scala Game Service directly on the host, set
 `AI_REMOTE_BASE_URL=http://127.0.0.1:8765`. In the repo-level Compose setup,
 Game reaches AI by service name at `http://ai-service:8765`.
 
-### Inference backend
-
-The Python container defaults to `INFERENCE_BACKEND=random`.
-
-| Value | Behaviour |
-|---|---|
-| `random` | Picks a legal move at random; useful for integration testing |
-| `fake` | Always picks `legalMoves[0]`; deterministic test backend |
-| `openspiel` | Requires `open_spiel` installed; not bundled in the image |
-
----
-
-## Python service without Docker
-
-```bash
-cd searchess-ai-service
-uv run uvicorn searchess_ai.api.app:create_app \
-  --factory --host 127.0.0.1 --port 8765 --reload
-```
-
-The `--factory` flag is required because the module uses a `create_app()`
-factory rather than a module-level `app` instance.
-
----
+The Compose AI Service is internal-only. It is not exposed through Envoy and is
+not published as a host port by `docker-compose.yml`.
 
 ## Starting the Scala Game Service in remote AI mode
 
@@ -142,8 +137,12 @@ up (either via Docker or Option B above) before starting the Scala server.
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
 =======
 Remote AI mode is the default for the Game Service. When running directly via
+<<<<<<< HEAD
 sbt against a host-run Python service:
 >>>>>>> abcc8c8c (envoy + ai service prerp)
+=======
+sbt against a host-run AI provider:
+>>>>>>> ce08c01e (local microservices)
 
 ```bash
 cd searchess
@@ -195,6 +194,7 @@ in-process `LocalDeterministicAiClient` as a transitional/dev-only fallback.
 Inside Game Service, `/games/{id}/ai-move` depends on the single
 `AiMoveSuggestionClient` port. The normal runtime implementation is
 `RemoteAiMoveSuggestionClient`, which calls the configured AI service. The local
+<<<<<<< HEAD
 deterministic client is not selected unless `AI_PROVIDER_MODE=local` is set.
 =======
 | `AI_PROVIDER_MODE` | `local` | `local` · `disabled` · `remote` |
@@ -216,6 +216,8 @@ in-process `LocalDeterministicAiClient` as a transitional/dev-only fallback.
 Inside Game Service, `/games/{id}/ai-move` depends on the single
 `AiMoveSuggestionClient` port. The normal runtime implementation is
 `RemoteAiMoveSuggestionClient`, which calls the Python AI service. The local
+=======
+>>>>>>> ce08c01e (local microservices)
 deterministic client is not selected unless `AI_PROVIDER_MODE=local` is set.
 
 ---
@@ -285,6 +287,7 @@ game state.
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 **3. Run the Scala integration tests** when an external provider is reachable on
 the host at port `8765`:
 =======
@@ -292,6 +295,9 @@ the host at port `8765`:
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
 =======
 **3. Run the Scala integration tests** when the Python service is reachable on
+=======
+**3. Run the Scala integration tests** when an external provider is reachable on
+>>>>>>> ce08c01e (local microservices)
 the host at port `8765`:
 >>>>>>> abcc8c8c (envoy + ai service prerp)
 
@@ -301,6 +307,7 @@ sbt "adapterAi/testOnly chess.adapter.ai.remote.RemoteAiIntegrationSpec"
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 Those tests skip automatically when the provider is not reachable.
 =======
 Tests skip automatically when the Python service is not reachable.
@@ -308,6 +315,9 @@ Tests skip automatically when the Python service is not reachable.
 =======
 Those tests skip automatically when the Python service is not reachable.
 >>>>>>> abcc8c8c (envoy + ai service prerp)
+=======
+Those tests skip automatically when the provider is not reachable.
+>>>>>>> ce08c01e (local microservices)
 
 ---
 
@@ -329,6 +339,7 @@ responses and illegal provider suggestions are rejected as
 | AI provider returns `ENGINE_TIMEOUT` | `Timeout(...)` | `503 AI_PROVIDER_FAILED` |
 | AI provider returns `ENGINE_FAILURE` | `EngineFailure(...)` | `503 AI_PROVIDER_FAILED` |
 | AI provider returns malformed success JSON | `MalformedResponse(...)` | `422 AI_MOVE_REJECTED` |
+<<<<<<< HEAD
 | AI proposes an illegal move | `AITurnError.IllegalSuggestedMove(...)` | `422 AI_MOVE_REJECTED` |
 | `AI_PROVIDER_MODE=remote` with blank `AI_REMOTE_BASE_URL` | startup config error | Server fails fast |
 
@@ -355,6 +366,8 @@ responses and illegal provider suggestions are rejected as
 | Python returns `ENGINE_TIMEOUT` | `Timeout(...)` | `503 AI_PROVIDER_FAILED` |
 | Python returns `ENGINE_FAILURE` | `EngineFailure(...)` | `503 AI_PROVIDER_FAILED` |
 | Python returns malformed success JSON | `MalformedResponse(...)` | `422 AI_MOVE_REJECTED` |
+=======
+>>>>>>> ce08c01e (local microservices)
 | AI proposes an illegal move | `AITurnError.IllegalSuggestedMove(...)` | `422 AI_MOVE_REJECTED` |
 | `AI_PROVIDER_MODE=remote` with blank `AI_REMOTE_BASE_URL` | startup config error | Server fails fast |
 
@@ -386,6 +399,7 @@ resources are available.
 |---|---|
 | Real chess engine (Stockfish / lc0) | Not wired in the local Scala AI Service |
 | FEN validation in AI service | `BAD_POSITION` error code exists but the local provider remains intentionally small |
+<<<<<<< HEAD
 | Authentication / API keys | No auth on either side |
 | Health / readiness probes | `/health` is unconditional liveness only |
 | Retry / circuit-breaker policy | No circuit breaker; Game maps provider failure explicitly |
@@ -405,6 +419,8 @@ resources are available.
 |---|---|
 | Real chess engine (Stockfish / lc0) | Not wired; only `random` and `fake` backends exist |
 | FEN validation in AI service | `BAD_POSITION` error code exists but no FEN parser is called |
+=======
+>>>>>>> ce08c01e (local microservices)
 | Authentication / API keys | No auth on either side |
 | Health / readiness probes | `/health` is unconditional liveness only |
 <<<<<<< HEAD

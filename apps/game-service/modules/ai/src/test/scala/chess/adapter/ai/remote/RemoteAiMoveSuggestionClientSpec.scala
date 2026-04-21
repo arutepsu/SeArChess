@@ -227,6 +227,9 @@ class RemoteAiMoveSuggestionClientSpec extends AnyFlatSpec with Matchers with Ei
   }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> ce08c01e (local microservices)
   it should "send local-dev test mode as a header instead of a body field" in {
     var capturedBody = ""
     var capturedMode: Option[String] = None
@@ -244,8 +247,11 @@ class RemoteAiMoveSuggestionClientSpec extends AnyFlatSpec with Matchers with Ei
     }
   }
 
+<<<<<<< HEAD
 =======
 >>>>>>> 14542117 (fix ai flow)
+=======
+>>>>>>> ce08c01e (local microservices)
   // ---------------------------------------------------------------------------
   // Error code mapping — all six contract codes
   // ---------------------------------------------------------------------------

@@ -85,10 +85,13 @@ class RemoteAiMoveSuggestionClient(
   client:           HttpClient = HttpClient.newHttpClient()
 ) extends AiMoveSuggestionClient:
 
+  private val TestModeHeader = "X-Searchess-AI-Test-Mode"
+
   private val endpoint: URI =
     URI.create(s"${baseUrl.stripSuffix("/")}${RemoteAiServiceContract.MoveSuggestionsPath}")
 
   override def suggestMove(context: AIRequestContext): Either[AIError, AIResponse] =
+<<<<<<< HEAD
     for
       request <- RemoteAiRequestMapper
                    .toRequest(
@@ -106,12 +109,49 @@ class RemoteAiMoveSuggestionClient(
     val body = RemoteAiJson.requestToJson(requestDto)
     val request = HttpRequest
 >>>>>>> 14542117 (fix ai flow)
+=======
+    val request =
+      RemoteAiRequestMapper
+        .toRequest(
+          context         = context,
+          timeoutMillis   = timeoutMillis,
+          defaultEngineId = defaultEngineId
+        )
+        .left.map { err =>
+          StructuredLog.warn(
+            "game-service",
+            "ai_request_build_failed",
+                "requestId" -> context.requestId,
+                "gameId" -> context.gameId.value.toString,
+                "sessionId" -> context.sessionId.value.toString,
+                "sideToMove" -> context.sideToMove.toString.toLowerCase,
+                "error" -> err.toString
+              )
+          AIError.MalformedResponse(s"failed to build AI request: $err")
+        }
+
+    request.flatMap { requestDto =>
+      send(requestDto).flatMap { response =>
+        toDomainMove(response.move).left.map { err =>
+          logWarn("ai_response_move_invalid", requestDto, "error" -> describe(err))
+          err
+        }.map(AIResponse.apply)
+      }
+    }
+
+  private def send(requestDto: RemoteAiMoveSuggestionRequest): Either[AIError, RemoteAiMoveSuggestionResponse] =
+    val body = RemoteAiJson.requestToJson(requestDto)
+    val requestBuilder = HttpRequest
+>>>>>>> ce08c01e (local microservices)
       .newBuilder(endpoint)
       .timeout(Duration.ofMillis(timeoutMillis.toLong))
       .header("Content-Type", "application/json")
       .header("Accept", "application/json")
       .POST(HttpRequest.BodyPublishers.ofString(body))
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> ce08c01e (local microservices)
     testMode.foreach(mode => requestBuilder.header(TestModeHeader, mode))
     val request = requestBuilder.build()
 
