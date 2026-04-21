@@ -10,13 +10,15 @@ export interface WsClient {
 }
 
 export function connectWebSocket(handlers: {
-  getSessionId: () => string | null;
+  gameId: string;
+  getSessionId?: () => string | null;
   onOpen?: () => void;
   onClose?: () => void;
   onError?: (event: Event) => void;
   onMessage?: (event: WsEvent) => void;
 }): WsClient {
-  const socket = new WebSocket(wsBaseUrl);
+  const baseUrl = wsBaseUrl.replace(/\/$/, "");
+  const socket = new WebSocket(`${baseUrl}/games/${encodeURIComponent(handlers.gameId)}`);
 
   socket.onopen = () => {
     handlers.onOpen?.();
@@ -33,13 +35,12 @@ export function connectWebSocket(handlers: {
   socket.onmessage = (messageEvent) => {
     try {
       const parsed = JSON.parse(messageEvent.data) as WsEvent;
-      const sessionId = handlers.getSessionId();
-
-      if (!sessionId) {
+      if (parsed.gameId !== handlers.gameId) {
         return;
       }
 
-      if (parsed.sessionId !== sessionId) {
+      const sessionId = handlers.getSessionId?.();
+      if (sessionId && parsed.sessionId !== sessionId) {
         return;
       }
 
@@ -50,6 +51,10 @@ export function connectWebSocket(handlers: {
   };
 
   return {
-    close: () => socket.close()
+    close: () => {
+      if (socket.readyState === WebSocket.CONNECTING || socket.readyState === WebSocket.OPEN) {
+        socket.close();
+      }
+    }
   };
 }

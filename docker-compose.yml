@@ -19,6 +19,8 @@ services:
     environment:
       HTTP_HOST: 0.0.0.0
       HTTP_PORT: 8080
+      CORS_ENABLED: "true"
+      CORS_ALLOWED_ORIGIN: http://localhost:5173
       WS_ENABLED: "true"
       WS_PORT: 9090
       PERSISTENCE_MODE: sqlite

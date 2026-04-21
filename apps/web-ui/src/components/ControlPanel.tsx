@@ -1,4 +1,4 @@
-import type { GameState, PlayerColor } from "../api/types";
+import type { GameState, PlayerColor, SessionMode } from "../api/types";
 import "./ControlPanel.css";
 
 type ControlPanelProps = {
@@ -8,10 +8,9 @@ type ControlPanelProps = {
   blackTimeMs?: number;
   activeColor?: PlayerColor;
   clockRunning?: boolean;
+  gameMode: SessionMode;
+  onGameModeChange: (mode: SessionMode) => void;
   onNewGame: () => void;
-  onUndo: () => void;
-  onRedo: () => void;
-  onExport: () => void;
 };
 
 const formatTime = (ms?: number) => {
@@ -21,6 +20,20 @@ const formatTime = (ms?: number) => {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 };
 
+const formatStatus = (game?: GameState): string => {
+  if (!game) return "idle";
+  switch (game.status) {
+    case "checkmate":
+      return game.winner ? `checkmate, ${game.winner} wins` : "checkmate";
+    case "draw":
+      return game.drawReason ? `draw, ${game.drawReason}` : "draw";
+    case "resigned":
+      return game.winner ? `resigned, ${game.winner} wins` : "resigned";
+    default:
+      return game.status;
+  }
+};
+
 export default function ControlPanel({
   game,
   busy,
@@ -28,10 +41,9 @@ export default function ControlPanel({
   blackTimeMs,
   activeColor,
   clockRunning,
-  onNewGame,
-  onUndo,
-  onRedo,
-  onExport
+  gameMode,
+  onGameModeChange,
+  onNewGame
 }: ControlPanelProps) {
   const whiteActive = activeColor === "white" && clockRunning;
   const blackActive = activeColor === "black" && clockRunning;
@@ -55,7 +67,7 @@ export default function ControlPanel({
       <div className="status">
         <div>
           <span className="label">Status</span>
-          <strong>{game?.status ?? "idle"}</strong>
+          <strong>{formatStatus(game)}</strong>
         </div>
         <div>
           <span className="label">Full move</span>
@@ -67,17 +79,19 @@ export default function ControlPanel({
         </div>
       </div>
       <div className="actions">
+        <label className="mode-select">
+          <span className="label">Mode</span>
+          <select
+            value={gameMode}
+            disabled={busy}
+            onChange={(event) => onGameModeChange(event.target.value as SessionMode)}
+          >
+            <option value="HumanVsHuman">Human vs Human</option>
+            <option value="HumanVsAI">Human vs AI</option>
+          </select>
+        </label>
         <button type="button" disabled={busy} onClick={onNewGame}>
           New Game
-        </button>
-        <button type="button" disabled={busy} onClick={onUndo}>
-          Undo
-        </button>
-        <button type="button" disabled={busy} onClick={onRedo}>
-          Redo
-        </button>
-        <button type="button" disabled={busy} onClick={onExport}>
-          Export PGN
         </button>
       </div>
     </section>
