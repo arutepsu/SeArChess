@@ -1,6 +1,7 @@
 package chess.historyservice
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 import chess.observability.StructuredLog
 =======
 import cats.effect.IO
@@ -11,6 +12,8 @@ import com.comcast.ip4s.{Host, Port}
 import org.http4s.ember.server.EmberServerBuilder
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
 
+=======
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
 object HistoryServiceMain:
 
   def main(args: Array[String]): Unit =
@@ -48,6 +51,7 @@ object HistoryServiceMain:
     println(s"[history] Game Service archive base URL: ${config.gameServiceBaseUrl}")
     println(s"[history] Archive DB: ${config.dbPath}")
 
+<<<<<<< HEAD
     val repository = SqliteArchiveRepository(config.dbPath)
     val ingestion = HistoryIngestionService(
       archiveClient = RemoteGameArchiveClient(config.gameServiceBaseUrl, config.timeoutMillis),
@@ -73,5 +77,9 @@ object HistoryServiceMain:
       repository.close()
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
     }))
+=======
+    val runtime = HistoryServiceWiring.start(config)
+    Runtime.getRuntime.addShutdownHook(new Thread(() => runtime.shutdown()))
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
 
     Thread.currentThread().join()

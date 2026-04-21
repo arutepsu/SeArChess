@@ -24,12 +24,63 @@ object RemoteAiJson:
       "metadata"   -> metadataJson(request.metadata)
     ))
 
+  def requestFromJson(text: String): Either[String, RemoteAiMoveSuggestionRequest] =
+    for
+      json       <- parse(text, "Malformed AI request JSON")
+      requestId  <- requiredString(json, "requestId", "AI request")
+      gameId     <- requiredString(json, "gameId", "AI request")
+      sessionId  <- requiredString(json, "sessionId", "AI request")
+      sideToMove <- requiredString(json, "sideToMove", "AI request")
+      fen        <- requiredString(json, "fen", "AI request")
+      movesJson  <- requiredArr(json, "legalMoves", "AI request")
+      moves      <- movesJson.value.toList.zipWithIndex.foldLeft[Either[String, List[RemoteAiMoveDto]]](Right(Nil)) {
+                      case (Right(acc), (obj: ujson.Obj, _)) =>
+                        moveFromJson(obj, "AI request").map(acc :+ _)
+                      case (Right(_), (_, idx)) =>
+                        Left(s"Missing or invalid 'legalMoves[$idx]' in AI request")
+                      case (left @ Left(_), _) => left
+                    }
+      engineObj  <- optionalObj(json, "engine").toRight("Missing or invalid 'engine' in AI request")
+      limitsObj  <- requiredObj(json, "limits", "AI request")
+      timeout    <- requiredInt(limitsObj, "timeoutMillis", "AI request limits")
+      metadataObj = optionalObj(json, "metadata").getOrElse(ujson.Obj("mode" -> ujson.Str("Unknown")))
+      mode        = optionalString(metadataObj, "mode").getOrElse("Unknown")
+    yield RemoteAiMoveSuggestionRequest(
+      requestId  = requestId,
+      gameId     = gameId,
+      sessionId  = sessionId,
+      sideToMove = sideToMove,
+      fen        = fen,
+      legalMoves = moves,
+      engine     = RemoteAiEngineSelection(optionalString(engineObj, "engineId")),
+      limits     = RemoteAiLimits(timeout),
+      metadata   = RemoteAiMetadata(mode, optionalString(metadataObj, "testMode"))
+    )
+
+  def responseToJson(response: RemoteAiMoveSuggestionResponse): String =
+    val obj = ujson.Obj(
+      "requestId" -> ujson.Str(response.requestId),
+      "move"      -> moveJson(response.move)
+    )
+    response.engineId.foreach(id => obj("engineId") = ujson.Str(id))
+    response.engineVersion.foreach(v => obj("engineVersion") = ujson.Str(v))
+    response.elapsedMillis.foreach(ms => obj("elapsedMillis") = ujson.Num(ms.toDouble))
+    response.confidence.foreach(c => obj("confidence") = ujson.Num(c))
+    ujson.write(obj)
+
+  def errorToJson(error: RemoteAiErrorResponse): String =
+    ujson.write(ujson.Obj(
+      "requestId" -> error.requestId,
+      "code"      -> error.code,
+      "message"   -> error.message
+    ))
+
   def responseFromJson(text: String): Either[String, RemoteAiMoveSuggestionResponse] =
     for
-      json          <- parse(text)
-      requestId     <- requiredString(json, "requestId")
-      moveObj       <- requiredObj(json, "move")
-      move          <- moveFromJson(moveObj)
+      json          <- parse(text, "Malformed AI response JSON")
+      requestId     <- requiredString(json, "requestId", "AI response")
+      moveObj       <- requiredObj(json, "move", "AI response")
+      move          <- moveFromJson(moveObj, "AI response")
       engineId       = optionalString(json, "engineId")
       engineVersion  = optionalString(json, "engineVersion")
       elapsed        = optionalInt(json, "elapsedMillis")
@@ -61,24 +112,33 @@ object RemoteAiJson:
     metadata.testMode.foreach(mode => obj("testMode") = ujson.Str(mode))
     obj
 
-  private def moveFromJson(json: ujson.Obj): Either[String, RemoteAiMoveDto] =
+  private def moveFromJson(json: ujson.Obj, owner: String): Either[String, RemoteAiMoveDto] =
     for
-      from <- requiredString(json, "from")
-      to   <- requiredString(json, "to")
+      from <- requiredString(json, "from", owner)
+      to   <- requiredString(json, "to", owner)
     yield RemoteAiMoveDto(from, to, optionalString(json, "promotion"))
 
-  private def parse(text: String): Either[String, ujson.Obj] =
-    responseObj(text).toRight("Malformed AI response JSON")
+  private def parse(text: String, error: String): Either[String, ujson.Obj] =
+    responseObj(text).toRight(error)
 
   private def responseObj(text: String): Option[ujson.Obj] =
     scala.util.Try(ujson.read(text)).toOption.collect { case obj: ujson.Obj => obj }
 
-  private def requiredObj(json: ujson.Obj, field: String): Either[String, ujson.Obj] =
-    json.obj.get(field).collect { case obj: ujson.Obj => obj }
-      .toRight(s"Missing or invalid '$field' in AI response")
+  private def requiredObj(json: ujson.Obj, field: String, owner: String): Either[String, ujson.Obj] =
+    optionalObj(json, field).toRight(s"Missing or invalid '$field' in $owner")
 
-  private def requiredString(json: ujson.Obj, field: String): Either[String, String] =
-    optionalString(json, field).toRight(s"Missing or invalid '$field' in AI response")
+  private def optionalObj(json: ujson.Obj, field: String): Option[ujson.Obj] =
+    json.obj.get(field).collect { case obj: ujson.Obj => obj }
+
+  private def requiredArr(json: ujson.Obj, field: String, owner: String): Either[String, ujson.Arr] =
+    json.obj.get(field).collect { case arr: ujson.Arr => arr }
+      .toRight(s"Missing or invalid '$field' in $owner")
+
+  private def requiredString(json: ujson.Obj, field: String, owner: String): Either[String, String] =
+    optionalString(json, field).toRight(s"Missing or invalid '$field' in $owner")
+
+  private def requiredInt(json: ujson.Obj, field: String, owner: String): Either[String, Int] =
+    optionalInt(json, field).toRight(s"Missing or invalid '$field' in $owner")
 
   private def optionalString(json: ujson.Obj, field: String): Option[String] =
     json.obj.get(field).collect { case ujson.Str(value) => value }

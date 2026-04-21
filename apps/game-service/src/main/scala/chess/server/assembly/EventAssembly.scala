@@ -1,5 +1,6 @@
 package chess.server.assembly
 
+<<<<<<< HEAD
 import chess.adapter.event.{
   AppEventSerializer,
   FanOutEventPublisher,
@@ -36,6 +37,25 @@ import chess.server.config.{AppConfig, EventMode, HistoryDeliveryMode, Persisten
   * [[coreEvents]] exposes only the event dependencies needed by the Game Service application
   * assembly.
   */
+=======
+import chess.adapter.event.{AppEventSerializer, FanOutEventPublisher, HistoryEventOutbox, HistoryHttpEventPublisher, HistoryOutboxForwarder, SqliteHistoryEventOutbox}
+import chess.adapter.websocket.{ChessWebSocketServer, WebSocketConnectionRegistry, WebSocketEventPublisher}
+import chess.application.port.event.{EventPublisher, NoOpTerminalEventJsonSerializer, TerminalEventJsonSerializer}
+import chess.server.config.{AppConfig, EventMode, PersistenceMode}
+
+/** Game Service event runtime produced by [[EventAssembly.assemble]].
+ *
+ *  This is deliberately owned by `apps/game-service`, not `startup-shared`,
+ *  because it starts service runtime infrastructure:
+ *
+ *  - WebSocket server lifecycle
+ *  - History HTTP forwarding / SQLite outbox draining
+ *  - terminal event JSON serialization for the Game -> History outbox
+ *
+ *  [[coreEvents]] exposes only the event dependencies needed by the Game
+ *  Service application assembly.
+ */
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
 final case class EventWiring(
     publisher: EventPublisher,
     wsServer: Option[ChessWebSocketServer],
@@ -47,6 +67,7 @@ final case class EventWiring(
     CoreEventBindings(publisher, terminalSerializer)
 
 /** Assembles Game Service event distribution from [[AppConfig]].
+<<<<<<< HEAD
   *
   * This object is the Game Service composition root for event runtime concerns. Shared local UI
   * apps do not depend on it; they use their own local startup assembly with a silent publisher.
@@ -63,6 +84,27 @@ final case class EventWiring(
   *
   * History forwarding in in-memory mode remains best-effort HTTP because there is no durable store.
   */
+=======
+ *
+ *  This object is the Game Service composition root for event runtime concerns.
+ *  Shared local UI apps do not depend on it; they use their own local startup
+ *  assembly with a silent publisher.
+ *
+ *  Current strategies:
+ *  - [[EventMode.InProcess]]: fan-out delivery within this JVM. WebSocket is
+ *    attached as an optional consumer when enabled.
+ *
+ *  History forwarding in SQLite mode:
+ *  terminal events are written to `history_event_outbox` inside the same JDBC
+ *  transaction as the game-state / session write via
+ *  [[chess.application.port.repository.SessionGameStore.saveTerminal]] and
+ *  [[chess.application.port.repository.SessionRepository.saveCancelWithOutbox]].
+ *  The background [[HistoryOutboxForwarder]] drains that durable table.
+ *
+ *  History forwarding in in-memory mode remains best-effort HTTP because there
+ *  is no durable store.
+ */
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
 object EventAssembly:
 
   def assemble(config: AppConfig): EventWiring =

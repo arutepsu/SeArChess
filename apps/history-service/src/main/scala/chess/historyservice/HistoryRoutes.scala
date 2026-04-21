@@ -2,11 +2,16 @@ package chess.historyservice
 
 import cats.effect.IO
 <<<<<<< HEAD
+<<<<<<< HEAD
 import cats.syntax.semigroupk.*
 import chess.adapter.event.GameHistoryIngestionContract
 import chess.application.session.model.SessionIds.GameId
 import chess.history.*
 =======
+=======
+import cats.syntax.semigroupk.*
+import chess.adapter.event.GameHistoryIngestionContract
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
 import chess.application.session.model.SessionIds.GameId
 import chess.history.*
 import chess.history.sqlite.SqliteArchiveRepository
@@ -47,39 +52,58 @@ class HistoryRoutes(
   repository: SqliteArchiveRepository
 ):
 
-  val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
+  /** Operational liveness only; no upstream/dependency checks. */
+  val operationalRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
     case GET -> Root / "health" =>
-      json(Status.Ok, ujson.Obj("status" -> "ok"))
+      json(Status.Ok, ujson.Obj(
+        "status"                  -> "ok",
+        "downstreamIngestionPath" -> GameHistoryIngestionContract.GameEventsPath
+      ))
+  }
 
-    case req @ POST -> Root / "events" / "game" =>
-      req.bodyText.compile.string.flatMap(handleEvent)
-
+<<<<<<< HEAD
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
+=======
+  /** Archive query surface. This may later become edge-facing read API. */
+  val publicArchiveRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
     case GET -> Root / "archives" / gameId =>
       handleGetArchive(gameId)
   }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
   /** Downstream ingestion surface called by Game Service outbox forwarding. */
   val downstreamIngestionRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
     case req @ POST -> Root / "internal" / "events" / "game" =>
       req.bodyText.compile.string.flatMap(handleEvent)
   }
 
+<<<<<<< HEAD
   /** Temporary compatibility alias for the pre-boundary-audit ingestion path. Disabled unless
     * explicitly configured.
     */
+=======
+  /** Compatibility alias for the pre-boundary-audit ingestion path. */
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
   val legacyDownstreamIngestionRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
     case req @ POST -> Root / "events" / "game" =>
       req.bodyText.compile.string.flatMap(handleEvent)
   }
 
   val routes: HttpRoutes[IO] =
+<<<<<<< HEAD
     val baseRoutes = operationalRoutes <+> internalArchiveRoutes <+> downstreamIngestionRoutes
     if acceptLegacyIngestionPath then baseRoutes <+> legacyDownstreamIngestionRoutes else baseRoutes
 
 =======
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
+=======
+    operationalRoutes <+> publicArchiveRoutes <+> downstreamIngestionRoutes <+> legacyDownstreamIngestionRoutes
+
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
   private def handleEvent(body: String): IO[Response[IO]] =
     ingestion.ingestEventJson(body) match
       case Right(record) =>

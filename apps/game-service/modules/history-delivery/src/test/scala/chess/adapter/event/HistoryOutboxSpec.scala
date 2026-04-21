@@ -79,9 +79,12 @@ class HistoryOutboxSpec extends AnyFlatSpec with Matchers with OptionValues:
       val result = forwarder.runOnce()
 
       posts should have size 1
+<<<<<<< HEAD
       result.attempted shouldBe 1
       result.delivered shouldBe 1
       result.failed shouldBe 0
+=======
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
       posts.head._1.toString shouldBe s"http://history.local:8081${GameHistoryIngestionContract.GameEventsPath}"
       posts.head._3 shouldBe 777
       outbox.pending(10).toOption.getOrElse(fail("pending() returned Left")) shouldBe empty

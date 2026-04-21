@@ -1,5 +1,6 @@
 package chess.server.assembly
 
+<<<<<<< HEAD
 import chess.adapter.repository.{
   InMemoryGameRepository,
   InMemorySessionGameStore,
@@ -22,6 +23,17 @@ final case class PersistenceWiring(
     gameRepository: GameRepository,
     store: SessionGameStore,
     shutdown: () => Unit = () => ()
+=======
+import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionGameStore, InMemorySessionRepository}
+import chess.adapter.repository.sqlite.{SqliteDataSource, SqliteGameRepository, SqliteSchema, SqliteSessionGameStore, SqliteSessionRepository}
+import chess.application.port.repository.{GameRepository, SessionGameStore, SessionRepository}
+import chess.server.config.{AppConfig, PersistenceMode, SqliteConfig}
+
+final case class PersistenceWiring(
+  sessionRepository: SessionRepository,
+  gameRepository:    GameRepository,
+  store:             SessionGameStore
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
 )
 
 /** Game Service persistence infrastructure assembly. */
@@ -29,6 +41,7 @@ object PersistenceAssembly:
 
   def assemble(config: AppConfig): PersistenceWiring =
     config.persistence match
+<<<<<<< HEAD
       case PersistenceMode.Postgres =>
         assemblePostgres(
           config.postgres.getOrElse(
@@ -59,12 +72,22 @@ object PersistenceAssembly:
     val sessionRepo = InMemorySessionRepository()
     val gameRepo = InMemoryGameRepository()
     val store = InMemorySessionGameStore(sessionRepo, gameRepo)
+=======
+      case PersistenceMode.InMemory => assembleInMemory()
+      case PersistenceMode.SQLite   => assembleSQLite(config.sqlite.get)
+
+  private def assembleInMemory(): PersistenceWiring =
+    val sessionRepo = InMemorySessionRepository()
+    val gameRepo    = InMemoryGameRepository()
+    val store       = InMemorySessionGameStore(sessionRepo, gameRepo)
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
     PersistenceWiring(sessionRepo, gameRepo, store)
 
   private def assembleSQLite(cfg: SqliteConfig): PersistenceWiring =
     val ds = SqliteDataSource(cfg.path)
     ds.withConnection(SqliteSchema.createTables)
     val sessionRepo = SqliteSessionRepository(ds)
+<<<<<<< HEAD
     val gameRepo = SqliteGameRepository(ds)
     val store = SqliteSessionGameStore(ds, sessionRepo, gameRepo)
     PersistenceWiring(sessionRepo, gameRepo, store)
@@ -90,3 +113,8 @@ object PersistenceAssembly:
           runtime.store,
           shutdown = () => runtime.close()
         )
+=======
+    val gameRepo    = SqliteGameRepository(ds)
+    val store       = SqliteSessionGameStore(ds, sessionRepo, gameRepo)
+    PersistenceWiring(sessionRepo, gameRepo, store)
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)

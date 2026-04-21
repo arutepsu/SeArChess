@@ -5,6 +5,7 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import cats.syntax.semigroupk.*
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 import chess.adapter.ai.LocalDeterministicAiClient
 import chess.adapter.ai.remote.RemoteAiMoveSuggestionClient
@@ -26,6 +27,12 @@ import chess.server.assembly.{EventAssembly, EventWiring}
 import chess.server.http.{CorsMiddleware, HealthRoutes, HistoryOutboxOpsRoutes}
 import chess.startup.assembly.{AppContext, CoreAssembly, PersistenceAssembly}
 >>>>>>> abcc8c8c (envoy + ai service prerp)
+=======
+import chess.adapter.http4s.Http4sApp
+import chess.server.assembly.{AppContext, EventWiring}
+import chess.server.config.{AiConfig, AppConfig}
+import chess.server.http.{CorsMiddleware, HealthRoutes, HistoryOutboxOpsRoutes}
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
 import com.comcast.ip4s.{Host, Port}
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.{HttpApp, Request}
@@ -36,6 +43,7 @@ object ServerWiring:
   def start(config: AppConfig): (AppContext, ServerRuntime) =
     val (ctx, events) = GameServiceComposition.assemble(config)
 
+<<<<<<< HEAD
     val metricsRegistry = new HttpMetricsRegistry
     val domainMetrics   = new DomainMetricsRegistry
 
@@ -58,6 +66,13 @@ object ServerWiring:
         baseOpsRoutes <+> MigrationAdminRoutes(token, MigrationCliRunner.runForReport(_)).routes
       else
         baseOpsRoutes
+=======
+    val publicGameplayApi: HttpApp[IO] =
+      Http4sApp(ctx.gameService).httpApp
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
+
+    val internalOpsRoutes =
+      HealthRoutes.routes <+> HistoryOutboxOpsRoutes(events.historyOutbox).routes
 
     val composedApp: HttpApp[IO] =
       Kleisli { (req: Request[IO]) =>
@@ -75,8 +90,12 @@ object ServerWiring:
     val httpApp: HttpApp[IO] =
       CorsMiddleware(config.cors, instrumentedApp)
 
+<<<<<<< HEAD
     val host = Host
       .fromString(config.http.host)
+=======
+    val host = Host.fromString(config.http.host)
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
       .getOrElse(throw RuntimeException(s"[chess] Invalid HTTP host: '${config.http.host}'"))
     val port = Port
       .fromInt(config.http.port)
@@ -97,6 +116,7 @@ object ServerWiring:
     (ctx, ServerRuntime(events.wsServer, shutdownHttp, IO { events.shutdown(); ctx.shutdownPersistence() }))
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
   /** Attach the server's configured AI move-suggestion client to the Game Service boundary.
    *
@@ -115,12 +135,17 @@ object ServerWiring:
       AiConfig(AiProviderMode.Remote, Some(chess.config.RemoteAiConfig("http://ai-service:8765")), 2000, None)
     )
 >>>>>>> abcc8c8c (envoy + ai service prerp)
+=======
+  private[server] def withServerAi(baseCtx: AppContext, events: EventWiring): AppContext =
+    GameServiceComposition.withAi(baseCtx, events)
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
 
   private[server] def withServerAi(
       baseCtx: AppContext,
       events: EventWiring,
       config: AiConfig
   ): AppContext =
+<<<<<<< HEAD
 <<<<<<< HEAD
     GameServiceComposition.withAi(baseCtx, events, config)
 
@@ -159,3 +184,9 @@ object ServerWiring:
           case None =>
             throw IllegalArgumentException("AI remote mode requires AI_REMOTE_BASE_URL")
 >>>>>>> abcc8c8c (envoy + ai service prerp)
+=======
+    GameServiceComposition.withAi(baseCtx, events, config)
+
+  private[server] def aiClientFor(config: AiConfig): Option[chess.application.port.ai.AiMoveSuggestionClient] =
+    GameServiceComposition.aiClientFor(config)
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)

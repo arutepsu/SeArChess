@@ -2,6 +2,7 @@ package chess.historyservice
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
+<<<<<<< HEAD
 import chess.history.{ArchiveMaterializer, ArchiveRepository, HistoryIngestionService, RemoteGameArchiveClient}
 import chess.history.postgres.HistoryFlywaySchemaInitializer
 import chess.history.redis.RedisStreamHistoryConsumer
@@ -10,18 +11,29 @@ import chess.observability.StructuredLog
 import com.comcast.ip4s.{Host, Port}
 import org.http4s.ember.server.EmberServerBuilder
 import slick.jdbc.PostgresProfile.api.Database
+=======
+import chess.history.{ArchiveMaterializer, HistoryIngestionService, RemoteGameArchiveClient}
+import chess.history.sqlite.SqliteArchiveRepository
+import com.comcast.ip4s.{Host, Port}
+import org.http4s.ember.server.EmberServerBuilder
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
 
 /** History Service composition root and HTTP runtime startup. */
 object HistoryServiceWiring:
 
   def start(config: HistoryServiceConfig): HistoryServiceRuntime =
+<<<<<<< HEAD
     val (repository, closeStorage) = buildRepository(config)
+=======
+    val repository = SqliteArchiveRepository(config.dbPath)
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
     val ingestion = HistoryIngestionService(
       archiveClient = RemoteGameArchiveClient(config.gameServiceBaseUrl, config.timeoutMillis),
       materializer  = ArchiveMaterializer(),
       repository    = repository
     )
 
+<<<<<<< HEAD
     val httpApp = HistoryRoutes(
       ingestion,
       repository,
@@ -33,6 +45,11 @@ object HistoryServiceWiring:
     val port = Port
       .fromInt(config.port)
       .getOrElse(throw RuntimeException(s"Invalid HISTORY_HTTP_PORT: ${config.port}"))
+=======
+    val httpApp = HistoryRoutes(ingestion, repository).routes.orNotFound
+    val host = Host.fromString(config.host).getOrElse(throw RuntimeException(s"Invalid HISTORY_HTTP_HOST: ${config.host}"))
+    val port = Port.fromInt(config.port).getOrElse(throw RuntimeException(s"Invalid HISTORY_HTTP_PORT: ${config.port}"))
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
 
     val (_, shutdown) = EmberServerBuilder
       .default[IO]
@@ -43,6 +60,7 @@ object HistoryServiceWiring:
       .allocated
       .unsafeRunSync()
 
+<<<<<<< HEAD
     val stopConsumer = startConsumer(config, ingestion)
     HistoryServiceRuntime(shutdown, closeStorage, stopConsumer)
 
@@ -88,3 +106,6 @@ object HistoryServiceWiring:
     )
     val repo = SlickPostgresArchiveRepository(db, config.postgresSchema)
     (repo, () => db.close())
+=======
+    HistoryServiceRuntime(shutdown, repository)
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)

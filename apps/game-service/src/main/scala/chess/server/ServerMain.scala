@@ -10,6 +10,7 @@ object ServerMain:
 
   private[chess] def run(args: Array[String], config: AppConfig): Unit =
 <<<<<<< HEAD
+<<<<<<< HEAD
     GameServiceMain.run(args, config)
 =======
     val aiDesc = config.ai.mode match
@@ -29,3 +30,6 @@ object ServerMain:
     // Server threads keep the JVM alive; block main until interrupted.
     Thread.currentThread().join()
 >>>>>>> 14542117 (fix ai flow)
+=======
+    GameServiceMain.run(args, config)
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)

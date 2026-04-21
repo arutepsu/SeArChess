@@ -4,6 +4,7 @@ import chess.adapter.gui.ChessApp
 import chess.startup.local.LocalRuntimeConfigLoader
 
 /** Entry point for the standalone GUI app.
+<<<<<<< HEAD
   *
   * Loads local-client config from environment variables via [[LocalRuntimeConfigLoader]], delegates
   * composition to [[GuiWiring]], then launches the JavaFX event loop.
@@ -17,6 +18,23 @@ import chess.startup.local.LocalRuntimeConfigLoader
   *    sbt "desktopGui/runMain chess.guiapp.GuiMain"
   * }}}
   */
+=======
+ *
+ *  Loads local-client config from environment variables via
+ *  [[LocalRuntimeConfigLoader]], delegates
+ *  composition to [[GuiWiring]], then launches the JavaFX event loop.
+ *
+ *  Does not start the TUI.  GUI is a self-contained runtime shape.
+ *  Shutdown is driven by the user closing the GUI window; the JavaFX platform
+ *  exits and the JVM terminates normally.
+ *
+ *  To run:
+ *  {{{
+ *    sbt "desktopGui/run"
+ *    sbt "desktopGui/runMain chess.guiapp.GuiMain"
+ *  }}}
+ */
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
 object GuiMain:
 
   def main(args: Array[String]): Unit =

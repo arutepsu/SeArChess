@@ -5,6 +5,7 @@ import chess.adapter.ai.remote.RemoteAiMoveSuggestionClient
 import chess.application.ai.service.AITurnError
 import chess.application.session.model.{SessionMode, SideController}
 import chess.server.config.{
+<<<<<<< HEAD
   AiConfig,
   AiProviderMode,
   AppConfig,
@@ -14,6 +15,10 @@ import chess.server.config.{
   HistoryForwardingConfig,
   PersistenceMode,
   WebSocketConfig
+=======
+  AiConfig, AiProviderMode, AppConfig, CorsConfig, EventMode, HttpConfig,
+  HistoryForwardingConfig, PersistenceMode, WebSocketConfig
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
 }
 import chess.server.assembly.EventWiring
 import chess.server.assembly.{CoreAssembly, PersistenceAssembly}
@@ -45,8 +50,12 @@ class ServerWiringSpec extends AnyFlatSpec with Matchers with EitherValues with 
     eventMode   = EventMode.InProcess,
     cors        = CorsConfig(enabled = false, allowedOrigin = "*"),
     history     = HistoryForwardingConfig(enabled = false, baseUrl = None, timeoutMillis = 2000),
+<<<<<<< HEAD
     ai          = AiConfig(AiProviderMode.Remote, remote = Some(chess.config.RemoteAiConfig("http://ai-service:8765")), timeoutMillis = 2000, defaultEngineId = None)
 >>>>>>> abcc8c8c (envoy + ai service prerp)
+=======
+    ai          = AiConfig(AiProviderMode.Remote, remote = Some(chess.server.config.RemoteAiConfig("http://ai-service:8765")), timeoutMillis = 2000, defaultEngineId = None)
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
   )
 
   "ServerWiring.withServerAi" should "configure the Game Service AI endpoint path" in {
@@ -162,7 +171,7 @@ class ServerWiringSpec extends AnyFlatSpec with Matchers with EitherValues with 
 =======
     val client = ServerWiring.aiClientFor(AiConfig(
       mode            = AiProviderMode.Remote,
-      remote          = Some(chess.config.RemoteAiConfig("http://ai.local")),
+      remote          = Some(chess.server.config.RemoteAiConfig("http://ai.local")),
       timeoutMillis   = 2000,
       defaultEngineId = Some("stockfish-default")
     ))

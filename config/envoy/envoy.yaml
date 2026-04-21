@@ -22,11 +22,16 @@ static_resources:
                         - "*"
                       routes:
 <<<<<<< HEAD
+<<<<<<< HEAD
                         # Public edge: expose Game Service health, gameplay API, and WebSocket only.
                         # Do not route AI /v1/move-suggestions, History /internal/events/game,
                         # the legacy History /events/game alias, or History /archives through Envoy.
 =======
 >>>>>>> abcc8c8c (envoy + ai service prerp)
+=======
+                        # Public edge: expose Game Service health, gameplay API, and WebSocket only.
+                        # AI Service and History ingestion remain internal container-network surfaces.
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
                         - match:
                             path: /health
                           route:

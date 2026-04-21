@@ -486,7 +486,11 @@ lazy val historyService = project
     )
   )
 <<<<<<< HEAD
+<<<<<<< HEAD
   .dependsOn(history, gameEventContract, observability, gameHistoryDelivery % Test)
+=======
+  .dependsOn(history, gameEventContract, gameHistoryDelivery % Test)
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
 
 // App: ai-service
 
@@ -509,6 +513,7 @@ lazy val aiService = project
       ".*chess.aiservice.*"
     )
   )
+<<<<<<< HEAD
   .dependsOn(aiContract, observability, domain, notation)
 
 // App: lichess-bot
@@ -581,6 +586,9 @@ lazy val benchmarks = project
 =======
   .dependsOn(history)
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
+=======
+  .dependsOn(adapterAi)
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
 
 // ── Aliases ───────────────────────────────────────────────────────────────────
 //
@@ -651,10 +659,13 @@ addCommandAlias("testStartupShared",      "startupShared/test")
 addCommandAlias("testGameService",        "gameService/test")
 addCommandAlias("testHistoryService",     "historyService/test")
 addCommandAlias("testAiService",          "aiService/test")
+<<<<<<< HEAD
 =======
 addCommandAlias("testBootstrapServer",    "bootstrapServer/test")
 addCommandAlias("testHistoryService",     "historyService/test")
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
+=======
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
 addCommandAlias("testDesktopGui",         "desktopGui/test")
 addCommandAlias("testTuiCli",             "tuiCli/test")
 
@@ -685,10 +696,14 @@ addCommandAlias("testAllAdapters",
 
 addCommandAlias("testApps",
 <<<<<<< HEAD
+<<<<<<< HEAD
   ";startupShared/test;gameService/test;historyService/test;aiService/test;desktopGui/test;tuiCli/test")
 =======
   ";startupShared/test;bootstrapServer/test;historyService/test;desktopGui/test;tuiCli/test")
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
+=======
+  ";startupShared/test;gameService/test;historyService/test;aiService/test;desktopGui/test;tuiCli/test")
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
 
 // ── Compile slices ────────────────────────────────────────────────────────────
 
@@ -721,6 +736,7 @@ lazy val root = project
     adapterPersistence, migration, adapterAi, adapterEvent, gameEventContract, gameHistoryDelivery,
     adapterRestContract, adapterRestHttp4s,
     adapterWebsocket, adapterGui, adapterTui,
+<<<<<<< HEAD
     startupShared, gameService, historyService, aiService, desktopGui, tuiCli, loadTests, benchmarks,
     lichessBot, chessStreaming
 =======
@@ -730,4 +746,7 @@ lazy val root = project
     adapterWebsocket, adapterGui, adapterTui,
     startupShared, bootstrapServer, historyService, desktopGui, tuiCli
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
+=======
+    startupShared, gameService, historyService, aiService, desktopGui, tuiCli
+>>>>>>> f7a07f01 (runnable mains, hardered event contracts)
   )
