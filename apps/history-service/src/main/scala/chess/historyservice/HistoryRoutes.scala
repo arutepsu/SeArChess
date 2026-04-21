@@ -1,6 +1,8 @@
 package chess.historyservice
 
 import cats.effect.IO
+import cats.syntax.semigroupk.*
+import chess.adapter.event.GameHistoryIngestionContract
 import chess.application.session.model.SessionIds.GameId
 import chess.history.*
 import chess.history.sqlite.SqliteArchiveRepository
@@ -15,16 +17,35 @@ class HistoryRoutes(
   repository: SqliteArchiveRepository
 ):
 
-  val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
+  /** Operational liveness only; no upstream/dependency checks. */
+  val operationalRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
     case GET -> Root / "health" =>
-      json(Status.Ok, ujson.Obj("status" -> "ok"))
+      json(Status.Ok, ujson.Obj(
+        "status"                  -> "ok",
+        "downstreamIngestionPath" -> GameHistoryIngestionContract.GameEventsPath
+      ))
+  }
 
-    case req @ POST -> Root / "events" / "game" =>
-      req.bodyText.compile.string.flatMap(handleEvent)
-
+  /** Archive query surface. This may later become edge-facing read API. */
+  val publicArchiveRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
     case GET -> Root / "archives" / gameId =>
       handleGetArchive(gameId)
   }
+
+  /** Downstream ingestion surface called by Game Service outbox forwarding. */
+  val downstreamIngestionRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
+    case req @ POST -> Root / "internal" / "events" / "game" =>
+      req.bodyText.compile.string.flatMap(handleEvent)
+  }
+
+  /** Compatibility alias for the pre-boundary-audit ingestion path. */
+  val legacyDownstreamIngestionRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
+    case req @ POST -> Root / "events" / "game" =>
+      req.bodyText.compile.string.flatMap(handleEvent)
+  }
+
+  val routes: HttpRoutes[IO] =
+    operationalRoutes <+> publicArchiveRoutes <+> downstreamIngestionRoutes <+> legacyDownstreamIngestionRoutes
 
   private def handleEvent(body: String): IO[Response[IO]] =
     ingestion.ingestEventJson(body) match

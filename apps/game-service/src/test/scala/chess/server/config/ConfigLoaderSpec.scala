@@ -1,4 +1,4 @@
-package chess.config
+package chess.server.config
 
 import org.scalatest.{EitherValues, OptionValues}
 import org.scalatest.flatspec.AnyFlatSpec
@@ -13,10 +13,13 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
   "ConfigLoader" should "default to the remote AI client" in {
     val config = load().value
 
-    config.ai.mode            shouldBe AiProviderMode.Remote
-    config.ai.remote.value.baseUrl shouldBe "http://ai-service:8765"
-    config.ai.timeoutMillis   shouldBe 2000
-    config.ai.defaultEngineId shouldBe None
+    config.ai.mode                  shouldBe AiProviderMode.Remote
+    config.ai.remote.value.baseUrl  shouldBe "http://ai-service:8765"
+    config.ai.timeoutMillis         shouldBe 2000
+    config.ai.defaultEngineId       shouldBe None
+    config.ai.interaction           shouldBe ServiceInteraction.InternalSynchronousHttp
+    config.ai.startupPolicy         shouldBe DependencyStartupPolicy.NotRequired
+    config.ai.failureBehaviour      shouldBe DependencyFailureBehaviour.FailRequest
   }
 
   it should "parse explicit local deterministic AI mode as transitional fallback" in {
@@ -32,6 +35,9 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
     config.history.enabled       shouldBe false
     config.history.baseUrl       shouldBe None
     config.history.timeoutMillis shouldBe 2000
+    config.history.interaction   shouldBe ServiceInteraction.DownstreamAsynchronousHttp
+    config.history.startupPolicy shouldBe DependencyStartupPolicy.NotRequired
+    config.history.failureBehaviour shouldBe DependencyFailureBehaviour.LogAndContinue
   }
 
   it should "parse enabled History forwarding with base URL and timeout" in {
@@ -58,18 +64,18 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
 
   it should "parse remote AI mode with base URL, timeout, and default engine id" in {
     val config = load(
-      "AI_PROVIDER_MODE"    -> "remote",
-      "AI_REMOTE_BASE_URL"  -> "http://ai.local:9000",
-      "AI_TIMEOUT_MILLIS"   -> "3500",
+      "AI_PROVIDER_MODE"     -> "remote",
+      "AI_REMOTE_BASE_URL"   -> "http://ai.local:9000",
+      "AI_TIMEOUT_MILLIS"    -> "3500",
       "AI_DEFAULT_ENGINE_ID" -> "stockfish-default",
       "AI_REMOTE_TEST_MODE"  -> "illegal_move"
     ).value
 
-    config.ai.mode                       shouldBe AiProviderMode.Remote
-    config.ai.remote.value.baseUrl       shouldBe "http://ai.local:9000"
+    config.ai.mode                        shouldBe AiProviderMode.Remote
+    config.ai.remote.value.baseUrl        shouldBe "http://ai.local:9000"
     config.ai.remote.value.testMode.value shouldBe "illegal_move"
-    config.ai.timeoutMillis              shouldBe 3500
-    config.ai.defaultEngineId.value      shouldBe "stockfish-default"
+    config.ai.timeoutMillis               shouldBe 3500
+    config.ai.defaultEngineId.value       shouldBe "stockfish-default"
   }
 
   it should "use the default compose AI service URL when remote mode omits a base URL" in {
@@ -90,8 +96,8 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
 
   it should "parse sqlite persistence mode and populate SqliteConfig with default path" in {
     val config = load("PERSISTENCE_MODE" -> "sqlite").value
-    config.persistence          shouldBe PersistenceMode.SQLite
-    config.sqlite.value.path    shouldBe "chess.db"
+    config.persistence       shouldBe PersistenceMode.SQLite
+    config.sqlite.value.path shouldBe "chess.db"
   }
 
   it should "parse sqlite persistence mode with a custom CHESS_DB_PATH" in {

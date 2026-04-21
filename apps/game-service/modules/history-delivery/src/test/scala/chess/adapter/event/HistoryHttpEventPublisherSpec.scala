@@ -30,7 +30,7 @@ class HistoryHttpEventPublisherSpec extends AnyFlatSpec with Matchers with Eithe
     publisher(posts).publish(event)
 
     posts should have size 1
-    posts.head.uri.toString shouldBe "http://history.local:8081/events/game"
+    posts.head.uri.toString shouldBe s"http://history.local:8081${GameHistoryIngestionContract.GameEventsPath}"
     posts.head.timeout shouldBe 1234
     posts.head.json shouldBe AppEventSerializer.serialize(event).value
     ujson.read(posts.head.json)("type").str shouldBe "game.finished.v1"

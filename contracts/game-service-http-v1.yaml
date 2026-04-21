@@ -3,8 +3,9 @@ info:
   title: Searchess Game Service HTTP API
   version: "1.0.0"
   description: >
-    Local/dev Game Service HTTP contract v1. Routes are currently unprefixed;
-    this file documents the existing externally consumable service surface.
+    Public edge-facing Game Service HTTP contract v1. Clients/UI call this
+    service; internal AI and History ingestion APIs are not part of this surface.
+    Routes are currently unprefixed in the service and mounted under /api by Envoy.
 servers:
   - url: http://localhost:8080
     description: Local container/default development server

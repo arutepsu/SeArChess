@@ -230,13 +230,13 @@ lazy val startupShared = project
     commonSettings,
     coverageMinimumStmtTotal := 0,
     excludeFromCoverage(
-      ".*chess.startup.assembly.PersistenceAssembly.*",
-      ".*chess.startup.assembly.PersistenceWiring.*",
-      ".*chess.startup.assembly.CoreAssembly.*",
-      ".*chess.startup.assembly.AppContext.*",
-      ".*chess.startup.assembly.CoreEventBindings.*",
-      ".*chess.startup.assembly.ObservableGame.*",
-      ".*chess.config.*"
+      ".*chess.startup.local.LocalPersistenceAssembly.*",
+      ".*chess.startup.local.LocalPersistenceWiring.*",
+      ".*chess.startup.local.LocalGameAssembly.*",
+      ".*chess.startup.local.LocalAppContext.*",
+      ".*chess.startup.local.ObservableGame.*",
+      ".*chess.startup.local.LocalRuntimeConfig.*",
+      ".*chess.startup.local.LocalRuntimeConfigLoader.*"
     )
   )
   .dependsOn(
@@ -287,8 +287,8 @@ lazy val gameService = project
     commonSettings,
     name := "searchess-game-service",
     coverageMinimumStmtTotal := 0,
-    Compile / mainClass := Some("chess.server.ServerMain"),
-    run / mainClass     := Some("chess.server.ServerMain"),
+    Compile / mainClass := Some("chess.server.GameServiceMain"),
+    run / mainClass     := Some("chess.server.GameServiceMain"),
     run / fork          := true,
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-ember-server" % http4sVersion,
@@ -296,16 +296,23 @@ lazy val gameService = project
     ),
     excludeFromCoverage(
       ".*chess.server.ServerMain.*",
+      ".*chess.server.GameServiceMain.*",
       ".*chess.server.ServerWiring.*",
+      ".*chess.server.GameServiceComposition.*",
       ".*chess.server.ServerRuntime.*",
       ".*chess.server.assembly.EventAssembly.*",
       ".*chess.server.assembly.EventWiring.*",
+      ".*chess.server.assembly.CoreAssembly.*",
+      ".*chess.server.assembly.AppContext.*",
+      ".*chess.server.assembly.CoreEventBindings.*",
+      ".*chess.server.assembly.PersistenceAssembly.*",
+      ".*chess.server.assembly.PersistenceWiring.*",
+      ".*chess.server.config.*",
       ".*chess.server.http.HealthRoutes.*",
       ".*chess.server.http.CorsMiddleware.*"
     )
   )
   .dependsOn(
-    startupShared,
     adapterRestHttp4s,
     adapterWebsocket,
     adapterAi,
@@ -337,7 +344,30 @@ lazy val historyService = project
       ".*chess.historyservice.HistoryRoutes.*"
     )
   )
-  .dependsOn(history, gameHistoryDelivery % Test)
+  .dependsOn(history, gameEventContract, gameHistoryDelivery % Test)
+
+// App: ai-service
+
+lazy val aiService = project
+  .in(file("apps/ai-service"))
+  .enablePlugins(JavaAppPackaging)
+  .settings(
+    commonSettings,
+    name := "searchess-ai-service",
+    coverageMinimumStmtTotal := 0,
+    Compile / mainClass := Some("chess.aiservice.AiServiceMain"),
+    run / mainClass     := Some("chess.aiservice.AiServiceMain"),
+    run / fork          := true,
+    libraryDependencies ++= Seq(
+      "org.http4s" %% "http4s-ember-server" % http4sVersion,
+      "org.http4s" %% "http4s-dsl"          % http4sVersion,
+      "com.lihaoyi" %% "ujson"              % "4.0.2"
+    ),
+    excludeFromCoverage(
+      ".*chess.aiservice.*"
+    )
+  )
+  .dependsOn(adapterAi)
 
 // ── Aliases ───────────────────────────────────────────────────────────────────
 //
@@ -354,7 +384,7 @@ lazy val historyService = project
 //   testGameEventContract   testGameHistoryDelivery
 //   testAdapterRestContract testAdapterRestHttp4s
 //   testAdapterWebsocket    testAdapterGui          testAdapterTui
-//   testStartupShared       testGameService
+//   testStartupShared       testGameService       testHistoryService testAiService
 //   testDesktopGui          testTuiCli
 //
 // Grouped aliases by architectural concern:
@@ -363,7 +393,7 @@ lazy val historyService = project
 //   testRest         — adapter-rest-contract + adapter-rest-http4s
 //   testUi           — adapter-gui + adapter-tui
 //   testAllAdapters  — all adapter modules
-//   testApps         — startup-shared + game-service + history-service + desktop-gui + tui-cli
+//   testApps         — startup-shared + game-service + history-service + ai-service + desktop-gui + tui-cli
 //
 // Compile slice aliases:
 //   compileCore      — domain + notation + game-contract + game-core
@@ -400,6 +430,7 @@ addCommandAlias("testAdapterTui",         "adapterTui/test")
 addCommandAlias("testStartupShared",      "startupShared/test")
 addCommandAlias("testGameService",        "gameService/test")
 addCommandAlias("testHistoryService",     "historyService/test")
+addCommandAlias("testAiService",          "aiService/test")
 addCommandAlias("testDesktopGui",         "desktopGui/test")
 addCommandAlias("testTuiCli",             "tuiCli/test")
 
@@ -425,7 +456,7 @@ addCommandAlias("testAllAdapters",
   ";adapterGui/test;adapterTui/test")
 
 addCommandAlias("testApps",
-  ";startupShared/test;gameService/test;historyService/test;desktopGui/test;tuiCli/test")
+  ";startupShared/test;gameService/test;historyService/test;aiService/test;desktopGui/test;tuiCli/test")
 
 // ── Compile slices ────────────────────────────────────────────────────────────
 
@@ -457,5 +488,5 @@ lazy val root = project
     adapterPersistence, adapterAi, adapterEvent, gameEventContract, gameHistoryDelivery,
     adapterRestContract, adapterRestHttp4s,
     adapterWebsocket, adapterGui, adapterTui,
-    startupShared, gameService, historyService, desktopGui, tuiCli
+    startupShared, gameService, historyService, aiService, desktopGui, tuiCli
   )

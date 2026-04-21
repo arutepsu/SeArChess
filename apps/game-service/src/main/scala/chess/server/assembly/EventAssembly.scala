@@ -3,8 +3,7 @@ package chess.server.assembly
 import chess.adapter.event.{AppEventSerializer, FanOutEventPublisher, HistoryEventOutbox, HistoryHttpEventPublisher, HistoryOutboxForwarder, SqliteHistoryEventOutbox}
 import chess.adapter.websocket.{ChessWebSocketServer, WebSocketConnectionRegistry, WebSocketEventPublisher}
 import chess.application.port.event.{EventPublisher, NoOpTerminalEventJsonSerializer, TerminalEventJsonSerializer}
-import chess.config.{AppConfig, EventMode, PersistenceMode}
-import chess.startup.assembly.CoreEventBindings
+import chess.server.config.{AppConfig, EventMode, PersistenceMode}
 
 /** Game Service event runtime produced by [[EventAssembly.assemble]].
  *
@@ -15,8 +14,8 @@ import chess.startup.assembly.CoreEventBindings
  *  - History HTTP forwarding / SQLite outbox draining
  *  - terminal event JSON serialization for the Game -> History outbox
  *
- *  [[coreEvents]] exposes only the neutral event dependencies needed by
- *  [[chess.startup.assembly.CoreAssembly]].
+ *  [[coreEvents]] exposes only the event dependencies needed by the Game
+ *  Service application assembly.
  */
 final case class EventWiring(
   publisher:          EventPublisher,
@@ -31,8 +30,8 @@ final case class EventWiring(
 /** Assembles Game Service event distribution from [[AppConfig]].
  *
  *  This object is the Game Service composition root for event runtime concerns.
- *  Shared local UI apps do not depend on it; they use [[CoreEventBindings]] with
- *  a silent publisher via [[chess.startup.assembly.CoreAssembly.build]].
+ *  Shared local UI apps do not depend on it; they use their own local startup
+ *  assembly with a silent publisher.
  *
  *  Current strategies:
  *  - [[EventMode.InProcess]]: fan-out delivery within this JVM. WebSocket is

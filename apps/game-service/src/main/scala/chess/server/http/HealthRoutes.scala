@@ -14,7 +14,7 @@ import org.http4s.headers.`Content-Type`
  *
  *  === Endpoint ===
  *  {{{
- *    GET /health → 200 OK
+ *    GET /health -> 200 OK
  *    Content-Type: application/json
  *
  *    {"status":"ok"}
@@ -25,8 +25,10 @@ import org.http4s.headers.`Content-Type`
  */
 object HealthRoutes:
 
+  private val HealthSegment = GameServiceHttpSurface.PublicHealthPath.stripPrefix("/")
+
   def routes: HttpRoutes[IO] =
     HttpRoutes.of[IO]:
-      case GET -> Root / "health" =>
+      case GET -> Root / `HealthSegment` =>
         Ok("""{"status":"ok"}""")
           .map(_.withContentType(`Content-Type`(MediaType.application.json)))

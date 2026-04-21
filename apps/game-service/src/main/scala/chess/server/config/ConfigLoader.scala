@@ -1,40 +1,7 @@
-package chess.config
+package chess.server.config
 
-/** Loads [[AppConfig]] from environment variables with sensible defaults.
- *
- *  App selection (server, GUI, TUI) is determined by the SBT project and
- *  entry point, not by this loader.  These variables control runtime
- *  infrastructure only.
- *
- *  === Supported environment variables ===
- *  {{{
- *    HTTP_HOST         any hostname or IP address  (default: 0.0.0.0)
- *    HTTP_PORT         integer 1–65535             (default: 8080)
- *    WS_ENABLED        true/false/1/0/yes/no       (default: true)
- *    WS_PORT           integer 1–65535             (default: 9090)
- *    PERSISTENCE_MODE  in-memory | sqlite           (default: in-memory)
- *    CHESS_DB_PATH     file path for SQLite DB      (default: chess.db)
- *    EVENT_MODE        in-process                  (default: in-process)
- *    CORS_ENABLED      true/false/1/0/yes/no       (default: false)
- *    CORS_ALLOWED_ORIGIN  * | specific origin URL  (default: *)
- *    HISTORY_FORWARDING_ENABLED true/false/1/0/yes/no (default: false)
- *    HISTORY_SERVICE_BASE_URL URL for History Service (required when enabled)
- *    HISTORY_FORWARDING_TIMEOUT_MILLIS integer >= 1  (default: 2000)
- *    AI_PROVIDER_MODE  remote | local | disabled    (default: remote)
- *    AI_REMOTE_BASE_URL  URL for remote AI mode      (default: http://ai-service:8765)
- *    AI_TIMEOUT_MILLIS integer >= 1                 (default: 2000)
- *    AI_DEFAULT_ENGINE_ID optional engine id         (default: unset)
- *    AI_REMOTE_TEST_MODE optional local/dev test hook(default: unset)
- *  }}}
- *
- *  === Validation ===
- *  [[load]] returns `Left(errorMessage)` on the first invalid value found.
- *  [[loadOrExit]] prints the error and terminates the process immediately;
- *  it is intended for use in JVM entry points only.
- */
+/** Loads Game Service runtime configuration from environment variables. */
 object ConfigLoader:
-
-  // ── Defaults ─────────────────────────────────────────────────────────────────
 
   private val DefaultHttpHost:        String = "0.0.0.0"
   private val DefaultHttpPort:        String = "8080"
@@ -51,21 +18,9 @@ object ConfigLoader:
   private val DefaultAiRemoteBaseUrl: String = "http://ai-service:8765"
   private val DefaultAiTimeoutMillis: String = "2000"
 
-  // ── Public API ───────────────────────────────────────────────────────────────
-
-  /** Load and validate configuration from the environment.
-   *
-   *  Returns `Right(config)` when all values are present and valid, or
-   *  `Left(message)` describing the first problem encountered.
-   */
   def load(): Either[String, AppConfig] =
     loadFrom(key => Option(System.getenv(key)).filter(_.nonEmpty))
 
-  /** Load and validate configuration from a supplied environment lookup.
-   *
-   *  Kept package-visible for focused tests without mutating the process
-   *  environment.
-   */
   private[config] def loadFrom(env: String => Option[String]): Either[String, AppConfig] =
     for
       httpHost    <- Right(env("HTTP_HOST").getOrElse(DefaultHttpHost))
@@ -101,18 +56,11 @@ object ConfigLoader:
                     )
     )
 
-  /** Load config or print the error and exit the process.
-   *
-   *  Prints a clear message to stderr and calls `sys.exit(1)` on any
-   *  validation failure.  For use in JVM entry points only.
-   */
   def loadOrExit(): AppConfig =
     load().fold(
-      err => { System.err.println(s"[chess] Configuration error: $err"); sys.exit(1) },
+      err => { System.err.println(s"[game] Configuration error: $err"); sys.exit(1) },
       identity
     )
-
-  // ── Private parsers ──────────────────────────────────────────────────────────
 
   private def parsePort(varName: String, value: String): Either[String, Int] =
     value.toIntOption match
@@ -122,15 +70,15 @@ object ConfigLoader:
 
   private def parsePositiveInt(varName: String, value: String): Either[String, Int] =
     value.toIntOption match
-      case None              => Left(s"$varName must be an integer, got: '$value'")
-      case Some(n) if n < 1  => Left(s"$varName must be >= 1, got: $n")
-      case Some(n)           => Right(n)
+      case None             => Left(s"$varName must be an integer, got: '$value'")
+      case Some(n) if n < 1 => Left(s"$varName must be >= 1, got: $n")
+      case Some(n)          => Right(n)
 
   private def parseBool(varName: String, value: String): Either[String, Boolean] =
     value.toLowerCase match
-      case "true"  | "1" | "yes" => Right(true)
-      case "false" | "0" | "no"  => Right(false)
-      case _                     => Left(s"$varName must be true/false/1/0/yes/no, got: '$value'")
+      case "true" | "1" | "yes" => Right(true)
+      case "false" | "0" | "no" => Right(false)
+      case _                    => Left(s"$varName must be true/false/1/0/yes/no, got: '$value'")
 
   private def parsePersistenceMode(value: String): Either[String, PersistenceMode] =
     value.toLowerCase match
@@ -155,8 +103,8 @@ object ConfigLoader:
         Left(s"AI_PROVIDER_MODE must be 'remote', 'local', or 'disabled', got: '$value'")
 
   private def parseRemoteAiConfig(
-    mode:    AiProviderMode,
-    baseUrl: Option[String],
+    mode:     AiProviderMode,
+    baseUrl:  Option[String],
     testMode: Option[String]
   ): Either[String, Option[RemoteAiConfig]] =
     val normalisedTestMode = testMode.map(_.trim).filter(_.nonEmpty)
@@ -164,7 +112,7 @@ object ConfigLoader:
       case AiProviderMode.Remote =>
         baseUrl match
           case Some(url) if url.trim.nonEmpty => Right(Some(RemoteAiConfig(url.trim, normalisedTestMode)))
-          case _ => Left("AI_REMOTE_BASE_URL is required when AI_PROVIDER_MODE is 'remote'")
+          case _                              => Left("AI_REMOTE_BASE_URL is required when AI_PROVIDER_MODE is 'remote'")
       case _ =>
         Right(baseUrl.map(url => RemoteAiConfig(url.trim, normalisedTestMode)).filter(_.baseUrl.nonEmpty))
 

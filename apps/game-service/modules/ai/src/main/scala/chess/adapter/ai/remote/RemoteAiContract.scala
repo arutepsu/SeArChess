@@ -1,5 +1,14 @@
 package chess.adapter.ai.remote
 
+/** Stable internal Game -> AI HTTP boundary metadata. */
+object RemoteAiServiceContract:
+  val Version:     String = "inference-api-v1"
+  val Audience:    String = "internal"
+  val Interaction: String = "synchronous-http"
+
+  val MoveSuggestionsPath: String = "/v1/move-suggestions"
+  val HealthPath:          String = "/health"
+
 /** Move DTO used by the remote AI service contract. */
 final case class RemoteAiMoveDto(
   from:      String,

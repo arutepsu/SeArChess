@@ -3,14 +3,13 @@ package chess.guiapp
 import chess.adapter.gui.ChessApp
 import chess.application.session.model.{DesktopSessionContext, SessionMode, SideController}
 import chess.application.session.model.SessionIds.GameId
-import chess.config.AppConfig
-import chess.startup.assembly.{CoreAssembly, ObservableGame}
+import chess.startup.local.{LocalGameAssembly, LocalRuntimeConfig, ObservableGame}
 
-/** Assembles the GUI-only runtime from [[AppConfig]].
+/** Assembles the GUI-only runtime from [[LocalRuntimeConfig]].
  *
  *  Owns everything specific to the standalone GUI deployment:
  *
- *   1. Shared application runtime via [[CoreAssembly.build(AppConfig)]]
+ *   1. Local application runtime via [[LocalGameAssembly.build]]
  *      (in-process, no-op event publisher — no HTTP or WebSocket server)
  *   2. One GUI-local session (HumanVsHuman, both sides local)
  *   3. The [[ObservableGame]] notification bridge for the GUI adapter
@@ -27,10 +26,10 @@ object GuiWiring:
    *  Returns [[Unit]]; no live server handles are created.
    *  Throws if the session cannot be created (e.g. repository failure).
    */
-  def prepare(config: AppConfig): Unit =
+  def prepare(config: LocalRuntimeConfig): Unit =
 
     // ── Shared application context ───────────────────────────────────────────
-    val ctx = CoreAssembly.build(config)
+    val ctx = LocalGameAssembly.build(config)
 
     // ── GUI-local session ────────────────────────────────────────────────────
     val session = ctx.sessionService

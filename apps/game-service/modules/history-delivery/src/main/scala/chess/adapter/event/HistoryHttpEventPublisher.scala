@@ -20,7 +20,7 @@ class HistoryHttpEventPublisher(
 ) extends EventPublisher:
 
   private val endpoint: URI =
-    URI.create(s"${historyBaseUrl.stripSuffix("/")}/events/game")
+    URI.create(s"${historyBaseUrl.stripSuffix("/")}${GameHistoryIngestionContract.GameEventsPath}")
 
   override def publish(event: AppEvent): Unit =
     if DurableHistoryEventPublisher.isTerminalBoundaryEvent(event) then

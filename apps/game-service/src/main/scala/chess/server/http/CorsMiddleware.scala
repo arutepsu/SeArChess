@@ -1,7 +1,7 @@
 package chess.server.http
 
 import cats.effect.IO
-import chess.config.CorsConfig
+import chess.server.config.CorsConfig
 import org.http4s.HttpApp
 import org.http4s.headers.Origin
 import org.http4s.server.middleware.CORS

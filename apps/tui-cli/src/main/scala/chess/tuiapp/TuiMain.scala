@@ -1,10 +1,11 @@
 package chess.tuiapp
 
-import chess.config.ConfigLoader
+import chess.startup.local.LocalRuntimeConfigLoader
 
 /** Entry point for the standalone TUI app.
  *
- *  Loads config from environment variables via [[ConfigLoader]], delegates
+ *  Loads local-client config from environment variables via
+ *  [[LocalRuntimeConfigLoader]], delegates
  *  composition to [[TuiWiring]], then blocks the main thread so the JVM
  *  stays alive while the TUI daemon thread runs.
  *
@@ -21,7 +22,7 @@ import chess.config.ConfigLoader
 object TuiMain:
 
   def main(args: Array[String]): Unit =
-    val config = ConfigLoader.loadOrExit()
+    val config = LocalRuntimeConfigLoader.loadOrExit("tui")
     TuiWiring.start(config)
     // TUI runs on a daemon thread; block main so the JVM does not exit.
     // System.exit(0) in onUserQuit terminates everything when the user quits.
