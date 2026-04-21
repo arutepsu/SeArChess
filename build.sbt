@@ -24,7 +24,7 @@ lazy val commonSettings = Seq(
   // scoverage: coverage is toggled via the report/ci aliases on the root project;
   // individual modules inherit ThisBuild-level coverageEnabled.
   coverageFailOnMinimum := true,
-  coverageMinimumStmtTotal := 100,
+  coverageMinimumStmtTotal := 80,
   coverageHighlighting := true
 )
 

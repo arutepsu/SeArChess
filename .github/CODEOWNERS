@@ -1,0 +1,5 @@
+# Default owner for all files
+* @arutepsu
+
+# Workflow changes require explicit review
+.github/workflows/ @arutepsu
