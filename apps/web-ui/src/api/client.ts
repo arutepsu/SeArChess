@@ -126,14 +126,22 @@ export async function undoMove(): Promise<GameState> {
   if (useMock) {
     return getMockState();
   }
-  throw new Error("Undo is not supported in server mode.");
+  const gameId = requireGameId();
+  const game = await fetchJson<GameResponse>(`/api/games/${gameId}/undo`, {
+    method: "POST"
+  });
+  return mapGameResponseToGameState(game);
 }
 
 export async function redoMove(): Promise<GameState> {
   if (useMock) {
     return getMockState();
   }
-  throw new Error("Redo is not supported in server mode.");
+  const gameId = requireGameId();
+  const game = await fetchJson<GameResponse>(`/api/games/${gameId}/redo`, {
+    method: "POST"
+  });
+  return mapGameResponseToGameState(game);
 }
 
 export async function exportPgn(): Promise<{ pgn: string }> {
