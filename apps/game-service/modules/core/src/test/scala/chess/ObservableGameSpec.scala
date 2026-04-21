@@ -7,18 +7,17 @@ import org.scalatest.matchers.should.Matchers
 import scala.collection.mutable
 
 /** Contract spec for [[GameStateObservable]].
- *
- *  Uses a minimal local concrete implementation to verify the behavioural
- *  contract that any [[GameStateObservable]] implementation must satisfy.
- *  The production concrete class lives in game-service; tests for its
- *  thread-safety are in that module.
- */
+  *
+  * Uses a minimal local concrete implementation to verify the behavioural contract that any
+  * [[GameStateObservable]] implementation must satisfy. The production concrete class lives in
+  * game-service; tests for its thread-safety are in that module.
+  */
 class ObservableGameSpec extends AnyFlatSpec with Matchers:
 
   /** Minimal implementation of the trait's contract — used in tests only. */
   private class TestImpl(initial: GameState = ChessService.createNewGame())
       extends GameStateObservable:
-    private var s   = initial
+    private var s = initial
     private val cbs = mutable.ListBuffer.empty[GameState => Unit]
     def getState: GameState = synchronized(s)
     def updateState(n: GameState): Unit =
@@ -37,7 +36,7 @@ class ObservableGameSpec extends AnyFlatSpec with Matchers:
   // ── updateState ──────────────────────────────────────────────────────────────
 
   "GameStateObservable.updateState" should "reflect the new state in a subsequent getState call" in {
-    val game     = freshGame
+    val game = freshGame
     val newState = ChessService.createNewGame()
     game.updateState(newState)
     game.getState shouldBe newState
@@ -46,7 +45,7 @@ class ObservableGameSpec extends AnyFlatSpec with Matchers:
   // ── Observer registration ────────────────────────────────────────────────────
 
   "GameStateObservable.addObserver" should "invoke the callback with the new state on updateState" in {
-    val game     = freshGame
+    val game = freshGame
     var received = Option.empty[GameState]
     game.addObserver(s => received = Some(s))
 
@@ -57,7 +56,7 @@ class ObservableGameSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "invoke all registered observers" in {
-    val game    = freshGame
+    val game = freshGame
     val results = mutable.ListBuffer.empty[Int]
     game.addObserver(_ => results += 1)
     game.addObserver(_ => results += 2)
@@ -68,7 +67,7 @@ class ObservableGameSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "invoke observers in registration order" in {
-    val game  = freshGame
+    val game = freshGame
     val order = mutable.ListBuffer.empty[String]
     game.addObserver(_ => order += "first")
     game.addObserver(_ => order += "second")
@@ -80,8 +79,8 @@ class ObservableGameSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "not call an observer registered after updateState was already called" in {
-    val game    = freshGame
-    var called  = false
+    val game = freshGame
+    var called = false
     game.updateState(ChessService.createNewGame())
     game.addObserver(_ => called = true)
 
@@ -89,7 +88,7 @@ class ObservableGameSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "fire once per updateState call" in {
-    val game  = freshGame
+    val game = freshGame
     var count = 0
     game.addObserver(_ => count += 1)
 

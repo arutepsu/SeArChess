@@ -11,8 +11,10 @@ import org.scalatest.OptionValues
 class GameMapperSpec extends AnyFlatSpec with Matchers with OptionValues:
 
   private val initialState = ChessService.createNewGame()
-  private val fixedGameId  = GameId(java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"))
-  private val initialView  = GameView.fromState(fixedGameId, initialState)
+  private val fixedGameId = GameId(
+    java.util.UUID.fromString("00000000-0000-0000-0000-000000000001")
+  )
+  private val initialView = GameView.fromState(fixedGameId, initialState)
 
   "GameMapper.toGameResponse" should "set gameId from the view's GameId" in {
     GameMapper.toGameResponse(initialView).gameId shouldBe fixedGameId.value.toString
@@ -44,10 +46,10 @@ class GameMapperSpec extends AnyFlatSpec with Matchers with OptionValues:
 
   it should "include correct algebraic squares for initial pieces" in {
     val squares = GameMapper.toGameResponse(initialView).board.map(_.square).toSet
-    squares should contain("e1")  // White king
-    squares should contain("e8")  // Black king
-    squares should contain("e2")  // White pawn
-    squares should contain("e7")  // Black pawn
+    squares should contain("e1") // White king
+    squares should contain("e8") // Black king
+    squares should contain("e2") // White pawn
+    squares should contain("e7") // Black pawn
   }
 
   it should "report correct fullmoveNumber from state" in {
@@ -65,29 +67,34 @@ class GameMapperSpec extends AnyFlatSpec with Matchers with OptionValues:
   it should "map Ongoing(inCheck=true) to inCheck=true, status Ongoing" in {
     val view = GameView.fromState(fixedGameId, initialState.copy(status = GameStatus.Ongoing(true)))
     val resp = GameMapper.toGameResponse(view)
-    resp.status  shouldBe "Ongoing"
+    resp.status shouldBe "Ongoing"
     resp.inCheck shouldBe true
-    resp.winner  shouldBe None
+    resp.winner shouldBe None
   }
 
   it should "map Checkmate(White) to status Checkmate, winner White" in {
-    val view = GameView.fromState(fixedGameId, initialState.copy(status = GameStatus.Checkmate(Color.White)))
+    val view =
+      GameView.fromState(fixedGameId, initialState.copy(status = GameStatus.Checkmate(Color.White)))
     val resp = GameMapper.toGameResponse(view)
-    resp.status  shouldBe "Checkmate"
-    resp.winner  shouldBe Some("White")
+    resp.status shouldBe "Checkmate"
+    resp.winner shouldBe Some("White")
     resp.inCheck shouldBe false
   }
 
   it should "map Checkmate(Black) to status Checkmate, winner Black" in {
-    val view = GameView.fromState(fixedGameId, initialState.copy(status = GameStatus.Checkmate(Color.Black)))
+    val view =
+      GameView.fromState(fixedGameId, initialState.copy(status = GameStatus.Checkmate(Color.Black)))
     GameMapper.toGameResponse(view).winner shouldBe Some("Black")
   }
 
   it should "map Draw(Stalemate) to status Draw, drawReason Stalemate" in {
-    val view = GameView.fromState(fixedGameId, initialState.copy(status = GameStatus.Draw(DrawReason.Stalemate)))
+    val view = GameView.fromState(
+      fixedGameId,
+      initialState.copy(status = GameStatus.Draw(DrawReason.Stalemate))
+    )
     val resp = GameMapper.toGameResponse(view)
-    resp.status     shouldBe "Draw"
+    resp.status shouldBe "Draw"
     resp.drawReason shouldBe Some("Stalemate")
-    resp.winner     shouldBe None
-    resp.inCheck    shouldBe false
+    resp.winner shouldBe None
+    resp.inCheck shouldBe false
   }

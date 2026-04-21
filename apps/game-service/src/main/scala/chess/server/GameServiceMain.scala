@@ -13,7 +13,8 @@ object GameServiceMain:
 
   private[chess] def run(args: Array[String], config: AppConfig): Unit =
     val aiDesc = config.ai.mode match
-      case chess.server.config.AiProviderMode.Remote             => s"remote @ ${config.ai.remote.map(_.baseUrl).getOrElse("(no URL)")}"
+      case chess.server.config.AiProviderMode.Remote =>
+        s"remote @ ${config.ai.remote.map(_.baseUrl).getOrElse("(no URL)")}"
       case chess.server.config.AiProviderMode.LocalDeterministic => "local-deterministic"
       case chess.server.config.AiProviderMode.Disabled           => "disabled"
     StructuredLog.info(

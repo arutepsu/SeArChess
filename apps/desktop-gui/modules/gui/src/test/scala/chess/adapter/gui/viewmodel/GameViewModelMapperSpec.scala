@@ -28,10 +28,11 @@ class GameViewModelMapperSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "include the provided promotion view model" in {
-    val from    = algPos("a7")
-    val to      = algPos("a8")
+    val from = algPos("a7")
+    val to = algPos("a8")
     val promoVm = PromotionViewModel(Color.White, PromotionViewModel.standardChoices)
-    val vm = GameViewModelMapper.build(freshState, GuiState.AwaitingPromotion(from, to), Some(promoVm))
+    val vm =
+      GameViewModelMapper.build(freshState, GuiState.AwaitingPromotion(from, to), Some(promoVm))
     vm.promotion shouldBe Some(promoVm)
   }
 
@@ -42,29 +43,29 @@ class GameViewModelMapperSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "mark the selected square isSelected=true in PieceSelected state" in {
-    val e2    = algPos("e2")
+    val e2 = algPos("e2")
     val guiSt = GuiState.PieceSelected(e2, Set.empty)
-    val sqs   = GameViewModelMapper.buildSquares(freshState, guiSt)
+    val sqs = GameViewModelMapper.buildSquares(freshState, guiSt)
     sqs.filter(_.isSelected).map(_.position) shouldBe Seq(e2)
   }
 
   it should "mark legal targets isLegalTarget=true in PieceSelected state" in {
-    val e2  = algPos("e2")
-    val e3  = algPos("e3")
-    val e4  = algPos("e4")
+    val e2 = algPos("e2")
+    val e3 = algPos("e3")
+    val e4 = algPos("e4")
     val sqs = GameViewModelMapper.buildSquares(freshState, GuiState.PieceSelected(e2, Set(e3, e4)))
     sqs.filter(_.isLegalTarget).map(_.position).toSet shouldBe Set(e3, e4)
   }
 
   it should "not select any squares in WaitingForSelection state" in {
     val sqs = GameViewModelMapper.buildSquares(freshState, GuiState.WaitingForSelection)
-    sqs.filter(_.isSelected)    shouldBe empty
+    sqs.filter(_.isSelected) shouldBe empty
     sqs.filter(_.isLegalTarget) shouldBe empty
   }
 
   it should "not select any squares in Animating state" in {
     val sqs = GameViewModelMapper.buildSquares(freshState, GuiState.Animating)
-    sqs.filter(_.isSelected)    shouldBe empty
+    sqs.filter(_.isSelected) shouldBe empty
     sqs.filter(_.isLegalTarget) shouldBe empty
   }
 
@@ -85,15 +86,23 @@ class GameViewModelMapperSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "indicate Checkmate with winner name — Black wins when White is mated" in {
-    val whiteToMove = freshState.copy(currentPlayer = Color.White, status = GameStatus.Checkmate(Color.Black))
-    GameViewModelMapper.renderStatus(whiteToMove) should (include("Checkmate") and include("Black wins"))
+    val whiteToMove =
+      freshState.copy(currentPlayer = Color.White, status = GameStatus.Checkmate(Color.Black))
+    GameViewModelMapper.renderStatus(whiteToMove) should (include("Checkmate") and include(
+      "Black wins"
+    ))
   }
 
   it should "indicate Checkmate with winner name — White wins when Black is mated" in {
-    val blackToMove = freshState.copy(currentPlayer = Color.Black, status = GameStatus.Checkmate(Color.White))
-    GameViewModelMapper.renderStatus(blackToMove) should (include("Checkmate") and include("White wins"))
+    val blackToMove =
+      freshState.copy(currentPlayer = Color.Black, status = GameStatus.Checkmate(Color.White))
+    GameViewModelMapper.renderStatus(blackToMove) should (include("Checkmate") and include(
+      "White wins"
+    ))
   }
 
   it should "indicate Stalemate as a draw" in {
-    GameViewModelMapper.renderStatus(freshState.copy(status = GameStatus.Draw(DrawReason.Stalemate))) should include("draw")
+    GameViewModelMapper.renderStatus(
+      freshState.copy(status = GameStatus.Draw(DrawReason.Stalemate))
+    ) should include("draw")
   }

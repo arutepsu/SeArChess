@@ -22,13 +22,13 @@ class WebSocketEventPublisherSpec extends AnyFlatSpec with Matchers with EitherV
   class FailingConnection(val id: String) extends WebSocketConnection:
     def send(message: String): Unit = throw RuntimeException("network error")
 
-  private val move = Move(Position.from(4, 1).value, Position.from(4, 3).value)  // e2-e4
+  private val move = Move(Position.from(4, 1).value, Position.from(4, 3).value) // e2-e4
 
   private def event(gameId: GameId): AppEvent =
     AppEvent.MoveApplied(SessionId.random(), gameId, move, Color.White)
 
   private def freshPublisher() =
-    val registry  = WebSocketConnectionRegistry()
+    val registry = WebSocketConnectionRegistry()
     val publisher = WebSocketEventPublisher(registry)
     (publisher, registry)
 
@@ -37,7 +37,7 @@ class WebSocketEventPublisherSpec extends AnyFlatSpec with Matchers with EitherV
   "WebSocketEventPublisher.publish" should "send the event JSON to a subscribed connection" in {
     val (publisher, registry) = freshPublisher()
     val gameId = GameId.random()
-    val conn   = RecordingConnection("c1")
+    val conn = RecordingConnection("c1")
     registry.subscribe(conn, gameId)
     publisher.publish(event(gameId))
     conn.received should have size 1
@@ -47,8 +47,8 @@ class WebSocketEventPublisherSpec extends AnyFlatSpec with Matchers with EitherV
   it should "deliver to all connections subscribed to the same gameId" in {
     val (publisher, registry) = freshPublisher()
     val gameId = GameId.random()
-    val c1     = RecordingConnection("c1")
-    val c2     = RecordingConnection("c2")
+    val c1 = RecordingConnection("c1")
+    val c2 = RecordingConnection("c2")
     registry.subscribe(c1, gameId)
     registry.subscribe(c2, gameId)
     publisher.publish(event(gameId))
@@ -60,10 +60,10 @@ class WebSocketEventPublisherSpec extends AnyFlatSpec with Matchers with EitherV
 
   it should "NOT send to a connection subscribed to a different gameId" in {
     val (publisher, registry) = freshPublisher()
-    val gameA  = GameId.random()
-    val gameB  = GameId.random()
-    val connA  = RecordingConnection("cA")
-    val connB  = RecordingConnection("cB")
+    val gameA = GameId.random()
+    val gameB = GameId.random()
+    val connA = RecordingConnection("cA")
+    val connB = RecordingConnection("cB")
     registry.subscribe(connA, gameA)
     registry.subscribe(connB, gameB)
     publisher.publish(event(gameA))
@@ -81,9 +81,9 @@ class WebSocketEventPublisherSpec extends AnyFlatSpec with Matchers with EitherV
 
   it should "continue delivering to other connections when one send throws" in {
     val (publisher, registry) = freshPublisher()
-    val gameId  = GameId.random()
+    val gameId = GameId.random()
     val failing = FailingConnection("bad")
-    val good    = RecordingConnection("good")
+    val good = RecordingConnection("good")
     registry.subscribe(failing, gameId)
     registry.subscribe(good, gameId)
     noException should be thrownBy publisher.publish(event(gameId))
@@ -95,6 +95,6 @@ class WebSocketEventPublisherSpec extends AnyFlatSpec with Matchers with EitherV
   it should "not alter the normal return value of the service (publish is fire-and-forget)" in {
     // Confirm that publish returns Unit and does not throw even with no subscribers
     val (publisher, _) = freshPublisher()
-    val result: Unit   = publisher.publish(event(GameId.random()))
+    val result: Unit = publisher.publish(event(GameId.random()))
     result shouldBe ()
   }

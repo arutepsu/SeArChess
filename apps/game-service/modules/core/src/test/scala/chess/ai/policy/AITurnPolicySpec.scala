@@ -10,8 +10,8 @@ class AITurnPolicySpec extends AnyFlatSpec with Matchers:
 
   private def sessionWith(white: SideController, black: SideController): GameSession =
     GameSession.create(
-      gameId          = GameId.random(),
-      mode            = SessionMode.HumanVsAI,
+      gameId = GameId.random(),
+      mode = SessionMode.HumanVsAI,
       whiteController = white,
       blackController = black
     )

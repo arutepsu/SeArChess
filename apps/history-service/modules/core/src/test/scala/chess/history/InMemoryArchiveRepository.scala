@@ -4,11 +4,10 @@ import chess.application.session.model.SessionIds.GameId
 import scala.collection.mutable
 
 /** In-memory [[ArchiveRepository]] for tests.
- *
- *  Stores records keyed by [[ArchiveRecord.gameId]].  [[upsert]] is always
- *  a silent overwrite — no concurrency safety, intended for single-threaded
- *  test use only.
- */
+  *
+  * Stores records keyed by [[ArchiveRecord.gameId]]. [[upsert]] is always a silent overwrite — no
+  * concurrency safety, intended for single-threaded test use only.
+  */
 class InMemoryArchiveRepository extends ArchiveRepository:
 
   private val store = mutable.Map.empty[GameId, ArchiveRecord]

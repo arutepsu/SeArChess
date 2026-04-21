@@ -33,30 +33,40 @@ class MotionStyleResolverSpec extends AnyFlatSpec with Matchers:
   // ── Capture overrides ─────────────────────────────────────────────────────
 
   it should "assign AttackLunge for a Pawn capture" in {
-    MotionStyleResolver.resolve(PieceType.Pawn, isCapture = true) shouldBe MotionStyle.AttackLunge(0.15)
+    MotionStyleResolver.resolve(PieceType.Pawn, isCapture = true) shouldBe MotionStyle.AttackLunge(
+      0.15
+    )
   }
 
   it should "assign AttackLunge for a Rook capture" in {
-    MotionStyleResolver.resolve(PieceType.Rook, isCapture = true) shouldBe MotionStyle.AttackLunge(0.15)
+    MotionStyleResolver.resolve(PieceType.Rook, isCapture = true) shouldBe MotionStyle.AttackLunge(
+      0.15
+    )
   }
 
   it should "assign AttackLunge for a Knight capture" in {
-    MotionStyleResolver.resolve(PieceType.Knight, isCapture = true) shouldBe MotionStyle.AttackLunge(0.15)
+    MotionStyleResolver.resolve(PieceType.Knight, isCapture = true) shouldBe MotionStyle
+      .AttackLunge(0.15)
   }
 
   it should "assign AttackLunge for a Bishop capture" in {
-    MotionStyleResolver.resolve(PieceType.Bishop, isCapture = true) shouldBe MotionStyle.AttackLunge(0.15)
+    MotionStyleResolver.resolve(PieceType.Bishop, isCapture = true) shouldBe MotionStyle
+      .AttackLunge(0.15)
   }
 
   it should "assign AttackLunge for a Queen capture" in {
-    MotionStyleResolver.resolve(PieceType.Queen, isCapture = true) shouldBe MotionStyle.AttackLunge(0.15)
+    MotionStyleResolver.resolve(PieceType.Queen, isCapture = true) shouldBe MotionStyle.AttackLunge(
+      0.15
+    )
   }
 
   it should "assign AttackLunge for a King capture" in {
-    MotionStyleResolver.resolve(PieceType.King, isCapture = true) shouldBe MotionStyle.AttackLunge(0.15)
+    MotionStyleResolver.resolve(PieceType.King, isCapture = true) shouldBe MotionStyle.AttackLunge(
+      0.15
+    )
   }
 
   it should "leave non-capture styles unchanged when isCapture=false" in {
-    MotionStyleResolver.resolve(PieceType.Pawn,   isCapture = false) shouldBe MotionStyle.Linear
+    MotionStyleResolver.resolve(PieceType.Pawn, isCapture = false) shouldBe MotionStyle.Linear
     MotionStyleResolver.resolve(PieceType.Knight, isCapture = false) shouldBe MotionStyle.Arc(0.5)
   }

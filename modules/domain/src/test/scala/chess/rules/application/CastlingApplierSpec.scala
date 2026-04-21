@@ -7,7 +7,10 @@ import chess.domain.model.*
 class CastlingApplierSpec extends AnyFlatSpec with Matchers:
 
   private def at(alg: String): Position =
-    Position.fromAlgebraic(alg).toOption.get
+    Position
+      .fromAlgebraic(alg)
+      .toOption
+      .getOrElse(scala.sys.error(s"invalid algebraic position: $alg"))
 
   "CastlingApplier.applyCastle" should "move the white king and rook correctly for king-side castling" in {
     val board = Board.empty
@@ -30,7 +33,7 @@ class CastlingApplierSpec extends AnyFlatSpec with Matchers:
       CastlingApplier.applyCastle(board, Color.White, kingSide = true)
     }
 
-    ex.getMessage should include ("King missing after CastlingValidator")
+    ex.getMessage should include("King missing after CastlingValidator")
   }
 
   it should "throw AssertionError when the rook is missing from its origin square" in {
@@ -41,7 +44,7 @@ class CastlingApplierSpec extends AnyFlatSpec with Matchers:
       CastlingApplier.applyCastle(board, Color.White, kingSide = true)
     }
 
-    ex.getMessage should include ("Rook missing after CastlingValidator")
+    ex.getMessage should include("Rook missing after CastlingValidator")
   }
 
   it should "throw AssertionError for an invalid castling constant in the private helper" in {
@@ -53,5 +56,5 @@ class CastlingApplierSpec extends AnyFlatSpec with Matchers:
     }
 
     ex.getCause shouldBe a[AssertionError]
-    ex.getCause.getMessage should include ("Invalid castling constant: file=8 rank=0")
+    ex.getCause.getMessage should include("Invalid castling constant: file=8 rank=0")
   }

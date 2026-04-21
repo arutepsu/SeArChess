@@ -11,41 +11,45 @@ import chess.domain.state.GameState
 import chess.domain.model.{Color, GameStatus, Move, PieceType, Position}
 
 /** Mutable GUI controller.
- *
- *  Holds the current game and view state. On every input event it routes
- *  move submission through [[GameSessionCommands]] — the single application
- *  mutation boundary — and uses the pure [[GameController.transition]] function
- *  for non-mutating actions (selection, deselection).
- *
- *  This controller is always session-aware in production: all state mutations
- *  go through the application layer, ensuring consistent validation, persistence,
- *  and event publication across adapters (GUI, TUI, REST, WebSocket).
- *
- *  Animation is decoupled: [[onAnimate]] is called when a move should be animated;
- *  [[onRefresh]] is called whenever the view model changes. When the animation
- *  runner finishes, the scene calls [[completeAnimation]] to settle the GUI state.
- *
- *  Session lifecycle is tracked automatically:
- *  - first move transitions [[chess.application.session.model.SessionLifecycle.Created]] → Active
- *  - promotion detection transitions Active → AwaitingPromotion before the overlay opens
- *  - promotion completion transitions AwaitingPromotion → Active (or Finished if checkmate)
- *  - terminal game positions transition any lifecycle → Finished
- *
- *  @param commands        single write boundary for session-aware game mutations
- *  @param sessionService  session lifecycle operations (promotion, import session provisioning)
- *  @param sessionContext  shared context holding the current [[chess.application.session.model.GameSession]]
- *  @param onRefresh       called with the new [[GameViewModel]] after every state change
- *  @param onAnimate       called with an [[AnimationPlan]] when a move animation should start
- */
+  *
+  * Holds the current game and view state. On every input event it routes move submission through
+  * [[GameSessionCommands]] — the single application mutation boundary — and uses the pure
+  * [[GameController.transition]] function for non-mutating actions (selection, deselection).
+  *
+  * This controller is always session-aware in production: all state mutations go through the
+  * application layer, ensuring consistent validation, persistence, and event publication across
+  * adapters (GUI, TUI, REST, WebSocket).
+  *
+  * Animation is decoupled: [[onAnimate]] is called when a move should be animated; [[onRefresh]] is
+  * called whenever the view model changes. When the animation runner finishes, the scene calls
+  * [[completeAnimation]] to settle the GUI state.
+  *
+  * Session lifecycle is tracked automatically:
+  *   - first move transitions [[chess.application.session.model.SessionLifecycle.Created]] → Active
+  *   - promotion detection transitions Active → AwaitingPromotion before the overlay opens
+  *   - promotion completion transitions AwaitingPromotion → Active (or Finished if checkmate)
+  *   - terminal game positions transition any lifecycle → Finished
+  *
+  * @param commands
+  *   single write boundary for session-aware game mutations
+  * @param sessionService
+  *   session lifecycle operations (promotion, import session provisioning)
+  * @param sessionContext
+  *   shared context holding the current [[chess.application.session.model.GameSession]]
+  * @param onRefresh
+  *   called with the new [[GameViewModel]] after every state change
+  * @param onAnimate
+  *   called with an [[AnimationPlan]] when a move animation should start
+  */
 class GameController(
-    game:           chess.application.GameStateObservable,
-    onRefresh:      GameViewModel  => Unit,
-    onAnimate:      AnimationPlan  => Unit,
-    commands:       GameSessionCommands,
+    game: chess.application.GameStateObservable,
+    onRefresh: GameViewModel => Unit,
+    onAnimate: AnimationPlan => Unit,
+    commands: GameSessionCommands,
     sessionService: SessionService,
     sessionContext: DesktopSessionContext
 ):
-  private var gameState: GameState     = game.getState
+  private var gameState: GameState = game.getState
   private var viewModel: GameViewModel =
     GameViewModelMapper.build(gameState, GuiState.WaitingForSelection)
 
@@ -58,19 +62,19 @@ class GameController(
         viewModel = GameViewModelMapper.build(newState, settled)
         onRefresh(viewModel)
     }
-    try
-      scalafx.application.Platform.runLater { action() }
+    try scalafx.application.Platform.runLater { action() }
     catch
-      case _: IllegalStateException => action() // Fallback when FX Toolkit isn't initialized (e.g. tests)
+      case _: IllegalStateException =>
+        action() // Fallback when FX Toolkit isn't initialized (e.g. tests)
   }
 
   def currentViewModel: GameViewModel = viewModel
 
   /** The current authoritative [[GameState]].
-   *
-   *  Used by the notation sidebar's state provider so that export actions
-   *  always reflect the live game state.
-   */
+    *
+    * Used by the notation sidebar's state provider so that export actions always reflect the live
+    * game state.
+    */
   def currentGameState: GameState = gameState
 
   def handle(action: InputAction): Unit =
@@ -78,73 +82,80 @@ class GameController(
     commitTransition(newState, newVm, animPlan)
 
   /** Replace the current game state with an externally imported one.
-   *
-   *  Intended for notation import (FEN now, PGN later): the sidebar emits an
-   *  imported [[GameState]] upward and the scene calls this method to apply it.
-   *
-   *  Behaviour:
-   *  - assigns the imported state as the authoritative state
-   *  - resolves the settled [[GuiState]] (e.g. [[GuiState.WaitingForSelection]]
-   *    or [[GuiState.GameFinished]]) using the same logic as animation completion
-   *  - rebuilds [[viewModel]] from the imported state
-   *  - calls [[onRefresh]] with the new view model
-   *
-   *  Does NOT trigger animation.
-   *  Does NOT preserve stale selection, promotion, or animating UI state.
-   *  Does NOT treat the loaded state as a gameplay input.
-   *
-   *  === Session policy for imports ===
-   *  An imported position is treated as a '''new session''' aligned to the
-   *  imported state's terminal/ongoing status:
-   *  - terminal (checkmate/draw) → [[chess.application.session.model.SessionLifecycle.Finished]]
-   *  - non-terminal             → [[chess.application.session.model.SessionLifecycle.Active]]
-   *
-   *  [[chess.application.session.model.SessionLifecycle.Created]] is intentionally skipped:
-   *  an imported board position is already "in progress", not awaiting a first move.
-   *  Best-effort: session provisioning failure leaves the context's session stale but
-   *  chess gameplay continues correctly.
-   */
+    *
+    * Intended for notation import (FEN now, PGN later): the sidebar emits an imported [[GameState]]
+    * upward and the scene calls this method to apply it.
+    *
+    * Behaviour:
+    *   - assigns the imported state as the authoritative state
+    *   - resolves the settled [[GuiState]] (e.g. [[GuiState.WaitingForSelection]] or
+    *     [[GuiState.GameFinished]]) using the same logic as animation completion
+    *   - rebuilds [[viewModel]] from the imported state
+    *   - calls [[onRefresh]] with the new view model
+    *
+    * Does NOT trigger animation. Does NOT preserve stale selection, promotion, or animating UI
+    * state. Does NOT treat the loaded state as a gameplay input.
+    *
+    * ===Session policy for imports===
+    * An imported position is treated as a '''new session''' aligned to the imported state's
+    * terminal/ongoing status:
+    *   - terminal (checkmate/draw) → [[chess.application.session.model.SessionLifecycle.Finished]]
+    *   - non-terminal → [[chess.application.session.model.SessionLifecycle.Active]]
+    *
+    * [[chess.application.session.model.SessionLifecycle.Created]] is intentionally skipped: an
+    * imported board position is already "in progress", not awaiting a first move. Best-effort:
+    * session provisioning failure leaves the context's session stale but chess gameplay continues
+    * correctly.
+    */
   def loadGameState(importedState: GameState): Unit =
     // Session-aware: provision a fresh session matching the imported state's lifecycle.
     val session = sessionContext.getSession
     val targetLifecycle = importedState.status match
-      case _: GameStatus.Checkmate | _: GameStatus.Draw | _: GameStatus.Resigned => SessionLifecycle.Finished
-      case _                                                                      => SessionLifecycle.Active
+      case _: GameStatus.Checkmate | _: GameStatus.Draw | _: GameStatus.Resigned =>
+        SessionLifecycle.Finished
+      case _ => SessionLifecycle.Active
     sessionService
-      .createSession(GameId.random(), session.mode, session.whiteController, session.blackController)
+      .createSession(
+        GameId.random(),
+        session.mode,
+        session.whiteController,
+        session.blackController
+      )
       .flatMap(newSess => sessionService.updateLifecycle(newSess.sessionId, targetLifecycle))
       .foreach(updated => sessionContext.setSession(updated))
 
     gameState = importedState
     val settled = GameController.resolveSettledGuiState(gameState)
-    viewModel   = GameViewModelMapper.build(gameState, settled)
+    viewModel = GameViewModelMapper.build(gameState, settled)
     onRefresh(viewModel)
 
   /** Called by the scene when the current animation completes.
-   *
-   *  Transitions from [[GuiState.Animating]] to the appropriate settled state
-   *  and notifies the scene via [[onRefresh]].
-   */
+    *
+    * Transitions from [[GuiState.Animating]] to the appropriate settled state and notifies the
+    * scene via [[onRefresh]].
+    */
   def completeAnimation(): Unit =
     val settled = GameController.resolveSettledGuiState(gameState)
-    viewModel   = GameViewModelMapper.build(gameState, settled)
+    viewModel = GameViewModelMapper.build(gameState, settled)
     onRefresh(viewModel)
 
   // ── Session-aware move handling ─────────────────────────────────────────────
 
-  /** Routes move-submission actions through [[GameSessionCommands.submitMove]] — the
-   *  single application mutation boundary.  Selection, deselection, and all
-   *  non-move actions fall through to the pure [[GameController.transition]] path.
-   *
-   *  Promotion flow:
-   *  1. When a pawn reaches the back rank ([[ChessService.isPromotionPending]]),
-   *     the session is transitioned to [[chess.application.session.model.SessionLifecycle.AwaitingPromotion]]
-   *     before the promotion overlay is shown.  No domain state change occurs yet.
-   *  2. When the promotion piece is chosen, [[GameSessionCommands.submitMove]] commits
-   *     the complete move (with promotion) and transitions the session back to Active
-   *     (or Finished if the game ends).
-   */
-  private def sessionAwareHandle(action: InputAction): (GameState, GameViewModel, Option[AnimationPlan]) =
+  /** Routes move-submission actions through [[GameSessionCommands.submitMove]] — the single
+    * application mutation boundary. Selection, deselection, and all non-move actions fall through
+    * to the pure [[GameController.transition]] path.
+    *
+    * Promotion flow:
+    *   1. When a pawn reaches the back rank ([[ChessService.isPromotionPending]]), the session is
+    *      transitioned to [[chess.application.session.model.SessionLifecycle.AwaitingPromotion]]
+    *      before the promotion overlay is shown. No domain state change occurs yet. 2. When the
+    *      promotion piece is chosen, [[GameSessionCommands.submitMove]] commits the complete move
+    *      (with promotion) and transitions the session back to Active (or Finished if the game
+    *      ends).
+    */
+  private def sessionAwareHandle(
+      action: InputAction
+  ): (GameState, GameViewModel, Option[AnimationPlan]) =
     val session = sessionContext.getSession
 
     action match
@@ -157,22 +168,38 @@ class GameController(
               sessionService.preparePromotion(session.sessionId) match
                 case Right(updated) => sessionContext.setSession(updated)
                 case Left(_)        => ()
-              val promotingColor = gameState.board.pieceAt(from).get.color
+              val promotingColor = gameState.board
+                .pieceAt(from)
+                .getOrElse(throw AssertionError(s"Promoting pawn missing at $from"))
+                .color
               val gs = GuiState.AwaitingPromotion(from, pos)
-              val promoVm = GameViewModelMapper.build(gameState, gs)
-                .copy(promotion = Some(PromotionViewModel(promotingColor, PromotionViewModel.standardChoices)))
+              val promoVm = GameViewModelMapper
+                .build(gameState, gs)
+                .copy(promotion =
+                  Some(PromotionViewModel(promotingColor, PromotionViewModel.standardChoices))
+                )
               (gameState, promoVm, None)
             else
               // Regular move through the unified application mutation boundary.
               // submitMove validates, applies, publishes events, and persists both
               // the session lifecycle and the new GameState before returning.
-              commands.submitMove(session, gameState, Move(from, pos), SideController.HumanLocal) match
+              commands.submitMove(
+                session,
+                gameState,
+                Move(from, pos),
+                SideController.HumanLocal
+              ) match
                 case Left(_) =>
                   // Illegal move (shouldn't happen for targets from legalTargetsFrom); clear selection.
                   val gs = GuiState.WaitingForSelection
-                  (gameState, viewModel.copy(
-                    squares  = GameViewModelMapper.buildSquares(gameState, gs),
-                    guiState = gs), None)
+                  (
+                    gameState,
+                    viewModel.copy(
+                      squares = GameViewModelMapper.buildSquares(gameState, gs),
+                      guiState = gs
+                    ),
+                    None
+                  )
                 case Right((newState, newSess)) =>
                   sessionContext.setSession(newSess)
                   AnimationPlanner.plan(gameState.board, Move(from, pos)) match
@@ -191,9 +218,14 @@ class GameController(
           case GuiState.AwaitingPromotion(from, to) =>
             // Commit the complete promotion move through the unified application boundary.
             // Session lifecycle: AwaitingPromotion → Active (or Finished).
-            commands.submitMove(session, gameState, Move(from, to, Some(pt)), SideController.HumanLocal) match
+            commands.submitMove(
+              session,
+              gameState,
+              Move(from, to, Some(pt)),
+              SideController.HumanLocal
+            ) match
               case Left(_) =>
-                (gameState, viewModel, None)  // invalid choice; overlay stays open
+                (gameState, viewModel, None) // invalid choice; overlay stays open
               case Right((newState, newSess)) =>
                 sessionContext.setSession(newSess)
                 val settled = GameController.resolveSettledGuiState(newState)
@@ -218,9 +250,9 @@ class GameController(
         GameController.transition(gameState, viewModel, action)
 
   private def commitTransition(
-    newState: GameState,
-    newVm:    GameViewModel,
-    animPlan: Option[AnimationPlan]
+      newState: GameState,
+      newVm: GameViewModel,
+      animPlan: Option[AnimationPlan]
   ): Unit =
     val stateChanged = newState != gameState
     gameState = newState
@@ -235,8 +267,8 @@ object GameController:
 
   // Return type: (new game state, new view model, optional animation plan)
   def transition(
-      state:  GameState,
-      vm:     GameViewModel,
+      state: GameState,
+      vm: GameViewModel,
       action: InputAction
   ): (GameState, GameViewModel, Option[AnimationPlan]) =
     action match
@@ -256,20 +288,17 @@ object GameController:
 
   private def handleSquareClick(
       state: GameState,
-      vm:    GameViewModel,
-      pos:   Position
+      vm: GameViewModel,
+      pos: Position
   ): (GameState, GameViewModel, Option[AnimationPlan]) =
     vm.guiState match
       case GuiState.GameFinished(_) | GuiState.AwaitingPromotion(_, _) | GuiState.Animating =>
-        (state, vm, None)   // input blocked
+        (state, vm, None) // input blocked
 
       case GuiState.PieceSelected(from, targets) =>
-        if pos == from then
-          clearSelection(state, vm)
-        else if targets.contains(pos) then
-          submitMove(state, vm, from, pos)
-        else
-          attemptSelection(state, vm, pos)
+        if pos == from then clearSelection(state, vm)
+        else if targets.contains(pos) then submitMove(state, vm, from, pos)
+        else attemptSelection(state, vm, pos)
 
       case GuiState.WaitingForSelection =>
         attemptSelection(state, vm, pos)
@@ -278,19 +307,18 @@ object GameController:
 
   private def attemptSelection(
       state: GameState,
-      vm:    GameViewModel,
-      pos:   Position
+      vm: GameViewModel,
+      pos: Position
   ): (GameState, GameViewModel, Option[AnimationPlan]) =
     val targets = ChessService.legalTargetsFrom(state, pos)
     if targets.nonEmpty then
       val gs = GuiState.PieceSelected(pos, targets)
       (state, vm.copy(squares = GameViewModelMapper.buildSquares(state, gs), guiState = gs), None)
-    else
-      clearSelection(state, vm)
+    else clearSelection(state, vm)
 
   private def clearSelection(
       state: GameState,
-      vm:    GameViewModel
+      vm: GameViewModel
   ): (GameState, GameViewModel, Option[AnimationPlan]) =
     val gs = GuiState.WaitingForSelection
     (state, vm.copy(squares = GameViewModelMapper.buildSquares(state, gs), guiState = gs), None)
@@ -302,17 +330,22 @@ object GameController:
 
   private def submitMove(
       state: GameState,
-      vm:    GameViewModel,
-      from:  Position,
-      to:    Position
+      vm: GameViewModel,
+      from: Position,
+      to: Position
   ): (GameState, GameViewModel, Option[AnimationPlan]) =
     if isPromotionMove(state, from, to) then
       // Do not submit yet — wait for piece choice
-      val promotingColor = state.board.pieceAt(from).get.color
-      val gs      = GuiState.AwaitingPromotion(from, to)
+      val promotingColor = state.board
+        .pieceAt(from)
+        .getOrElse(throw AssertionError(s"Promoting pawn missing at $from"))
+        .color
+      val gs = GuiState.AwaitingPromotion(from, to)
       val promoVm = GameViewModelMapper
         .build(state, gs)
-        .copy(promotion = Some(PromotionViewModel(promotingColor, PromotionViewModel.standardChoices)))
+        .copy(promotion =
+          Some(PromotionViewModel(promotingColor, PromotionViewModel.standardChoices))
+        )
       (state, promoVm, None)
     else
       val prevBoard = state.board
@@ -337,14 +370,14 @@ object GameController:
 
   private def submitPromotion(
       state: GameState,
-      vm:    GameViewModel,
-      from:  Position,
-      to:    Position,
-      pt:    PieceType
+      vm: GameViewModel,
+      from: Position,
+      to: Position,
+      pt: PieceType
   ): (GameState, GameViewModel, Option[AnimationPlan]) =
     ChessService.applyMove(state, Move(from, to, Some(pt))) match
       case Left(_) =>
-        (state, vm, None)   // invalid choice; overlay stays open
+        (state, vm, None) // invalid choice; overlay stays open
       case Right(newState) =>
         val settled = resolveSettledGuiState(newState)
         (newState, GameViewModelMapper.build(newState, settled), None)
@@ -353,5 +386,6 @@ object GameController:
 
   private[controller] def resolveSettledGuiState(state: GameState): GuiState =
     state.status match
-      case _: GameStatus.Checkmate | _: GameStatus.Draw | _: GameStatus.Resigned => GuiState.GameFinished(state.status)
-      case _                                                                      => GuiState.WaitingForSelection
+      case _: GameStatus.Checkmate | _: GameStatus.Draw | _: GameStatus.Resigned =>
+        GuiState.GameFinished(state.status)
+      case _ => GuiState.WaitingForSelection

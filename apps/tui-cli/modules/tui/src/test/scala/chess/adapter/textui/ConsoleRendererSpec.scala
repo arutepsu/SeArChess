@@ -62,15 +62,21 @@ class ConsoleRendererSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   it should "show Check status" in {
-    ConsoleRenderer.renderStatus(newGame.copy(status = GameStatus.Ongoing(true))) should include("Check!")
+    ConsoleRenderer.renderStatus(newGame.copy(status = GameStatus.Ongoing(true))) should include(
+      "Check!"
+    )
   }
 
   it should "show Checkmate status" in {
-    ConsoleRenderer.renderStatus(newGame.copy(status = GameStatus.Checkmate(Color.White))) should include("Checkmate!")
+    ConsoleRenderer.renderStatus(
+      newGame.copy(status = GameStatus.Checkmate(Color.White))
+    ) should include("Checkmate!")
   }
 
   it should "show Stalemate status" in {
-    ConsoleRenderer.renderStatus(newGame.copy(status = GameStatus.Draw(DrawReason.Stalemate))) should include("Stalemate")
+    ConsoleRenderer.renderStatus(
+      newGame.copy(status = GameStatus.Draw(DrawReason.Stalemate))
+    ) should include("Stalemate")
   }
 
   it should "show move count" in {
@@ -103,7 +109,9 @@ class ConsoleRendererSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   it should "render WrongArgumentCount for 'move' with the move usage format" in {
-    ConsoleRenderer.renderParseError(InputParseError.WrongArgumentCount("move")) should include("move")
+    ConsoleRenderer.renderParseError(InputParseError.WrongArgumentCount("move")) should include(
+      "move"
+    )
   }
 
   it should "render WrongArgumentCount for 'promote' with the promote usage format" in {

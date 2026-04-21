@@ -6,26 +6,24 @@ import chess.application.session.model.SessionIds.GameId
 import chess.startup.local.{LocalGameAssembly, LocalRuntimeConfig, ObservableGame}
 
 /** Assembles the GUI-only runtime from [[LocalRuntimeConfig]].
- *
- *  Owns everything specific to the standalone GUI deployment:
- *
- *   1. Local application runtime via [[LocalGameAssembly.build]]
- *      (in-process, no-op event publisher — no HTTP or WebSocket server)
- *   2. One GUI-local session (HumanVsHuman, both sides local)
- *   3. The [[ObservableGame]] notification bridge for the GUI adapter
- *   4. [[ChessApp]] preparation
- *
- *  TUI is **not** started here.  GUI is a standalone app.
- *  After [[prepare]] returns, the caller starts the JavaFX event loop by
- *  calling [[ChessApp.main]].
- */
+  *
+  * Owns everything specific to the standalone GUI deployment:
+  *
+  *   1. Local application runtime via [[LocalGameAssembly.build]] (in-process, no-op event
+  *      publisher — no HTTP or WebSocket server) 2. One GUI-local session (HumanVsHuman, both sides
+  *      local) 3. The [[ObservableGame]] notification bridge for the GUI adapter 4. [[ChessApp]]
+  *      preparation
+  *
+  * TUI is **not** started here. GUI is a standalone app. After [[prepare]] returns, the caller
+  * starts the JavaFX event loop by calling [[ChessApp.main]].
+  */
 object GuiWiring:
 
   /** Assemble and prepare the GUI runtime.
-   *
-   *  Returns [[Unit]]; no live server handles are created.
-   *  Throws if the session cannot be created (e.g. repository failure).
-   */
+    *
+    * Returns [[Unit]]; no live server handles are created. Throws if the session cannot be created
+    * (e.g. repository failure).
+    */
   def prepare(config: LocalRuntimeConfig): Unit =
 
     // ── Shared application context ───────────────────────────────────────────
@@ -33,7 +31,12 @@ object GuiWiring:
 
     // ── GUI-local session ────────────────────────────────────────────────────
     val session = ctx.sessionService
-      .createSession(GameId.random(), SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal)
+      .createSession(
+        GameId.random(),
+        SessionMode.HumanVsHuman,
+        SideController.HumanLocal,
+        SideController.HumanLocal
+      )
       .fold(err => throw RuntimeException(s"[GuiApp] Failed to create session: $err"), identity)
     val sessionContext = new DesktopSessionContext(session)
 

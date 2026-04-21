@@ -8,39 +8,37 @@ import chess.domain.model.{Color, DrawReason, GameStatus, Move, PieceType}
 import ujson.Value
 
 /** Serialises [[AppEvent]] instances to their JSON wire representation.
- *
- *  Only the five boundary-crossing events defined in
- *  `docs/contracts/game-events-v1.md` are serialised.  All other variants
- *  return [[None]] — they are internal events that must not cross service
- *  boundaries.
- *
- *  Implements [[TerminalEventJsonSerializer]] so that it can be injected into
- *  application services as the outbox-write serialiser without requiring those
- *  services to import adapter-layer types.
- *
- *  === Usage ===
- *  {{{
- *    AppEventSerializer.serialize(event) match
- *      case Some(json) => broker.publish(json)
- *      case None       => ()  // internal event; skip
- *  }}}
- *
- *  === Design ===
- *  Explicit [[ujson]] construction is used throughout rather than type-class
- *  derivation.  This makes the wire shape visible at the call site and
- *  prevents accidental schema drift when domain types are renamed.  See
- *  `docs/contracts/game-events-v1.json` for the normative JSON Schema.
- *
- *  Caller note: [[serialize]] never throws.  The only exception path is
- *  [[AppEvent.GameFinished]] carrying a non-terminal [[GameStatus]], which
- *  violates the [[AppEvent]] contract and is treated as an `IllegalArgumentException`.
- */
+  *
+  * Only the five boundary-crossing events defined in `docs/contracts/game-events-v1.md` are
+  * serialised. All other variants return [[None]] — they are internal events that must not cross
+  * service boundaries.
+  *
+  * Implements [[TerminalEventJsonSerializer]] so that it can be injected into application services
+  * as the outbox-write serialiser without requiring those services to import adapter-layer types.
+  *
+  * ===Usage===
+  * {{{
+  *    AppEventSerializer.serialize(event) match
+  *      case Some(json) => broker.publish(json)
+  *      case None       => ()  // internal event; skip
+  * }}}
+  *
+  * ===Design===
+  * Explicit [[ujson]] construction is used throughout rather than type-class derivation. This makes
+  * the wire shape visible at the call site and prevents accidental schema drift when domain types
+  * are renamed. See `docs/contracts/game-events-v1.json` for the normative JSON Schema.
+  *
+  * Caller note: [[serialize]] never throws. The only exception path is [[AppEvent.GameFinished]]
+  * carrying a non-terminal [[GameStatus]], which violates the [[AppEvent]] contract and is treated
+  * as an `IllegalArgumentException`.
+  */
 object AppEventSerializer extends TerminalEventJsonSerializer:
 
   /** Serialise a boundary-relevant event to a JSON string.
-   *
-   *  @return `Some(json)` for the five wire-contract events; `None` for all others
-   */
+    *
+    * @return
+    *   `Some(json)` for the five wire-contract events; `None` for all others
+    */
   override def serialize(event: AppEvent): Option[String] = event match
     case e: AppEvent.SessionCreated   => Some(ujson.write(sessionCreatedJson(e)))
     case e: AppEvent.MoveApplied      => Some(ujson.write(moveAppliedJson(e)))
@@ -53,20 +51,20 @@ object AppEventSerializer extends TerminalEventJsonSerializer:
 
   private def sessionCreatedJson(e: AppEvent.SessionCreated): ujson.Obj =
     ujson.Obj(
-      "type"            -> "game.session.created.v1",
-      "sessionId"       -> e.sessionId.value.toString,
-      "gameId"          -> e.gameId.value.toString,
-      "mode"            -> sessionModeStr(e.mode),
+      "type" -> "game.session.created.v1",
+      "sessionId" -> e.sessionId.value.toString,
+      "gameId" -> e.gameId.value.toString,
+      "mode" -> sessionModeStr(e.mode),
       "whiteController" -> controllerStr(e.whiteController),
       "blackController" -> controllerStr(e.blackController)
     )
 
   private def moveAppliedJson(e: AppEvent.MoveApplied): ujson.Obj =
     ujson.Obj(
-      "type"           -> "game.move.applied.v1",
-      "sessionId"      -> e.sessionId.value.toString,
-      "gameId"         -> e.gameId.value.toString,
-      "move"           -> moveJson(e.move),
+      "type" -> "game.move.applied.v1",
+      "sessionId" -> e.sessionId.value.toString,
+      "gameId" -> e.gameId.value.toString,
+      "move" -> moveJson(e.move),
       "playerWhoMoved" -> colorStr(e.playerWhoMoved)
     )
 
@@ -76,20 +74,20 @@ object AppEventSerializer extends TerminalEventJsonSerializer:
     e.status match
       case GameStatus.Checkmate(winner) =>
         ujson.Obj(
-          "type"       -> "game.finished.v1",
-          "sessionId"  -> e.sessionId.value.toString,
-          "gameId"     -> e.gameId.value.toString,
-          "result"     -> "Checkmate",
-          "winner"     -> colorStr(winner),
+          "type" -> "game.finished.v1",
+          "sessionId" -> e.sessionId.value.toString,
+          "gameId" -> e.gameId.value.toString,
+          "result" -> "Checkmate",
+          "winner" -> colorStr(winner),
           "drawReason" -> ujson.Null
         )
       case GameStatus.Draw(reason) =>
         ujson.Obj(
-          "type"       -> "game.finished.v1",
-          "sessionId"  -> e.sessionId.value.toString,
-          "gameId"     -> e.gameId.value.toString,
-          "result"     -> "Draw",
-          "winner"     -> ujson.Null,
+          "type" -> "game.finished.v1",
+          "sessionId" -> e.sessionId.value.toString,
+          "gameId" -> e.gameId.value.toString,
+          "result" -> "Draw",
+          "winner" -> ujson.Null,
           "drawReason" -> drawReasonStr(reason)
         )
       case other =>
@@ -99,25 +97,25 @@ object AppEventSerializer extends TerminalEventJsonSerializer:
 
   private def gameResignedJson(e: AppEvent.GameResigned): ujson.Obj =
     ujson.Obj(
-      "type"      -> "game.resigned.v1",
+      "type" -> "game.resigned.v1",
       "sessionId" -> e.sessionId.value.toString,
-      "gameId"    -> e.gameId.value.toString,
-      "winner"    -> colorStr(e.winner)
+      "gameId" -> e.gameId.value.toString,
+      "winner" -> colorStr(e.winner)
     )
 
   private def sessionCancelledJson(e: AppEvent.SessionCancelled): ujson.Obj =
     ujson.Obj(
-      "type"      -> "game.session.cancelled.v1",
+      "type" -> "game.session.cancelled.v1",
       "sessionId" -> e.sessionId.value.toString,
-      "gameId"    -> e.gameId.value.toString
+      "gameId" -> e.gameId.value.toString
     )
 
   // ── Field encoders ────────────────────────────────────────────────────────────
 
   private def moveJson(move: Move): ujson.Obj =
     ujson.Obj(
-      "from"      -> ujson.Str(move.from.toString),
-      "to"        -> ujson.Str(move.to.toString),
+      "from" -> ujson.Str(move.from.toString),
+      "to" -> ujson.Str(move.to.toString),
       "promotion" -> move.promotion.fold(ujson.Null: Value)(pt => ujson.Str(pieceTypeStr(pt)))
     )
 

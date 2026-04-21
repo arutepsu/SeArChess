@@ -4,7 +4,7 @@ package chess.startup.local
 object LocalRuntimeConfigLoader:
 
   private val DefaultPersistence = "in-memory"
-  private val DefaultSqlitePath  = "chess.db"
+  private val DefaultSqlitePath = "chess.db"
 
   def load(): Either[String, LocalRuntimeConfig] =
     loadFrom(key => Option(System.getenv(key)).filter(_.nonEmpty))
@@ -12,10 +12,12 @@ object LocalRuntimeConfigLoader:
   private[local] def loadFrom(env: String => Option[String]): Either[String, LocalRuntimeConfig] =
     for
       persistence <- parsePersistenceMode(env("PERSISTENCE_MODE").getOrElse(DefaultPersistence))
-      sqlitePath   = env("CHESS_DB_PATH").getOrElse(DefaultSqlitePath)
+      sqlitePath = env("CHESS_DB_PATH").getOrElse(DefaultSqlitePath)
     yield LocalRuntimeConfig(
       persistence = persistence,
-      sqlite      = if persistence == LocalPersistenceMode.SQLite then Some(LocalSqliteConfig(sqlitePath)) else None
+      sqlite =
+        if persistence == LocalPersistenceMode.SQLite then Some(LocalSqliteConfig(sqlitePath))
+        else None
     )
 
   def loadOrExit(appName: String): LocalRuntimeConfig =
@@ -28,4 +30,4 @@ object LocalRuntimeConfigLoader:
     value.toLowerCase match
       case "in-memory" | "inmemory" => Right(LocalPersistenceMode.InMemory)
       case "sqlite"                 => Right(LocalPersistenceMode.SQLite)
-      case _                        => Left(s"PERSISTENCE_MODE must be 'in-memory' or 'sqlite', got: '$value'")
+      case _ => Left(s"PERSISTENCE_MODE must be 'in-memory' or 'sqlite', got: '$value'")

@@ -45,8 +45,10 @@ class SqliteArchiveRepository(path: String) extends ArchiveRepository:
     findRecordJson(gameId).flatMap {
       case None => Right(None)
       case Some(json) =>
-        ArchiveRecordJson.fromJson(json)
-          .left.map(ArchiveRepositoryError.StorageFailure(_))
+        ArchiveRecordJson
+          .fromJson(json)
+          .left
+          .map(ArchiveRepositoryError.StorageFailure(_))
           .map(Some(_))
     }
 
@@ -65,7 +67,9 @@ class SqliteArchiveRepository(path: String) extends ArchiveRepository:
 
   def close(): Unit = conn.synchronized(conn.close())
 
-  private def withConnection[A](f: Connection => Either[ArchiveRepositoryError, A]): Either[ArchiveRepositoryError, A] =
+  private def withConnection[A](
+      f: Connection => Either[ArchiveRepositoryError, A]
+  ): Either[ArchiveRepositoryError, A] =
     conn.synchronized {
       try f(conn)
       catch case NonFatal(e) => Left(ArchiveRepositoryError.StorageFailure(e.getMessage))

@@ -8,12 +8,12 @@ class SpriteMetadataRepositorySpec extends AnyFlatSpec with Matchers:
   // ── Test fixtures ─────────────────────────────────────────────────────────
 
   private val knownMeta = SpriteMetadata(
-    assetKey    = "classic/white_pawn_move",
-    path        = "assets/classic/pawn/white_pawn_move.png",
-    frameCount  = 8,
-    frameSize   = (200, 200),
+    assetKey = "classic/white_pawn_move",
+    path = "assets/classic/pawn/white_pawn_move.png",
+    frameCount = 8,
+    frameSize = (200, 200),
     displaySize = None,
-    anchor      = None
+    anchor = None
   )
 
   private val repo = SpriteMetadataRepository(Map("classic/white_pawn_move" -> knownMeta))
@@ -25,11 +25,11 @@ class SpriteMetadataRepositorySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "return the correct metadata for a registered key" in {
-    val meta = repo.lookup("classic/white_pawn_move").get
-    meta.assetKey   shouldBe "classic/white_pawn_move"
-    meta.path       shouldBe "assets/classic/pawn/white_pawn_move.png"
+    val meta = repo.lookup("classic/white_pawn_move").getOrElse(fail("expected Some metadata"))
+    meta.assetKey shouldBe "classic/white_pawn_move"
+    meta.path shouldBe "assets/classic/pawn/white_pawn_move.png"
     meta.frameCount shouldBe 8
-    meta.frameSize  shouldBe (200, 200)
+    meta.frameSize shouldBe (200, 200)
   }
 
   it should "return None for an unknown key" in {
@@ -39,51 +39,67 @@ class SpriteMetadataRepositorySpec extends AnyFlatSpec with Matchers:
   // ── fromCatalog factory ───────────────────────────────────────────────────
 
   "SpriteMetadataRepository.fromCatalog" should "build entries from all spriteSheet entries" in {
-    val clip    = ClipSpecEntry(4, (64, 64), None, None)
-    val sheet   = SpriteSheetEntry("classic/white_pawn_move", "assets/pawn/move.png", clip)
+    val clip = ClipSpecEntry(4, (64, 64), None, None)
+    val sheet = SpriteSheetEntry("classic/white_pawn_move", "assets/pawn/move.png", clip)
     val catalog = SpriteCatalog("test", Map("classic/white_pawn_move" -> sheet), Map.empty)
     val builtRepo = SpriteMetadataRepository.fromCatalog(catalog)
     builtRepo.lookup("classic/white_pawn_move") shouldBe defined
   }
 
   it should "inline frameCount from the clipSpec" in {
-    val clip    = ClipSpecEntry(8, (200, 200), None, None)
-    val sheet   = SpriteSheetEntry("classic/white_pawn_move", "assets/pawn/move.png", clip)
+    val clip = ClipSpecEntry(8, (200, 200), None, None)
+    val sheet = SpriteSheetEntry("classic/white_pawn_move", "assets/pawn/move.png", clip)
     val catalog = SpriteCatalog("test", Map("classic/white_pawn_move" -> sheet), Map.empty)
-    SpriteMetadataRepository.fromCatalog(catalog)
-      .lookup("classic/white_pawn_move").get.frameCount shouldBe 8
+    SpriteMetadataRepository
+      .fromCatalog(catalog)
+      .lookup("classic/white_pawn_move")
+      .getOrElse(fail("expected Some metadata"))
+      .frameCount shouldBe 8
   }
 
   it should "inline frameSize from the clipSpec" in {
-    val clip    = ClipSpecEntry(4, (200, 200), None, None)
-    val sheet   = SpriteSheetEntry("classic/white_pawn_move", "assets/pawn/move.png", clip)
+    val clip = ClipSpecEntry(4, (200, 200), None, None)
+    val sheet = SpriteSheetEntry("classic/white_pawn_move", "assets/pawn/move.png", clip)
     val catalog = SpriteCatalog("test", Map("classic/white_pawn_move" -> sheet), Map.empty)
-    SpriteMetadataRepository.fromCatalog(catalog)
-      .lookup("classic/white_pawn_move").get.frameSize shouldBe (200, 200)
+    SpriteMetadataRepository
+      .fromCatalog(catalog)
+      .lookup("classic/white_pawn_move")
+      .getOrElse(fail("expected Some metadata"))
+      .frameSize shouldBe (200, 200)
   }
 
   it should "use the sheet path as the SpriteMetadata path" in {
-    val clip    = ClipSpecEntry(4, (64, 64), None, None)
-    val sheet   = SpriteSheetEntry("classic/white_pawn_move", "assets/classic/pawn/white_pawn_move.png", clip)
+    val clip = ClipSpecEntry(4, (64, 64), None, None)
+    val sheet =
+      SpriteSheetEntry("classic/white_pawn_move", "assets/classic/pawn/white_pawn_move.png", clip)
     val catalog = SpriteCatalog("test", Map("classic/white_pawn_move" -> sheet), Map.empty)
-    SpriteMetadataRepository.fromCatalog(catalog)
-      .lookup("classic/white_pawn_move").get.path shouldBe "assets/classic/pawn/white_pawn_move.png"
+    SpriteMetadataRepository
+      .fromCatalog(catalog)
+      .lookup("classic/white_pawn_move")
+      .getOrElse(fail("expected Some metadata"))
+      .path shouldBe "assets/classic/pawn/white_pawn_move.png"
   }
 
   it should "propagate displaySize from the clipSpec" in {
-    val clip    = ClipSpecEntry(4, (64, 64), Some((72.0, 72.0)), None)
-    val sheet   = SpriteSheetEntry("classic/white_pawn_move", "assets/pawn/move.png", clip)
+    val clip = ClipSpecEntry(4, (64, 64), Some((72.0, 72.0)), None)
+    val sheet = SpriteSheetEntry("classic/white_pawn_move", "assets/pawn/move.png", clip)
     val catalog = SpriteCatalog("test", Map("classic/white_pawn_move" -> sheet), Map.empty)
-    SpriteMetadataRepository.fromCatalog(catalog)
-      .lookup("classic/white_pawn_move").get.displaySize shouldBe Some((72.0, 72.0))
+    SpriteMetadataRepository
+      .fromCatalog(catalog)
+      .lookup("classic/white_pawn_move")
+      .getOrElse(fail("expected Some metadata"))
+      .displaySize shouldBe Some((72.0, 72.0))
   }
 
   it should "propagate anchor from the clipSpec" in {
-    val clip    = ClipSpecEntry(4, (64, 64), None, Some((0.5, 0.5)))
-    val sheet   = SpriteSheetEntry("classic/white_pawn_move", "assets/pawn/move.png", clip)
+    val clip = ClipSpecEntry(4, (64, 64), None, Some((0.5, 0.5)))
+    val sheet = SpriteSheetEntry("classic/white_pawn_move", "assets/pawn/move.png", clip)
     val catalog = SpriteCatalog("test", Map("classic/white_pawn_move" -> sheet), Map.empty)
-    SpriteMetadataRepository.fromCatalog(catalog)
-      .lookup("classic/white_pawn_move").get.anchor shouldBe Some((0.5, 0.5))
+    SpriteMetadataRepository
+      .fromCatalog(catalog)
+      .lookup("classic/white_pawn_move")
+      .getOrElse(fail("expected Some metadata"))
+      .anchor shouldBe Some((0.5, 0.5))
   }
 
   it should "produce an empty repository from an empty catalog" in {
@@ -94,14 +110,20 @@ class SpriteMetadataRepositorySpec extends AnyFlatSpec with Matchers:
   // ── Frame counts and sizes from real catalog data ─────────────────────────
 
   it should "expose distinct frame counts when built from a multi-entry catalog" in {
-    val c1 = ClipSpecEntry(1,  (64, 64), None, None)
-    val c4 = ClipSpecEntry(4,  (64, 64), None, None)
+    val c1 = ClipSpecEntry(1, (64, 64), None, None)
+    val c4 = ClipSpecEntry(4, (64, 64), None, None)
     val entries = Map(
       "classic/white_pawn_idle" -> SpriteSheetEntry("classic/white_pawn_idle", "p/idle.png", c1),
       "classic/white_pawn_move" -> SpriteSheetEntry("classic/white_pawn_move", "p/move.png", c4)
     )
     val catalog = SpriteCatalog("test", entries, Map.empty)
     val builtRepo = SpriteMetadataRepository.fromCatalog(catalog)
-    builtRepo.lookup("classic/white_pawn_idle").get.frameCount shouldBe 1
-    builtRepo.lookup("classic/white_pawn_move").get.frameCount shouldBe 4
+    builtRepo
+      .lookup("classic/white_pawn_idle")
+      .getOrElse(fail("expected Some metadata"))
+      .frameCount shouldBe 1
+    builtRepo
+      .lookup("classic/white_pawn_move")
+      .getOrElse(fail("expected Some metadata"))
+      .frameCount shouldBe 4
   }

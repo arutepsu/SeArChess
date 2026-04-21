@@ -12,36 +12,37 @@ class MoveApplierSpec extends AnyFlatSpec with Matchers with EitherValues:
   private def at(alg: String): Position = Position.fromAlgebraic(alg).value
 
   // a2→a3: legal single-forward white-pawn move on an otherwise empty board
-  private val from    = Position.from(0, 1).value  // a2
-  private val to      = Position.from(0, 2).value  // a3
+  private val from = Position.from(0, 1).value // a2
+  private val to = Position.from(0, 2).value // a3
   // b3: used as capture target (a2 pawn captures diagonally)
-  private val capTo   = Position.from(1, 2).value  // b3
-  private val piece   = Piece(Color.White, PieceType.Pawn)
-  private val enemy   = Piece(Color.Black, PieceType.Rook)
+  private val capTo = Position.from(1, 2).value // b3
+  private val piece = Piece(Color.White, PieceType.Pawn)
+  private val enemy = Piece(Color.Black, PieceType.Rook)
 
   private def applied(result: MoveResult): Board = result match
-    case MoveResult.Applied(b)              => b
-    case MoveResult.PromotionRequired(b, _, _) => fail(s"expected Applied but got PromotionRequired at $b")
+    case MoveResult.Applied(b) => b
+    case MoveResult.PromotionRequired(b, _, _) =>
+      fail(s"expected Applied but got PromotionRequired at $b")
 
   // ── success ────────────────────────────────────────────────────────────────
 
   "MoveApplier.applyMove" should "move a piece from source to target" in {
-    val board    = Board.empty.place(from, piece)
+    val board = Board.empty.place(from, piece)
     val newBoard = applied(MoveApplier.applyMove(board, Move(from, to)).value)
-    newBoard.pieceAt(to)   shouldBe Some(piece)
+    newBoard.pieceAt(to) shouldBe Some(piece)
     newBoard.pieceAt(from) shouldBe None
   }
 
   it should "overwrite an occupied target square on a legal capture" in {
-    val board    = Board.empty.place(from, piece).place(capTo, enemy)
+    val board = Board.empty.place(from, piece).place(capTo, enemy)
     val newBoard = applied(MoveApplier.applyMove(board, Move(from, capTo)).value)
     newBoard.pieceAt(capTo) shouldBe Some(piece)
-    newBoard.pieceAt(from)  shouldBe None
+    newBoard.pieceAt(from) shouldBe None
   }
 
   it should "leave the original board unchanged (immutability)" in {
     val original = Board.empty.place(from, piece)
-    val _        = MoveApplier.applyMove(original, Move(from, to))
+    val _ = MoveApplier.applyMove(original, Move(from, to))
     original.pieceAt(from) shouldBe Some(piece)
   }
 
@@ -66,7 +67,7 @@ class MoveApplierSpec extends AnyFlatSpec with Matchers with EitherValues:
     val result = MoveApplier.applyMove(board, Move(a7, a8)).value
     result shouldBe a[MoveResult.PromotionRequired]
     val MoveResult.PromotionRequired(_, sq, col) = result: @unchecked
-    sq  shouldBe a8
+    sq shouldBe a8
     col shouldBe Color.White
   }
 
@@ -77,7 +78,7 @@ class MoveApplierSpec extends AnyFlatSpec with Matchers with EitherValues:
     val result = MoveApplier.applyMove(board, Move(b2, b1)).value
     result shouldBe a[MoveResult.PromotionRequired]
     val MoveResult.PromotionRequired(_, sq, col) = result: @unchecked
-    sq  shouldBe b1
+    sq shouldBe b1
     col shouldBe Color.Black
   }
 
@@ -113,7 +114,7 @@ class MoveApplierSpec extends AnyFlatSpec with Matchers with EitherValues:
     val board = Board.empty
       .place(Position.from(4, 0).value, Piece(Color.White, PieceType.King))
       .place(Position.from(7, 0).value, Piece(Color.White, PieceType.Rook))
-    val move   = Move(Position.from(4, 0).value, Position.from(6, 0).value)
+    val move = Move(Position.from(4, 0).value, Position.from(6, 0).value)
     val result = MoveApplier.applyMove(board, move, CastlingRights.full).value
     val MoveResult.Applied(newBoard) = result: @unchecked
     newBoard.pieceAt(Position.from(6, 0).value) shouldBe Some(Piece(Color.White, PieceType.King))
@@ -126,7 +127,7 @@ class MoveApplierSpec extends AnyFlatSpec with Matchers with EitherValues:
     val board = Board.empty
       .place(Position.from(4, 0).value, Piece(Color.White, PieceType.King))
       .place(Position.from(7, 0).value, Piece(Color.White, PieceType.Rook))
-    val move   = Move(Position.from(4, 0).value, Position.from(6, 0).value)
+    val move = Move(Position.from(4, 0).value, Position.from(6, 0).value)
     val result = MoveApplier.applyMove(board, move, CastlingRights.none)
     result.left.value shouldBe DomainError.CastleNotAllowed
   }
@@ -139,11 +140,12 @@ class MoveApplierSpec extends AnyFlatSpec with Matchers with EitherValues:
     val board = Board.empty
       .place(at("d4"), Piece(Color.Black, PieceType.Pawn))
       .place(at("e4"), Piece(Color.White, PieceType.Pawn))
-    val result = MoveApplier.applyMove(board, Move(at("d4"), at("e3")), CastlingRights.none, Some(ep)).value
+    val result =
+      MoveApplier.applyMove(board, Move(at("d4"), at("e3")), CastlingRights.none, Some(ep)).value
     val MoveResult.Applied(newBoard) = result: @unchecked
     newBoard.pieceAt(at("e3")) shouldBe Some(Piece(Color.Black, PieceType.Pawn))
-    newBoard.pieceAt(at("e4")) shouldBe None  // captured pawn removed
-    newBoard.pieceAt(at("d4")) shouldBe None  // capturing pawn moved
+    newBoard.pieceAt(at("e4")) shouldBe None // captured pawn removed
+    newBoard.pieceAt(at("d4")) shouldBe None // capturing pawn moved
   }
 
   it should "return Applied with the capturing pawn on d6 and Black's pawn removed for a legal white en passant" in {
@@ -152,11 +154,12 @@ class MoveApplierSpec extends AnyFlatSpec with Matchers with EitherValues:
     val board = Board.empty
       .place(at("e5"), Piece(Color.White, PieceType.Pawn))
       .place(at("d5"), Piece(Color.Black, PieceType.Pawn))
-    val result = MoveApplier.applyMove(board, Move(at("e5"), at("d6")), CastlingRights.none, Some(ep)).value
+    val result =
+      MoveApplier.applyMove(board, Move(at("e5"), at("d6")), CastlingRights.none, Some(ep)).value
     val MoveResult.Applied(newBoard) = result: @unchecked
     newBoard.pieceAt(at("d6")) shouldBe Some(Piece(Color.White, PieceType.Pawn))
-    newBoard.pieceAt(at("d5")) shouldBe None  // captured pawn removed
-    newBoard.pieceAt(at("e5")) shouldBe None  // capturing pawn moved
+    newBoard.pieceAt(at("d5")) shouldBe None // captured pawn removed
+    newBoard.pieceAt(at("e5")) shouldBe None // capturing pawn moved
   }
 
   it should "fail with IllegalMove when en passant state is None (state has expired)" in {
@@ -177,7 +180,8 @@ class MoveApplierSpec extends AnyFlatSpec with Matchers with EitherValues:
       .place(at("c5"), Piece(Color.White, PieceType.Pawn))
       .place(at("b5"), Piece(Color.Black, PieceType.Pawn))
       .place(at("h5"), Piece(Color.Black, PieceType.Rook))
-    val result = MoveApplier.applyMove(board, Move(at("c5"), at("b6")), CastlingRights.none, Some(ep))
+    val result =
+      MoveApplier.applyMove(board, Move(at("c5"), at("b6")), CastlingRights.none, Some(ep))
     result.left.value shouldBe DomainError.KingInCheck
   }
 
@@ -186,10 +190,10 @@ class MoveApplierSpec extends AnyFlatSpec with Matchers with EitherValues:
     //   White king at a6, White pawn at b7 (about to promote)
     //   Black bishop at c8 — diagonal c8→b7→a6 is blocked by the pawn.
     //   After pawn moves b7→b8, b7 is empty and the bishop checks the king at a6.
-    val b7 = Position.from(1, 6).value  // pawn — will move to b8
-    val b8 = Position.from(1, 7).value  // promotion square (empty)
-    val a6 = Position.from(0, 5).value  // white king
-    val c8 = Position.from(2, 7).value  // black bishop — pinning the pawn
+    val b7 = Position.from(1, 6).value // pawn — will move to b8
+    val b8 = Position.from(1, 7).value // promotion square (empty)
+    val a6 = Position.from(0, 5).value // white king
+    val c8 = Position.from(2, 7).value // black bishop — pinning the pawn
     val board = Board.empty
       .place(b7, Piece(Color.White, PieceType.Pawn))
       .place(a6, Piece(Color.White, PieceType.King))

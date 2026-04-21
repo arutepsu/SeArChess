@@ -1,11 +1,11 @@
 package chess.notation.api
 
 /** Describes the intended destination of an import operation.
- *
- *  Import targets express *intent*, not behavior.  The [[NotationImporter]]
- *  decides whether a given [[ParsedNotation]] is compatible with the requested
- *  target and returns an [[ImportFailure]] otherwise.
- */
+  *
+  * Import targets express *intent*, not behavior. The [[NotationImporter]] decides whether a given
+  * [[ParsedNotation]] is compatible with the requested target and returns an [[ImportFailure]]
+  * otherwise.
+  */
 sealed trait ImportTarget
 
 object ImportTarget:

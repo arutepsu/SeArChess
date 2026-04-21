@@ -6,16 +6,15 @@ import chess.domain.state.GameState
 import scala.collection.mutable
 
 /** In-memory implementation of [[GameRepository]].
- *
- *  Replaces the Phase 7 [[InMemoryGameStateStore]] with a proper adapter
- *  that satisfies the application-layer port.  Behaviour is identical:
- *  synchronized HashMap, state lost on JVM exit.
- *
- *  Single-process, single-JVM use only.  Replace with a durable adapter
- *  (JDBC, Redis, file-backed) when persistence across restarts is required.
- *
- *  Thread-safety: all operations are synchronized on `this`.
- */
+  *
+  * Replaces the Phase 7 [[InMemoryGameStateStore]] with a proper adapter that satisfies the
+  * application-layer port. Behaviour is identical: synchronized HashMap, state lost on JVM exit.
+  *
+  * Single-process, single-JVM use only. Replace with a durable adapter (JDBC, Redis, file-backed)
+  * when persistence across restarts is required.
+  *
+  * Thread-safety: all operations are synchronized on `this`.
+  */
 class InMemoryGameRepository extends GameRepository:
 
   private val store = mutable.HashMap.empty[GameId, GameState]

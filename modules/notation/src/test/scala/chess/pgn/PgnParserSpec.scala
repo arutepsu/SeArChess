@@ -52,11 +52,13 @@ final class PgnParserSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   it should "allow headers-only PGN with no moves" in {
     val data =
-      PgnParser.parse(
-        """[Event "HeaderOnly"]
+      PgnParser
+        .parse(
+          """[Event "HeaderOnly"]
           |[White "Alice"]
           |""".stripMargin
-      ).value
+        )
+        .value
 
     data.headers shouldBe Map("Event" -> "HeaderOnly", "White" -> "Alice")
     data.moveTokens shouldBe Vector.empty

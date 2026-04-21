@@ -3,22 +3,21 @@ package chess.notation.fen
 import chess.notation.api.{FenData, NotationFormat, NotationParser, ParsedNotation, ParseFailure}
 
 /** Strict FEN parser that implements the shared [[NotationParser]] contract.
- *
- *  Parsing flow:
- *  1. Full grammar parse via [[FenCombinatorGrammar]]
- *  2. Assembly into parser-local [[FenRecord]]
- *  3. Conversion to shared [[FenData]]
- *  4. Wrapping in [[ParsedNotation.ParsedFen]]
- *
- *  Validation scope:
- *  - syntax and structural shape only
- *  - no semantic chess-legality checks
- */
+  *
+  * Parsing flow:
+  *   1. Full grammar parse via [[FenCombinatorGrammar]] 2. Assembly into parser-local [[FenRecord]]
+  *      3. Conversion to shared [[FenData]] 4. Wrapping in [[ParsedNotation.ParsedFen]]
+  *
+  * Validation scope:
+  *   - syntax and structural shape only
+  *   - no semantic chess-legality checks
+  */
 object FenParser extends NotationParser:
 
   val format: NotationFormat = NotationFormat.FEN
 
-  val default: FenGrammar = FenCombinatorGrammar // selector for easy switching between combinator and FastParse implementations
+  val default: FenGrammar =
+    FenCombinatorGrammar // selector for easy switching between combinator and FastParse implementations
 
   def parse(input: String): Either[ParseFailure, ParsedNotation] =
     parseRecord(input).map(record => ParsedNotation.ParsedFen(input, toFenData(record)))
@@ -30,11 +29,11 @@ object FenParser extends NotationParser:
 
   private def toFenData(record: FenRecord): FenData =
     FenData(
-      ranks          = record.ranks.map(_.map(toFenDataSquare)),
-      activeColor    = toFenDataColor(record.activeColor),
-      castling       = toFenDataCastling(record.castling),
-      enPassant      = toFenDataEnPassant(record.enPassant),
-      halfmoveClock  = record.halfmoveClock,
+      ranks = record.ranks.map(_.map(toFenDataSquare)),
+      activeColor = toFenDataColor(record.activeColor),
+      castling = toFenDataCastling(record.castling),
+      enPassant = toFenDataEnPassant(record.enPassant),
+      halfmoveClock = record.halfmoveClock,
       fullmoveNumber = record.fullmoveNumber
     )
 
@@ -55,7 +54,12 @@ object FenParser extends NotationParser:
     case FenSquare.Empty          => FenData.Square.Empty
 
   private def toFenDataCastling(c: FenCastlingAvailability): FenData.CastlingAvailability =
-    FenData.CastlingAvailability(c.whiteKingSide, c.whiteQueenSide, c.blackKingSide, c.blackQueenSide)
+    FenData.CastlingAvailability(
+      c.whiteKingSide,
+      c.whiteQueenSide,
+      c.blackKingSide,
+      c.blackQueenSide
+    )
 
   private def toFenDataEnPassant(ep: FenEnPassantTarget): FenData.EnPassantTarget = ep match
     case FenEnPassantTarget.Absent             => FenData.EnPassantTarget.Absent

@@ -44,13 +44,13 @@ class SqliteHistoryEventOutbox(path: String) extends HistoryEventOutbox:
     allEntries().map { entries =>
       val pending = entries.filter(_.deliveredAt.isEmpty)
       HistoryOutboxSummary(
-        totalCount      = entries.size,
-        pendingCount    = pending.size,
-        deliveredCount  = entries.count(_.deliveredAt.isDefined),
-        retryingCount   = pending.count(_.attempts > 0),
+        totalCount = entries.size,
+        pendingCount = pending.size,
+        deliveredCount = entries.count(_.deliveredAt.isDefined),
+        retryingCount = pending.count(_.attempts > 0),
         oldestPendingAt = pending.map(_.createdAt).sortBy(_.toEpochMilli).headOption,
         newestPendingAt = pending.map(_.createdAt).sortBy(_.toEpochMilli).lastOption,
-        pendingByType   = pending.groupBy(_.eventType).view.mapValues(_.size).toMap
+        pendingByType = pending.groupBy(_.eventType).view.mapValues(_.size).toMap
       )
     }
 
@@ -156,13 +156,14 @@ class SqliteHistoryEventOutbox(path: String) extends HistoryEventOutbox:
     try
       val obj = ujson.read(payloadJson).obj
       Right((obj("type").str, obj("sessionId").str, obj("gameId").str))
-    catch case NonFatal(e) =>
-      Left(s"Invalid History outbox event JSON: ${e.getMessage}")
+    catch
+      case NonFatal(e) =>
+        Left(s"Invalid History outbox event JSON: ${e.getMessage}")
 
   private def update(
-    sql: String,
-    bind: java.sql.PreparedStatement => Unit,
-    id: Long
+      sql: String,
+      bind: java.sql.PreparedStatement => Unit,
+      id: Long
   ): Either[String, Unit] =
     try
       val stmt = conn.prepareStatement(sql)
@@ -195,15 +196,15 @@ class SqliteHistoryEventOutbox(path: String) extends HistoryEventOutbox:
 
   private def entry(rs: ResultSet): HistoryOutboxEntry =
     HistoryOutboxEntry(
-      id          = rs.getLong("id"),
-      eventType   = rs.getString("event_type"),
-      sessionId   = rs.getString("session_id"),
-      gameId      = rs.getString("game_id"),
+      id = rs.getLong("id"),
+      eventType = rs.getString("event_type"),
+      sessionId = rs.getString("session_id"),
+      gameId = rs.getString("game_id"),
       payloadJson = rs.getString("payload_json"),
-      createdAt   = Instant.parse(rs.getString("created_at")),
-      attempts    = rs.getInt("attempts"),
+      createdAt = Instant.parse(rs.getString("created_at")),
+      attempts = rs.getInt("attempts"),
       lastAttemptedAt = Option(rs.getString("last_attempted_at")).map(Instant.parse),
-      lastError   = Option(rs.getString("last_error")),
+      lastError = Option(rs.getString("last_error")),
       deliveredAt = Option(rs.getString("delivered_at")).map(Instant.parse)
     )
 

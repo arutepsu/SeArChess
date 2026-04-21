@@ -17,7 +17,12 @@ class LocalDeterministicAiClientSpec extends AnyFlatSpec with Matchers with Eith
 
   private def context(state: GameState): AIRequestContext =
     AIRequestContext.fromSession(
-      GameSession.create(GameId.random(), SessionMode.HumanVsAI, SideController.AI(), SideController.HumanLocal),
+      GameSession.create(
+        GameId.random(),
+        SessionMode.HumanVsAI,
+        SideController.AI(),
+        SideController.HumanLocal
+      ),
       state,
       requestId = "test-request"
     )
@@ -25,9 +30,9 @@ class LocalDeterministicAiClientSpec extends AnyFlatSpec with Matchers with Eith
   // ── suggestMove: legal position ────────────────────────────────────────────
 
   "LocalDeterministicAiClient.suggestMove" should "return a legal move in the initial position" in {
-    val state    = GameStateFactory.initial()
+    val state = GameStateFactory.initial()
     val response = provider.suggestMove(context(state)).value
-    val legal    = GameStateRules.legalMoves(state)
+    val legal = GameStateRules.legalMoves(state)
     legal should contain(response.move)
   }
 

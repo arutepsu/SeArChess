@@ -1,50 +1,57 @@
-
 package chess.adapter.gui.notation
 import chess.notation.json.JsonNotationFacade
 
 import chess.domain.state.GameState
 import chess.notation.api.{
-  CompatibilityFailure, ExportFailure, ImportFailure, ImportResult, ImportTarget,
-  NotationFailure, NotationFacade, NotationFormat, NotationWarning,
-  ParseFailure, ValidationFailure
+  CompatibilityFailure,
+  ExportFailure,
+  ImportFailure,
+  ImportResult,
+  ImportTarget,
+  NotationFailure,
+  NotationFacade,
+  NotationFormat,
+  NotationWarning,
+  ParseFailure,
+  ValidationFailure
 }
 import chess.notation.fen.FenNotationFacade
 import chess.notation.pgn.PgnNotationFacade
 
 /** GUI-facing notation API.
- *
- *  Exposes user-intention-based import and export operations without leaking
- *  notation-layer contracts to GUI callers.  All notation-layer types
- *  (NotationFormat, ParsedNotation, NotationFailure, ImportResult, …) are
- *  confined to this class's implementation; callers only see
- *  [[GuiNotationOutcome]] and its nested types.
- *
- *  Construction:
- *  - Use [[GuiNotationApi.default]] for normal application usage.
- *  - Inject a custom [[NotationFacade]] for testing.
- *
- *  Implemented now:
- *  - FEN import (delegates to the provided [[NotationFacade]])
- *
- *  @param importFacade the notation facade used for all import operations
- */
+  *
+  * Exposes user-intention-based import and export operations without leaking notation-layer
+  * contracts to GUI callers. All notation-layer types (NotationFormat, ParsedNotation,
+  * NotationFailure, ImportResult, …) are confined to this class's implementation; callers only see
+  * [[GuiNotationOutcome]] and its nested types.
+  *
+  * Construction:
+  *   - Use [[GuiNotationApi.default]] for normal application usage.
+  *   - Inject a custom [[NotationFacade]] for testing.
+  *
+  * Implemented now:
+  *   - FEN import (delegates to the provided [[NotationFacade]])
+  *
+  * @param importFacade
+  *   the notation facade used for all import operations
+  */
 final class GuiNotationApi(importFacade: NotationFacade[GameState]):
 
   /** Import a JSON string as a game.
-   *
-   *  Delegates to [[JsonNotationFacade.parseAndImport]] with [[NotationFormat.JSON]] and
-   *  maps the structured result to a GUI-facing outcome.
-   */
+    *
+    * Delegates to [[JsonNotationFacade.parseAndImport]] with [[NotationFormat.JSON]] and maps the
+    * structured result to a GUI-facing outcome.
+    */
   def importJson(text: String): GuiNotationOutcome =
     JsonNotationFacade.parseAndImport(NotationFormat.JSON, text, ImportTarget.GameTarget) match
       case Right(result) => toImportSuccess(result)
       case Left(failure) => toFailure(failure)
 
   /** Export the current game state as a JSON string.
-   *
-   *  Delegates to [[JsonNotationFacade.executeExport]] with [[NotationFormat.JSON]] and
-   *  maps the structured result to a GUI-facing outcome.
-   */
+    *
+    * Delegates to [[JsonNotationFacade.executeExport]] with [[NotationFormat.JSON]] and maps the
+    * structured result to a GUI-facing outcome.
+    */
   def exportJson(state: GameState): GuiNotationOutcome =
     JsonNotationFacade.executeExport(state, NotationFormat.JSON) match
       case Right(result) => GuiNotationOutcome.ExportSuccess(result.text)
@@ -53,20 +60,20 @@ final class GuiNotationApi(importFacade: NotationFacade[GameState]):
   // ── Import ──────────────────────────────────────────────────────────────────
 
   /** Import a FEN string and return the corresponding [[GameState]].
-   *
-   *  Returns [[GuiNotationOutcome.ImportSuccess]] on success or a
-   *  [[GuiNotationOutcome.Failure]] with a readable message on any error.
-   */
+    *
+    * Returns [[GuiNotationOutcome.ImportSuccess]] on success or a [[GuiNotationOutcome.Failure]]
+    * with a readable message on any error.
+    */
   def importFen(text: String): GuiNotationOutcome =
     importFacade.parseAndImport(NotationFormat.FEN, text, ImportTarget.PositionTarget) match
       case Right(result) => toImportSuccess(result)
       case Left(failure) => toFailure(failure)
 
   /** Import a PGN string and replay the mainline move sequence.
-   *
-   *  Delegates to [[PgnNotationFacade.parseAndImport]] with [[NotationFormat.PGN]] and
-   *  maps the structured result to a GUI-facing outcome.
-   */
+    *
+    * Delegates to [[PgnNotationFacade.parseAndImport]] with [[NotationFormat.PGN]] and maps the
+    * structured result to a GUI-facing outcome.
+    */
   def importPgn(text: String): GuiNotationOutcome =
     PgnNotationFacade.parseAndImport(NotationFormat.PGN, text, ImportTarget.GameTarget) match
       case Right(result) => toImportSuccess(result)
@@ -75,20 +82,20 @@ final class GuiNotationApi(importFacade: NotationFacade[GameState]):
   // ── Export ──────────────────────────────────────────────────────────────────
 
   /** Export the current game state as a FEN string.
-   *
-   *  Delegates to [[importFacade.executeExport]] with [[NotationFormat.FEN]] and
-   *  maps the structured result to a GUI-facing outcome.
-   */
+    *
+    * Delegates to [[importFacade.executeExport]] with [[NotationFormat.FEN]] and maps the
+    * structured result to a GUI-facing outcome.
+    */
   def exportFen(state: GameState): GuiNotationOutcome =
     importFacade.executeExport(state, NotationFormat.FEN) match
       case Right(result) => GuiNotationOutcome.ExportSuccess(result.text)
       case Left(failure) => toFailure(failure)
 
   /** Export the current game state as a PGN movetext string.
-   *
-   *  Delegates to [[PgnNotationFacade.executeExport]] with [[NotationFormat.PGN]] and
-   *  maps the structured result to a GUI-facing outcome.
-   */
+    *
+    * Delegates to [[PgnNotationFacade.executeExport]] with [[NotationFormat.PGN]] and maps the
+    * structured result to a GUI-facing outcome.
+    */
   def exportPgn(state: GameState): GuiNotationOutcome =
     PgnNotationFacade.executeExport(state, NotationFormat.PGN) match
       case Right(result) => GuiNotationOutcome.ExportSuccess(result.text)
@@ -106,14 +113,14 @@ final class GuiNotationApi(importFacade: NotationFacade[GameState]):
   // ── Warning mapping ──────────────────────────────────────────────────────────
 
   /** Map a notation-layer [[NotationWarning]] to a GUI-facing [[GuiNotationWarning]].
-   *
-   *  Mapping rules:
-   *  - [[NotationWarning.UnknownTag]]                  → [[GuiWarningCategory.Informational]]
-   *  - [[NotationWarning.IgnoredField]]                → [[GuiWarningCategory.Informational]]
-   *  - [[NotationWarning.UnsupportedExtensionIgnored]] → [[GuiWarningCategory.DataLoss]]
-   *  - [[NotationWarning.NormalizationApplied]]        → [[GuiWarningCategory.Normalization]]
-   *  - [[NotationWarning.GenericWarning]]              → [[GuiWarningCategory.Informational]]
-   */
+    *
+    * Mapping rules:
+    *   - [[NotationWarning.UnknownTag]] → [[GuiWarningCategory.Informational]]
+    *   - [[NotationWarning.IgnoredField]] → [[GuiWarningCategory.Informational]]
+    *   - [[NotationWarning.UnsupportedExtensionIgnored]] → [[GuiWarningCategory.DataLoss]]
+    *   - [[NotationWarning.NormalizationApplied]] → [[GuiWarningCategory.Normalization]]
+    *   - [[NotationWarning.GenericWarning]] → [[GuiWarningCategory.Informational]]
+    */
   private def toGuiWarning(w: NotationWarning): GuiNotationWarning =
     val category = w match
       case _: NotationWarning.UnknownTag                  => GuiWarningCategory.Informational
@@ -126,15 +133,17 @@ final class GuiNotationApi(importFacade: NotationFacade[GameState]):
   // ── Failure mapping ──────────────────────────────────────────────────────────
 
   /** Map a notation-layer [[NotationFailure]] to a GUI-facing [[GuiNotationOutcome.Failure]].
-   *
-   *  Mapping rules:
-   *  - [[ParseFailure]]                        → [[FailureCategory.InvalidInput]]       (syntax / structure)
-   *  - [[ValidationFailure]]                   → [[FailureCategory.SemanticError]]      (semantically illegal)
-   *  - [[ImportFailure]]                       → [[FailureCategory.SemanticError]]      (mapping / target mismatch)
-   *  - [[ExportFailure.UnsupportedExportFormat]] → [[FailureCategory.UnavailableFeature]] (format not implemented)
-   *  - [[ExportFailure.SerializationError]]    → [[FailureCategory.SemanticError]]      (domain value cannot be serialised)
-   *  - [[CompatibilityFailure]]                → [[FailureCategory.UnsupportedInput]]   (dialect / version)
-   */
+    *
+    * Mapping rules:
+    *   - [[ParseFailure]] → [[FailureCategory.InvalidInput]] (syntax / structure)
+    *   - [[ValidationFailure]] → [[FailureCategory.SemanticError]] (semantically illegal)
+    *   - [[ImportFailure]] → [[FailureCategory.SemanticError]] (mapping / target mismatch)
+    *   - [[ExportFailure.UnsupportedExportFormat]] → [[FailureCategory.UnavailableFeature]] (format
+    *     not implemented)
+    *   - [[ExportFailure.SerializationError]] → [[FailureCategory.SemanticError]] (domain value
+    *     cannot be serialised)
+    *   - [[CompatibilityFailure]] → [[FailureCategory.UnsupportedInput]] (dialect / version)
+    */
   private def toFailure(failure: NotationFailure): GuiNotationOutcome.Failure =
     failure match
       case f: ParseFailure =>
@@ -163,10 +172,10 @@ final class GuiNotationApi(importFacade: NotationFacade[GameState]):
         GuiNotationOutcome.Failure(failure.message, category = FailureCategory.SemanticError)
 
 /** Default wiring of [[GuiNotationApi]] for normal application usage.
- *
- *  Callers that need a custom facade (e.g. for testing) should instantiate
- *  [[GuiNotationApi]] directly with the desired [[NotationFacade]].
- */
+  *
+  * Callers that need a custom facade (e.g. for testing) should instantiate [[GuiNotationApi]]
+  * directly with the desired [[NotationFacade]].
+  */
 object GuiNotationApi:
 
   /** Canonical instance backed by [[FenNotationFacade]]. */
@@ -176,9 +185,9 @@ object GuiNotationApi:
   // These allow GUI callers to use `GuiNotationApi.importFen(...)` directly
   // without needing to obtain the `default` instance explicitly.
 
-  def importFen(text: String): GuiNotationOutcome       = default.importFen(text)
-  def importPgn(text: String): GuiNotationOutcome       = default.importPgn(text)
-  def importJson(text: String): GuiNotationOutcome      = default.importJson(text)
-  def exportFen(state: GameState): GuiNotationOutcome   = default.exportFen(state)
-  def exportPgn(state: GameState): GuiNotationOutcome   = default.exportPgn(state)
-  def exportJson(state: GameState): GuiNotationOutcome  = default.exportJson(state)
+  def importFen(text: String): GuiNotationOutcome = default.importFen(text)
+  def importPgn(text: String): GuiNotationOutcome = default.importPgn(text)
+  def importJson(text: String): GuiNotationOutcome = default.importJson(text)
+  def exportFen(state: GameState): GuiNotationOutcome = default.exportFen(state)
+  def exportPgn(state: GameState): GuiNotationOutcome = default.exportPgn(state)
+  def exportJson(state: GameState): GuiNotationOutcome = default.exportJson(state)

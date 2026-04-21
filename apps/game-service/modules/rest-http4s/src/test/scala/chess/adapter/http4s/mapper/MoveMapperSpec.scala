@@ -8,9 +8,12 @@ import org.scalatest.matchers.should.Matchers
 
 class MoveMapperSpec extends AnyFlatSpec with Matchers with EitherValues:
 
-  private def req(from: String, to: String,
-                  promo: Option[String] = None,
-                  ctrl: Option[String]  = None) =
+  private def req(
+      from: String,
+      to: String,
+      promo: Option[String] = None,
+      ctrl: Option[String] = None
+  ) =
     SubmitMoveRequest(from, to, promo, ctrl)
 
   // ── valid moves ────────────────────────────────────────────────────────────
@@ -18,14 +21,14 @@ class MoveMapperSpec extends AnyFlatSpec with Matchers with EitherValues:
   "MoveMapper.toDomain" should "parse a valid move without promotion" in {
     val move = MoveMapper.toDomain(req("e2", "e4")).value
     move.from.toString shouldBe "e2"
-    move.to.toString   shouldBe "e4"
-    move.promotion     shouldBe None
+    move.to.toString shouldBe "e4"
+    move.promotion shouldBe None
   }
 
   it should "parse corner squares" in {
     val move = MoveMapper.toDomain(req("a1", "h8")).value
     move.from.toString shouldBe "a1"
-    move.to.toString   shouldBe "h8"
+    move.to.toString shouldBe "h8"
   }
 
   it should "parse a move with a Queen promotion" in {
@@ -38,11 +41,15 @@ class MoveMapperSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   it should "parse a move with a Bishop promotion" in {
-    MoveMapper.toDomain(req("b7", "b8", Some("Bishop"))).value.promotion shouldBe Some(PieceType.Bishop)
+    MoveMapper.toDomain(req("b7", "b8", Some("Bishop"))).value.promotion shouldBe Some(
+      PieceType.Bishop
+    )
   }
 
   it should "parse a move with a Knight promotion" in {
-    MoveMapper.toDomain(req("c7", "c8", Some("Knight"))).value.promotion shouldBe Some(PieceType.Knight)
+    MoveMapper.toDomain(req("c7", "c8", Some("Knight"))).value.promotion shouldBe Some(
+      PieceType.Knight
+    )
   }
 
   // ── invalid from / to ─────────────────────────────────────────────────────
@@ -86,8 +93,8 @@ class MoveMapperSpec extends AnyFlatSpec with Matchers with EitherValues:
   // ── parsePieceType (package-private) ──────────────────────────────────────
 
   "MoveMapper.parsePieceType" should "accept all four legal promotion types" in {
-    MoveMapper.parsePieceType("Queen").value  shouldBe PieceType.Queen
-    MoveMapper.parsePieceType("Rook").value   shouldBe PieceType.Rook
+    MoveMapper.parsePieceType("Queen").value shouldBe PieceType.Queen
+    MoveMapper.parsePieceType("Rook").value shouldBe PieceType.Rook
     MoveMapper.parsePieceType("Bishop").value shouldBe PieceType.Bishop
     MoveMapper.parsePieceType("Knight").value shouldBe PieceType.Knight
   }

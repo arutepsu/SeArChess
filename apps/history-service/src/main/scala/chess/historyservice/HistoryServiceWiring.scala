@@ -14,8 +14,8 @@ object HistoryServiceWiring:
     val repository = SqliteArchiveRepository(config.dbPath)
     val ingestion = HistoryIngestionService(
       archiveClient = RemoteGameArchiveClient(config.gameServiceBaseUrl, config.timeoutMillis),
-      materializer  = ArchiveMaterializer(),
-      repository    = repository
+      materializer = ArchiveMaterializer(),
+      repository = repository
     )
 
     val httpApp = HistoryRoutes(
@@ -23,8 +23,12 @@ object HistoryServiceWiring:
       repository,
       acceptLegacyIngestionPath = config.acceptLegacyIngestionPath
     ).routes.orNotFound
-    val host = Host.fromString(config.host).getOrElse(throw RuntimeException(s"Invalid HISTORY_HTTP_HOST: ${config.host}"))
-    val port = Port.fromInt(config.port).getOrElse(throw RuntimeException(s"Invalid HISTORY_HTTP_PORT: ${config.port}"))
+    val host = Host
+      .fromString(config.host)
+      .getOrElse(throw RuntimeException(s"Invalid HISTORY_HTTP_HOST: ${config.host}"))
+    val port = Port
+      .fromInt(config.port)
+      .getOrElse(throw RuntimeException(s"Invalid HISTORY_HTTP_PORT: ${config.port}"))
 
     val (_, shutdown) = EmberServerBuilder
       .default[IO]

@@ -5,7 +5,7 @@ import org.scalatest.matchers.should.Matchers
 
 class ConsoleIOSpec extends AnyFlatSpec with Matchers {
   "ConsoleIO" should "implement Console trait" in {
-    ConsoleIO shouldBe a [Console]
+    ConsoleIO shouldBe a[Console]
   }
 
   it should "print and printLine without error" in {

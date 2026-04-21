@@ -16,31 +16,33 @@ class SessionServiceEventSpec extends AnyFlatSpec with Matchers with EitherValue
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   private def freshService(collector: CollectingEventPublisher = CollectingEventPublisher()) =
-    val repo    = InMemorySessionRepository()
+    val repo = InMemorySessionRepository()
     val service = SessionService(repo, collector)
     (service, collector)
 
   private def createSession(service: SessionService) =
-    service.createSession(
-      gameId          = GameId.random(),
-      mode            = SessionMode.HumanVsHuman,
-      whiteController = SideController.HumanLocal,
-      blackController = SideController.HumanLocal
-    ).value
+    service
+      .createSession(
+        gameId = GameId.random(),
+        mode = SessionMode.HumanVsHuman,
+        whiteController = SideController.HumanLocal,
+        blackController = SideController.HumanLocal
+      )
+      .value
 
   /** Minimal one-move-to-checkmate position.
-   *
-   *  White Rook on b1, White King on c7, Black King on a8.
-   *  White plays Rb1→a1 for back-rank checkmate:
-   *  - Black King at a8 is in check from Ra1 (a-file)
-   *  - b8 is attacked by White King at c7
-   *  - b7 is attacked by White King at c7
-   *  - a7 is attacked by Ra1 on the a-file
-   */
-  private val rb1 = Position.from(1, 0).value  // b1
-  private val ra1 = Position.from(0, 0).value  // a1
-  private val kc7 = Position.from(2, 6).value  // c7
-  private val ka8 = Position.from(0, 7).value  // a8
+    *
+    * White Rook on b1, White King on c7, Black King on a8. White plays Rb1→a1 for back-rank
+    * checkmate:
+    *   - Black King at a8 is in check from Ra1 (a-file)
+    *   - b8 is attacked by White King at c7
+    *   - b7 is attacked by White King at c7
+    *   - a7 is attacked by Ra1 on the a-file
+    */
+  private val rb1 = Position.from(1, 0).value // b1
+  private val ra1 = Position.from(0, 0).value // a1
+  private val kc7 = Position.from(2, 6).value // c7
+  private val ka8 = Position.from(0, 7).value // a8
 
   private def checkmateInOneState: GameState =
     val board = Board.empty
@@ -48,10 +50,10 @@ class SessionServiceEventSpec extends AnyFlatSpec with Matchers with EitherValue
       .place(kc7, Piece(Color.White, PieceType.King))
       .place(ka8, Piece(Color.Black, PieceType.King))
     GameState(
-      board          = board,
-      currentPlayer  = Color.White,
-      moveHistory    = Nil,
-      status         = GameStatus.Ongoing(false),
+      board = board,
+      currentPlayer = Color.White,
+      moveHistory = Nil,
+      status = GameStatus.Ongoing(false),
       castlingRights = CastlingRights.none,
       enPassantState = None
     )
@@ -60,8 +62,8 @@ class SessionServiceEventSpec extends AnyFlatSpec with Matchers with EitherValue
 
   "SessionService.createSession" should "publish SessionCreated on success" in {
     val (service, collector) = freshService()
-    val session              = createSession(service)
-    val events               = collector.events
+    val session = createSession(service)
+    val events = collector.events
     events should have size 1
     events.head shouldBe AppEvent.SessionCreated(
       session.sessionId,
@@ -86,10 +88,14 @@ class SessionServiceEventSpec extends AnyFlatSpec with Matchers with EitherValue
   "SessionService.preparePromotion" should "publish PromotionPending on success" in {
     val (service, collector) = freshService()
     // preparePromotion requires Active lifecycle
-    val session = service.createSession(
-      GameId.random(), SessionMode.HumanVsHuman,
-      SideController.HumanLocal, SideController.HumanLocal
-    ).value
+    val session = service
+      .createSession(
+        GameId.random(),
+        SessionMode.HumanVsHuman,
+        SideController.HumanLocal,
+        SideController.HumanLocal
+      )
+      .value
     service.updateLifecycle(session.sessionId, SessionLifecycle.Active)
     collector.clear()
     service.preparePromotion(session.sessionId)
@@ -105,9 +111,9 @@ class SessionServiceEventSpec extends AnyFlatSpec with Matchers with EitherValue
 
   "SessionService.applyMove" should "return updated GameState and GameSession on a successful move" in {
     val (service, collector) = freshService()
-    val session              = createSession(service)
-    val state                = GameStateFactory.initial()
-    val move                 = Move(Position.from(4, 1).value, Position.from(4, 3).value) // e2-e4
+    val session = createSession(service)
+    val state = GameStateFactory.initial()
+    val move = Move(Position.from(4, 1).value, Position.from(4, 3).value) // e2-e4
     collector.clear()
     val result = service.applyMove(session, state, move, SideController.HumanLocal)
     result.isRight shouldBe true
@@ -116,26 +122,26 @@ class SessionServiceEventSpec extends AnyFlatSpec with Matchers with EitherValue
 
   it should "return GameSession with lifecycle advanced to Active after the first move" in {
     val (service, _) = freshService()
-    val session      = createSession(service)  // lifecycle: Created
-    val state        = GameStateFactory.initial()
-    val move         = Move(Position.from(4, 1).value, Position.from(4, 3).value)
-    val result       = service.applyMove(session, state, move, SideController.HumanLocal)
+    val session = createSession(service) // lifecycle: Created
+    val state = GameStateFactory.initial()
+    val move = Move(Position.from(4, 1).value, Position.from(4, 3).value)
+    val result = service.applyMove(session, state, move, SideController.HumanLocal)
     result.value._2.lifecycle shouldBe SessionLifecycle.Active
   }
 
   it should "return GameSession with lifecycle Finished when the move is checkmate" in {
     val (service, _) = freshService()
-    val session      = createSession(service)
-    val move         = Move(rb1, ra1)
-    val result       = service.applyMove(session, checkmateInOneState, move, SideController.HumanLocal)
+    val session = createSession(service)
+    val move = Move(rb1, ra1)
+    val result = service.applyMove(session, checkmateInOneState, move, SideController.HumanLocal)
     result.value._2.lifecycle shouldBe SessionLifecycle.Finished
   }
 
   it should "not publish any events on a successful move" in {
     val (service, collector) = freshService()
-    val session              = createSession(service)
-    val state                = GameStateFactory.initial()
-    val move                 = Move(Position.from(4, 1).value, Position.from(4, 3).value)
+    val session = createSession(service)
+    val state = GameStateFactory.initial()
+    val move = Move(Position.from(4, 1).value, Position.from(4, 3).value)
     collector.clear()
     service.applyMove(session, state, move, SideController.HumanLocal)
     collector.events shouldBe empty
@@ -143,26 +149,30 @@ class SessionServiceEventSpec extends AnyFlatSpec with Matchers with EitherValue
 
   it should "return Left and publish no events when the move is rejected" in {
     val (service, collector) = freshService()
-    val session              = createSession(service)
-    val state                = GameStateFactory.initial()
-    val illegalMove          = Move(Position.from(4, 1).value, Position.from(4, 5).value) // pawn e2→e6
+    val session = createSession(service)
+    val state = GameStateFactory.initial()
+    val illegalMove = Move(Position.from(4, 1).value, Position.from(4, 5).value) // pawn e2→e6
     collector.clear()
     val result = service.applyMove(session, state, illegalMove, SideController.HumanLocal)
-    result.isLeft  shouldBe true
+    result.isLeft shouldBe true
     collector.events shouldBe empty
   }
 
   // ── no-op publisher ────────────────────────────────────────────────────────
 
   "SessionService (no-op publisher)" should "work correctly with a no-op publisher" in {
-    val repo    = InMemorySessionRepository()
+    val repo = InMemorySessionRepository()
     val service = SessionService(repo, _ => ())
-    val session = service.createSession(
-      GameId.random(), SessionMode.HumanVsHuman,
-      SideController.HumanLocal, SideController.HumanLocal
-    ).value
-    val state  = GameStateFactory.initial()
-    val move   = Move(Position.from(4, 1).value, Position.from(4, 3).value)
+    val session = service
+      .createSession(
+        GameId.random(),
+        SessionMode.HumanVsHuman,
+        SideController.HumanLocal,
+        SideController.HumanLocal
+      )
+      .value
+    val state = GameStateFactory.initial()
+    val move = Move(Position.from(4, 1).value, Position.from(4, 3).value)
     // Should complete without error; return value is unaffected by event publication
     service.applyMove(session, state, move, SideController.HumanLocal).isRight shouldBe true
   }

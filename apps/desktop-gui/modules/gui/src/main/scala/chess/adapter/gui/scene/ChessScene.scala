@@ -1,12 +1,31 @@
 // $COVERAGE-OFF$
 package chess.adapter.gui.scene
 
-import chess.adapter.gui.animation.{AnimationPlan, AnimationPresentationMapper, AnimationRenderModel, AnimationRunner, AnimationState}
-import chess.adapter.gui.assets.{PieceNodeFactory, PieceVisualId, SpriteCatalogLoader, SpriteMetadataRepository, SpriteSheetLoader, StatePlaybackRepository}
+import chess.adapter.gui.animation.{
+  AnimationPlan,
+  AnimationPresentationMapper,
+  AnimationRenderModel,
+  AnimationRunner,
+  AnimationState
+}
+import chess.adapter.gui.assets.{
+  PieceNodeFactory,
+  PieceVisualId,
+  SpriteCatalogLoader,
+  SpriteMetadataRepository,
+  SpriteSheetLoader,
+  StatePlaybackRepository
+}
 import chess.adapter.gui.controller.GameController
 import chess.adapter.gui.input.InputAction
 import chess.adapter.gui.notation.{GuiNotationApi, NotationSidebar, NotationSidebarController}
-import chess.adapter.gui.render.{BoardRenderer, MoveHistoryPanel, PromotionOverlay, StaticPieceOverlayRenderer, StatusRenderer}
+import chess.adapter.gui.render.{
+  BoardRenderer,
+  MoveHistoryPanel,
+  PromotionOverlay,
+  StaticPieceOverlayRenderer,
+  StatusRenderer
+}
 import chess.adapter.gui.viewmodel.{GameViewModel, MoveHistoryViewModelMapper}
 import chess.application.session.model.DesktopSessionContext
 import chess.application.session.service.{GameSessionCommands, SessionService}
@@ -15,38 +34,41 @@ import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.Scene
 import scalafx.scene.layout.{BorderPane, Pane, StackPane}
 
-/** Assembles the board, status bar, promotion overlay, animation layer,
- *  and right-side tools panel (notation + move history) into a single [[Scene]].
- *
- *  The session dependencies — [[GameSessionCommands]], [[SessionService]], and the
- *  current [[DesktopSessionContext]] — are provided by the composition root
- *  (e.g. `game-service/Main`). GUI, TUI, and any other adapters share the
- *  same command boundary and session identity so that moves from any adapter are
- *  authoritative over the same repository-backed game state.
- *
- *  [[GameStateObservable]] acts only as a cross-adapter notification bridge.
- *  It is updated after successful mutations so other adapters (e.g. TUI) observe
- *  the new state, but it is not the source of truth.
- *
- *  @param game            cross-adapter notification bridge; updated after every
- *                         successful move so other adapters (e.g. TUI) observe it
- *  @param commands        single write boundary for session-aware game mutations
- *  @param sessionService  session lifecycle operations (promotion, import provisioning)
- *  @param sessionContext  the shared [[DesktopSessionContext]] (created once at startup)
- */
+/** Assembles the board, status bar, promotion overlay, animation layer, and right-side tools panel
+  * (notation + move history) into a single [[Scene]].
+  *
+  * The session dependencies — [[GameSessionCommands]], [[SessionService]], and the current
+  * [[DesktopSessionContext]] — are provided by the composition root (e.g. `game-service/Main`).
+  * GUI, TUI, and any other adapters share the same command boundary and session identity so that
+  * moves from any adapter are authoritative over the same repository-backed game state.
+  *
+  * [[GameStateObservable]] acts only as a cross-adapter notification bridge. It is updated after
+  * successful mutations so other adapters (e.g. TUI) observe the new state, but it is not the
+  * source of truth.
+  *
+  * @param game
+  *   cross-adapter notification bridge; updated after every successful move so other adapters (e.g.
+  *   TUI) observe it
+  * @param commands
+  *   single write boundary for session-aware game mutations
+  * @param sessionService
+  *   session lifecycle operations (promotion, import provisioning)
+  * @param sessionContext
+  *   the shared [[DesktopSessionContext]] (created once at startup)
+  */
 class ChessScene(
-    game:           chess.application.GameStateObservable,
-    commands:       GameSessionCommands,
+    game: chess.application.GameStateObservable,
+    commands: GameSessionCommands,
     sessionService: SessionService,
     sessionContext: DesktopSessionContext
 ):
 
-  private val catalog      = SpriteCatalogLoader.load()
-  private val metaRepo     = SpriteMetadataRepository.fromCatalog(catalog)
+  private val catalog = SpriteCatalogLoader.load()
+  private val metaRepo = SpriteMetadataRepository.fromCatalog(catalog)
   private val playbackRepo = StatePlaybackRepository.fromCatalog(catalog)
 
   private val spriteLoader = new SpriteSheetLoader
-  private val factory      = new PieceNodeFactory(spriteLoader, metaRepo)
+  private val factory = new PieceNodeFactory(spriteLoader, metaRepo)
 
   private var currentRenderModel: Option[AnimationRenderModel] = None
 
@@ -56,25 +78,26 @@ class ChessScene(
   // Session and repositories are provided by the composition root.
   // ChessScene is no longer responsible for creating session infrastructure.
 
-  private val controller = new GameController(game, refresh, startAnimation, commands, sessionService, sessionContext)
+  private val controller =
+    new GameController(game, refresh, startAnimation, commands, sessionService, sessionContext)
   private var vm: GameViewModel = controller.currentViewModel
 
-  private val boardGrid          = BoardRenderer.create(vm, handle, factory)
+  private val boardGrid = BoardRenderer.create(vm, handle, factory)
   private val staticPieceOverlay = StaticPieceOverlayRenderer.create(vm, factory)
-  private val statusLabel        = StatusRenderer.create(vm)
+  private val statusLabel = StatusRenderer.create(vm)
 
   private val animLayer = new Pane:
     mouseTransparent = true
-    prefWidth        = BoardRenderer.SquareSize * 8
-    prefHeight       = BoardRenderer.SquareSize * 8
+    prefWidth = BoardRenderer.SquareSize * 8
+    prefHeight = BoardRenderer.SquareSize * 8
 
   private val overlayContainer = new StackPane:
-    alignment        = Pos.Center
+    alignment = Pos.Center
     mouseTransparent = true
 
   private val boardStack = new StackPane:
     alignment = Pos.Center
-    children  = Seq(boardGrid, staticPieceOverlay, overlayContainer, animLayer)
+    children = Seq(boardGrid, staticPieceOverlay, overlayContainer, animLayer)
 
   // ── Notation sidebar ────────────────────────────────────────────────────────
 
@@ -85,10 +108,10 @@ class ChessScene(
   private var sidebarRefresh: chess.adapter.gui.notation.NotationSidebarState => Unit = _ => ()
 
   private val sidebarController = new NotationSidebarController(
-    api             = notationApi,
-    stateProvider   = () => controller.currentGameState,
+    api = notationApi,
+    stateProvider = () => controller.currentGameState,
     onImportedState = applyImportedState,
-    onRefresh       = state => sidebarRefresh(state)
+    onRefresh = state => sidebarRefresh(state)
   )
 
   private val sidebar = new NotationSidebar(sidebarController)
@@ -99,15 +122,15 @@ class ChessScene(
   // ── History panel + composed side panel ─────────────────────────────────────
 
   private val historyPanel = new MoveHistoryPanel
-  private val sidePanel    = new GameSidePanel(sidebar, historyPanel)
+  private val sidePanel = new GameSidePanel(sidebar, historyPanel)
 
   // ── Root layout ─────────────────────────────────────────────────────────────
 
   private val root = new BorderPane:
     center = boardStack
     bottom = statusLabel
-    right  = sidePanel.root
-    style  = "-fx-background-color: #312e2b;"
+    right = sidePanel.root
+    style = "-fx-background-color: #312e2b;"
     BorderPane.setMargin(boardStack, Insets(16))
     BorderPane.setAlignment(statusLabel, Pos.Center)
 
@@ -138,12 +161,11 @@ class ChessScene(
   // ── Imported-state application ──────────────────────────────────────────────
 
   /** Apply an imported [[GameState]] received from the notation sidebar.
-   *
-   *  Clears transient animation and overlay visuals that do not belong to the
-   *  imported state, then delegates to [[GameController.loadGameState]].
-   *  The existing [[refresh]] callback drives the board/status/overlay update
-   *  and also refreshes the history panel.
-   */
+    *
+    * Clears transient animation and overlay visuals that do not belong to the imported state, then
+    * delegates to [[GameController.loadGameState]]. The existing [[refresh]] callback drives the
+    * board/status/overlay update and also refreshes the history panel.
+    */
   private def applyImportedState(importedState: GameState): Unit =
     // Clear transient animation state first so stale pieces do not remain
     runner.stop()

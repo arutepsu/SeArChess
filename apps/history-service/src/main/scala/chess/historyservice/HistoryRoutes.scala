@@ -13,23 +13,25 @@ import org.http4s.headers.`Content-Type`
 import java.util.UUID
 
 class HistoryRoutes(
-  ingestion:  HistoryIngestionService,
-  repository: SqliteArchiveRepository,
-  acceptLegacyIngestionPath: Boolean = false
+    ingestion: HistoryIngestionService,
+    repository: SqliteArchiveRepository,
+    acceptLegacyIngestionPath: Boolean = false
 ):
 
   /** Operational liveness only; no upstream/dependency checks. */
-  val operationalRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
-    case GET -> Root / "health" =>
-      json(Status.Ok, ujson.Obj(
-        "status"                     -> "ok",
-        "service"                    -> "searchess-history-service",
-        "check"                      -> "process-liveness",
-        "gameServiceDependency"      -> "optional-for-health",
-        "downstreamIngestionPath"    -> GameHistoryIngestionContract.GameEventsPath,
+  val operationalRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] { case GET -> Root / "health" =>
+    json(
+      Status.Ok,
+      ujson.Obj(
+        "status" -> "ok",
+        "service" -> "searchess-history-service",
+        "check" -> "process-liveness",
+        "gameServiceDependency" -> "optional-for-health",
+        "downstreamIngestionPath" -> GameHistoryIngestionContract.GameEventsPath,
         "legacyIngestionPathEnabled" -> acceptLegacyIngestionPath,
-        "archiveReadAudience"        -> "internal-for-now"
-      ))
+        "archiveReadAudience" -> "internal-for-now"
+      )
+    )
   }
 
   /** History-owned archive query surface. Internal for now; not routed through the public edge. */
@@ -44,7 +46,9 @@ class HistoryRoutes(
       req.bodyText.compile.string.flatMap(handleEvent)
   }
 
-  /** Temporary compatibility alias for the pre-boundary-audit ingestion path. Disabled unless explicitly configured. */
+  /** Temporary compatibility alias for the pre-boundary-audit ingestion path. Disabled unless
+    * explicitly configured.
+    */
   val legacyDownstreamIngestionRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
     case req @ POST -> Root / "events" / "game" =>
       req.bodyText.compile.string.flatMap(handleEvent)
@@ -61,9 +65,17 @@ class HistoryRoutes(
       case Left(HistoryIngestionError.InvalidEvent(msg)) =>
         error(Status.BadRequest, "INVALID_EVENT", msg)
       case Left(HistoryIngestionError.ArchiveFetchFailed(GameArchiveClientError.NotFound(id))) =>
-        error(Status.NotFound, "ARCHIVE_NOT_FOUND", s"Game Service has no archive snapshot for game: ${id.value}")
+        error(
+          Status.NotFound,
+          "ARCHIVE_NOT_FOUND",
+          s"Game Service has no archive snapshot for game: ${id.value}"
+        )
       case Left(HistoryIngestionError.ArchiveFetchFailed(GameArchiveClientError.NotReady(id))) =>
-        error(Status.Conflict, "ARCHIVE_NOT_READY", s"Game Service archive snapshot is not ready for game: ${id.value}")
+        error(
+          Status.Conflict,
+          "ARCHIVE_NOT_READY",
+          s"Game Service archive snapshot is not ready for game: ${id.value}"
+        )
       case Left(HistoryIngestionError.ArchiveFetchFailed(err)) =>
         error(Status.BadGateway, "GAME_SERVICE_FETCH_FAILED", err.toString)
       case Left(HistoryIngestionError.MaterializationFailed(err)) =>
@@ -77,19 +89,26 @@ class HistoryRoutes(
       case Right(gameId) =>
         repository.findRecordJson(gameId) match
           case Right(Some(record)) => json(Status.Ok, record)
-          case Right(None)         => error(Status.NotFound, "ARCHIVE_NOT_FOUND", s"History archive not found for game: $gameIdStr")
-          case Left(err)           => error(Status.InternalServerError, "PERSISTENCE_FAILED", err.toString)
+          case Right(None) =>
+            error(
+              Status.NotFound,
+              "ARCHIVE_NOT_FOUND",
+              s"History archive not found for game: $gameIdStr"
+            )
+          case Left(err) => error(Status.InternalServerError, "PERSISTENCE_FAILED", err.toString)
 
   private def parseGameId(raw: String): Either[String, GameId] =
     try Right(GameId(UUID.fromString(raw)))
     catch case _: IllegalArgumentException => Left(s"Invalid UUID: '$raw'")
 
   private def json(status: Status, body: ujson.Value): IO[Response[IO]] =
-    IO.pure(Response[IO](
-      status = status,
-      headers = Headers(`Content-Type`(MediaType.application.json)),
-      body = Stream.emits(ujson.write(body).getBytes("UTF-8")).covary[IO]
-    ))
+    IO.pure(
+      Response[IO](
+        status = status,
+        headers = Headers(`Content-Type`(MediaType.application.json)),
+        body = Stream.emits(ujson.write(body).getBytes("UTF-8")).covary[IO]
+      )
+    )
 
   private def error(status: Status, code: String, message: String): IO[Response[IO]] =
     json(status, ujson.Obj("code" -> code, "message" -> message))

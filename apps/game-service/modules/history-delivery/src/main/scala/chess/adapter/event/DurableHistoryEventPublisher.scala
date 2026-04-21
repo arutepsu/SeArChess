@@ -6,12 +6,11 @@ import chess.observability.StructuredLog
 import scala.util.control.NonFatal
 
 /** Writes terminal History-facing Game events to a durable outbox.
- *
- *  This publisher intentionally does not perform HTTP I/O. A separate
- *  [[HistoryOutboxForwarder]] drains the outbox and delivers entries to
- *  History. Outbox write failures are logged and absorbed so gameplay command
- *  success is not coupled to History infrastructure availability.
- */
+  *
+  * This publisher intentionally does not perform HTTP I/O. A separate [[HistoryOutboxForwarder]]
+  * drains the outbox and delivers entries to History. Outbox write failures are logged and absorbed
+  * so gameplay command success is not coupled to History infrastructure availability.
+  */
 class DurableHistoryEventPublisher(outbox: HistoryEventOutbox) extends EventPublisher:
 
   override def publish(event: AppEvent): Unit =
@@ -45,14 +44,14 @@ object DurableHistoryEventPublisher:
     case _                            => false
 
   def eventName(event: AppEvent): String = event match
-    case _: AppEvent.GameFinished             => "GameFinished"
-    case _: AppEvent.GameResigned             => "GameResigned"
-    case _: AppEvent.SessionCancelled         => "SessionCancelled"
-    case _: AppEvent.SessionCreated           => "SessionCreated"
-    case _: AppEvent.MoveApplied              => "MoveApplied"
-    case _: AppEvent.MoveRejected             => "MoveRejected"
-    case _: AppEvent.PromotionPending         => "PromotionPending"
-    case _: AppEvent.SessionLifecycleChanged  => "SessionLifecycleChanged"
-    case _: AppEvent.AITurnRequested          => "AITurnRequested"
-    case _: AppEvent.AITurnCompleted          => "AITurnCompleted"
-    case _: AppEvent.AITurnFailed             => "AITurnFailed"
+    case _: AppEvent.GameFinished            => "GameFinished"
+    case _: AppEvent.GameResigned            => "GameResigned"
+    case _: AppEvent.SessionCancelled        => "SessionCancelled"
+    case _: AppEvent.SessionCreated          => "SessionCreated"
+    case _: AppEvent.MoveApplied             => "MoveApplied"
+    case _: AppEvent.MoveRejected            => "MoveRejected"
+    case _: AppEvent.PromotionPending        => "PromotionPending"
+    case _: AppEvent.SessionLifecycleChanged => "SessionLifecycleChanged"
+    case _: AppEvent.AITurnRequested         => "AITurnRequested"
+    case _: AppEvent.AITurnCompleted         => "AITurnCompleted"
+    case _: AppEvent.AITurnFailed            => "AITurnFailed"

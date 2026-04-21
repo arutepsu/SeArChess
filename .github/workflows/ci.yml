@@ -38,6 +38,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-sbt-
 
+      - name: Check formatting (Scalafmt)
+        run: sbt scalafmtCheckAll
+
       - name: Test with aggregated coverage
         if: github.event_name != 'push' || github.ref != 'refs/heads/main'
         run: sbt report
