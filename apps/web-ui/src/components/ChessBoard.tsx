@@ -37,6 +37,11 @@ type MotionStyle =
   | { kind: "attack"; overshootFraction: number };
 
 
+const PIECE_SCALE = 2;
+
+const pieceTransform = (flipX: boolean, scale: number = PIECE_SCALE): string =>
+  `scaleX(${flipX ? -1 : 1}) scale(${scale})`;
+
 const indices = Array.from({ length: 8 }, (_, index) => index);
 
 const pieceLabel = (piece: BoardSquare): string => {
@@ -389,14 +394,17 @@ export default function ChessBoard({
 
   const spriteStyle = useCallback(
     (piece: BoardSquare): React.CSSProperties => {
+      const isBlack = piece?.startsWith("b") ?? false;
+      const transform = pieceTransform(isBlack);
       const info = resolveSpriteInfo(piece);
-      if (!info) return {};
+      if (!info) return { transform };
 
       const frameIndex = (info.frameCount <= 1 || !info.animate)
         ? 0
         : currentFrameTick % info.frameCount;
 
       return {
+        transform,
         backgroundImage: `url(${info.url})`,
         backgroundSize: `${info.frameCount * 100}% 100%`,
         backgroundPosition: backgroundPositionFor(frameIndex, info.frameCount)
@@ -561,7 +569,7 @@ export default function ChessBoard({
       width: `${squareSize}px`,
       height: `${squareSize}px`,
       opacity: model.opacity.toString(),
-      transform: `scaleX(${model.flipX ? -1 : 1}) scale(${model.scale * 1.08})`,
+      transform: pieceTransform(model.flipX, model.scale * PIECE_SCALE),
       backgroundImage: model.sheet ? `url(${model.sheet.url})` : "",
       backgroundSize: model.sheet ? `${model.sheet.frameCount * 100}% 100%` : "100% 100%",
       backgroundPosition: model.sheet
@@ -579,7 +587,7 @@ export default function ChessBoard({
       width: `${squareSize}px`,
       height: `${squareSize}px`,
       opacity: model.opacity.toString(),
-      transform: `scaleX(${model.flipX ? -1 : 1}) scale(1.08)`,
+      transform: pieceTransform(model.flipX),
       backgroundImage: model.sheet ? `url(${model.sheet.url})` : "",
       backgroundSize: model.sheet ? `${model.sheet.frameCount * 100}% 100%` : "100% 100%",
       backgroundPosition: model.sheet
