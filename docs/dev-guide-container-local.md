@@ -1,13 +1,12 @@
 # Local Container Deployment
 
 This guide runs Envoy, the Scala Game Service, the Scala History Service, and
-the Python AI service with Docker Compose. It is intended for local/dev
-extraction checks only.
+the Scala AI Service with Docker Compose. It is the canonical local/dev
+microservice topology.
 
 ## Prerequisites
 
 - Run commands from the Scala repo root: `searchess`.
-- The sibling Python repo must exist at `../searchess-ai-service`.
 - Docker Compose must be available.
 
 ## Build And Run
@@ -24,7 +23,7 @@ Compose starts four services:
 | `game-service` | `8080` | internal | Scala HTTP API |
 | `game-service` | `9090` | internal | Scala WebSocket server |
 | `history-service` | `8081` | internal | Scala History archive API |
-| `ai-service` | `8765` | internal | Python AI inference API |
+| `ai-service` | `8765` | internal | Scala AI inference API |
 
 Check liveness from the host:
 
@@ -69,17 +68,19 @@ The compose file sets the Game Service environment explicitly:
 | `PERSISTENCE_MODE` | `sqlite` | Use durable SQLite persistence |
 | `CHESS_DB_PATH` | `/data/searchess.sqlite` | SQLite DB file path in the container |
 | `EVENT_MODE` | `in-process` | Current event delivery mode |
-| `AI_PROVIDER_MODE` | `remote` | Use the Python AI service |
-| `AI_REMOTE_BASE_URL` | `http://ai-service:8765` | Compose-network URL for Python AI |
+| `AI_PROVIDER_MODE` | `remote` | Use the internal AI Service |
+| `AI_REMOTE_BASE_URL` | `http://ai-service:8765` | Compose-network URL for AI |
 | `AI_TIMEOUT_MILLIS` | `2000` | Remote AI client timeout |
 
-The Python AI service uses:
+The AI Service uses:
 
 | Variable | Value | Meaning |
 |---|---|---|
-| `INFERENCE_BACKEND` | `random` | Pick a random legal move for integration tests |
+| `AI_HTTP_HOST` | `0.0.0.0` | Bind inside the container |
+| `AI_HTTP_PORT` | `8765` | Internal HTTP port |
+| `AI_ENGINE_ID` | `random-legal` | Engine identifier returned by the Scala AI capability |
 
-Inside Compose, `game-service` reaches the Python service by DNS name:
+Inside Compose, `game-service` reaches AI by DNS name:
 `http://ai-service:8765`. Do not use `localhost` for container-to-container
 traffic; in a container, `localhost` means the same container.
 
@@ -156,7 +157,7 @@ curl -s -X POST http://127.0.0.1:10000/api/games/{gameId}/moves \
   -d '{"from":"e2","to":"e4","controller":"HumanLocal"}'
 ```
 
-Trigger the Python-backed AI move:
+Trigger the AI-backed move:
 
 ```bash
 curl -s -X POST http://127.0.0.1:10000/api/games/{gameId}/ai-move
@@ -188,9 +189,44 @@ two moves. It also stops `ai-service` briefly to verify that Game surfaces
 adapter, then starts `ai-service` again.
 
 The same script also verifies bad provider output using the AI service's
-local/dev `metadata.testMode` hook. It recreates only `game-service` with
+local/dev `X-Searchess-AI-Test-Mode` header hook. It recreates only `game-service` with
 `AI_REMOTE_TEST_MODE=illegal_move` and then `malformed_response`, triggers an
 AI turn, and expects `422 AI_MOVE_REJECTED` in both cases. After each rejection
 it fetches the game again and asserts that the persisted game state is exactly
 unchanged. Use `-SkipFailurePath` to skip the AI-down check or
 `-SkipRejectionPaths` to skip the bad-output checks.
+
+## Independent Startup Paths
+
+Compose is the canonical local topology, but each service still has an
+independent runnable entry point:
+
+| Service | Stage command | Default health path | Notes |
+|---|---|---|---|
+| Game | `sbt "gameService / stage"` then `apps/game-service/target/universal/stage/bin/searchess-game-service` | `GET /health` on port `8080` | History and AI are optional for process health. |
+| History | `sbt "historyService / stage"` then `apps/history-service/target/universal/stage/bin/searchess-history-service` | `GET /health` on port `8081` | Game archive reads are optional for process health. |
+| AI | `sbt "aiService / stage"` then `apps/ai-service/target/universal/stage/bin/searchess-ai-service` | `GET /health` on port `8765` | Internal capability service only. |
+
+When running services directly on the host, choose non-conflicting ports if
+Compose is also running. Host-run service ports are for development only; in
+Compose, normal client traffic goes through Envoy at `127.0.0.1:10000`.
+
+## Final Completion Checklist
+
+Run this before treating the local microservice foundation as complete:
+
+| Area | Check | Expected result |
+|---|---|---|
+| Startup | `sbt "gameService / stage" "historyService / stage" "aiService / stage"` | all three services stage independently |
+| Startup | `docker compose up --build` | Envoy, Game, History, and AI become healthy |
+| Topology | `docker compose config` | only `envoy` publishes a host `ports:` entry |
+| Topology | Envoy routes | only `/health`, `/api/*`, and `/ws/*` route to Game |
+| Failure | stop `history-service`, then call `GET /health` through Envoy | Game remains healthy; History delivery stays retryable in the outbox |
+| Failure | stop `ai-service`, then call `GET /health` through Envoy | Game remains healthy; AI-backed moves fail cleanly with `503 AI_PROVIDER_FAILED` |
+| Reliability | deliver the same terminal event more than once | History ingestion remains idempotent |
+| Operability | `docker compose logs --no-color` | service logs include structured service/request/game/outbox identifiers where available |
+| Operability | `GET /api/ops/history-outbox` through Envoy | outbox state is visible without direct database access |
+| Contracts | review `docs/contracts/README.md` | public/internal audiences and compatibility behavior are explicit |
+
+History and AI are internal-only in the Compose topology. Do not add Envoy
+routes or host port mappings for them unless the contract map is updated first.

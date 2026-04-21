@@ -1,17 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BoardMatrix, BoardSquare, PieceCode } from "../api/types";
+import { displayToIndex, displayToSquare, squareToDisplayCoords } from "../domain/board";
 import type { PlaybackMode, SpriteCatalog, StatePlaybackEntry } from "../assets/spriteCatalog";
 import { loadSpriteCatalog } from "../assets/spriteCatalog";
+import type { BoardAnimation } from "../animation/animationTypes";
+import { captureTimings, idleFps, moveDurationMs } from "../animation/animationConfig";
 import "./ChessBoard.css";
-
-export type BoardAnimation = {
-  id: number;
-  from: string;
-  to: string;
-  movingPiece: PieceCode;
-  capturedPiece?: PieceCode;
-  isCapture: boolean;
-};
 
 type ChessBoardProps = {
   board: BoardMatrix;
@@ -41,30 +35,8 @@ type MotionStyle =
   | { kind: "arc"; heightFraction: number }
   | { kind: "attack"; overshootFraction: number };
 
-const moveDurationMs = 340;
-const idleFps = 6;
-const captureTimings = {
-  approachMs: 400,
-  attackMs: 500,
-  attack1Ms: 500,
-  deadMs: 1000,
-  fadeMs: 450
-};
 
-const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const indices = Array.from({ length: 8 }, (_, index) => index);
-
-const displayToBoardIndex = (rowIndex: number, colIndex: number) => {
-  // Rotate the board 90 degrees clockwise to match the desktop GUI projection.
-  return { row: 7 - colIndex, col: 7 - rowIndex };
-};
-
-const toSquare = (rowIndex: number, colIndex: number): string => {
-  const mapped = displayToBoardIndex(rowIndex, colIndex);
-  const file = files[mapped.col];
-  const rank = 8 - mapped.row;
-  return `${file}${rank}`;
-};
 
 const pieceLabel = (piece: BoardSquare): string => {
   if (!piece) return "";
@@ -290,7 +262,7 @@ export default function ChessBoard({
 
   const boardPieceAt = useCallback(
     (rowIndex: number, colIndex: number): BoardSquare => {
-      const mapped = displayToBoardIndex(rowIndex, colIndex);
+      const mapped = displayToIndex(rowIndex, colIndex);
       return board[mapped.row]?.[mapped.col] ?? null;
     },
     [board]
@@ -449,15 +421,11 @@ export default function ChessBoard({
 
   const squareToPixel = useCallback(
     (square: string): { x: number; y: number } | null => {
-      if (square.length !== 2) return null;
-      const file = square[0].toLowerCase();
-      const rank = Number(square[1]);
-      const fileIndex = files.indexOf(file);
-      if (fileIndex < 0 || Number.isNaN(rank) || rank < 1 || rank > 8) return null;
-      const rankIndex = rank - 1;
+      const coords = squareToDisplayCoords(square);
+      if (!coords) return null;
       return {
-        x: rankIndex * squareSize,
-        y: (7 - fileIndex) * squareSize
+        x: coords.displayCol * squareSize,
+        y: coords.displayRow * squareSize
       };
     },
     [squareSize]
@@ -695,7 +663,7 @@ export default function ChessBoard({
         {indices.map((rowIndex) => (
           <div key={`row-${rowIndex}`} className="board-row" role="row">
             {indices.map((colIndex) => {
-              const square = toSquare(rowIndex, colIndex);
+              const square = displayToSquare(rowIndex, colIndex);
               const piece = boardPieceAt(rowIndex, colIndex);
               const suppressed = square === suppressedSquare;
               const spriteClass = piece ? spriteClasses(piece) : "";

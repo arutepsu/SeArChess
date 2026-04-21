@@ -8,9 +8,11 @@ services or clients.
 | Module | Ownership | Role |
 |---|---|---|
 | `domain` | shared library | Pure chess model and rules. |
+| `observability` | shared utility | Dependency-free structured logging used by all services. |
 | `notation` | shared library | FEN/PGN parsing and rendering. |
 | `game-contract` | shared contract | Game-facing IDs, session metadata, game views, archive snapshots, and event ports used across service boundaries. |
-| `game-event-contract` | shared boundary contract | Versioned Game event JSON serialization for downstream consumers such as History. |
+| `ai-contract` | shared internal boundary contract | Internal Game -> AI inference DTOs, route metadata, and JSON codecs. |
+| `game-event-contract` | shared internal boundary contract | Versioned Game event JSON serialization and canonical internal History ingestion path metadata. |
 | `adapter-rest-contract` | shared HTTP contract | Wire DTOs/codecs for the Game Service HTTP API. |
 
 ## What Does Not Belong Here

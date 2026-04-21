@@ -12,7 +12,8 @@ object HistoryServiceMain:
       "httpHost" -> config.host,
       "httpPort" -> config.port,
       "gameServiceArchiveBaseUrl" -> config.gameServiceBaseUrl,
-      "dbPath" -> config.dbPath
+      "dbPath" -> config.dbPath,
+      "acceptLegacyIngestionPath" -> config.acceptLegacyIngestionPath
     )
 
     val runtime = HistoryServiceWiring.start(config)
@@ -22,7 +23,8 @@ object HistoryServiceMain:
       "httpHost" -> config.host,
       "httpPort" -> config.port,
       "healthPath" -> "/health",
-      "downstreamIngestionPath" -> chess.adapter.event.GameHistoryIngestionContract.GameEventsPath
+      "downstreamIngestionPath" -> chess.adapter.event.GameHistoryIngestionContract.GameEventsPath,
+      "legacyIngestionPathEnabled" -> config.acceptLegacyIngestionPath
     )
     Runtime.getRuntime.addShutdownHook(new Thread(() => {
       StructuredLog.info("history-service", "shutdown_started")

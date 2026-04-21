@@ -1,6 +1,11 @@
 package chess.adapter.ai.remote
 
-/** Stable internal Game -> AI HTTP boundary metadata. */
+/** Stable internal Game -> AI HTTP boundary metadata.
+ *
+ *  This module is the neutral wire contract shared by Game Service's outbound
+ *  AI adapter and AI Service's inbound HTTP routes. It must not depend on
+ *  Game Service orchestration, domain rules, or AI engine implementation.
+ */
 object RemoteAiServiceContract:
   val Version:     String = "inference-api-v1"
   val Audience:    String = "internal"
@@ -28,15 +33,10 @@ final case class RemoteAiLimits(
 
 /** Small metadata block for diagnostics and future routing. */
 final case class RemoteAiMetadata(
-  mode:     String,
-  testMode: Option[String] = None
+  mode: String
 )
 
-/** Adapter-level request DTO for the remote AI move-suggestion API.
- *
- *  This is intentionally not an application-layer model. It belongs to the AI
- *  adapter boundary and can later be serialized by an HTTP client adapter.
- */
+/** Request DTO for the internal AI move-suggestion API. */
 final case class RemoteAiMoveSuggestionRequest(
   requestId:  String,
   gameId:     String,
@@ -49,7 +49,7 @@ final case class RemoteAiMoveSuggestionRequest(
   metadata:   RemoteAiMetadata
 )
 
-/** Adapter-level response DTO for a successful remote AI suggestion. */
+/** Response DTO for a successful internal AI suggestion. */
 final case class RemoteAiMoveSuggestionResponse(
   requestId:     String,
   move:          RemoteAiMoveDto,
@@ -59,7 +59,7 @@ final case class RemoteAiMoveSuggestionResponse(
   confidence:    Option[Double] = None
 )
 
-/** Adapter-level error DTO for a remote AI service error response. */
+/** Error DTO for an internal AI service error response. */
 final case class RemoteAiErrorResponse(
   requestId: String,
   code:      String,

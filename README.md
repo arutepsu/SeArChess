@@ -53,11 +53,13 @@ apps/
   web-ui/
 
 modules/
+  ai-contract/
   adapter-rest-contract/
   domain/
   game-contract/
   game-event-contract/
   notation/
+  observability/
 ```
 
 See [docs/architecture/service-oriented-repository-structure.md](docs/architecture/service-oriented-repository-structure.md)
@@ -78,10 +80,13 @@ for the detailed ownership classification.
 
 ## Key Contracts
 
-- [Game Service HTTP](docs/contracts/game-service-http-v1.md)
-- [History Service HTTP](docs/contracts/history-service-http-v1.md)
-- [Game event JSON](docs/contracts/game-events-v1.md)
-- AI inference API contract in the Python AI service repository
+The canonical public/internal contract inventory is
+[docs/contracts/README.md](docs/contracts/README.md).
+
+- Public edge: [Game Service HTTP/WebSocket](docs/contracts/game-service-http-v1.md)
+- Internal sync: [Game -> AI inference](docs/contracts/inference-api-v1.md)
+- Internal downstream: [Game -> History ingestion](docs/contracts/history-service-http-v1.md)
+- Internal async payload: [Game event JSON](docs/contracts/game-events-v1.md)
 
 ## Local Development
 
@@ -90,6 +95,9 @@ For the local two/three-container service proof, start with:
 - [Container local guide](docs/dev-guide-container-local.md)
 - [Game Service guide](docs/dev-guide-game-service.md)
 - [History Service guide](docs/dev-guide-history-service.md)
+
+The container guide is the canonical local topology reference and includes the
+final microservice completion checklist.
 
 Normal host access goes through Envoy:
 

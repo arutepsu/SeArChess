@@ -39,7 +39,7 @@ When `HISTORY_FORWARDING_ENABLED=true` and `PERSISTENCE_MODE=sqlite`:
    transaction**.
 5. `HistoryOutboxForwarder` runs in the Game Service process.
 6. The forwarder reads undelivered rows, POSTs each payload to
-   `History /events/game`, and marks the row delivered on HTTP 2xx.
+   `History /internal/events/game`, and marks the row delivered on HTTP 2xx.
 7. Failed deliveries increment `attempts`, store `last_error`, and remain
    pending.
 

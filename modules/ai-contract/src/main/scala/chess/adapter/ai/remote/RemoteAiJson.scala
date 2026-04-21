@@ -2,10 +2,10 @@ package chess.adapter.ai.remote
 
 import ujson.Value
 
-/** JSON codec for the future remote AI service DTOs.
+/** JSON codec for the internal AI service DTOs.
  *
- *  Kept deliberately local to the adapter so transport JSON does not leak into
- *  the application AI port.
+ *  Kept in the neutral contract module so neither Game Service nor AI Service
+ *  needs to depend on the other's runtime adapter implementation.
  */
 object RemoteAiJson:
 
@@ -54,7 +54,7 @@ object RemoteAiJson:
       legalMoves = moves,
       engine     = RemoteAiEngineSelection(optionalString(engineObj, "engineId")),
       limits     = RemoteAiLimits(timeout),
-      metadata   = RemoteAiMetadata(mode, optionalString(metadataObj, "testMode"))
+      metadata   = RemoteAiMetadata(mode)
     )
 
   def responseToJson(response: RemoteAiMoveSuggestionResponse): String =
@@ -108,9 +108,7 @@ object RemoteAiJson:
     obj
 
   private def metadataJson(metadata: RemoteAiMetadata): Value =
-    val obj = ujson.Obj("mode" -> ujson.Str(metadata.mode))
-    metadata.testMode.foreach(mode => obj("testMode") = ujson.Str(mode))
-    obj
+    ujson.Obj("mode" -> ujson.Str(metadata.mode))
 
   private def moveFromJson(json: ujson.Obj, owner: String): Either[String, RemoteAiMoveDto] =
     for

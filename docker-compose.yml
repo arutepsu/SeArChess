@@ -46,7 +46,7 @@ services:
       retries: 12
 
   history-service:
-    # Downstream Game -> History ingestion/archive service. Not required for Game health.
+    # Internal downstream Game -> History ingestion/archive service. Not required for Game health.
     build:
       context: .
       dockerfile: Dockerfile.history
@@ -58,6 +58,7 @@ services:
       GAME_SERVICE_BASE_URL: http://game-service:8080
       HISTORY_DB_PATH: /history-data/history.sqlite
       HISTORY_GAME_SERVICE_TIMEOUT_MILLIS: 2000
+      HISTORY_ACCEPT_LEGACY_INGESTION_PATH: "false"
     volumes:
       - history-service-data:/history-data
     healthcheck:

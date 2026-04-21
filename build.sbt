@@ -54,6 +54,12 @@ lazy val notation = project
   )
   .dependsOn(domain)
 
+// Module: observability
+
+lazy val observability = project
+  .in(file("modules/observability"))
+  .settings(commonSettings)
+
 // Module: game-contract
 
 lazy val gameContract = project
@@ -68,6 +74,15 @@ lazy val gameCore = project
   .settings(commonSettings)
   .dependsOn(domain, gameContract)
 
+// Module: ai-contract (neutral internal Game <-> AI wire contract)
+
+lazy val aiContract = project
+  .in(file("modules/ai-contract"))
+  .settings(
+    commonSettings,
+    libraryDependencies += "com.lihaoyi" %% "ujson" % "4.0.2"
+  )
+
 // Module: history
 
 lazy val history = project
@@ -81,7 +96,7 @@ lazy val history = project
   )
   // adapterPersistence and adapterEvent are only needed for legacy test fixtures
   // (InMemoryGameRepository, CollectingEventPublisher, etc.).
-  .dependsOn(gameContract, notation, adapterPersistence % Test, adapterEvent % Test)
+  .dependsOn(gameContract, notation, observability, adapterPersistence % Test, adapterEvent % Test)
 
 // Module: adapter-persistence
 
@@ -107,7 +122,7 @@ lazy val adapterAi = project
   )
   // adapterPersistence and adapterEvent are only needed for test fixtures
   // (InMemorySessionRepository, CollectingEventPublisher).
-  .dependsOn(gameCore, notation, adapterPersistence % Test, adapterEvent % Test)
+  .dependsOn(gameCore, notation, aiContract, observability, adapterPersistence % Test, adapterEvent % Test)
 
 // Module: adapter-event (internal in-process publishers/test collectors)
 
@@ -137,7 +152,7 @@ lazy val gameHistoryDelivery = project
       "org.xerial"   % "sqlite-jdbc" % "3.46.1.3"
     )
   )
-  .dependsOn(gameContract, gameEventContract)
+  .dependsOn(gameContract, gameEventContract, observability)
 
 // Module: adapter-rest-contract (wire DTOs/codecs only)
 
@@ -319,7 +334,8 @@ lazy val gameService = project
     adapterEvent,
     gameEventContract,
     gameHistoryDelivery,
-    adapterPersistence
+    adapterPersistence,
+    observability
   )
 
 // ── App: history-service ─────────────────────────────────────────────────────
@@ -344,7 +360,7 @@ lazy val historyService = project
       ".*chess.historyservice.HistoryRoutes.*"
     )
   )
-  .dependsOn(history, gameEventContract, gameHistoryDelivery % Test)
+  .dependsOn(history, gameEventContract, observability, gameHistoryDelivery % Test)
 
 // App: ai-service
 
@@ -367,7 +383,7 @@ lazy val aiService = project
       ".*chess.aiservice.*"
     )
   )
-  .dependsOn(adapterAi)
+  .dependsOn(aiContract, observability)
 
 // ── Aliases ───────────────────────────────────────────────────────────────────
 //
@@ -413,8 +429,10 @@ addCommandAlias("ci",
 // ── Per-module test ───────────────────────────────────────────────────────────
 
 addCommandAlias("testDomain",             "domain/test")
+addCommandAlias("testObservability",      "observability/test")
 addCommandAlias("testNotation",           "notation/test")
 addCommandAlias("testGameContract",       "gameContract/test")
+addCommandAlias("testAiContract",         "aiContract/test")
 addCommandAlias("testGameCore",           "gameCore/test")
 addCommandAlias("testHistory",            "history/test")
 addCommandAlias("testAdapterPersistence", "adapterPersistence/test")
@@ -437,7 +455,7 @@ addCommandAlias("testTuiCli",             "tuiCli/test")
 // ── Grouped test: by architectural concern ────────────────────────────────────
 
 addCommandAlias("testCore",
-  ";domain/test;notation/test;gameContract/test;gameCore/test;history/test")
+  ";domain/test;observability/test;notation/test;gameContract/test;aiContract/test;gameCore/test;history/test")
 
 addCommandAlias("testInfra",
   ";adapterPersistence/test;adapterEvent/test;gameEventContract/test;gameHistoryDelivery/test" +
@@ -461,7 +479,7 @@ addCommandAlias("testApps",
 // ── Compile slices ────────────────────────────────────────────────────────────
 
 addCommandAlias("compileCore",
-  ";domain/compile;notation/compile;gameContract/compile;gameCore/compile")
+  ";domain/compile;observability/compile;notation/compile;gameContract/compile;aiContract/compile;gameCore/compile")
 
 addCommandAlias("compileRest",
   ";adapterRestContract/compile;adapterRestHttp4s/compile")
@@ -484,7 +502,7 @@ lazy val root = project
     coverageEnabled := false
   )
   .aggregate(
-    domain, notation, gameContract, gameCore, history,
+    domain, observability, notation, gameContract, aiContract, gameCore, history,
     adapterPersistence, adapterAi, adapterEvent, gameEventContract, gameHistoryDelivery,
     adapterRestContract, adapterRestHttp4s,
     adapterWebsocket, adapterGui, adapterTui,

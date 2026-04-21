@@ -14,23 +14,26 @@ import java.util.UUID
 
 class HistoryRoutes(
   ingestion:  HistoryIngestionService,
-  repository: SqliteArchiveRepository
+  repository: SqliteArchiveRepository,
+  acceptLegacyIngestionPath: Boolean = false
 ):
 
   /** Operational liveness only; no upstream/dependency checks. */
   val operationalRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
     case GET -> Root / "health" =>
       json(Status.Ok, ujson.Obj(
-        "status"                  -> "ok",
-        "service"                 -> "searchess-history-service",
-        "check"                   -> "process-liveness",
-        "gameServiceDependency"   -> "optional-for-health",
-        "downstreamIngestionPath" -> GameHistoryIngestionContract.GameEventsPath
+        "status"                     -> "ok",
+        "service"                    -> "searchess-history-service",
+        "check"                      -> "process-liveness",
+        "gameServiceDependency"      -> "optional-for-health",
+        "downstreamIngestionPath"    -> GameHistoryIngestionContract.GameEventsPath,
+        "legacyIngestionPathEnabled" -> acceptLegacyIngestionPath,
+        "archiveReadAudience"        -> "internal-for-now"
       ))
   }
 
-  /** Archive query surface. This may later become edge-facing read API. */
-  val publicArchiveRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
+  /** History-owned archive query surface. Internal for now; not routed through the public edge. */
+  val internalArchiveRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
     case GET -> Root / "archives" / gameId =>
       handleGetArchive(gameId)
   }
@@ -41,14 +44,15 @@ class HistoryRoutes(
       req.bodyText.compile.string.flatMap(handleEvent)
   }
 
-  /** Compatibility alias for the pre-boundary-audit ingestion path. */
+  /** Temporary compatibility alias for the pre-boundary-audit ingestion path. Disabled unless explicitly configured. */
   val legacyDownstreamIngestionRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
     case req @ POST -> Root / "events" / "game" =>
       req.bodyText.compile.string.flatMap(handleEvent)
   }
 
   val routes: HttpRoutes[IO] =
-    operationalRoutes <+> publicArchiveRoutes <+> downstreamIngestionRoutes <+> legacyDownstreamIngestionRoutes
+    val baseRoutes = operationalRoutes <+> internalArchiveRoutes <+> downstreamIngestionRoutes
+    if acceptLegacyIngestionPath then baseRoutes <+> legacyDownstreamIngestionRoutes else baseRoutes
 
   private def handleEvent(body: String): IO[Response[IO]] =
     ingestion.ingestEventJson(body) match

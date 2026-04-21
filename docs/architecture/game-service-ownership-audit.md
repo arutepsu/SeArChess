@@ -31,7 +31,7 @@ in place for now, and no runtime behavior or public contract changed.
 | `apps/game-service/modules/persistence` | In-memory and SQLite stores for active sessions/game state | Game Service-owned persistence adapter; currently generic and reused by tests |
 | `apps/game-service/modules/rest-http4s` | Game/session/archive HTTP routes over `GameServiceApi` | Game Service-owned inbound adapter |
 | `modules/adapter-rest-contract` | REST DTOs/mappers for Game Service routes and archive snapshot payloads | Mostly Game Service REST contract code; some DTOs may remain shared as generated/client-facing contracts |
-| `apps/game-service/modules/ai` | Local deterministic AI and remote Python AI client | Game Service-owned outbound adapter for AI proposal |
+| `apps/game-service/modules/ai` | Local deterministic AI and remote internal AI Service client | Game Service-owned outbound adapter for AI proposal |
 | `apps/game-service/modules/eventing`, `apps/game-service/modules/history-delivery` | Event publisher utilities and History outbox/forwarding bridge | Game Service-owned runtime/delivery infrastructure |
 | `apps/game-service/modules/websocket` | WebSocket server/event publisher for live Game events | Game Service-owned realtime adapter for now |
 | `apps/history-service/modules/core` | History ingestion, remote Game archive client, archive materialization, History SQLite store | History-owned service library; depends on `game-contract`, not Game core |

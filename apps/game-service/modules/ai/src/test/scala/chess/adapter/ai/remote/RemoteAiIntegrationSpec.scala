@@ -11,9 +11,9 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.EitherValues
 
-/** Integration spec for the Scala RemoteAiMoveSuggestionClient against the live Python AI service.
+/** Integration spec for the Scala RemoteAiMoveSuggestionClient against a live AI provider.
  *
- *  Requires the Python service to be running at INFERENCE_SERVICE_URL (default
+ *  Requires the provider to be running at INFERENCE_SERVICE_URL (default
  *  http://127.0.0.1:8765). The tests are skipped automatically when the service
  *  is not reachable so they do not break CI.
  *
@@ -40,7 +40,7 @@ class RemoteAiIntegrationSpec extends AnyFlatSpec with Matchers with EitherValue
   private def assume(): Unit =
     assume(
       serviceAvailable,
-      s"Python AI service not reachable at $baseUrl — skipping integration tests"
+      s"AI provider not reachable at $baseUrl; skipping integration tests"
     )
 
   private def stateFromFen(fen: String): GameState =
@@ -62,7 +62,7 @@ class RemoteAiIntegrationSpec extends AnyFlatSpec with Matchers with EitherValue
 
   private lazy val provider = RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 5000)
 
-  "RemoteAiMoveSuggestionClient → Python AI service" should "return a legal move suggestion for the initial position" in {
+  "RemoteAiMoveSuggestionClient to AI provider" should "return a legal move suggestion for the initial position" in {
     assume()
     val ctx      = context()
     val result   = provider.suggestMove(ctx)
@@ -88,7 +88,7 @@ class RemoteAiIntegrationSpec extends AnyFlatSpec with Matchers with EitherValue
 
   it should "return a contract-shaped BAD_REQUEST when an invalid sideToMove is sent" in {
     assume()
-    // Drive the HTTP layer directly to verify the Python error shape without
+    // Drive the HTTP layer directly to verify the provider error shape without
     // going through RemoteAiMoveSuggestionClient's field construction.
     val body =
       """{
@@ -117,13 +117,13 @@ class RemoteAiIntegrationSpec extends AnyFlatSpec with Matchers with EitherValue
     json.obj.contains("message") shouldBe true
   }
 
-  it should "round-trip a promotion move through the Python service" in {
+  it should "round-trip a promotion move through the provider" in {
     assume()
     // The position has ONLY promotion moves (no king moves), so the fake engine
     // is forced to return a promotion.  White: Ka8 pawn b7; Black: Kh8.
     // Ka8 is in stalemate? No - a8 king can go to a7, b8... Let me use a position
     // where the king is boxed out and only pawn moves exist.
-    // Simplest: send only promotion legal moves to the Python service directly via HTTP.
+    // Simplest: send only promotion legal moves to the provider directly via HTTP.
     val body =
       s"""{
          |  "requestId": "integration-promo",
