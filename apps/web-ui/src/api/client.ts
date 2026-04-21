@@ -6,6 +6,7 @@ import type {
   MoveRequest,
   NewGameRequest
 } from "./types";
+import { squareToIndex } from "../domain/board";
 import type {
   CreateSessionResponse,
   GameResponse,
@@ -14,22 +15,14 @@ import type {
 } from "./backendTypes";
 import { mapGameResponseToGameState } from "./mapper";
 import type { ErrorResponse } from "./backendTypes";
+import type { SessionContext } from "../session/sessionStore";
 
-const DEFAULT_API_BASE = "http://localhost:8080";
+const DEFAULT_API_BASE = "http://localhost:10000";
 
 export const apiBaseUrl =
   import.meta.env.VITE_API_BASE_URL?.toString() || DEFAULT_API_BASE;
 
 const useMock = import.meta.env.VITE_API_MOCK === "true";
-
-// ── Real-mode game state ──────────────────────────────────────────────────────
-
-let realGameId: string | null = null;
-
-function requireGameId(): string {
-  if (!realGameId) throw new Error("No active game. Call startNewGame first.");
-  return realGameId;
-}
 
 // ── HTTP helper ───────────────────────────────────────────────────────────────
 
@@ -42,13 +35,15 @@ async function fetchJson<T>(path: string, options?: RequestInit): Promise<T> {
   if (!response.ok) {
     const raw = await response.text();
 
+    let parsedError: ErrorResponse | undefined;
     try {
-      const parsed = JSON.parse(raw) as ErrorResponse;
-      if (parsed.code && parsed.message) {
-        throw new Error(`${parsed.code}: ${parsed.message}`);
-      }
+      parsedError = JSON.parse(raw) as ErrorResponse;
     } catch {
-      // ignore parse failure, fall through
+      parsedError = undefined;
+    }
+
+    if (parsedError?.code && parsedError.message) {
+      throw new Error(`${parsedError.code}: ${parsedError.message}`);
     }
 
     throw new Error(raw || `Request failed: ${response.status}`);
@@ -57,11 +52,7 @@ async function fetchJson<T>(path: string, options?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-
 // ── Public API ────────────────────────────────────────────────────────────────
-export function getCurrentGameId(): string | null {
-  return useMock ? mockState.id : realGameId;
-}
 
 export async function getStatus(): Promise<ApiStatus> {
   if (useMock) {
@@ -76,64 +67,113 @@ export async function getStatus(): Promise<ApiStatus> {
   };
 }
 
-export async function getGameState(): Promise<GameState> {
+export async function getGameState(gameId: string): Promise<GameState> {
   if (useMock) {
     return getMockState();
   }
 
-  const gameId = requireGameId();
   const game = await fetchJson<GameResponse>(`/api/games/${gameId}`);
   return mapGameResponseToGameState(game);
 }
 
-export async function startNewGame(_payload: NewGameRequest): Promise<GameState> {
+export async function startNewGame(
+  payload: NewGameRequest
+): Promise<{ game: GameState; session: SessionContext }> {
   if (useMock) {
     resetMockState();
-    return getMockState();
+    return { game: getMockState(), session: mockSession() };
   }
 
   const response = await fetchJson<CreateSessionResponse>("/api/sessions", {
     method: "POST",
-    body: JSON.stringify({})
+    body: JSON.stringify({
+      mode: payload.mode ?? "HumanVsHuman"
+    })
   });
 
-  realGameId = response.session.gameId;
-  return mapGameResponseToGameState(response.game);
+  const session: SessionContext = {
+    sessionId: response.session.sessionId,
+    gameId: response.session.gameId,
+    mode: response.session.mode,
+    lifecycle: response.session.lifecycle,
+    whiteController: response.session.whiteController,
+    blackController: response.session.blackController,
+    createdAt: response.session.createdAt,
+    updatedAt: response.session.updatedAt
+  };
+
+  return { game: mapGameResponseToGameState(response.game), session };
 }
 
-export async function submitMove(payload: MoveRequest): Promise<GameState> {
+export async function submitMove(
+  gameId: string,
+  payload: MoveRequest
+): Promise<{ game: GameState; lifecycle: string }> {
   if (useMock) {
     applyMockMove(payload);
-    return getMockState();
+    return { game: getMockState(), lifecycle: "active" };
   }
 
-  const gameId = requireGameId();
   const body: Record<string, string> = {
     from: payload.from,
     to: payload.to
   };
-  if (payload.promotion) body["promotion"] = payload.promotion;
+
+  if (payload.promotion) {
+    body["promotion"] = payload.promotion;
+  }
 
   const response = await fetchJson<SubmitMoveResponse>(
     `/api/games/${gameId}/moves`,
     { method: "POST", body: JSON.stringify(body) }
   );
 
-  return mapGameResponseToGameState(response.game);
+  return {
+    game: mapGameResponseToGameState(response.game),
+    lifecycle: response.sessionLifecycle
+  };
 }
 
-export async function undoMove(): Promise<GameState> {
+export async function requestAiMove(
+  gameId: string
+): Promise<{ game: GameState; lifecycle: string }> {
+  if (useMock) {
+    
+    const from = mockState.activeColor === "black" ? "e7" : "e2";
+    const to = mockLegalMoves[from]?.[0] ?? from;
+    applyMockMove({ from, to });
+    return { game: getMockState(), lifecycle: "active" };
+  }
+
+  const response = await fetchJson<SubmitMoveResponse>(
+    `/api/games/${gameId}/ai-move`,
+    { method: "POST" }
+  );
+
+  return {
+    game: mapGameResponseToGameState(response.game),
+    lifecycle: response.sessionLifecycle
+  };
+}
+
+export async function undoMove(gameId: string): Promise<GameState> {
   if (useMock) {
     return getMockState();
   }
-  throw new Error("Undo is not supported in server mode.");
+  const game = await fetchJson<GameResponse>(`/api/games/${gameId}/undo`, {
+    method: "POST"
+  });
+  return mapGameResponseToGameState(game);
 }
 
-export async function redoMove(): Promise<GameState> {
+export async function redoMove(gameId: string): Promise<GameState> {
   if (useMock) {
     return getMockState();
   }
-  throw new Error("Redo is not supported in server mode.");
+  const game = await fetchJson<GameResponse>(`/api/games/${gameId}/redo`, {
+    method: "POST"
+  });
+  return mapGameResponseToGameState(game);
 }
 
 export async function exportPgn(): Promise<{ pgn: string }> {
@@ -143,19 +183,44 @@ export async function exportPgn(): Promise<{ pgn: string }> {
   throw new Error("PGN export is not supported in server mode.");
 }
 
-export async function getLegalMoves(from: string): Promise<LegalMovesResponse> {
+export async function getLegalMoves(
+  gameId: string,
+  from: string
+): Promise<LegalMovesResponse> {
   if (useMock) {
     const moves = mockLegalMoves[from] ?? [];
     return { from, moves };
   }
 
-  const gameId = requireGameId();
   const game = await fetchJson<GameResponse>(`/api/games/${gameId}`);
   const moves = game.legalTargetsByFrom[from] ?? [];
   return { from, moves };
 }
 
-// ── Mock implementation (unchanged) ──────────────────────────────────────────
+// ── Mock implementation ───────────────────────────────────────────────────────
+
+function mockSession(): SessionContext {
+  return {
+    sessionId: "mock-session",
+    gameId: "mock-game",
+    mode: "human_vs_human",
+    lifecycle: "active",
+    whiteController: "human",
+    blackController: "human",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+}
+const mockLegalMoves: Record<string, string[]> = {
+  e2: ["e3", "e4"],
+  d2: ["d3", "d4"],
+  g1: ["f3", "h3"],
+  b1: ["a3", "c3"],
+  e7: ["e6", "e5"],
+  d7: ["d6", "d5"],
+  g8: ["f6", "h6"],
+  b8: ["a6", "c6"]
+};
 
 function mockGameState(): GameState {
   const emptyRow = Array.from({ length: 8 }, () => null);
@@ -175,10 +240,13 @@ function mockGameState(): GameState {
     board,
     activeColor: "white",
     status: "active",
+    winner: undefined,
+    drawReason: undefined,
     fullMove: 1,
     halfMoveClock: 0,
     moves: [],
-    captured: []
+    captured: [],
+    legalTargetsByFrom: mockLegalMoves
   };
 }
 
@@ -189,7 +257,8 @@ function getMockState(): GameState {
     ...mockState,
     board: cloneBoard(mockState.board),
     moves: [...mockState.moves],
-    captured: [...mockState.captured]
+    captured: [...mockState.captured],
+    legalTargetsByFrom: { ...mockState.legalTargetsByFrom }
   };
 }
 
@@ -234,27 +303,7 @@ function applyMockMove(payload: MoveRequest): void {
   };
 }
 
-function squareToIndex(square: string): { row: number; col: number } | null {
-  if (square.length !== 2) return null;
-  const files = "abcdefgh";
-  const file = square[0];
-  const rank = Number(square[1]);
-  const col = files.indexOf(file);
-  if (col < 0 || Number.isNaN(rank) || rank < 1 || rank > 8) return null;
-  return { row: 8 - rank, col };
-}
-
 function cloneBoard(board: GameState["board"]): GameState["board"] {
   return board.map((row) => [...row]);
 }
 
-const mockLegalMoves: Record<string, string[]> = {
-  e2: ["e3", "e4"],
-  d2: ["d3", "d4"],
-  g1: ["f3", "h3"],
-  b1: ["a3", "c3"],
-  e7: ["e6", "e5"],
-  d7: ["d6", "d5"],
-  g8: ["f6", "h6"],
-  b8: ["a6", "c6"]
-};

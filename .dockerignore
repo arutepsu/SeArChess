@@ -1,0 +1,17 @@
+.bloop
+.bsp
+.git
+.github
+.idea
+.metals
+.vscode
+**/target
+**/.pytest_cache
+**/.venv
+apps/web-ui/node_modules
+apps/web-ui/dist
+Dockerfile
+docker-compose.yml
+*.db
+*.sqlite
+*.sqlite3

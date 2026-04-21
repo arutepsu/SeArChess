@@ -7,9 +7,8 @@ package chess.adapter.rest.contract.dto
  *  @param promotion  promotion piece type when a pawn reaches the back rank;
  *                    one of "Queen" | "Rook" | "Bishop" | "Knight"
  *  @param controller the controller submitting the move; defaults to
- *                    "HumanLocal" when absent.  Used by
- *                    [[chess.application.session.policy.ActorControlPolicy]]
- *                    to verify turn ownership.
+ *                    "HumanLocal" when absent.  The Game Service maps this
+ *                    wire value to its internal command model.
  */
 final case class SubmitMoveRequest(
   from:       String,

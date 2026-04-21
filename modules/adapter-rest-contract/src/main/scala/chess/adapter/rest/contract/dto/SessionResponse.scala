@@ -2,7 +2,7 @@ package chess.adapter.rest.contract.dto
 
 import ujson.Value
 
-/** Transport representation of a [[chess.application.session.model.GameSession]].
+/** Wire representation of a game session.
  *
  *  @param sessionId       opaque UUID string
  *  @param gameId          opaque UUID string of the associated game
