@@ -168,12 +168,12 @@ class TransactionalOutboxSpec extends AnyFlatSpec with Matchers with EitherValue
 
       val session   = freshSession()
       repo.save(session).value
-      val cancelled = GameSession.withLifecycle(session, SessionLifecycle.Finished, Instant.now())
+      val cancelled = GameSession.withLifecycle(session, SessionLifecycle.Cancelled, Instant.now())
       val payload   = sessionCancelledPayload(session.sessionId, session.gameId)
 
       repo.saveCancelWithOutbox(cancelled, Some(payload)).value
 
-      repo.load(session.sessionId).value.lifecycle shouldBe SessionLifecycle.Finished
+      repo.load(session.sessionId).value.lifecycle shouldBe SessionLifecycle.Cancelled
       val pending = outbox.pending(10).value
       pending should have size 1
       pending.head.payloadJson shouldBe payload
@@ -188,11 +188,11 @@ class TransactionalOutboxSpec extends AnyFlatSpec with Matchers with EitherValue
 
     val session   = freshSession()
     repo.save(session).value
-    val cancelled = GameSession.withLifecycle(session, SessionLifecycle.Finished, Instant.now())
+    val cancelled = GameSession.withLifecycle(session, SessionLifecycle.Cancelled, Instant.now())
 
     repo.saveCancelWithOutbox(cancelled, None).value
 
-    repo.load(session.sessionId).value.lifecycle shouldBe SessionLifecycle.Finished
+    repo.load(session.sessionId).value.lifecycle shouldBe SessionLifecycle.Cancelled
     outbox.pending(10).value shouldBe empty
     outbox.close()
   }
@@ -206,7 +206,7 @@ class TransactionalOutboxSpec extends AnyFlatSpec with Matchers with EitherValue
 
     val session   = freshSession()
     repo.save(session).value
-    val cancelled = GameSession.withLifecycle(session, SessionLifecycle.Finished, Instant.now())
+    val cancelled = GameSession.withLifecycle(session, SessionLifecycle.Cancelled, Instant.now())
     val badPayload = "{}"
 
     val result = repo.saveCancelWithOutbox(cancelled, Some(badPayload))
@@ -223,7 +223,7 @@ class TransactionalOutboxSpec extends AnyFlatSpec with Matchers with EitherValue
 
     val session   = freshSession()
     repo.save(session).value
-    val cancelled = GameSession.withLifecycle(session, SessionLifecycle.Finished, Instant.now())
+    val cancelled = GameSession.withLifecycle(session, SessionLifecycle.Cancelled, Instant.now())
     val payload   = sessionCancelledPayload(session.sessionId, session.gameId)
 
     ds.withConnection { conn => conn.createStatement().execute("DROP TABLE history_event_outbox") }
@@ -243,7 +243,7 @@ class TransactionalOutboxSpec extends AnyFlatSpec with Matchers with EitherValue
 
     val session   = freshSession()
     repo.save(session).value
-    val cancelled = GameSession.withLifecycle(session, SessionLifecycle.Finished, Instant.now())
+    val cancelled = GameSession.withLifecycle(session, SessionLifecycle.Cancelled, Instant.now())
     val payload   = sessionCancelledPayload(session.sessionId, session.gameId)
 
     ds.withConnection { conn => conn.createStatement().execute("DROP TABLE sessions") }

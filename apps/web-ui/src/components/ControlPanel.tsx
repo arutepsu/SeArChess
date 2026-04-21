@@ -1,4 +1,4 @@
-import type { GameState, PlayerColor, SessionMode } from "../api/types";
+import type { GameState, PlayableGameMode, PlayerColor } from "../api/types";
 import "./ControlPanel.css";
 
 type ControlPanelProps = {
@@ -8,9 +8,11 @@ type ControlPanelProps = {
   blackTimeMs?: number;
   activeColor?: PlayerColor;
   clockRunning?: boolean;
-  gameMode: SessionMode;
-  onGameModeChange: (mode: SessionMode) => void;
+  gameMode: PlayableGameMode;
+  canResign: boolean;
+  onGameModeChange: (mode: PlayableGameMode) => void;
   onNewGame: () => void;
+  onResign: () => void;
 };
 
 const formatTime = (ms?: number) => {
@@ -42,8 +44,10 @@ export default function ControlPanel({
   activeColor,
   clockRunning,
   gameMode,
+  canResign,
   onGameModeChange,
-  onNewGame
+  onNewGame,
+  onResign
 }: ControlPanelProps) {
   const whiteActive = activeColor === "white" && clockRunning;
   const blackActive = activeColor === "black" && clockRunning;
@@ -84,7 +88,7 @@ export default function ControlPanel({
           <select
             value={gameMode}
             disabled={busy}
-            onChange={(event) => onGameModeChange(event.target.value as SessionMode)}
+            onChange={(event) => onGameModeChange(event.target.value as PlayableGameMode)}
           >
             <option value="HumanVsHuman">Human vs Human</option>
             <option value="HumanVsAI">Human vs AI</option>
@@ -92,6 +96,9 @@ export default function ControlPanel({
         </label>
         <button type="button" disabled={busy} onClick={onNewGame}>
           New Game
+        </button>
+        <button type="button" disabled={!canResign} onClick={onResign}>
+          Resign
         </button>
       </div>
     </section>

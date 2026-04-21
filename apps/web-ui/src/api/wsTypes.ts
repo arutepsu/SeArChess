@@ -1,3 +1,5 @@
+import type { SessionLifecycle } from "./backendTypes";
+
 export interface BaseWsEvent {
   eventType: string;
   sessionId: string;
@@ -23,8 +25,8 @@ export interface GameFinishedEvent extends BaseWsEvent {
 
 export interface SessionLifecycleChangedEvent extends BaseWsEvent {
   eventType: "SessionLifecycleChanged";
-  from: string;
-  to: string;
+  from: SessionLifecycle;
+  to: SessionLifecycle;
 }
 
 export interface SessionCreatedEvent extends BaseWsEvent {

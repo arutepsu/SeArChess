@@ -124,7 +124,7 @@ class DefaultGameService(
    *  result.  The underlying [[chess.domain.state.GameState]] is intentionally
    *  left unchanged: no winner is recorded, no [[chess.domain.model.GameStatus]]
    *  transition occurs.  Only the session lifecycle advances to
-   *  [[chess.application.session.model.SessionLifecycle.Finished]].
+   *  [[chess.application.session.model.SessionLifecycle.Cancelled]].
    *
    *  This is distinct from [[resignGame]], which modifies the game state to
    *  [[chess.domain.model.GameStatus.Resigned]] and records a winner before
@@ -204,7 +204,8 @@ class DefaultGameService(
                      case e                                   => ArchiveError.StorageFailure(e.toString)
                    }
       _       <- Either.cond(
-                   session.lifecycle == SessionLifecycle.Finished,
+                   session.lifecycle == SessionLifecycle.Finished ||
+                     session.lifecycle == SessionLifecycle.Cancelled,
                    (),
                    ArchiveError.GameNotClosed(id)
                  )

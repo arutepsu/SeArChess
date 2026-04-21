@@ -7,7 +7,7 @@ import ujson.Value
  *  @param sessionId       opaque UUID string
  *  @param gameId          opaque UUID string of the associated game
  *  @param mode            "HumanVsHuman" | "HumanVsAI" | "AIVsAI"
- *  @param lifecycle       "Created" | "Active" | "AwaitingPromotion" | "Finished"
+ *  @param lifecycle       "Created" | "Active" | "AwaitingPromotion" | "Finished" | "Cancelled"
  *  @param whiteController "HumanLocal" | "HumanRemote" | "AI"
  *  @param blackController same values as whiteController
  *  @param createdAt       ISO-8601 UTC instant string

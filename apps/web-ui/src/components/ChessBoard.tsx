@@ -13,6 +13,7 @@ type ChessBoardProps = {
   legalMoves?: string[];
   animation?: BoardAnimation | null;
   idleAnimation?: boolean;
+  disabled?: boolean;
   onSelect: (square: string) => void;
   onAnimationFinished: (id: number) => void;
 };
@@ -247,6 +248,7 @@ export default function ChessBoard({
   legalMoves,
   animation,
   idleAnimation,
+  disabled = false,
   onSelect,
   onAnimationFinished
 }: ChessBoardProps) {
@@ -675,6 +677,7 @@ export default function ChessBoard({
                   type="button"
                   role="gridcell"
                   aria-label={`Square ${square}`}
+                  disabled={disabled}
                   onClick={() => onSelect(square)}
                 >
                   {piece && !suppressed ? (

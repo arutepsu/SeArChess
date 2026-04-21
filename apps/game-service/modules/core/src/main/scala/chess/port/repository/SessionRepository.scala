@@ -43,7 +43,7 @@ trait SessionRepository:
    */
   def loadByGameId(id: GameId): Either[RepositoryError, GameSession]
 
-  /** Return all sessions that have not yet reached [[chess.application.session.model.SessionLifecycle.Finished]].
+  /** Return all sessions that have not yet reached a terminal lifecycle.
    *
    *  Returns an empty list (not [[RepositoryError.NotFound]]) when no active
    *  sessions exist.  Order is implementation-defined.
@@ -61,7 +61,7 @@ trait SessionRepository:
    *  outbox row insert in a single JDBC transaction.  If either write fails the
    *  other is also rolled back.
    *
-   *  @param session       the session with lifecycle advanced to Finished
+   *  @param session       the session with lifecycle advanced to Cancelled
    *  @param outboxPayload serialised JSON for the SessionCancelled event, or
    *                       [[None]] when no outbox is configured
    */

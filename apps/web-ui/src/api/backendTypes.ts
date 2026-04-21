@@ -1,21 +1,35 @@
+export type Color = "White" | "Black";
+export type GameStatus = "Ongoing" | "Checkmate" | "Draw" | "Resigned";
+export type SessionMode = "HumanVsHuman" | "HumanVsAI" | "AIVsAI";
+export type SessionLifecycle =
+  | "Created"
+  | "Active"
+  | "AwaitingPromotion"
+  | "Finished"
+  | "Cancelled";
+export type InboundController = "HumanLocal" | "HumanRemote";
+export type OutboundController = "HumanLocal" | "HumanRemote" | "AI";
+export type PieceType = "King" | "Queen" | "Rook" | "Bishop" | "Knight" | "Pawn";
+export type PromotionPiece = "Queen" | "Rook" | "Bishop" | "Knight";
+
 export interface MoveHistoryEntryDto {
   from: string;
   to: string;
-  promotion: string | null;
+  promotion: PromotionPiece | null;
 }
 
 export interface PieceDto {
   square: string;
-  color: string;
-  pieceType: string;
+  color: Color;
+  pieceType: PieceType;
 }
 
-export interface GameResponse {
+export interface GameSnapshot {
   gameId: string;
-  currentPlayer: string;
-  status: string;
+  currentPlayer: Color;
+  status: GameStatus;
   inCheck: boolean;
-  winner: string | null;
+  winner: Color | null;
   drawReason: string | null;
   fullmoveNumber: number;
   halfmoveClock: number;
@@ -26,25 +40,42 @@ export interface GameResponse {
   legalTargetsByFrom: Record<string, string[]>;
 }
 
+export interface CreateGameRequest {
+  mode?: SessionMode;
+  whiteController?: InboundController;
+  blackController?: InboundController;
+}
+
+export interface SubmitMoveRequest {
+  from: string;
+  to: string;
+  promotion?: PromotionPiece | null;
+  controller?: InboundController | null;
+}
+
+export interface ResignRequest {
+  side: Color;
+}
+
 export interface SessionResponse {
   sessionId: string;
   gameId: string;
-  mode: string;
-  lifecycle: string;
-  whiteController: string;
-  blackController: string;
+  mode: SessionMode;
+  lifecycle: SessionLifecycle;
+  whiteController: OutboundController;
+  blackController: OutboundController;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface CreateSessionResponse {
+export interface CreateGameResponse {
   session: SessionResponse;
-  game: GameResponse;
+  game: GameSnapshot;
 }
 
-export interface SubmitMoveResponse {
-  game: GameResponse;
-  sessionLifecycle: string;
+export interface CommandGameResponse {
+  game: GameSnapshot;
+  sessionLifecycle: SessionLifecycle;
 }
 
 export interface HealthResponse {

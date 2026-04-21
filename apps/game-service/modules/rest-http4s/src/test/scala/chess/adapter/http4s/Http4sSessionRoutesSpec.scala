@@ -228,7 +228,7 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers:
 
   // ── POST /sessions/{id}/cancel ─────────────────────────────────────────────
 
-  "POST /sessions/{id}/cancel" should "return 200 with Finished lifecycle after cancel" in {
+  "POST /sessions/{id}/cancel" should "return 200 with Cancelled lifecycle after cancel" in {
     val routes = makeRoutes()
     val createReq = Request[IO](Method.POST, uri"/sessions")
       .withBodyStream(fs2.Stream.emits("{}".getBytes("UTF-8")).covary[IO])
@@ -238,7 +238,7 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers:
     val cancelResp = run(routes, Request[IO](Method.POST,
       Uri.unsafeFromString(s"/sessions/$sessionId/cancel")))
     cancelResp.status                         shouldBe Status.Ok
-    bodyJson(cancelResp)("lifecycle").str     shouldBe "Finished"
+    bodyJson(cancelResp)("lifecycle").str     shouldBe "Cancelled"
   }
 
   it should "return 409 when cancelling an already-finished session" in {
@@ -251,7 +251,7 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers:
     // cancel once — succeeds
     run(routes, Request[IO](Method.POST, Uri.unsafeFromString(s"/sessions/$sessionId/cancel")))
 
-    // cancel again — session is now Finished
+    // cancel again — session is now Cancelled
     val resp = run(routes, Request[IO](Method.POST,
       Uri.unsafeFromString(s"/sessions/$sessionId/cancel")))
     resp.status                  shouldBe Status.Conflict
