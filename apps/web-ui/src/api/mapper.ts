@@ -79,21 +79,85 @@ function mapMoveHistoryEntry(entry: MoveHistoryEntryDto, ply: number): MoveRecor
   return record;
 }
 
+function computeCapturedPieces(board: BoardMatrix): PieceCode[] {
+  const initialCounts: Record<PieceCode, number> = {
+    wK: 1,
+    wQ: 1,
+    wR: 2,
+    wB: 2,
+    wN: 2,
+    wP: 8,
+    bK: 1,
+    bQ: 1,
+    bR: 2,
+    bB: 2,
+    bN: 2,
+    bP: 8
+  };
+
+  const presentCounts: Record<PieceCode, number> = {
+    wK: 0,
+    wQ: 0,
+    wR: 0,
+    wB: 0,
+    wN: 0,
+    wP: 0,
+    bK: 0,
+    bQ: 0,
+    bR: 0,
+    bB: 0,
+    bN: 0,
+    bP: 0
+  };
+
+  for (const row of board) {
+    for (const square of row) {
+      if (square) presentCounts[square] += 1;
+    }
+  }
+
+  const order: PieceCode[] = [
+    "wQ",
+    "wR",
+    "wB",
+    "wN",
+    "wP",
+    "bQ",
+    "bR",
+    "bB",
+    "bN",
+    "bP"
+  ];
+
+  const captured: PieceCode[] = [];
+  for (const code of order) {
+    const missing = Math.max(0, initialCounts[code] - presentCounts[code]);
+    for (let i = 0; i < missing; i += 1) {
+      captured.push(code);
+    }
+  }
+
+  return captured;
+}
+
 export function mapGameResponseToGameState(game: GameResponse): GameState {
   const moves = game.moveHistory.map((entry, index) =>
     mapMoveHistoryEntry(entry, index + 1)
   );
 
+  const board = mapBoard(game.board);
+  const captured = computeCapturedPieces(board);
+
   return {
     id: game.gameId,
-    board: mapBoard(game.board),
+    board,
     activeColor: game.currentPlayer.toLowerCase() as PlayerColor,
     status: mapStatus(game.status, game.inCheck),
     fullMove: game.fullmoveNumber,
     halfMoveClock: game.halfmoveClock,
     lastMove: moves.length > 0 ? moves[moves.length - 1] : undefined,
     moves,
-    captured: [],
+    captured,
     legalTargetsByFrom: game.legalTargetsByFrom
   };
 }

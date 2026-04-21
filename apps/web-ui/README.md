@@ -8,6 +8,8 @@ npm install
 
 ## Run
 
+
+set CORS_ENABLED=true& set CORS_ALLOWED_ORIGIN=http://localhost:5173& sbt "bootstrapServer/runMain chess.server.ServerMain"
 ```bash
 npm run dev
 ```
