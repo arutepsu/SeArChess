@@ -7,7 +7,7 @@ import chess.application.session.model.SessionLifecycle.*
  *
  *  The allowed graph is deliberately narrow.  Any transition not listed below
  *  is rejected.  This prevents sessions from being moved backward, skipping
- *  phases, or leaving the terminal [[Finished]] state.
+ *  phases, or leaving a terminal [[Finished]] or [[Cancelled]] state.
  *
  *  Allowed transitions:
  *  {{{
@@ -19,7 +19,7 @@ import chess.application.session.model.SessionLifecycle.*
  *  AwaitingPromotion → Finished             (session abandoned mid-promotion)
  *  }}}
  *
- *  Finished is terminal — no transition away from it is permitted.
+ *  Finished and Cancelled are terminal; no transition away from either is permitted.
  */
 object SessionLifecyclePolicy:
 
@@ -39,8 +39,11 @@ object SessionLifecyclePolicy:
     (from, to) match
       case (Created,           Active)            => true
       case (Created,           Finished)          => true
+      case (Created,           Cancelled)         => true
       case (Active,            AwaitingPromotion) => true
       case (Active,            Finished)          => true
+      case (Active,            Cancelled)         => true
       case (AwaitingPromotion, Active)            => true
       case (AwaitingPromotion, Finished)          => true
+      case (AwaitingPromotion, Cancelled)         => true
       case _                                      => false

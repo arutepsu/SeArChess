@@ -143,7 +143,7 @@ class SessionGameService(
     resigningSide: Color,
     now:           Instant = Instant.now()
   ): Either[SessionError, (GameState, GameSession)] =
-    if session.lifecycle == SessionLifecycle.Finished then
+    if session.lifecycle == SessionLifecycle.Finished || session.lifecycle == SessionLifecycle.Cancelled then
       Left(SessionError.InvalidLifecycleTransition("Session is already finished"))
     else
       val winner        = resigningSide.opposite

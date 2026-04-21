@@ -39,5 +39,7 @@ class InMemorySessionRepository extends SessionRepository:
 
   override def listActive(): Either[RepositoryError, List[GameSession]] =
     synchronized {
-      Right(store.values.filter(_.lifecycle != SessionLifecycle.Finished).toList)
+      Right(store.values.filter(s =>
+        s.lifecycle != SessionLifecycle.Finished && s.lifecycle != SessionLifecycle.Cancelled
+      ).toList)
     }

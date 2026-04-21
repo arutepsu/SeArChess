@@ -123,7 +123,7 @@ class SessionService(
       case RepositoryError.NotFound(_)         => SessionError.GameSessionNotFound(gameId)
       case err: RepositoryError.StorageFailure => SessionError.PersistenceFailed(err)
 
-  /** Cancel a session by advancing its lifecycle to [[SessionLifecycle.Finished]].
+  /** Cancel a session by advancing its lifecycle to [[SessionLifecycle.Cancelled]].
    *
    *  Valid for sessions in [[SessionLifecycle.Created]] or [[SessionLifecycle.Active]].
    *  The underlying game state is left unchanged (no winner is recorded).
@@ -133,7 +133,7 @@ class SessionService(
    *  in the same JDBC transaction via [[SessionRepository.saveCancelWithOutbox]].
    *
    *  Returns [[SessionError.InvalidLifecycleTransition]] when the session is
-   *  already [[SessionLifecycle.Finished]].
+   *  already closed.
    */
   def cancelSession(
     sessionId: SessionId,
@@ -141,9 +141,9 @@ class SessionService(
   ): Either[SessionError, GameSession] =
     for
       session <- getSession(sessionId)
-      _       <- SessionLifecyclePolicy.validateTransition(session.lifecycle, SessionLifecycle.Finished)
+      _       <- SessionLifecyclePolicy.validateTransition(session.lifecycle, SessionLifecycle.Cancelled)
                    .left.map(SessionError.InvalidLifecycleTransition(_))
-      updated  = GameSession.withLifecycle(session, SessionLifecycle.Finished, now)
+      updated  = GameSession.withLifecycle(session, SessionLifecycle.Cancelled, now)
       payload  = serializer.serialize(AppEvent.SessionCancelled(updated.sessionId, updated.gameId))
       _       <- repository.saveCancelWithOutbox(updated, payload)
                    .left.map(SessionError.PersistenceFailed(_))
@@ -151,7 +151,7 @@ class SessionService(
       publisher.publish(AppEvent.SessionCancelled(updated.sessionId, updated.gameId))
       updated
 
-  /** Return all sessions that have not yet reached [[SessionLifecycle.Finished]].
+  /** Return all sessions that have not yet reached a terminal lifecycle.
    *
    *  Returns an empty list (not an error) when no active sessions exist.
    */
@@ -222,7 +222,8 @@ class SessionService(
       .map(_ => session)
 
   private def rejectIfFinished(session: GameSession): Either[SessionMoveError, Unit] =
-    if session.lifecycle == SessionLifecycle.Finished then Left(SessionMoveError.SessionFinished)
+    if session.lifecycle == SessionLifecycle.Finished || session.lifecycle == SessionLifecycle.Cancelled then
+      Left(SessionMoveError.SessionFinished)
     else Right(())
 
   private def checkController(

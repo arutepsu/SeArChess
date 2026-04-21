@@ -32,24 +32,24 @@ paths:
   /sessions:
     post:
       tags: [sessions]
-      summary: Create a new session and initial game
+      summary: Create a playable game and its session
       requestBody:
         required: false
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateSessionRequest"
+              $ref: "#/components/schemas/CreateGameRequest"
             example:
               mode: HumanVsHuman
               whiteController: HumanLocal
               blackController: HumanRemote
       responses:
         "201":
-          description: Session and initial game created.
+          description: Session and full initial game snapshot created.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CreateSessionResponse"
+                $ref: "#/components/schemas/CreateGameResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
     get:
@@ -96,10 +96,10 @@ paths:
     post:
       tags: [sessions]
       summary: Cancel an existing session
-      description: Existing adjacent endpoint. Closing a session makes its archive snapshot available.
+      description: Existing adjacent endpoint. Closing a session with lifecycle Cancelled makes its archive snapshot available.
       responses:
         "200":
-          description: Updated session metadata.
+          description: Updated session metadata with lifecycle Cancelled.
           content:
             application/json:
               schema:
@@ -116,7 +116,7 @@ paths:
                 code: SESSION_NOT_FOUND
                 message: "Session not found: 2e39c1e3-31ef-41c7-a783-f30c507a4232"
         "409":
-          description: Session is already finished.
+          description: Session is already finished or cancelled.
           content:
             application/json:
               schema:
@@ -138,7 +138,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Game"
+                $ref: "#/components/schemas/GameSnapshot"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
@@ -442,7 +442,7 @@ components:
           type: string
         message:
           type: string
-    CreateSessionRequest:
+    CreateGameRequest:
       type: object
       additionalProperties: false
       properties:
@@ -455,14 +455,17 @@ components:
       description: >
         All fields are optional. Inbound controllers only accept HumanLocal or
         HumanRemote; AI seats are derived from mode.
-    CreateSessionResponse:
+    CreateGameResponse:
       type: object
       required: [session, game]
+      description: >
+        Canonical create response. The `game` field contains the full initial
+        GameSnapshot; the field name remains `game` for wire compatibility.
       properties:
         session:
           $ref: "#/components/schemas/Session"
         game:
-          $ref: "#/components/schemas/Game"
+          $ref: "#/components/schemas/GameSnapshot"
     SessionListResponse:
       type: object
       required: [sessions]
@@ -503,8 +506,12 @@ components:
         updatedAt:
           type: string
           format: date-time
-    Game:
+    GameSnapshot:
       type: object
+      description: >
+        Canonical authoritative game-state snapshot returned by create, get, and
+        command responses. Future full-state WebSocket updates should reuse this
+        shape.
       required:
         - gameId
         - currentPlayer
@@ -618,9 +625,13 @@ components:
     CommandGameResponse:
       type: object
       required: [game, sessionLifecycle]
+      description: >
+        Canonical response for commands that mutate game state and return the
+        updated authoritative GameSnapshot. The `game` field name is retained for
+        wire compatibility.
       properties:
         game:
-          $ref: "#/components/schemas/Game"
+          $ref: "#/components/schemas/GameSnapshot"
         sessionLifecycle:
           $ref: "#/components/schemas/SessionLifecycle"
     LegalMovesResponse:
@@ -713,7 +724,7 @@ components:
       required: [game, castlingRights, enPassant]
       properties:
         game:
-          $ref: "#/components/schemas/Game"
+          $ref: "#/components/schemas/GameSnapshot"
         castlingRights:
           $ref: "#/components/schemas/CastlingRights"
         enPassant:
@@ -749,7 +760,7 @@ components:
       enum: [HumanVsHuman, HumanVsAI, AIVsAI]
     SessionLifecycle:
       type: string
-      enum: [Created, Active, AwaitingPromotion, Finished]
+      enum: [Created, Active, AwaitingPromotion, Finished, Cancelled]
     Color:
       type: string
       enum: [White, Black]

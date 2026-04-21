@@ -160,6 +160,11 @@ class SessionMapperSpec extends AnyFlatSpec with Matchers with EitherValues:
     SessionMapper.toSessionResponse(fin).lifecycle shouldBe "Finished"
   }
 
+  it should "serialize Cancelled lifecycle" in {
+    val cancelled = sess.copy(lifecycle = SessionLifecycle.Cancelled)
+    SessionMapper.toSessionResponse(cancelled).lifecycle shouldBe "Cancelled"
+  }
+
   "SessionMapper.toCreateSessionResponse" should "bundle session and game data" in {
     val state    = ChessService.createNewGame()
     val gameResp = GameMapper.toGameResponse(GameView.fromState(gid, state))
