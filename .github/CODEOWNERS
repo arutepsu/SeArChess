@@ -1,0 +1,5 @@
+# Default owner for all files
+* @cgmartchon
+
+# Workflow changes require explicit review
+.github/workflows/ @cgmartchon
