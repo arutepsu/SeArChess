@@ -6,7 +6,7 @@ import org.scalatest.EitherValues
 import org.scalatest.EitherValues.convertLeftProjectionToValuable
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.OptionValues.convertOptionToValuable 
+import org.scalatest.OptionValues.convertOptionToValuable
 
 final class PgnFastParseGrammarSpec extends AnyFlatSpec with Matchers with EitherValues:
 

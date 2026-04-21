@@ -6,8 +6,8 @@ import org.scalatest.EitherValues
 
 class BoardSpec extends AnyFlatSpec with Matchers with EitherValues:
 
-  private val pos   = Position.from(0, 0).value
-  private val pos2  = Position.from(1, 0).value
+  private val pos = Position.from(0, 0).value
+  private val pos2 = Position.from(1, 0).value
   private val piece = Piece(Color.White, PieceType.Pawn)
   private val other = Piece(Color.Black, PieceType.Rook)
 
@@ -33,7 +33,7 @@ class BoardSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   it should "leave the original board unchanged (immutability)" in {
     val original = Board.empty
-    val _        = original.place(pos, piece)
+    val _ = original.place(pos, piece)
     original.pieceAt(pos) shouldBe None
   }
 
@@ -66,9 +66,9 @@ class BoardSpec extends AnyFlatSpec with Matchers with EitherValues:
   private def sq(algebraic: String) = Position.fromAlgebraic(algebraic).value
 
   "Board.initial" should "contain exactly 32 pieces" in {
-    (0 to 7).flatMap(f => (0 to 7).flatMap(r =>
-      Board.initial.pieceAt(Position.from(f, r).value)
-    )).size shouldBe 32
+    (0 to 7)
+      .flatMap(f => (0 to 7).flatMap(r => Board.initial.pieceAt(Position.from(f, r).value)))
+      .size shouldBe 32
   }
 
   it should "place the white king on e1" in {

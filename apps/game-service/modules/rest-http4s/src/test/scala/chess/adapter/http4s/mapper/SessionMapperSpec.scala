@@ -11,17 +11,17 @@ import org.scalatest.matchers.should.Matchers
 
 class SessionMapperSpec extends AnyFlatSpec with Matchers with EitherValues:
 
-  private val now  = Instant.parse("2026-01-01T12:00:00Z")
-  private val gid  = GameId.random()
+  private val now = Instant.parse("2026-01-01T12:00:00Z")
+  private val gid = GameId.random()
   private val sess = GameSession(
-    sessionId       = SessionId.random(),
-    gameId          = gid,
-    mode            = SessionMode.HumanVsHuman,
+    sessionId = SessionId.random(),
+    gameId = gid,
+    mode = SessionMode.HumanVsHuman,
     whiteController = SideController.HumanLocal,
     blackController = SideController.HumanLocal,
-    lifecycle       = SessionLifecycle.Created,
-    createdAt       = now,
-    updatedAt       = now
+    lifecycle = SessionLifecycle.Created,
+    createdAt = now,
+    updatedAt = now
   )
 
   "SessionMapper.parseMode" should "default to HumanVsHuman when None" in {
@@ -102,7 +102,8 @@ class SessionMapperSpec extends AnyFlatSpec with Matchers with EitherValues:
   it should "reject a HumanVsAI blackController override because Black is server AI" in {
     SessionMapper
       .resolveCreateControllers(SessionMode.HumanVsAI, None, Some("HumanLocal"))
-      .left.value should include("blackController")
+      .left
+      .value should include("blackController")
   }
 
   it should "resolve AIVsAI as two server AI controllers" in {
@@ -117,7 +118,8 @@ class SessionMapperSpec extends AnyFlatSpec with Matchers with EitherValues:
   it should "reject controller overrides for AIVsAI" in {
     SessionMapper
       .resolveCreateControllers(SessionMode.AIVsAI, Some("HumanLocal"), None)
-      .left.value should include("AIVsAI")
+      .left
+      .value should include("AIVsAI")
   }
 
   "SessionMapper.controllerToString" should "serialize HumanLocal" in {
@@ -129,20 +131,20 @@ class SessionMapperSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   it should "serialize AI regardless of engine id" in {
-    SessionMapper.controllerToString(SideController.AI(None))              shouldBe "AI"
+    SessionMapper.controllerToString(SideController.AI(None)) shouldBe "AI"
     SessionMapper.controllerToString(SideController.AI(Some("stockfish"))) shouldBe "AI"
   }
 
   "SessionMapper.toSessionResponse" should "populate all fields from GameSession" in {
     val resp = SessionMapper.toSessionResponse(sess)
-    resp.sessionId       shouldBe sess.sessionId.value.toString
-    resp.gameId          shouldBe gid.value.toString
-    resp.mode            shouldBe "HumanVsHuman"
-    resp.lifecycle       shouldBe "Created"
+    resp.sessionId shouldBe sess.sessionId.value.toString
+    resp.gameId shouldBe gid.value.toString
+    resp.mode shouldBe "HumanVsHuman"
+    resp.lifecycle shouldBe "Created"
     resp.whiteController shouldBe "HumanLocal"
     resp.blackController shouldBe "HumanLocal"
-    resp.createdAt       shouldBe now.toString
-    resp.updatedAt       shouldBe now.toString
+    resp.createdAt shouldBe now.toString
+    resp.updatedAt shouldBe now.toString
   }
 
   it should "reflect lifecycle changes" in {
@@ -166,10 +168,10 @@ class SessionMapperSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   "SessionMapper.toCreateSessionResponse" should "bundle session and game data" in {
-    val state    = ChessService.createNewGame()
+    val state = ChessService.createNewGame()
     val gameResp = GameMapper.toGameResponse(GameView.fromState(gid, state))
-    val resp     = SessionMapper.toCreateSessionResponse(sess, gid, gameResp)
+    val resp = SessionMapper.toCreateSessionResponse(sess, gid, gameResp)
     resp.session.sessionId shouldBe sess.sessionId.value.toString
-    resp.game.gameId       shouldBe gid.value.toString
-    resp.game.board        should have size 32
+    resp.game.gameId shouldBe gid.value.toString
+    resp.game.board should have size 32
   }

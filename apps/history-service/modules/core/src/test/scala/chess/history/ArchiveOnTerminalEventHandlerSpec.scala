@@ -14,24 +14,24 @@ import java.time.Instant
 class ArchiveOnTerminalEventHandlerSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   private val createdAt = Instant.parse("2026-04-20T10:00:00Z")
-  private val closedAt  = Instant.parse("2026-04-20T10:05:00Z")
+  private val closedAt = Instant.parse("2026-04-20T10:05:00Z")
 
   private def snapshot(
-    gameId:    GameId,
-    sessionId: SessionId,
-    closure:   GameClosure = GameClosure.Draw(DrawReason.Stalemate)
+      gameId: GameId,
+      sessionId: SessionId,
+      closure: GameClosure = GameClosure.Draw(DrawReason.Stalemate)
   ): GameArchiveSnapshot =
     val state = GameStateFactory.initial()
     GameArchiveSnapshot(
-      sessionId       = sessionId,
-      gameId          = gameId,
-      mode            = SessionMode.HumanVsHuman,
+      sessionId = sessionId,
+      gameId = gameId,
+      mode = SessionMode.HumanVsHuman,
       whiteController = SideController.HumanLocal,
       blackController = SideController.HumanLocal,
-      closure         = closure,
-      finalState      = GameView.fromState(gameId, state),
-      createdAt       = createdAt,
-      closedAt        = closedAt
+      closure = closure,
+      finalState = GameView.fromState(gameId, state),
+      createdAt = createdAt,
+      closedAt = closedAt
     )
 
   private def materializer: ArchiveMaterializer =

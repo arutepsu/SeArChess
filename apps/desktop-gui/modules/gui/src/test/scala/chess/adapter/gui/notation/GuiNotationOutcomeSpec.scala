@@ -5,12 +5,11 @@ import org.scalatest.matchers.should.Matchers
 import chess.application.ChessService
 
 /** Contracts for the [[GuiNotationOutcome]] sealed hierarchy and its supporting types.
- *
- *  These tests pin the data-type contracts — defaults, membership in the sealed
- *  hierarchy, exhaustive category coverage — independently of [[GuiNotationApi]]
- *  integration.  They serve as executable documentation of what GUI callers can
- *  rely on.
- */
+  *
+  * These tests pin the data-type contracts — defaults, membership in the sealed hierarchy,
+  * exhaustive category coverage — independently of [[GuiNotationApi]] integration. They serve as
+  * executable documentation of what GUI callers can rely on.
+  */
 class GuiNotationOutcomeSpec extends AnyFlatSpec with Matchers:
 
   private val freshState = ChessService.createNewGame()
@@ -62,7 +61,7 @@ class GuiNotationOutcomeSpec extends AnyFlatSpec with Matchers:
 
   it should "default both details and category when only message is given" in {
     val failure = GuiNotationOutcome.Failure("something failed")
-    failure.details  shouldBe None
+    failure.details shouldBe None
     failure.category shouldBe FailureCategory.InvalidInput
   }
 
@@ -72,7 +71,8 @@ class GuiNotationOutcomeSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "carry an explicit category when supplied" in {
-    val failure = GuiNotationOutcome.Failure("not implemented", category = FailureCategory.UnavailableFeature)
+    val failure =
+      GuiNotationOutcome.Failure("not implemented", category = FailureCategory.UnavailableFeature)
     failure.category shouldBe FailureCategory.UnavailableFeature
   }
 
@@ -96,22 +96,30 @@ class GuiNotationOutcomeSpec extends AnyFlatSpec with Matchers:
   // ── Failure: each FailureCategory carries distinct semantics ─────────────
 
   "FailureCategory.InvalidInput" should "represent a syntax or structural parse problem" in {
-    val f = GuiNotationOutcome.Failure("missing rank separator", category = FailureCategory.InvalidInput)
+    val f =
+      GuiNotationOutcome.Failure("missing rank separator", category = FailureCategory.InvalidInput)
     f.category shouldBe FailureCategory.InvalidInput
   }
 
   "FailureCategory.SemanticError" should "represent a semantically illegal position" in {
-    val f = GuiNotationOutcome.Failure("both kings in check", category = FailureCategory.SemanticError)
+    val f =
+      GuiNotationOutcome.Failure("both kings in check", category = FailureCategory.SemanticError)
     f.category shouldBe FailureCategory.SemanticError
   }
 
   "FailureCategory.UnsupportedInput" should "represent an unsupported dialect or version" in {
-    val f = GuiNotationOutcome.Failure("Chess960 not supported", category = FailureCategory.UnsupportedInput)
+    val f = GuiNotationOutcome.Failure(
+      "Chess960 not supported",
+      category = FailureCategory.UnsupportedInput
+    )
     f.category shouldBe FailureCategory.UnsupportedInput
   }
 
   "FailureCategory.UnavailableFeature" should "represent a not-yet-implemented operation" in {
-    val f = GuiNotationOutcome.Failure("PGN import not available", category = FailureCategory.UnavailableFeature)
+    val f = GuiNotationOutcome.Failure(
+      "PGN import not available",
+      category = FailureCategory.UnavailableFeature
+    )
     f.category shouldBe FailureCategory.UnavailableFeature
   }
 
@@ -133,7 +141,8 @@ class GuiNotationOutcomeSpec extends AnyFlatSpec with Matchers:
   // ── ExportSuccess ─────────────────────────────────────────────────────────
 
   "GuiNotationOutcome.ExportSuccess" should "carry the serialised text" in {
-    val outcome = GuiNotationOutcome.ExportSuccess("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+    val outcome =
+      GuiNotationOutcome.ExportSuccess("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
     outcome.text should not be empty
   }
 
@@ -150,16 +159,16 @@ class GuiNotationOutcomeSpec extends AnyFlatSpec with Matchers:
       case _: GuiNotationOutcome.ExportSuccess => "export-success"
       case _: GuiNotationOutcome.Failure       => "failure"
 
-    label(GuiNotationOutcome.ImportSuccess(freshState))        shouldBe "import-success"
-    label(GuiNotationOutcome.ExportSuccess("text"))            shouldBe "export-success"
-    label(GuiNotationOutcome.Failure("msg"))                   shouldBe "failure"
+    label(GuiNotationOutcome.ImportSuccess(freshState)) shouldBe "import-success"
+    label(GuiNotationOutcome.ExportSuccess("text")) shouldBe "export-success"
+    label(GuiNotationOutcome.Failure("msg")) shouldBe "failure"
   }
 
   // ── GuiNotationWarning ────────────────────────────────────────────────────
 
   "GuiNotationWarning" should "carry message and category" in {
     val w = GuiNotationWarning("ep square dropped", GuiWarningCategory.DataLoss)
-    w.message  shouldBe "ep square dropped"
+    w.message shouldBe "ep square dropped"
     w.category shouldBe GuiWarningCategory.DataLoss
   }
 

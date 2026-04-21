@@ -9,7 +9,7 @@ import org.scalatest.matchers.should.Matchers
 
 class InMemoryGameRepositorySpec extends AnyFlatSpec with Matchers with EitherValues:
 
-  private def freshRepo  = InMemoryGameRepository()
+  private def freshRepo = InMemoryGameRepository()
   private def freshState = ChessService.createNewGame()
 
   "InMemoryGameRepository.load" should "return NotFound for an unknown GameId" in {
@@ -18,15 +18,15 @@ class InMemoryGameRepositorySpec extends AnyFlatSpec with Matchers with EitherVa
   }
 
   "InMemoryGameRepository.save / load" should "round-trip a GameState" in {
-    val repo   = freshRepo
+    val repo = freshRepo
     val gameId = GameId.random()
-    val state  = freshState
+    val state = freshState
     repo.save(gameId, state)
     repo.load(gameId).value shouldBe state
   }
 
   it should "overwrite an existing entry on repeated saves" in {
-    val repo   = freshRepo
+    val repo = freshRepo
     val gameId = GameId.random()
     val state1 = freshState
     val state2 = freshState.copy(fullmoveNumber = 5)
@@ -36,9 +36,9 @@ class InMemoryGameRepositorySpec extends AnyFlatSpec with Matchers with EitherVa
   }
 
   it should "store independent entries under different GameIds" in {
-    val repo   = freshRepo
-    val id1    = GameId.random()
-    val id2    = GameId.random()
+    val repo = freshRepo
+    val id1 = GameId.random()
+    val id2 = GameId.random()
     val state1 = freshState
     val state2 = freshState.copy(fullmoveNumber = 3)
     repo.save(id1, state1)

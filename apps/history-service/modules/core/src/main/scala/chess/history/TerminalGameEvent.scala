@@ -19,12 +19,14 @@ object TerminalGameEvent:
       if !SupportedTypes.contains(tpe) then
         Left(s"Unsupported event type for archive trigger: $tpe")
       else
-        Right(TerminalGameEvent(
-          eventType = tpe,
-          sessionId = SessionId(UUID.fromString(json("sessionId").str)),
-          gameId = GameId(UUID.fromString(json("gameId").str))
-        ))
+        Right(
+          TerminalGameEvent(
+            eventType = tpe,
+            sessionId = SessionId(UUID.fromString(json("sessionId").str)),
+            gameId = GameId(UUID.fromString(json("gameId").str))
+          )
+        )
     catch
-      case e: NoSuchElementException => Left(s"Missing required event field: ${e.getMessage}")
+      case e: NoSuchElementException   => Left(s"Missing required event field: ${e.getMessage}")
       case e: IllegalArgumentException => Left(s"Invalid terminal event JSON: ${e.getMessage}")
-      case e: Exception => Left(s"Malformed terminal event JSON: ${e.getMessage}")
+      case e: Exception                => Left(s"Malformed terminal event JSON: ${e.getMessage}")

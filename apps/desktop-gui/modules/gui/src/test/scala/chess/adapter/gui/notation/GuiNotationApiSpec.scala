@@ -6,21 +6,31 @@ import chess.application.ChessService
 import chess.domain.model.{Color, PieceType}
 import chess.domain.state.GameState
 import chess.notation.api.{
-  CompatibilityFailure, ExportFailure, ExportResult, GameImportMetadata,
-  ImportFailure, ImportResult, ImportTarget, NotationFacade,
-  NotationFailure, NotationFormat, NotationWarning, ParsedNotation,
-  ParseFailure, PositionImportMetadata
+  CompatibilityFailure,
+  ExportFailure,
+  ExportResult,
+  GameImportMetadata,
+  ImportFailure,
+  ImportResult,
+  ImportTarget,
+  NotationFacade,
+  NotationFailure,
+  NotationFormat,
+  NotationWarning,
+  ParsedNotation,
+  ParseFailure,
+  PositionImportMetadata
 }
 
 /** Tests for [[GuiNotationApi]] at the GUI API boundary.
- *
- *  All assertions against outcomes use [[GuiNotationOutcome]], [[FailureCategory]],
- *  [[GuiNotationWarning]], and [[GuiWarningCategory]] only.
- *
- *  Notation-layer ADTs (NotationFailure, ImportResult, NotationFormat, …)
- *  appear ONLY in stub facades within this spec, confirming that those
- *  contracts are confined to the API implementation and not visible to callers.
- */
+  *
+  * All assertions against outcomes use [[GuiNotationOutcome]], [[FailureCategory]],
+  * [[GuiNotationWarning]], and [[GuiWarningCategory]] only.
+  *
+  * Notation-layer ADTs (NotationFailure, ImportResult, NotationFormat, …) appear ONLY in stub
+  * facades within this spec, confirming that those contracts are confined to the API implementation
+  * and not visible to callers.
+  */
 class GuiNotationApiSpec extends AnyFlatSpec with Matchers:
 
   private val InitialFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
@@ -34,17 +44,20 @@ class GuiNotationApiSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "produce a GameState with White to move for the starting FEN" in {
-    val outcome = GuiNotationApi.importFen(InitialFen).asInstanceOf[GuiNotationOutcome.ImportSuccess]
+    val outcome =
+      GuiNotationApi.importFen(InitialFen).asInstanceOf[GuiNotationOutcome.ImportSuccess]
     outcome.state.currentPlayer shouldBe Color.White
   }
 
   it should "carry no warnings for a clean standard FEN" in {
-    val outcome = GuiNotationApi.importFen(InitialFen).asInstanceOf[GuiNotationOutcome.ImportSuccess]
+    val outcome =
+      GuiNotationApi.importFen(InitialFen).asInstanceOf[GuiNotationOutcome.ImportSuccess]
     outcome.warnings shouldBe Nil
   }
 
   it should "expose warnings as List[GuiNotationWarning], not List[String]" in {
-    val outcome   = GuiNotationApi.importFen(InitialFen).asInstanceOf[GuiNotationOutcome.ImportSuccess]
+    val outcome =
+      GuiNotationApi.importFen(InitialFen).asInstanceOf[GuiNotationOutcome.ImportSuccess]
     // Assigning to a typed val is a compile-time proof that warnings is List[GuiNotationWarning].
     val ws: List[GuiNotationWarning] = outcome.warnings
     ws shouldBe Nil
@@ -52,20 +65,23 @@ class GuiNotationApiSpec extends AnyFlatSpec with Matchers:
 
   it should "return a GameState whose board matches the starting position" in {
     import chess.domain.model.{Piece, Position}
-    val outcome = GuiNotationApi.importFen(InitialFen).asInstanceOf[GuiNotationOutcome.ImportSuccess]
+    val outcome =
+      GuiNotationApi.importFen(InitialFen).asInstanceOf[GuiNotationOutcome.ImportSuccess]
     val e2 = Position.fromAlgebraic("e2").getOrElse(throw AssertionError("bad pos"))
     outcome.state.board.pieceAt(e2) shouldBe Some(Piece(Color.White, PieceType.Pawn))
   }
 
   it should "respect the active color encoded in the FEN" in {
     val blackToMoveFen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
-    val outcome = GuiNotationApi.importFen(blackToMoveFen).asInstanceOf[GuiNotationOutcome.ImportSuccess]
+    val outcome =
+      GuiNotationApi.importFen(blackToMoveFen).asInstanceOf[GuiNotationOutcome.ImportSuccess]
     outcome.state.currentPlayer shouldBe Color.Black
   }
 
   it should "thread halfmoveClock from the FEN into the GameState" in {
     val fenWith5Clock = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 5 1"
-    val outcome = GuiNotationApi.importFen(fenWith5Clock).asInstanceOf[GuiNotationOutcome.ImportSuccess]
+    val outcome =
+      GuiNotationApi.importFen(fenWith5Clock).asInstanceOf[GuiNotationOutcome.ImportSuccess]
     outcome.state.halfmoveClock shouldBe 5
   }
 
@@ -110,7 +126,8 @@ class GuiNotationApiSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "produce the correct final player after replay" in {
-    val outcome = GuiNotationApi.importPgn("1. e4 e5 2. Nf3 Nc6 *")
+    val outcome = GuiNotationApi
+      .importPgn("1. e4 e5 2. Nf3 Nc6 *")
       .asInstanceOf[GuiNotationOutcome.ImportSuccess]
     outcome.state.currentPlayer shouldBe Color.White
   }
@@ -135,17 +152,20 @@ class GuiNotationApiSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "produce the standard starting-position FEN for a fresh game" in {
-    val outcome = GuiNotationApi.exportFen(freshState).asInstanceOf[GuiNotationOutcome.ExportSuccess]
+    val outcome =
+      GuiNotationApi.exportFen(freshState).asInstanceOf[GuiNotationOutcome.ExportSuccess]
     outcome.text shouldBe InitialFen
   }
 
   it should "produce a non-empty FEN string" in {
-    val outcome = GuiNotationApi.exportFen(freshState).asInstanceOf[GuiNotationOutcome.ExportSuccess]
+    val outcome =
+      GuiNotationApi.exportFen(freshState).asInstanceOf[GuiNotationOutcome.ExportSuccess]
     outcome.text should not be empty
   }
 
   it should "produce a six-field FEN string" in {
-    val outcome = GuiNotationApi.exportFen(freshState).asInstanceOf[GuiNotationOutcome.ExportSuccess]
+    val outcome =
+      GuiNotationApi.exportFen(freshState).asInstanceOf[GuiNotationOutcome.ExportSuccess]
     outcome.text.split(' ') should have length 6
   }
 
@@ -157,12 +177,14 @@ class GuiNotationApiSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "produce a non-empty PGN string" in {
-    val outcome = GuiNotationApi.exportPgn(freshState).asInstanceOf[GuiNotationOutcome.ExportSuccess]
+    val outcome =
+      GuiNotationApi.exportPgn(freshState).asInstanceOf[GuiNotationOutcome.ExportSuccess]
     outcome.text should not be empty
   }
 
   it should "produce '*' result token for an ongoing game with no moves" in {
-    val outcome = GuiNotationApi.exportPgn(freshState).asInstanceOf[GuiNotationOutcome.ExportSuccess]
+    val outcome =
+      GuiNotationApi.exportPgn(freshState).asInstanceOf[GuiNotationOutcome.ExportSuccess]
     outcome.text shouldBe "*"
   }
 
@@ -175,7 +197,10 @@ class GuiNotationApiSpec extends AnyFlatSpec with Matchers:
       def parse(format: NotationFormat, input: String): Either[ParseFailure, ParsedNotation] =
         called = true
         Left(ParseFailure.StructuralError("stub"))
-      def executeImport(parsed: ParsedNotation, target: ImportTarget): Either[NotationFailure, ImportResult[GameState]] =
+      def executeImport(
+          parsed: ParsedNotation,
+          target: ImportTarget
+      ): Either[NotationFailure, ImportResult[GameState]] =
         Left(chess.notation.api.ImportFailure.MappingError("unreachable"))
 
     val api = GuiNotationApi(stubFacade)
@@ -187,13 +212,16 @@ class GuiNotationApiSpec extends AnyFlatSpec with Matchers:
     val failingFacade = new NotationFacade[GameState]:
       def parse(format: NotationFormat, input: String): Either[ParseFailure, ParsedNotation] =
         Left(ParseFailure.SyntaxError("stub syntax error", line = Some(1), column = Some(5)))
-      def executeImport(parsed: ParsedNotation, target: ImportTarget): Either[NotationFailure, ImportResult[GameState]] =
+      def executeImport(
+          parsed: ParsedNotation,
+          target: ImportTarget
+      ): Either[NotationFailure, ImportResult[GameState]] =
         Left(chess.notation.api.ImportFailure.MappingError("unreachable"))
 
     val outcome = GuiNotationApi(failingFacade).importFen("x")
     val failure = outcome.asInstanceOf[GuiNotationOutcome.Failure]
     failure.category shouldBe FailureCategory.InvalidInput
-    failure.details  shouldBe Some("Line 1, column 5")
+    failure.details shouldBe Some("Line 1, column 5")
   }
 
   // ── UnsupportedInput vs UnavailableFeature ─────────────────────────────────
@@ -202,14 +230,20 @@ class GuiNotationApiSpec extends AnyFlatSpec with Matchers:
     val dialectFacade = new NotationFacade[GameState]:
       def parse(format: NotationFormat, input: String): Either[ParseFailure, ParsedNotation] =
         Left(ParseFailure.StructuralError("parsed"))
-      def executeImport(parsed: ParsedNotation, target: ImportTarget): Either[NotationFailure, ImportResult[GameState]] =
+      def executeImport(
+          parsed: ParsedNotation,
+          target: ImportTarget
+      ): Either[NotationFailure, ImportResult[GameState]] =
         Left(CompatibilityFailure.UnsupportedDialect("Chess960", "not supported"))
 
     // parseAndImport short-circuits at parse stage, so wire a facade that gets to executeImport
     val dialectFacade2 = new NotationFacade[GameState]:
       def parse(format: NotationFormat, input: String): Either[ParseFailure, ParsedNotation] =
-        chess.notation.fen.FenParser.parse(InitialFen)   // parse succeeds
-      def executeImport(parsed: ParsedNotation, target: ImportTarget): Either[NotationFailure, ImportResult[GameState]] =
+        chess.notation.fen.FenParser.parse(InitialFen) // parse succeeds
+      def executeImport(
+          parsed: ParsedNotation,
+          target: ImportTarget
+      ): Either[NotationFailure, ImportResult[GameState]] =
         Left(CompatibilityFailure.UnsupportedDialect("Chess960", "Chess960 is not supported"))
 
     val outcome = GuiNotationApi(dialectFacade2).importFen(InitialFen)
@@ -220,7 +254,7 @@ class GuiNotationApiSpec extends AnyFlatSpec with Matchers:
   it should "succeed for importPgn and exportPgn now that they are fully implemented" in {
     val api = GuiNotationApi.default
     api.importPgn("1. e4 e5 *") shouldBe a[GuiNotationOutcome.ImportSuccess]
-    api.exportPgn(freshState)   shouldBe a[GuiNotationOutcome.ExportSuccess]
+    api.exportPgn(freshState) shouldBe a[GuiNotationOutcome.ExportSuccess]
   }
 
   // ── Structured warnings ────────────────────────────────────────────────────
@@ -229,19 +263,24 @@ class GuiNotationApiSpec extends AnyFlatSpec with Matchers:
     val warningFacade = new NotationFacade[GameState]:
       def parse(format: NotationFormat, input: String): Either[ParseFailure, ParsedNotation] =
         chess.notation.fen.FenParser.parse(InitialFen)
-      def executeImport(parsed: ParsedNotation, target: ImportTarget): Either[NotationFailure, ImportResult[GameState]] =
+      def executeImport(
+          parsed: ParsedNotation,
+          target: ImportTarget
+      ): Either[NotationFailure, ImportResult[GameState]] =
         chess.notation.fen.FenImporter.importNotation(parsed, target).map {
           case r: ImportResult.PositionImportResult[GameState @unchecked] =>
-            r.copy(warnings = List(
-              NotationWarning.UnknownTag("Annotator"),
-              NotationWarning.UnsupportedExtensionIgnored("NAG-7"),
-              NotationWarning.NormalizationApplied("filled missing result token")
-            ))
+            r.copy(warnings =
+              List(
+                NotationWarning.UnknownTag("Annotator"),
+                NotationWarning.UnsupportedExtensionIgnored("NAG-7"),
+                NotationWarning.NormalizationApplied("filled missing result token")
+              )
+            )
           case other => other
         }
 
-    val outcome  = GuiNotationApi(warningFacade).importFen(InitialFen)
-    val success  = outcome.asInstanceOf[GuiNotationOutcome.ImportSuccess]
+    val outcome = GuiNotationApi(warningFacade).importFen(InitialFen)
+    val success = outcome.asInstanceOf[GuiNotationOutcome.ImportSuccess]
     success.warnings should have size 3
 
     val categories = success.warnings.map(_.category)
@@ -256,7 +295,10 @@ class GuiNotationApiSpec extends AnyFlatSpec with Matchers:
     val ignoreFacade = new NotationFacade[GameState]:
       def parse(format: NotationFormat, input: String): Either[ParseFailure, ParsedNotation] =
         chess.notation.fen.FenParser.parse(InitialFen)
-      def executeImport(parsed: ParsedNotation, target: ImportTarget): Either[NotationFailure, ImportResult[GameState]] =
+      def executeImport(
+          parsed: ParsedNotation,
+          target: ImportTarget
+      ): Either[NotationFailure, ImportResult[GameState]] =
         chess.notation.fen.FenImporter.importNotation(parsed, target).map {
           case r: ImportResult.PositionImportResult[GameState @unchecked] =>
             r.copy(warnings = List(NotationWarning.IgnoredField("clock", "not supported")))
@@ -266,7 +308,7 @@ class GuiNotationApiSpec extends AnyFlatSpec with Matchers:
     val outcome = GuiNotationApi(ignoreFacade).importFen(InitialFen)
     val success = outcome.asInstanceOf[GuiNotationOutcome.ImportSuccess]
     success.warnings.head.category shouldBe GuiWarningCategory.Informational
-    success.warnings.head.message  should include("clock")
+    success.warnings.head.message should include("clock")
   }
 
   // ── toImportSuccess: GameImportResult branch ──────────────────────────────
@@ -275,12 +317,17 @@ class GuiNotationApiSpec extends AnyFlatSpec with Matchers:
     val gameResultFacade = new NotationFacade[GameState]:
       def parse(format: NotationFormat, input: String): Either[ParseFailure, ParsedNotation] =
         chess.notation.fen.FenParser.parse(InitialFen)
-      def executeImport(parsed: ParsedNotation, target: ImportTarget): Either[NotationFailure, ImportResult[GameState]] =
-        Right(ImportResult.GameImportResult(
-          data         = freshState,
-          sourceFormat = NotationFormat.FEN,
-          metadata     = GameImportMetadata()
-        ))
+      def executeImport(
+          parsed: ParsedNotation,
+          target: ImportTarget
+      ): Either[NotationFailure, ImportResult[GameState]] =
+        Right(
+          ImportResult.GameImportResult(
+            data = freshState,
+            sourceFormat = NotationFormat.FEN,
+            metadata = GameImportMetadata()
+          )
+        )
 
     val outcome = GuiNotationApi(gameResultFacade).importFen(InitialFen)
     outcome shouldBe a[GuiNotationOutcome.ImportSuccess]
@@ -291,13 +338,18 @@ class GuiNotationApiSpec extends AnyFlatSpec with Matchers:
     val gameResultFacade = new NotationFacade[GameState]:
       def parse(format: NotationFormat, input: String): Either[ParseFailure, ParsedNotation] =
         chess.notation.fen.FenParser.parse(InitialFen)
-      def executeImport(parsed: ParsedNotation, target: ImportTarget): Either[NotationFailure, ImportResult[GameState]] =
-        Right(ImportResult.GameImportResult(
-          data         = freshState,
-          sourceFormat = NotationFormat.FEN,
-          metadata     = GameImportMetadata(),
-          warnings     = List(NotationWarning.UnknownTag("Event"))
-        ))
+      def executeImport(
+          parsed: ParsedNotation,
+          target: ImportTarget
+      ): Either[NotationFailure, ImportResult[GameState]] =
+        Right(
+          ImportResult.GameImportResult(
+            data = freshState,
+            sourceFormat = NotationFormat.FEN,
+            metadata = GameImportMetadata(),
+            warnings = List(NotationWarning.UnknownTag("Event"))
+          )
+        )
 
     val outcome = GuiNotationApi(gameResultFacade).importFen(InitialFen)
     val success = outcome.asInstanceOf[GuiNotationOutcome.ImportSuccess]
@@ -311,7 +363,10 @@ class GuiNotationApiSpec extends AnyFlatSpec with Matchers:
     val genericWarnFacade = new NotationFacade[GameState]:
       def parse(format: NotationFormat, input: String): Either[ParseFailure, ParsedNotation] =
         chess.notation.fen.FenParser.parse(InitialFen)
-      def executeImport(parsed: ParsedNotation, target: ImportTarget): Either[NotationFailure, ImportResult[GameState]] =
+      def executeImport(
+          parsed: ParsedNotation,
+          target: ImportTarget
+      ): Either[NotationFailure, ImportResult[GameState]] =
         chess.notation.fen.FenImporter.importNotation(parsed, target).map {
           case r: ImportResult.PositionImportResult[GameState @unchecked] =>
             r.copy(warnings = List(NotationWarning.GenericWarning("unusual but harmless")))
@@ -321,7 +376,7 @@ class GuiNotationApiSpec extends AnyFlatSpec with Matchers:
     val outcome = GuiNotationApi(genericWarnFacade).importFen(InitialFen)
     val success = outcome.asInstanceOf[GuiNotationOutcome.ImportSuccess]
     success.warnings.head.category shouldBe GuiWarningCategory.Informational
-    success.warnings.head.message  shouldBe "unusual but harmless"
+    success.warnings.head.message shouldBe "unusual but harmless"
   }
 
   // ── toFailure: SyntaxError with line-only (no column) ─────────────────────
@@ -330,26 +385,32 @@ class GuiNotationApiSpec extends AnyFlatSpec with Matchers:
     val lineOnlyFacade = new NotationFacade[GameState]:
       def parse(format: NotationFormat, input: String): Either[ParseFailure, ParsedNotation] =
         Left(ParseFailure.SyntaxError("unexpected token", line = Some(3), column = None))
-      def executeImport(parsed: ParsedNotation, target: ImportTarget): Either[NotationFailure, ImportResult[GameState]] =
+      def executeImport(
+          parsed: ParsedNotation,
+          target: ImportTarget
+      ): Either[NotationFailure, ImportResult[GameState]] =
         Left(ImportFailure.MappingError("unreachable"))
 
     val outcome = GuiNotationApi(lineOnlyFacade).importFen("x")
     val failure = outcome.asInstanceOf[GuiNotationOutcome.Failure]
     failure.category shouldBe FailureCategory.InvalidInput
-    failure.details  shouldBe Some("Line 3")
+    failure.details shouldBe Some("Line 3")
   }
 
   it should "produce no details for SyntaxError with neither line nor column" in {
     val noLocationFacade = new NotationFacade[GameState]:
       def parse(format: NotationFormat, input: String): Either[ParseFailure, ParsedNotation] =
         Left(ParseFailure.SyntaxError("bad token", line = None, column = None))
-      def executeImport(parsed: ParsedNotation, target: ImportTarget): Either[NotationFailure, ImportResult[GameState]] =
+      def executeImport(
+          parsed: ParsedNotation,
+          target: ImportTarget
+      ): Either[NotationFailure, ImportResult[GameState]] =
         Left(ImportFailure.MappingError("unreachable"))
 
     val outcome = GuiNotationApi(noLocationFacade).importFen("x")
     val failure = outcome.asInstanceOf[GuiNotationOutcome.Failure]
     failure.category shouldBe FailureCategory.InvalidInput
-    failure.details  shouldBe None
+    failure.details shouldBe None
   }
 
   // ── toFailure: ImportFailure branch ───────────────────────────────────────
@@ -358,13 +419,16 @@ class GuiNotationApiSpec extends AnyFlatSpec with Matchers:
     val mappingErrorFacade = new NotationFacade[GameState]:
       def parse(format: NotationFormat, input: String): Either[ParseFailure, ParsedNotation] =
         chess.notation.fen.FenParser.parse(InitialFen)
-      def executeImport(parsed: ParsedNotation, target: ImportTarget): Either[NotationFailure, ImportResult[GameState]] =
+      def executeImport(
+          parsed: ParsedNotation,
+          target: ImportTarget
+      ): Either[NotationFailure, ImportResult[GameState]] =
         Left(ImportFailure.MappingError("could not map field X"))
 
     val outcome = GuiNotationApi(mappingErrorFacade).importFen(InitialFen)
     val failure = outcome.asInstanceOf[GuiNotationOutcome.Failure]
     failure.category shouldBe FailureCategory.SemanticError
-    failure.message  should include("could not map field X")
+    failure.message should include("could not map field X")
   }
 
   it should "map ImportFailure.IncompatibleTarget to Failure(SemanticError)" in {
@@ -372,17 +436,22 @@ class GuiNotationApiSpec extends AnyFlatSpec with Matchers:
     val incompatibleFacade = new NotationFacade[GameState]:
       def parse(format: NotationFormat, input: String): Either[ParseFailure, ParsedNotation] =
         chess.notation.fen.FenParser.parse(InitialFen)
-      def executeImport(parsed: ParsedNotation, target: ImportTarget): Either[NotationFailure, ImportResult[GameState]] =
-        Left(ImportFailure.IncompatibleTarget(
-          parsedKind = ParsedNotationKind.Fen,
-          target     = ImportTarget.GameTarget,
-          message    = "position notation cannot satisfy a game target"
-        ))
+      def executeImport(
+          parsed: ParsedNotation,
+          target: ImportTarget
+      ): Either[NotationFailure, ImportResult[GameState]] =
+        Left(
+          ImportFailure.IncompatibleTarget(
+            parsedKind = ParsedNotationKind.Fen,
+            target = ImportTarget.GameTarget,
+            message = "position notation cannot satisfy a game target"
+          )
+        )
 
     val outcome = GuiNotationApi(incompatibleFacade).importFen(InitialFen)
     val failure = outcome.asInstanceOf[GuiNotationOutcome.Failure]
     failure.category shouldBe FailureCategory.SemanticError
-    failure.message  should include("game target")
+    failure.message should include("game target")
   }
 
   // ── toFailure: ExportFailure branches (via exportFen) ─────────────────────
@@ -391,30 +460,42 @@ class GuiNotationApiSpec extends AnyFlatSpec with Matchers:
     val unsupportedExportFacade = new NotationFacade[GameState]:
       def parse(format: NotationFormat, input: String): Either[ParseFailure, ParsedNotation] =
         Left(ParseFailure.StructuralError("stub"))
-      def executeImport(parsed: ParsedNotation, target: ImportTarget): Either[NotationFailure, ImportResult[GameState]] =
+      def executeImport(
+          parsed: ParsedNotation,
+          target: ImportTarget
+      ): Either[NotationFailure, ImportResult[GameState]] =
         Left(ImportFailure.MappingError("stub"))
-      override def executeExport(data: GameState, format: NotationFormat): Either[NotationFailure, ExportResult] =
+      override def executeExport(
+          data: GameState,
+          format: NotationFormat
+      ): Either[NotationFailure, ExportResult] =
         Left(ExportFailure.UnsupportedExportFormat(format, "FEN export not implemented"))
 
     val outcome = GuiNotationApi(unsupportedExportFacade).exportFen(freshState)
     val failure = outcome.asInstanceOf[GuiNotationOutcome.Failure]
     failure.category shouldBe FailureCategory.UnavailableFeature
-    failure.message  should include("not implemented")
+    failure.message should include("not implemented")
   }
 
   it should "map ExportFailure.SerializationError to Failure(SemanticError)" in {
     val serializationErrorFacade = new NotationFacade[GameState]:
       def parse(format: NotationFormat, input: String): Either[ParseFailure, ParsedNotation] =
         Left(ParseFailure.StructuralError("stub"))
-      def executeImport(parsed: ParsedNotation, target: ImportTarget): Either[NotationFailure, ImportResult[GameState]] =
+      def executeImport(
+          parsed: ParsedNotation,
+          target: ImportTarget
+      ): Either[NotationFailure, ImportResult[GameState]] =
         Left(ImportFailure.MappingError("stub"))
-      override def executeExport(data: GameState, format: NotationFormat): Either[NotationFailure, ExportResult] =
+      override def executeExport(
+          data: GameState,
+          format: NotationFormat
+      ): Either[NotationFailure, ExportResult] =
         Left(ExportFailure.SerializationError("halfmoveClock", "value out of representable range"))
 
     val outcome = GuiNotationApi(serializationErrorFacade).exportFen(freshState)
     val failure = outcome.asInstanceOf[GuiNotationOutcome.Failure]
     failure.category shouldBe FailureCategory.SemanticError
-    failure.message  should include("out of representable range")
+    failure.message should include("out of representable range")
   }
 
   // ── No notation-layer leakage ──────────────────────────────────────────────
@@ -428,6 +509,7 @@ class GuiNotationApiSpec extends AnyFlatSpec with Matchers:
       GuiNotationApi.exportPgn(freshState)
     )
     all(outcomes) shouldBe a[GuiNotationOutcome]
-    outcomes.collect { case f: GuiNotationOutcome.Failure => f }
+    outcomes
+      .collect { case f: GuiNotationOutcome.Failure => f }
       .foreach(_.message should not be empty)
   }

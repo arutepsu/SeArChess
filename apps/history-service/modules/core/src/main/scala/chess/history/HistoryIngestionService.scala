@@ -9,17 +9,17 @@ enum HistoryIngestionError:
   case PersistenceFailed(message: String)
 
 class HistoryIngestionService(
-  archiveClient: RemoteGameArchiveClient,
-  materializer:  ArchiveMaterializer,
-  repository:    ArchiveRepository
+    archiveClient: RemoteGameArchiveClient,
+    materializer: ArchiveMaterializer,
+    repository: ArchiveRepository
 ):
 
   /** Ingest one terminal Game event.
-   *
-   *  The Game -> History delivery contract is at-least-once, so the same event
-   *  may arrive more than once. If an archive already exists for the event's
-   *  game id, return it without refetching the Game snapshot.
-   */
+    *
+    * The Game -> History delivery contract is at-least-once, so the same event may arrive more than
+    * once. If an archive already exists for the event's game id, return it without refetching the
+    * Game snapshot.
+    */
   def ingestEventJson(body: String): Either[HistoryIngestionError, ArchiveRecord] =
     TerminalGameEvent.fromJson(body) match
       case Left(message) =>
@@ -37,7 +37,9 @@ class HistoryIngestionService(
           case Right(None) =>
             materializeAndStore(event)
 
-  private def materializeAndStore(event: TerminalGameEvent): Either[HistoryIngestionError, ArchiveRecord] =
+  private def materializeAndStore(
+      event: TerminalGameEvent
+  ): Either[HistoryIngestionError, ArchiveRecord] =
     archiveClient.fetch(event.gameId) match
       case Left(error) =>
         logWarn("history_ingestion_archive_fetch_failed", event, "error" -> error.toString)

@@ -11,9 +11,8 @@ import org.http4s.dsl.io.*
 
 class Http4sArchiveRoutes(gameService: GameServiceApi):
 
-  val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
-    case GET -> Root / "archive" / "games" / id =>
-      handleGetArchive(id)
+  val routes: HttpRoutes[IO] = HttpRoutes.of[IO] { case GET -> Root / "archive" / "games" / id =>
+    handleGetArchive(id)
   }
 
   private def handleGetArchive(gameIdStr: String): IO[Response[IO]] =
@@ -29,8 +28,16 @@ class Http4sArchiveRoutes(gameService: GameServiceApi):
               ArchiveSnapshotResponse.toJson(ArchiveSnapshotMapper.toResponse(snapshot))
             )
           case Left(ArchiveError.GameNotFound(_)) =>
-            jsonError(Status.NotFound, "ARCHIVE_NOT_FOUND", s"Archive snapshot not found for game: $gameIdStr")
+            jsonError(
+              Status.NotFound,
+              "ARCHIVE_NOT_FOUND",
+              s"Archive snapshot not found for game: $gameIdStr"
+            )
           case Left(ArchiveError.GameNotClosed(_)) =>
-            jsonError(Status.Conflict, "ARCHIVE_NOT_READY", s"Archive snapshot is not available until the game is closed: $gameIdStr")
+            jsonError(
+              Status.Conflict,
+              "ARCHIVE_NOT_READY",
+              s"Archive snapshot is not available until the game is closed: $gameIdStr"
+            )
           case Left(ArchiveError.StorageFailure(msg)) =>
             jsonError(Status.InternalServerError, "INTERNAL_ERROR", msg)

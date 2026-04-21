@@ -24,7 +24,7 @@ final class FenCombinatorGrammarSpec extends AnyWordSpec with Matchers:
 
       result.isRight shouldBe true
 
-      val record = result.toOption.get
+      val record = result.toOption.getOrElse(fail("expected parse success"))
       record.activeColor shouldBe FenColor.White
       record.castling shouldBe FenCastlingAvailability(
         whiteKingSide = true,
@@ -47,7 +47,7 @@ final class FenCombinatorGrammarSpec extends AnyWordSpec with Matchers:
 
       result.isRight shouldBe true
 
-      val record = result.toOption.get
+      val record = result.toOption.getOrElse(fail("expected parse success"))
       record.activeColor shouldBe FenColor.Black
       record.castling shouldBe FenCastlingAvailability.none
       record.enPassant shouldBe FenEnPassantTarget.Square(file = 4, rank = 2)
@@ -62,7 +62,7 @@ final class FenCombinatorGrammarSpec extends AnyWordSpec with Matchers:
 
       result.isRight shouldBe true
 
-      val firstRank = result.toOption.get.ranks.head
+      val firstRank = result.toOption.getOrElse(fail("expected parse success")).ranks.head
       firstRank shouldBe Vector(
         FenSquare.Occupied(FenColor.White, FenPieceSymbol.King),
         FenSquare.Occupied(FenColor.White, FenPieceSymbol.Queen),
@@ -82,7 +82,7 @@ final class FenCombinatorGrammarSpec extends AnyWordSpec with Matchers:
 
       result.isRight shouldBe true
 
-      val firstRank = result.toOption.get.ranks.head
+      val firstRank = result.toOption.getOrElse(fail("expected parse success")).ranks.head
       firstRank shouldBe Vector(
         FenSquare.Occupied(FenColor.Black, FenPieceSymbol.King),
         FenSquare.Occupied(FenColor.Black, FenPieceSymbol.Queen),
@@ -96,28 +96,40 @@ final class FenCombinatorGrammarSpec extends AnyWordSpec with Matchers:
     }
 
     "parse empty runs from digits 1 to 8 correctly" in {
-    val input = "12311/8/8/8/8/8/8/8 w - - 0 1"
+      val input = "12311/8/8/8/8/8/8/8 w - - 0 1"
 
-    val result = parse(input)
+      val result = parse(input)
 
-    result.isRight shouldBe true
-    result.toOption.get.ranks.head shouldBe Vector.fill(8)(FenSquare.Empty)
+      result.isRight shouldBe true
+      result.toOption.getOrElse(fail("expected parse success")).ranks.head shouldBe Vector.fill(8)(
+        FenSquare.Empty
+      )
     }
 
     "parse each castling symbol combination into flags" in {
-      parse("8/8/8/8/8/8/8/8 w K - 0 1").toOption.get.castling shouldBe
+      parse("8/8/8/8/8/8/8/8 w K - 0 1").toOption
+        .getOrElse(fail("expected parse success"))
+        .castling shouldBe
         FenCastlingAvailability(true, false, false, false)
 
-      parse("8/8/8/8/8/8/8/8 w Q - 0 1").toOption.get.castling shouldBe
+      parse("8/8/8/8/8/8/8/8 w Q - 0 1").toOption
+        .getOrElse(fail("expected parse success"))
+        .castling shouldBe
         FenCastlingAvailability(false, true, false, false)
 
-      parse("8/8/8/8/8/8/8/8 w k - 0 1").toOption.get.castling shouldBe
+      parse("8/8/8/8/8/8/8/8 w k - 0 1").toOption
+        .getOrElse(fail("expected parse success"))
+        .castling shouldBe
         FenCastlingAvailability(false, false, true, false)
 
-      parse("8/8/8/8/8/8/8/8 w q - 0 1").toOption.get.castling shouldBe
+      parse("8/8/8/8/8/8/8/8 w q - 0 1").toOption
+        .getOrElse(fail("expected parse success"))
+        .castling shouldBe
         FenCastlingAvailability(false, false, false, true)
 
-      parse("8/8/8/8/8/8/8/8 w Kq - 0 1").toOption.get.castling shouldBe
+      parse("8/8/8/8/8/8/8/8 w Kq - 0 1").toOption
+        .getOrElse(fail("expected parse success"))
+        .castling shouldBe
         FenCastlingAvailability(true, false, false, true)
     }
 
@@ -125,101 +137,116 @@ final class FenCombinatorGrammarSpec extends AnyWordSpec with Matchers:
       val result = parse("8/8/8/8/8/8/8/8 w - - 0")
 
       result.isLeft shouldBe true
-      result.left.toOption.get shouldBe a[ParseFailure.SyntaxError]
+      result.left.toOption
+        .getOrElse(fail("expected parse failure")) shouldBe a[ParseFailure.SyntaxError]
     }
 
     "reject FEN with too many fields" in {
       val result = parse("8/8/8/8/8/8/8/8 w - - 0 1 extra")
 
       result.isLeft shouldBe true
-      result.left.toOption.get shouldBe a[ParseFailure.SyntaxError]
+      result.left.toOption
+        .getOrElse(fail("expected parse failure")) shouldBe a[ParseFailure.SyntaxError]
     }
 
     "reject FEN with double spaces because whitespace is strict" in {
       val result = parse("8/8/8/8/8/8/8/8  w - - 0 1")
 
       result.isLeft shouldBe true
-      result.left.toOption.get shouldBe a[ParseFailure.SyntaxError]
+      result.left.toOption
+        .getOrElse(fail("expected parse failure")) shouldBe a[ParseFailure.SyntaxError]
     }
 
     "reject FEN with missing spaces between fields" in {
       val result = parse("8/8/8/8/8/8/8/8w - - 0 1")
 
       result.isLeft shouldBe true
-      result.left.toOption.get shouldBe a[ParseFailure.SyntaxError]
+      result.left.toOption
+        .getOrElse(fail("expected parse failure")) shouldBe a[ParseFailure.SyntaxError]
     }
 
     "reject invalid active color" in {
       val result = parse("8/8/8/8/8/8/8/8 x - - 0 1")
 
       result.isLeft shouldBe true
-      result.left.toOption.get shouldBe a[ParseFailure.SyntaxError]
+      result.left.toOption
+        .getOrElse(fail("expected parse failure")) shouldBe a[ParseFailure.SyntaxError]
     }
 
     "reject invalid castling symbol" in {
       val result = parse("8/8/8/8/8/8/8/8 w A - 0 1")
 
       result.isLeft shouldBe true
-      result.left.toOption.get shouldBe a[ParseFailure.SyntaxError]
+      result.left.toOption
+        .getOrElse(fail("expected parse failure")) shouldBe a[ParseFailure.SyntaxError]
     }
 
     "reject duplicate castling symbols" in {
-    val result = parse("8/8/8/8/8/8/8/8 w KK - 0 1")
+      val result = parse("8/8/8/8/8/8/8/8 w KK - 0 1")
 
-    result.isLeft shouldBe true
-    val err = result.left.toOption.get.asInstanceOf[ParseFailure.SyntaxError]
-    err.message should include("castling field 'KK' contains duplicate symbols")
-    err.message should include("[line 1, column")
+      result.isLeft shouldBe true
+      val err = (result.left.toOption.getOrElse(fail("expected parse failure")) match {
+        case e: ParseFailure.SyntaxError => e
+      })
+      err.message should include("castling field 'KK' contains duplicate symbols")
+      err.message should include("[line 1, column")
     }
 
     "reject invalid en passant file" in {
       val result = parse("8/8/8/8/8/8/8/8 w - i3 0 1")
 
       result.isLeft shouldBe true
-      result.left.toOption.get shouldBe a[ParseFailure.SyntaxError]
+      result.left.toOption
+        .getOrElse(fail("expected parse failure")) shouldBe a[ParseFailure.SyntaxError]
     }
 
     "reject invalid en passant rank" in {
       val result = parse("8/8/8/8/8/8/8/8 w - e9 0 1")
 
       result.isLeft shouldBe true
-      result.left.toOption.get shouldBe a[ParseFailure.SyntaxError]
+      result.left.toOption
+        .getOrElse(fail("expected parse failure")) shouldBe a[ParseFailure.SyntaxError]
     }
 
     "reject malformed en passant token" in {
       val result = parse("8/8/8/8/8/8/8/8 w - ep 0 1")
 
       result.isLeft shouldBe true
-      result.left.toOption.get shouldBe a[ParseFailure.SyntaxError]
+      result.left.toOption
+        .getOrElse(fail("expected parse failure")) shouldBe a[ParseFailure.SyntaxError]
     }
 
     "parse halfmove clock zero" in {
       val result = parse("8/8/8/8/8/8/8/8 w - - 0 1")
 
       result.isRight shouldBe true
-      result.toOption.get.halfmoveClock shouldBe 0
+      result.toOption.getOrElse(fail("expected parse success")).halfmoveClock shouldBe 0
     }
 
     "reject non-numeric halfmove clock" in {
       val result = parse("8/8/8/8/8/8/8/8 w - - x 1")
 
       result.isLeft shouldBe true
-      result.left.toOption.get shouldBe a[ParseFailure.SyntaxError]
+      result.left.toOption
+        .getOrElse(fail("expected parse failure")) shouldBe a[ParseFailure.SyntaxError]
     }
 
     "parse fullmove number greater than zero" in {
       val result = parse("8/8/8/8/8/8/8/8 w - - 0 99")
 
       result.isRight shouldBe true
-      result.toOption.get.fullmoveNumber shouldBe 99
+      result.toOption.getOrElse(fail("expected parse success")).fullmoveNumber shouldBe 99
     }
 
     "reject fullmove number zero" in {
       val result = parse("8/8/8/8/8/8/8/8 w - - 0 0")
 
       result.isLeft shouldBe true
-      result.left.toOption.get shouldBe a[ParseFailure.SyntaxError]
-      result.left.toOption.get.asInstanceOf[ParseFailure.SyntaxError].message should include(
+      result.left.toOption
+        .getOrElse(fail("expected parse failure")) shouldBe a[ParseFailure.SyntaxError]
+      (result.left.toOption.getOrElse(fail("expected parse failure")) match {
+        case e: ParseFailure.SyntaxError => e
+      }).message should include(
         "fullmove number must be a positive integer"
       )
     }
@@ -228,29 +255,35 @@ final class FenCombinatorGrammarSpec extends AnyWordSpec with Matchers:
       val result = parse("8/8/8/8/8/8/8/8 w - - 0 x")
 
       result.isLeft shouldBe true
-      result.left.toOption.get shouldBe a[ParseFailure.SyntaxError]
+      result.left.toOption
+        .getOrElse(fail("expected parse failure")) shouldBe a[ParseFailure.SyntaxError]
     }
 
     "reject piece placement with too few ranks" in {
       val result = parse("8/8/8/8/8/8/8 w - - 0 1")
 
       result.isLeft shouldBe true
-      result.left.toOption.get shouldBe a[ParseFailure.SyntaxError]
+      result.left.toOption
+        .getOrElse(fail("expected parse failure")) shouldBe a[ParseFailure.SyntaxError]
     }
 
     "reject piece placement with too many ranks" in {
       val result = parse("8/8/8/8/8/8/8/8/8 w - - 0 1")
 
       result.isLeft shouldBe true
-      result.left.toOption.get shouldBe a[ParseFailure.SyntaxError]
+      result.left.toOption
+        .getOrElse(fail("expected parse failure")) shouldBe a[ParseFailure.SyntaxError]
     }
 
     "reject a rank that expands to 7 squares" in {
       val result = parse("7/8/8/8/8/8/8/8 w - - 0 1")
 
       result.isLeft shouldBe true
-      result.left.toOption.get shouldBe a[ParseFailure.SyntaxError]
-      result.left.toOption.get.asInstanceOf[ParseFailure.SyntaxError].message should include(
+      result.left.toOption
+        .getOrElse(fail("expected parse failure")) shouldBe a[ParseFailure.SyntaxError]
+      (result.left.toOption.getOrElse(fail("expected parse failure")) match {
+        case e: ParseFailure.SyntaxError => e
+      }).message should include(
         "rank expands to 7 squares; expected 8"
       )
     }
@@ -259,8 +292,11 @@ final class FenCombinatorGrammarSpec extends AnyWordSpec with Matchers:
       val result = parse("81/8/8/8/8/8/8/8 w - - 0 1")
 
       result.isLeft shouldBe true
-      result.left.toOption.get shouldBe a[ParseFailure.SyntaxError]
-      result.left.toOption.get.asInstanceOf[ParseFailure.SyntaxError].message should include(
+      result.left.toOption
+        .getOrElse(fail("expected parse failure")) shouldBe a[ParseFailure.SyntaxError]
+      (result.left.toOption.getOrElse(fail("expected parse failure")) match {
+        case e: ParseFailure.SyntaxError => e
+      }).message should include(
         "rank expands to 9 squares; expected 8"
       )
     }
@@ -269,28 +305,32 @@ final class FenCombinatorGrammarSpec extends AnyWordSpec with Matchers:
       val result = parse("x7/8/8/8/8/8/8/8 w - - 0 1")
 
       result.isLeft shouldBe true
-      result.left.toOption.get shouldBe a[ParseFailure.SyntaxError]
+      result.left.toOption
+        .getOrElse(fail("expected parse failure")) shouldBe a[ParseFailure.SyntaxError]
     }
 
     "reject rank containing zero as an empty-run digit" in {
       val result = parse("07/8/8/8/8/8/8/8 w - - 0 1")
 
       result.isLeft shouldBe true
-      result.left.toOption.get shouldBe a[ParseFailure.SyntaxError]
+      result.left.toOption
+        .getOrElse(fail("expected parse failure")) shouldBe a[ParseFailure.SyntaxError]
     }
 
     "reject rank containing digit 9 as an empty-run digit" in {
       val result = parse("9/8/8/8/8/8/8/8 w - - 0 1")
 
       result.isLeft shouldBe true
-      result.left.toOption.get shouldBe a[ParseFailure.SyntaxError]
+      result.left.toOption
+        .getOrElse(fail("expected parse failure")) shouldBe a[ParseFailure.SyntaxError]
     }
 
     "reject leftover trailing whitespace because parseAll requires full consumption" in {
       val result = parse("8/8/8/8/8/8/8/8 w - - 0 1 ")
 
       result.isLeft shouldBe true
-      result.left.toOption.get shouldBe a[ParseFailure.SyntaxError]
+      result.left.toOption
+        .getOrElse(fail("expected parse failure")) shouldBe a[ParseFailure.SyntaxError]
     }
 
     "produce useful line and column information in parse failures" in {
@@ -298,7 +338,9 @@ final class FenCombinatorGrammarSpec extends AnyWordSpec with Matchers:
 
       result.isLeft shouldBe true
 
-      val error = result.left.toOption.get.asInstanceOf[ParseFailure.SyntaxError]
+      val error = (result.left.toOption.getOrElse(fail("expected parse failure")) match {
+        case e: ParseFailure.SyntaxError => e
+      })
       error.message should include("[line 1, column")
       error.message should include("failed parsing FEN")
     }

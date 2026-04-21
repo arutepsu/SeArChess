@@ -2,7 +2,13 @@ package chess.historyservice
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-import chess.adapter.event.{AppEventSerializer, DurableHistoryEventPublisher, GameHistoryIngestionContract, HistoryOutboxForwarder, SqliteHistoryEventOutbox}
+import chess.adapter.event.{
+  AppEventSerializer,
+  DurableHistoryEventPublisher,
+  GameHistoryIngestionContract,
+  HistoryOutboxForwarder,
+  SqliteHistoryEventOutbox
+}
 import chess.application.event.AppEvent
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import chess.history.{ArchiveMaterializer, HistoryIngestionService, RemoteGameArchiveClient}
@@ -22,7 +28,7 @@ import java.util.UUID
 class GameOutboxToHistoryIntegrationSpec extends AnyFlatSpec with Matchers:
 
   private val sessionId = SessionId(UUID.fromString("00000000-0000-0000-0000-000000000101"))
-  private val gameId    = GameId(UUID.fromString("00000000-0000-0000-0000-000000000102"))
+  private val gameId = GameId(UUID.fromString("00000000-0000-0000-0000-000000000102"))
 
   "Game outbox to History ingestion" should
     "retain a terminal event after failed delivery and later materialize it through History HTTP" in {
@@ -38,52 +44,58 @@ class GameOutboxToHistoryIntegrationSpec extends AnyFlatSpec with Matchers:
         val archiveBaseUrl = s"http://127.0.0.1:${gameArchiveServer.getAddress.getPort}"
         val ingestion = HistoryIngestionService(
           archiveClient = RemoteGameArchiveClient(archiveBaseUrl, timeoutMillis = 2000),
-          materializer  = ArchiveMaterializer(),
-          repository    = historyRepo
+          materializer = ArchiveMaterializer(),
+          repository = historyRepo
         )
         val historyHttp = HistoryRoutes(ingestion, historyRepo).routes.orNotFound
 
         DurableHistoryEventPublisher(outbox).publish(AppEvent.SessionCancelled(sessionId, gameId))
 
         val failingForwarder = HistoryOutboxForwarder(
-          outbox         = outbox,
+          outbox = outbox,
           historyBaseUrl = "http://history.local:8081",
-          timeoutMillis  = 2000,
-          sendJson       = (_, _, _) => throw RuntimeException("history unavailable")
+          timeoutMillis = 2000,
+          sendJson = (_, _, _) => throw RuntimeException("history unavailable")
         )
         val failedDrain = failingForwarder.runOnce()
 
-        val afterFailure = outbox.pending(10).toOption.get
+        val afterFailure = outbox.pending(10).toOption.getOrElse(fail("pending() returned Left"))
         afterFailure should have size 1
         failedDrain.attempted shouldBe 1
         failedDrain.delivered shouldBe 0
         failedDrain.failed shouldBe 1
         afterFailure.head.attempts shouldBe 1
         afterFailure.head.lastAttemptedAt.value should not be null
-        afterFailure.head.lastError.value should include ("history unavailable")
+        afterFailure.head.lastError.value should include("history unavailable")
 
         val recoveringForwarder = HistoryOutboxForwarder(
-          outbox         = outbox,
+          outbox = outbox,
           historyBaseUrl = "http://history.local:8081",
-          timeoutMillis  = 2000,
-          sendJson       = (_, json, _) => postToHistory(historyHttp, json)
+          timeoutMillis = 2000,
+          sendJson = (_, json, _) => postToHistory(historyHttp, json)
         )
         val recoveredDrain = recoveringForwarder.runOnce()
 
         recoveredDrain.attempted shouldBe 1
         recoveredDrain.delivered shouldBe 1
         recoveredDrain.failed shouldBe 0
-        outbox.pending(10).toOption.get shouldBe empty
+        outbox.pending(10).toOption.getOrElse(fail("pending() returned Left")) shouldBe empty
 
-        val archived = historyRepo.findByGameId(gameId).toOption.get.value
+        val archived = historyRepo
+          .findByGameId(gameId)
+          .toOption
+          .getOrElse(fail("findByGameId returned Left"))
+          .value
         archived.gameId shouldBe gameId
         archived.sessionId shouldBe sessionId
-        archived.finalFen.value should include ("4k3")
+        archived.finalFen.value should include("4k3")
         archived.pgn shouldBe None
 
-        val getResp = historyHttp.run(
-          Request[IO](Method.GET, Uri.unsafeFromString(s"/archives/${gameId.value}"))
-        ).unsafeRunSync()
+        val getResp = historyHttp
+          .run(
+            Request[IO](Method.GET, Uri.unsafeFromString(s"/archives/${gameId.value}"))
+          )
+          .unsafeRunSync()
         getResp.status shouldBe Status.Ok
       finally
         outbox.close()
@@ -104,8 +116,8 @@ class GameOutboxToHistoryIntegrationSpec extends AnyFlatSpec with Matchers:
       val archiveBaseUrl = s"http://127.0.0.1:${gameArchiveServer.getAddress.getPort}"
       val ingestion = HistoryIngestionService(
         archiveClient = RemoteGameArchiveClient(archiveBaseUrl, timeoutMillis = 2000),
-        materializer  = ArchiveMaterializer(),
-        repository    = historyRepo
+        materializer = ArchiveMaterializer(),
+        repository = historyRepo
       )
       val historyHttp = HistoryRoutes(ingestion, historyRepo).routes.orNotFound
       val payload = AppEventSerializer.serialize(AppEvent.SessionCancelled(sessionId, gameId)).value
@@ -114,7 +126,11 @@ class GameOutboxToHistoryIntegrationSpec extends AnyFlatSpec with Matchers:
       gameArchiveServer.stop(0)
       postToHistory(historyHttp, payload)
 
-      val archived = historyRepo.findByGameId(gameId).toOption.get.value
+      val archived = historyRepo
+        .findByGameId(gameId)
+        .toOption
+        .getOrElse(fail("findByGameId returned Left"))
+        .value
       archived.gameId shouldBe gameId
       archived.sessionId shouldBe sessionId
     finally
@@ -126,8 +142,8 @@ class GameOutboxToHistoryIntegrationSpec extends AnyFlatSpec with Matchers:
   private def postToHistory(historyHttp: org.http4s.HttpApp[IO], json: String): Unit =
     val req = Request[IO](
       method = Method.POST,
-      uri    = Uri.unsafeFromString(GameHistoryIngestionContract.GameEventsPath),
-      body   = Stream.emits(json.getBytes(StandardCharsets.UTF_8)).covary[IO]
+      uri = Uri.unsafeFromString(GameHistoryIngestionContract.GameEventsPath),
+      body = Stream.emits(json.getBytes(StandardCharsets.UTF_8)).covary[IO]
     )
     val resp = historyHttp.run(req).unsafeRunSync()
     if !resp.status.isSuccess then
@@ -136,13 +152,15 @@ class GameOutboxToHistoryIntegrationSpec extends AnyFlatSpec with Matchers:
 
   private def archiveServer(body: String): HttpServer =
     val server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0)
-    server.createContext(s"/archive/games/${gameId.value}", exchange =>
-      val bytes = body.getBytes(StandardCharsets.UTF_8)
-      exchange.getResponseHeaders.add("Content-Type", "application/json")
-      exchange.sendResponseHeaders(200, bytes.length.toLong)
-      val os = exchange.getResponseBody
-      try os.write(bytes)
-      finally os.close()
+    server.createContext(
+      s"/archive/games/${gameId.value}",
+      exchange =>
+        val bytes = body.getBytes(StandardCharsets.UTF_8)
+        exchange.getResponseHeaders.add("Content-Type", "application/json")
+        exchange.sendResponseHeaders(200, bytes.length.toLong)
+        val os = exchange.getResponseBody
+        try os.write(bytes)
+        finally os.close()
     )
     server
 

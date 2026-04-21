@@ -8,11 +8,11 @@ import chess.domain.state.{CastlingRights, EnPassantState, GameState, GameStateF
 import chess.notation.api.{ExportFailure, ExportResult, NotationFormat}
 
 /** Tests for [[FenSerializer]] and the export path through [[FenNotationFacade]].
- *
- *  Covers: initial position round-trip, empty board, piece casing, empty-square
- *  compression, active color, castling rights, en passant, field ordering,
- *  clock fields, format rejection, and FenNotationFacade wiring.
- */
+  *
+  * Covers: initial position round-trip, empty board, piece casing, empty-square compression, active
+  * color, castling rights, en passant, field ordering, clock fields, format rejection, and
+  * FenNotationFacade wiring.
+  */
 class FenSerializerSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   private val InitialFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
@@ -22,21 +22,21 @@ class FenSerializerSpec extends AnyFlatSpec with Matchers with EitherValues:
     Position.from(file, rank).getOrElse(throw AssertionError(s"Bad pos: ($file, $rank)"))
 
   private def baseState(
-    board:          Board          = Board.empty,
-    currentPlayer:  Color          = Color.White,
-    castlingRights: CastlingRights = CastlingRights.none,
-    enPassantState: Option[EnPassantState] = None,
-    halfmoveClock:  Int            = 0,
-    fullmoveNumber: Int            = 1
+      board: Board = Board.empty,
+      currentPlayer: Color = Color.White,
+      castlingRights: CastlingRights = CastlingRights.none,
+      enPassantState: Option[EnPassantState] = None,
+      halfmoveClock: Int = 0,
+      fullmoveNumber: Int = 1
   ): GameState =
     GameState(
-      board          = board,
-      currentPlayer  = currentPlayer,
-      moveHistory    = Nil,
-      status         = GameStatus.Ongoing(inCheck = false),
+      board = board,
+      currentPlayer = currentPlayer,
+      moveHistory = Nil,
+      status = GameStatus.Ongoing(inCheck = false),
       castlingRights = castlingRights,
       enPassantState = enPassantState,
-      halfmoveClock  = halfmoveClock,
+      halfmoveClock = halfmoveClock,
       fullmoveNumber = fullmoveNumber
     )
 
@@ -50,7 +50,7 @@ class FenSerializerSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   it should "encode all-empty ranks as 8/8/8/8/8/8/8/8" in {
     val state = baseState()
-    val fen   = FenSerializer.serialize(state)
+    val fen = FenSerializer.serialize(state)
     fen.split(' ')(0) shouldBe "8/8/8/8/8/8/8/8"
   }
 
@@ -62,7 +62,7 @@ class FenSerializerSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   it should "place piece placement in field 0" in {
     val fen = FenSerializer.serialize(freshState)
-    fen.split(' ')(0) should include ("/")
+    fen.split(' ')(0) should include("/")
   }
 
   it should "place active color in field 1" in {
@@ -128,10 +128,10 @@ class FenSerializerSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   it should "compress a full empty rank to the digit 8" in {
     val board = Board.empty.place(pos(4, 0), Piece(Color.White, PieceType.King))
-    val fen   = FenSerializer.serializePiecePlacement(baseState(board = board))
+    val fen = FenSerializer.serializePiecePlacement(baseState(board = board))
     // rank 8 through rank 2 are fully empty → each encodes as "8"
     val ranks = fen.split('/')
-    ranks(0) shouldBe "8"   // rank 8 (index 0 in the FEN, rank index 7)
+    ranks(0) shouldBe "8" // rank 8 (index 0 in the FEN, rank index 7)
     ranks(1) shouldBe "8"
   }
 
@@ -140,8 +140,8 @@ class FenSerializerSpec extends AnyFlatSpec with Matchers with EitherValues:
     val board = Board.empty
       .place(pos(0, 0), Piece(Color.White, PieceType.Rook))
       .place(pos(7, 0), Piece(Color.White, PieceType.Rook))
-    val fen   = FenSerializer.serializePiecePlacement(baseState(board = board))
-    val rank1 = fen.split('/').last   // last rank in FEN = rank 0
+    val fen = FenSerializer.serializePiecePlacement(baseState(board = board))
+    val rank1 = fen.split('/').last // last rank in FEN = rank 0
     rank1 shouldBe "R6R"
   }
 
@@ -188,9 +188,13 @@ class FenSerializerSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   it should "return the target square notation when en passant is active" in {
-    val target    = pos(4, 2)   // e3
-    val capturable = pos(4, 3)  // e4 (the pawn that moved)
-    val ep = EnPassantState(targetSquare = target, capturablePawnSquare = capturable, pawnColor = Color.White)
+    val target = pos(4, 2) // e3
+    val capturable = pos(4, 3) // e4 (the pawn that moved)
+    val ep = EnPassantState(
+      targetSquare = target,
+      capturablePawnSquare = capturable,
+      pawnColor = Color.White
+    )
     FenSerializer.serializeEnPassant(Some(ep)) shouldBe target.toString
   }
 
@@ -207,9 +211,12 @@ class FenSerializerSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   it should "round-trip clock fields from a parsed FEN" in {
-    val fen    = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 12 34"
-    val state  = FenImporter.importNotation(FenParser.parse(fen).value, chess.notation.api.ImportTarget.PositionTarget).value
-      .asInstanceOf[chess.notation.api.ImportResult.PositionImportResult[GameState]].data
+    val fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 12 34"
+    val state = FenImporter
+      .importNotation(FenParser.parse(fen).value, chess.notation.api.ImportTarget.PositionTarget)
+      .value
+      .asInstanceOf[chess.notation.api.ImportResult.PositionImportResult[GameState]]
+      .data
     val exported = FenSerializer.serialize(state).split(' ')
     exported(4) shouldBe "12"
     exported(5) shouldBe "34"
@@ -219,7 +226,10 @@ class FenSerializerSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   it should "round-trip the initial position through parse → import → serialize" in {
     val state = FenImporter
-      .importNotation(FenParser.parse(InitialFen).value, chess.notation.api.ImportTarget.PositionTarget)
+      .importNotation(
+        FenParser.parse(InitialFen).value,
+        chess.notation.api.ImportTarget.PositionTarget
+      )
       .value
       .asInstanceOf[chess.notation.api.ImportResult.PositionImportResult[GameState]]
       .data
@@ -229,7 +239,10 @@ class FenSerializerSpec extends AnyFlatSpec with Matchers with EitherValues:
   it should "round-trip after-e4 position (with en passant target)" in {
     val afterE4 = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
     val state = FenImporter
-      .importNotation(FenParser.parse(afterE4).value, chess.notation.api.ImportTarget.PositionTarget)
+      .importNotation(
+        FenParser.parse(afterE4).value,
+        chess.notation.api.ImportTarget.PositionTarget
+      )
       .value
       .asInstanceOf[chess.notation.api.ImportResult.PositionImportResult[GameState]]
       .data
@@ -240,8 +253,8 @@ class FenSerializerSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   "FenSerializer.exportNotation" should "return Right(ExportResult) for NotationFormat.FEN" in {
     val result = FenSerializer.exportNotation(freshState, NotationFormat.FEN)
-    result.value.format  shouldBe NotationFormat.FEN
-    result.value.text    should not be empty
+    result.value.format shouldBe NotationFormat.FEN
+    result.value.text should not be empty
   }
 
   it should "return Left(UnsupportedExportFormat) for NotationFormat.PGN" in {
@@ -256,7 +269,9 @@ class FenSerializerSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   it should "include the rejected format in the UnsupportedExportFormat failure" in {
     val result = FenSerializer.exportNotation(freshState, NotationFormat.PGN)
-    result.left.value.asInstanceOf[ExportFailure.UnsupportedExportFormat].format shouldBe NotationFormat.PGN
+    result.left.value
+      .asInstanceOf[ExportFailure.UnsupportedExportFormat]
+      .format shouldBe NotationFormat.PGN
   }
 
   // ── FenNotationFacade.parse: non-FEN format rejection ──────────────────────
@@ -284,7 +299,7 @@ class FenSerializerSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   "FenNotationFacade.executeExport" should "succeed for NotationFormat.FEN and return non-empty text" in {
     val result = FenNotationFacade.executeExport(freshState, NotationFormat.FEN)
-    result.value.text   should not be empty
+    result.value.text should not be empty
     result.value.format shouldBe NotationFormat.FEN
   }
 

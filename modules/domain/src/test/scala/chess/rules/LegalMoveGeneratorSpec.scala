@@ -16,9 +16,9 @@ class LegalMoveGeneratorSpec extends AnyFlatSpec with Matchers:
 
   "LegalMoveGenerator.legalTargetsFrom" should "return two squares for an e-file pawn at start" in {
     val state = freshState
-    val e2    = algPos("e2")
-    val e3    = algPos("e3")
-    val e4    = algPos("e4")
+    val e2 = algPos("e2")
+    val e3 = algPos("e3")
+    val e4 = algPos("e4")
     LegalMoveGenerator.legalTargetsFrom(state, e2) shouldBe Set(e3, e4)
   }
 
@@ -28,16 +28,16 @@ class LegalMoveGeneratorSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "return an empty set for an opponent's piece" in {
-    val state = freshState   // White to move
+    val state = freshState // White to move
     LegalMoveGenerator.legalTargetsFrom(state, algPos("e7")) shouldBe empty
   }
 
   // ── legalMovesFrom ────────────────────────────────────────────────────────
 
   "LegalMoveGenerator.legalMovesFrom" should "return Move objects for a pawn on its starting rank" in {
-    val state  = freshState
-    val e2     = algPos("e2")
-    val moves  = LegalMoveGenerator.legalMovesFrom(state, e2)
+    val state = freshState
+    val e2 = algPos("e2")
+    val moves = LegalMoveGenerator.legalMovesFrom(state, e2)
     moves.map(_.to) shouldBe Set(algPos("e3"), algPos("e4"))
     moves.foreach(_.promotion shouldBe None)
   }
@@ -55,7 +55,10 @@ class LegalMoveGeneratorSpec extends AnyFlatSpec with Matchers:
     val promoMoves = moves.filter(_.to == a8)
     promoMoves should have size 4
     promoMoves.flatMap(_.promotion) shouldBe Set(
-      PieceType.Queen, PieceType.Rook, PieceType.Bishop, PieceType.Knight
+      PieceType.Queen,
+      PieceType.Rook,
+      PieceType.Bishop,
+      PieceType.Knight
     )
   }
 

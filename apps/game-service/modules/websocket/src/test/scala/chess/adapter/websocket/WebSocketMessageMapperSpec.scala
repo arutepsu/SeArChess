@@ -8,14 +8,18 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{EitherValues, OptionValues}
 
-class WebSocketMessageMapperSpec extends AnyFlatSpec with Matchers with EitherValues with OptionValues:
+class WebSocketMessageMapperSpec
+    extends AnyFlatSpec
+    with Matchers
+    with EitherValues
+    with OptionValues:
 
-  private val sid  = SessionId.random()
-  private val gid  = GameId.random()
-  private val e2   = Position.from(4, 1).value  // e2
-  private val e4   = Position.from(4, 3).value  // e4
-  private val e7   = Position.from(4, 6).value  // e7
-  private val e8   = Position.from(4, 7).value  // e8
+  private val sid = SessionId.random()
+  private val gid = GameId.random()
+  private val e2 = Position.from(4, 1).value // e2
+  private val e4 = Position.from(4, 3).value // e4
+  private val e7 = Position.from(4, 6).value // e7
+  private val e8 = Position.from(4, 7).value // e8
 
   private def parse(event: AppEvent) = ujson.read(WebSocketMessageMapper.toMessage(event))
 
@@ -25,12 +29,18 @@ class WebSocketMessageMapperSpec extends AnyFlatSpec with Matchers with EitherVa
     val json = parse(AppEvent.PromotionPending(sid, gid))
     json("eventType").str shouldBe "PromotionPending"
     json("sessionId").str shouldBe sid.value.toString
-    json("gameId").str    shouldBe gid.value.toString
+    json("gameId").str shouldBe gid.value.toString
   }
 
   it should "produce valid JSON for all event types" in {
     val events: List[AppEvent] = List(
-      AppEvent.SessionCreated(sid, gid, SessionMode.HumanVsAI, SideController.HumanLocal, SideController.AI()),
+      AppEvent.SessionCreated(
+        sid,
+        gid,
+        SessionMode.HumanVsAI,
+        SideController.HumanLocal,
+        SideController.AI()
+      ),
       AppEvent.SessionLifecycleChanged(sid, gid, SessionLifecycle.Created, SessionLifecycle.Active),
       AppEvent.MoveApplied(sid, gid, Move(e2, e4), Color.White),
       AppEvent.PromotionPending(sid, gid),
@@ -50,39 +60,49 @@ class WebSocketMessageMapperSpec extends AnyFlatSpec with Matchers with EitherVa
   // ── SessionCreated ─────────────────────────────────────────────────────────
 
   "SessionCreated" should "include mode, whiteController, blackController" in {
-    val json = parse(AppEvent.SessionCreated(
-      sid, gid, SessionMode.HumanVsAI, SideController.HumanLocal, SideController.AI()))
-    json("eventType").str        shouldBe "SessionCreated"
-    json("mode").str             shouldBe "HumanVsAI"
-    json("whiteController").str  shouldBe "HumanLocal"
-    json("blackController").str  should startWith("AI")
+    val json = parse(
+      AppEvent.SessionCreated(
+        sid,
+        gid,
+        SessionMode.HumanVsAI,
+        SideController.HumanLocal,
+        SideController.AI()
+      )
+    )
+    json("eventType").str shouldBe "SessionCreated"
+    json("mode").str shouldBe "HumanVsAI"
+    json("whiteController").str shouldBe "HumanLocal"
+    json("blackController").str should startWith("AI")
   }
 
   // ── SessionLifecycleChanged ────────────────────────────────────────────────
 
   "SessionLifecycleChanged" should "include from and to lifecycle values" in {
-    val json = parse(AppEvent.SessionLifecycleChanged(sid, gid, SessionLifecycle.Active, SessionLifecycle.Finished))
+    val json = parse(
+      AppEvent.SessionLifecycleChanged(sid, gid, SessionLifecycle.Active, SessionLifecycle.Finished)
+    )
     json("from").str shouldBe "Active"
-    json("to").str   shouldBe "Finished"
+    json("to").str shouldBe "Finished"
   }
 
   // ── MoveApplied ────────────────────────────────────────────────────────────
 
   "MoveApplied" should "include move with from/to in algebraic notation" in {
     val json = parse(AppEvent.MoveApplied(sid, gid, Move(e2, e4), Color.White))
-    json("playerWhoMoved").str   shouldBe "White"
-    json("move")("from").str     shouldBe "e2"
-    json("move")("to").str       shouldBe "e4"
+    json("playerWhoMoved").str shouldBe "White"
+    json("move")("from").str shouldBe "e2"
+    json("move")("to").str shouldBe "e4"
   }
 
   it should "use playerWhoMoved (not currentPlayer) so the frontend is not misled about whose turn is next" in {
     val json = parse(AppEvent.MoveApplied(sid, gid, Move(e2, e4), Color.White))
     json.obj.contains("currentPlayer") shouldBe false
-    json("playerWhoMoved").str         shouldBe "White"
+    json("playerWhoMoved").str shouldBe "White"
   }
 
   it should "include promotion field when present" in {
-    val json = parse(AppEvent.MoveApplied(sid, gid, Move(e7, e8, Some(PieceType.Queen)), Color.White))
+    val json =
+      parse(AppEvent.MoveApplied(sid, gid, Move(e7, e8, Some(PieceType.Queen)), Color.White))
     json("move")("promotion").str shouldBe "Queen"
   }
 
@@ -101,14 +121,14 @@ class WebSocketMessageMapperSpec extends AnyFlatSpec with Matchers with EitherVa
 
   it should "include status=Draw and drawReason for a draw" in {
     val json = parse(AppEvent.GameFinished(sid, gid, GameStatus.Draw(DrawReason.Stalemate)))
-    json("status").str     shouldBe "Draw"
+    json("status").str shouldBe "Draw"
     json("drawReason").str shouldBe "Stalemate"
   }
 
   it should "include status=Ongoing and inCheck for an ongoing state" in {
     // Defensive: covers the Ongoing branch even though GameFinished won't carry it in practice
     val json = parse(AppEvent.GameFinished(sid, gid, GameStatus.Ongoing(true)))
-    json("status").str   shouldBe "Ongoing"
+    json("status").str shouldBe "Ongoing"
     json("inCheck").bool shouldBe true
   }
 
@@ -124,7 +144,7 @@ class WebSocketMessageMapperSpec extends AnyFlatSpec with Matchers with EitherVa
   "AITurnCompleted" should "include the applied move" in {
     val json = parse(AppEvent.AITurnCompleted(sid, gid, Move(e2, e4)))
     json("move")("from").str shouldBe "e2"
-    json("move")("to").str   shouldBe "e4"
+    json("move")("to").str shouldBe "e4"
   }
 
   // ── AITurnFailed ──────────────────────────────────────────────────────────
@@ -138,10 +158,10 @@ class WebSocketMessageMapperSpec extends AnyFlatSpec with Matchers with EitherVa
 
   "MoveRejected" should "include the rejected move and reason" in {
     val json = parse(AppEvent.MoveRejected(sid, gid, Move(e2, e4), "illegal move"))
-    json("eventType").str     shouldBe "MoveRejected"
-    json("move")("from").str  shouldBe "e2"
-    json("move")("to").str    shouldBe "e4"
-    json("reason").str        shouldBe "illegal move"
+    json("eventType").str shouldBe "MoveRejected"
+    json("move")("from").str shouldBe "e2"
+    json("move")("to").str shouldBe "e4"
+    json("reason").str shouldBe "illegal move"
   }
 
   // GameResigned --------------------------------------------------------------
@@ -149,7 +169,7 @@ class WebSocketMessageMapperSpec extends AnyFlatSpec with Matchers with EitherVa
   "GameResigned" should "include the winner" in {
     val json = parse(AppEvent.GameResigned(sid, gid, Color.Black))
     json("eventType").str shouldBe "GameResigned"
-    json("winner").str    shouldBe "Black"
+    json("winner").str shouldBe "Black"
   }
 
   // SessionCancelled ----------------------------------------------------------
@@ -158,5 +178,5 @@ class WebSocketMessageMapperSpec extends AnyFlatSpec with Matchers with EitherVa
     val json = parse(AppEvent.SessionCancelled(sid, gid))
     json("eventType").str shouldBe "SessionCancelled"
     json("sessionId").str shouldBe sid.value.toString
-    json("gameId").str    shouldBe gid.value.toString
+    json("gameId").str shouldBe gid.value.toString
   }

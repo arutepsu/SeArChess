@@ -5,14 +5,13 @@ import chess.application.port.repository.RepositoryError
 import java.sql.{Connection, DriverManager}
 
 /** Single shared JDBC connection to a SQLite database file.
- *
- *  All access is serialized through the connection monitor.  SQLite in
- *  WAL mode can handle concurrent reads but the single-connection model
- *  is sufficient for the embedded single-JVM use case and avoids
- *  connection-pool complexity.
- *
- *  Call [[close]] when the application shuts down to release the file lock.
- */
+  *
+  * All access is serialized through the connection monitor. SQLite in WAL mode can handle
+  * concurrent reads but the single-connection model is sufficient for the embedded single-JVM use
+  * case and avoids connection-pool complexity.
+  *
+  * Call [[close]] when the application shuts down to release the file lock.
+  */
 class SqliteDataSource(path: String):
 
   Class.forName("org.sqlite.JDBC")

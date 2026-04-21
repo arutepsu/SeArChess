@@ -5,12 +5,11 @@ import chess.application.session.model.SessionIds.GameId
 import chess.domain.state.GameState
 
 /** SQLite-backed [[GameRepository]].
- *
- *  Game state is stored as a JSON blob in the `game_states` table.
- *  All reads and writes go through [[SqliteDataSource.withConnection]];
- *  transactional multi-table writes are handled at the [[SqliteSessionGameStore]]
- *  level instead.
- */
+  *
+  * Game state is stored as a JSON blob in the `game_states` table. All reads and writes go through
+  * [[SqliteDataSource.withConnection]]; transactional multi-table writes are handled at the
+  * [[SqliteSessionGameStore]] level instead.
+  */
 class SqliteGameRepository(ds: SqliteDataSource) extends GameRepository:
 
   override def load(gameId: GameId): Either[RepositoryError, GameState] =
@@ -24,8 +23,7 @@ class SqliteGameRepository(ds: SqliteDataSource) extends GameRepository:
           else Left(RepositoryError.NotFound(gameId.value.toString))
         finally
           rs.close()
-      finally
-        ps.close()
+      finally ps.close()
     }
 
   override def save(gameId: GameId, state: GameState): Either[RepositoryError, Unit] =
@@ -39,8 +37,7 @@ class SqliteGameRepository(ds: SqliteDataSource) extends GameRepository:
           ps.setString(2, GameStateJson.encode(state))
           ps.executeUpdate()
           Right(())
-        finally
-          ps.close()
+        finally ps.close()
       }
     catch
       case e: java.sql.SQLException =>

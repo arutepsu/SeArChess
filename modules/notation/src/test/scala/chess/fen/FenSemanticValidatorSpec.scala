@@ -6,14 +6,13 @@ import org.scalatest.EitherValues
 import chess.notation.api.{FenData, ParsedNotation, ValidationFailure}
 
 /** Unit tests for [[FenSemanticValidator]].
- *
- *  Uses [[FenParser.parse]] to obtain valid [[FenData]] values without
- *  hand-constructing them.
- */
+  *
+  * Uses [[FenParser.parse]] to obtain valid [[FenData]] values without hand-constructing them.
+  */
 class FenSemanticValidatorSpec extends AnyFlatSpec with Matchers with EitherValues:
 
-  private val InitialFen   = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-  private val SimpleFen    = "8/7k/8/8/8/8/8/4K3 w - - 0 1"  // both kings, no castling
+  private val InitialFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+  private val SimpleFen = "8/7k/8/8/8/8/8/4K3 w - - 0 1" // both kings, no castling
 
   private def data(fen: String) =
     FenParser.parse(fen).value.asInstanceOf[ParsedNotation.ParsedFen].data

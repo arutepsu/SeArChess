@@ -1,12 +1,10 @@
 package chess.notation.json
 
-
 import chess.domain.state._
 import chess.domain.model._
 import chess.notation.api._
 import scala.util.{Try, Success, Failure}
 import ujson.{Value, Obj, Arr}
-
 
 object JsonNotationFacade extends NotationFacade[GameState]:
 
@@ -18,8 +16,8 @@ object JsonNotationFacade extends NotationFacade[GameState]:
         Left(ParseFailure.StructuralError(s"No parser for format: $other"))
 
   override def executeImport(
-    parsed: ParsedNotation,
-    target: ImportTarget
+      parsed: ParsedNotation,
+      target: ImportTarget
   ): Either[NotationFailure, ImportResult[GameState]] =
     (parsed, target) match
       case (ParsedNotation.ParsedJsonGame(raw), ImportTarget.GameTarget) =>
@@ -45,15 +43,17 @@ object JsonNotationFacade extends NotationFacade[GameState]:
       case (ParsedNotation.ParsedJsonPosition(raw), ImportTarget.PositionTarget) =>
         Left(ImportFailure.MappingError("JSON position import not implemented yet"))
       case _ =>
-        Left(ImportFailure.IncompatibleTarget(
-          parsedKind = parsed.kind,
-          target = target,
-          message = "JSON import: incompatible target or IR"
-        ))
+        Left(
+          ImportFailure.IncompatibleTarget(
+            parsedKind = parsed.kind,
+            target = target,
+            message = "JSON import: incompatible target or IR"
+          )
+        )
 
   override def executeExport(
-    data: GameState,
-    format: NotationFormat
+      data: GameState,
+      format: NotationFormat
   ): Either[NotationFailure, ExportResult] =
     format match
       case NotationFormat.JSON =>
@@ -66,13 +66,13 @@ object JsonNotationFacade extends NotationFacade[GameState]:
 
   private def toJsonGameState(gs: GameState): Obj = {
     Obj(
-      "board"          -> toJsonBoard(gs.board),
-      "currentPlayer"  -> gs.currentPlayer.toString,
-      "moveHistory"    -> Arr(gs.moveHistory.map(toJsonMove)*),
-      "status"         -> toJsonGameStatus(gs.status),
+      "board" -> toJsonBoard(gs.board),
+      "currentPlayer" -> gs.currentPlayer.toString,
+      "moveHistory" -> Arr(gs.moveHistory.map(toJsonMove)*),
+      "status" -> toJsonGameStatus(gs.status),
       "castlingRights" -> toJsonCastlingRights(gs.castlingRights),
       "enPassantState" -> gs.enPassantState.map(toJsonEnPassantState).getOrElse(ujson.Null),
-      "halfmoveClock"  -> gs.halfmoveClock,
+      "halfmoveClock" -> gs.halfmoveClock,
       "fullmoveNumber" -> gs.fullmoveNumber
     )
   }
@@ -80,7 +80,7 @@ object JsonNotationFacade extends NotationFacade[GameState]:
   private def toJsonBoard(board: Board): Arr =
     Arr(board.pieces.map { case (pos, piece) =>
       Obj(
-        "pos"   -> toJsonPosition(pos),
+        "pos" -> toJsonPosition(pos),
         "piece" -> toJsonPiece(piece)
       )
     }*)
@@ -93,8 +93,8 @@ object JsonNotationFacade extends NotationFacade[GameState]:
 
   private def toJsonMove(move: Move): Obj =
     Obj(
-      "from"      -> toJsonPosition(move.from),
-      "to"        -> toJsonPosition(move.to),
+      "from" -> toJsonPosition(move.from),
+      "to" -> toJsonPosition(move.to),
       "promotion" -> move.promotion.map(pt => ujson.Str(pt.toString)).getOrElse(ujson.Null)
     )
 
@@ -111,32 +111,35 @@ object JsonNotationFacade extends NotationFacade[GameState]:
 
   private def toJsonCastlingRights(cr: CastlingRights): Obj =
     Obj(
-      "whiteKingSide"  -> cr.whiteKingSide,
+      "whiteKingSide" -> cr.whiteKingSide,
       "whiteQueenSide" -> cr.whiteQueenSide,
-      "blackKingSide"  -> cr.blackKingSide,
+      "blackKingSide" -> cr.blackKingSide,
       "blackQueenSide" -> cr.blackQueenSide
     )
 
   private def toJsonEnPassantState(eps: EnPassantState): Obj =
     Obj(
-      "targetSquare"         -> toJsonPosition(eps.targetSquare),
+      "targetSquare" -> toJsonPosition(eps.targetSquare),
       "capturablePawnSquare" -> toJsonPosition(eps.capturablePawnSquare),
-      "pawnColor"            -> eps.pawnColor.toString
+      "pawnColor" -> eps.pawnColor.toString
     )
 
   private def fromJsonGameState(json: Value): Either[String, GameState] =
     try {
       for {
         board <- fromJsonBoard(json("board"))
-        currentPlayer <- Color.values.find(_.toString == json("currentPlayer").str).toRight("Invalid currentPlayer")
+        currentPlayer <- Color.values
+          .find(_.toString == json("currentPlayer").str)
+          .toRight("Invalid currentPlayer")
         moveHistory <- fromJsonMoveHistory(json("moveHistory"))
         status <- fromJsonGameStatus(json("status"))
         castlingRights <- fromJsonCastlingRights(json("castlingRights"))
-        enPassantState <- (
-          if (json.obj.contains("enPassantState") && !json("enPassantState").isNull)
-            fromJsonEnPassantState(json("enPassantState")).map(Some(_))
-          else Right(None)
-        )
+        enPassantState <-
+          (
+            if (json.obj.contains("enPassantState") && !json("enPassantState").isNull)
+              fromJsonEnPassantState(json("enPassantState")).map(Some(_))
+            else Right(None)
+          )
         halfmoveClock = json("halfmoveClock").num.toInt
         fullmoveNumber = json("fullmoveNumber").num.toInt
       } yield GameState(
@@ -174,13 +177,13 @@ object JsonNotationFacade extends NotationFacade[GameState]:
     for {
       file <- Try(json("file").num.toInt).toEither.left.map(_.getMessage)
       rank <- Try(json("rank").num.toInt).toEither.left.map(_.getMessage)
-      pos  <- Position.from(file, rank).left.map(_.toString)
+      pos <- Position.from(file, rank).left.map(_.toString)
     } yield pos
 
   private def fromJsonPiece(json: Value): Either[String, Piece] =
     for {
       color <- Color.values.find(_.toString == json("color").str).toRight("Invalid color")
-      pt    <- PieceType.values.find(_.toString == json("pieceType").str).toRight("Invalid pieceType")
+      pt <- PieceType.values.find(_.toString == json("pieceType").str).toRight("Invalid pieceType")
     } yield Piece(color, pt)
 
   private def fromJsonMoveHistory(json: Value): Either[String, List[Move]] = {
@@ -193,35 +196,47 @@ object JsonNotationFacade extends NotationFacade[GameState]:
   private def fromJsonMove(json: Value): Either[String, Move] =
     for {
       from <- fromJsonPosition(json("from"))
-      to   <- fromJsonPosition(json("to"))
-      promotion = if (json.obj.contains("promotion") && !json("promotion").isNull)
-        PieceType.values.find(_.toString == json("promotion").str)
-      else None
+      to <- fromJsonPosition(json("to"))
+      promotion =
+        if (json.obj.contains("promotion") && !json("promotion").isNull)
+          PieceType.values.find(_.toString == json("promotion").str)
+        else None
     } yield Move(from, to, promotion)
 
   private def fromJsonGameStatus(json: Value): Either[String, GameStatus] =
     json("type").str match {
-      case "Ongoing"   => Right(GameStatus.Ongoing(json("inCheck").bool))
-      case "Checkmate" => Color.values.find(_.toString == json("winner").str)
-        .map(GameStatus.Checkmate(_)).toRight("Invalid winner in Checkmate")
-      case "Draw"      => DrawReason.values.find(_.toString == json("reason").str)
-        .map(GameStatus.Draw(_)).toRight("Invalid reason in Draw")
-      case "Resigned"  => Color.values.find(_.toString == json("winner").str)
-        .map(GameStatus.Resigned(_)).toRight("Invalid winner in Resigned")
-      case other        => Left(s"Unknown GameStatus type: $other")
+      case "Ongoing" => Right(GameStatus.Ongoing(json("inCheck").bool))
+      case "Checkmate" =>
+        Color.values
+          .find(_.toString == json("winner").str)
+          .map(GameStatus.Checkmate(_))
+          .toRight("Invalid winner in Checkmate")
+      case "Draw" =>
+        DrawReason.values
+          .find(_.toString == json("reason").str)
+          .map(GameStatus.Draw(_))
+          .toRight("Invalid reason in Draw")
+      case "Resigned" =>
+        Color.values
+          .find(_.toString == json("winner").str)
+          .map(GameStatus.Resigned(_))
+          .toRight("Invalid winner in Resigned")
+      case other => Left(s"Unknown GameStatus type: $other")
     }
 
   private def fromJsonCastlingRights(json: Value): Either[String, CastlingRights] =
-    Try(CastlingRights(
-      whiteKingSide  = json("whiteKingSide").bool,
-      whiteQueenSide = json("whiteQueenSide").bool,
-      blackKingSide  = json("blackKingSide").bool,
-      blackQueenSide = json("blackQueenSide").bool
-    )).toEither.left.map(_.getMessage)
+    Try(
+      CastlingRights(
+        whiteKingSide = json("whiteKingSide").bool,
+        whiteQueenSide = json("whiteQueenSide").bool,
+        blackKingSide = json("blackKingSide").bool,
+        blackQueenSide = json("blackQueenSide").bool
+      )
+    ).toEither.left.map(_.getMessage)
 
   private def fromJsonEnPassantState(json: Value): Either[String, EnPassantState] =
     for {
       target <- fromJsonPosition(json("targetSquare"))
-      pawn   <- fromJsonPosition(json("capturablePawnSquare"))
-      color  <- Color.values.find(_.toString == json("pawnColor").str).toRight("Invalid pawnColor")
+      pawn <- fromJsonPosition(json("capturablePawnSquare"))
+      color <- Color.values.find(_.toString == json("pawnColor").str).toRight("Invalid pawnColor")
     } yield EnPassantState(target, pawn, color)

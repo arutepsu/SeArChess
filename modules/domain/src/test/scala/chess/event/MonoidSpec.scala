@@ -14,7 +14,8 @@ class MonoidSpec extends AnyFlatSpec with Matchers:
   )
 
   private val eventA: DomainEvent = DomainEvent.MoveApplied(move)
-  private val eventB: DomainEvent = DomainEvent.GameStatusChanged(chess.domain.model.GameStatus.Ongoing(true))
+  private val eventB: DomainEvent =
+    DomainEvent.GameStatusChanged(chess.domain.model.GameStatus.Ongoing(true))
 
   "Monoid[List[DomainEvent]]" should "have empty = Nil" in {
     summon[Monoid[List[DomainEvent]]].empty shouldBe Nil

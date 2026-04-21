@@ -5,13 +5,13 @@ import chess.application.port.event.EventPublisher
 import scala.collection.mutable
 
 /** Event publisher that accumulates published events in an in-memory buffer.
- *
- *  Intended for tests and development environments where published events need
- *  to be inspected after the fact.
- *
- *  Not thread-safe.  Create one instance per test or per logical operation
- *  under test; do not share across concurrent calls.
- */
+  *
+  * Intended for tests and development environments where published events need to be inspected
+  * after the fact.
+  *
+  * Not thread-safe. Create one instance per test or per logical operation under test; do not share
+  * across concurrent calls.
+  */
 class CollectingEventPublisher extends EventPublisher:
 
   private val buffer = mutable.ArrayBuffer.empty[AppEvent]

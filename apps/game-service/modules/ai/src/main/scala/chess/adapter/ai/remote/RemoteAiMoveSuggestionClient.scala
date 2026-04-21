@@ -10,18 +10,17 @@ import java.time.Duration
 import scala.util.control.NonFatal
 
 /** HTTP adapter for the standalone remote AI Service.
- *
- *  Implements the application [[AiMoveSuggestionClient]] port so Game Service and
- *  AI turn orchestration remain unchanged. The remote service still only
- *  proposes a move; Game Service validates and applies it through the normal
- *  command path.
- */
+  *
+  * Implements the application [[AiMoveSuggestionClient]] port so Game Service and AI turn
+  * orchestration remain unchanged. The remote service still only proposes a move; Game Service
+  * validates and applies it through the normal command path.
+  */
 class RemoteAiMoveSuggestionClient(
-  baseUrl:          String,
-  timeoutMillis:    Int,
-  defaultEngineId:  Option[String] = None,
-  testMode:         Option[String] = None,
-  client:           HttpClient = HttpClient.newHttpClient()
+    baseUrl: String,
+    timeoutMillis: Int,
+    defaultEngineId: Option[String] = None,
+    testMode: Option[String] = None,
+    client: HttpClient = HttpClient.newHttpClient()
 ) extends AiMoveSuggestionClient:
 
   private val TestModeHeader = "X-Searchess-AI-Test-Mode"
@@ -33,33 +32,38 @@ class RemoteAiMoveSuggestionClient(
     val request =
       RemoteAiRequestMapper
         .toRequest(
-          context         = context,
-          timeoutMillis   = timeoutMillis,
+          context = context,
+          timeoutMillis = timeoutMillis,
           defaultEngineId = defaultEngineId
         )
-        .left.map { err =>
+        .left
+        .map { err =>
           StructuredLog.warn(
             "game-service",
             "ai_request_build_failed",
-                "requestId" -> context.requestId,
-                "gameId" -> context.gameId.value.toString,
-                "sessionId" -> context.sessionId.value.toString,
-                "sideToMove" -> context.sideToMove.toString.toLowerCase,
-                "error" -> err.toString
-              )
+            "requestId" -> context.requestId,
+            "gameId" -> context.gameId.value.toString,
+            "sessionId" -> context.sessionId.value.toString,
+            "sideToMove" -> context.sideToMove.toString.toLowerCase,
+            "error" -> err.toString
+          )
           AIError.MalformedResponse(s"failed to build AI request: $err")
         }
 
     request.flatMap { requestDto =>
       send(requestDto).flatMap { response =>
-        toDomainMove(response.move).left.map { err =>
-          logWarn("ai_response_move_invalid", requestDto, "error" -> describe(err))
-          err
-        }.map(AIResponse.apply)
+        toDomainMove(response.move).left
+          .map { err =>
+            logWarn("ai_response_move_invalid", requestDto, "error" -> describe(err))
+            err
+          }
+          .map(AIResponse.apply)
       }
     }
 
-  private def send(requestDto: RemoteAiMoveSuggestionRequest): Either[AIError, RemoteAiMoveSuggestionResponse] =
+  private def send(
+      requestDto: RemoteAiMoveSuggestionRequest
+  ): Either[AIError, RemoteAiMoveSuggestionResponse] =
     val body = RemoteAiJson.requestToJson(requestDto)
     val requestBuilder = HttpRequest
       .newBuilder(endpoint)
@@ -147,10 +151,14 @@ class RemoteAiMoveSuggestionClient(
 
   private def toDomainMove(dto: RemoteAiMoveDto): Either[AIError, Move] =
     for
-      from      <- Position.fromAlgebraic(dto.from)
-                     .left.map(err => AIError.MalformedResponse(s"invalid AI move from '${dto.from}': $err"))
-      to        <- Position.fromAlgebraic(dto.to)
-                     .left.map(err => AIError.MalformedResponse(s"invalid AI move to '${dto.to}': $err"))
+      from <- Position
+        .fromAlgebraic(dto.from)
+        .left
+        .map(err => AIError.MalformedResponse(s"invalid AI move from '${dto.from}': $err"))
+      to <- Position
+        .fromAlgebraic(dto.to)
+        .left
+        .map(err => AIError.MalformedResponse(s"invalid AI move to '${dto.to}': $err"))
       promotion <- parsePromotion(dto.promotion)
     yield Move(from, to, promotion)
 
@@ -172,10 +180,18 @@ class RemoteAiMoveSuggestionClient(
       "engineId" -> request.engine.engineId
     )
 
-  private def logInfo(event: String, request: RemoteAiMoveSuggestionRequest, fields: (String, Any)*): Unit =
+  private def logInfo(
+      event: String,
+      request: RemoteAiMoveSuggestionRequest,
+      fields: (String, Any)*
+  ): Unit =
     StructuredLog.info("game-service", event, (fieldsFor(request) ++ fields)*)
 
-  private def logWarn(event: String, request: RemoteAiMoveSuggestionRequest, fields: (String, Any)*): Unit =
+  private def logWarn(
+      event: String,
+      request: RemoteAiMoveSuggestionRequest,
+      fields: (String, Any)*
+  ): Unit =
     StructuredLog.warn("game-service", event, (fieldsFor(request) ++ fields)*)
 
   private def elapsedMillis(startedNanos: Long): Long =

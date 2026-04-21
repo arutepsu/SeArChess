@@ -5,7 +5,14 @@ import chess.application.session.model.{SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import chess.domain.model.{Color, DrawReason, GameStatus}
 import chess.domain.state.{GameState, GameStateFactory}
-import chess.notation.api.{ExportFailure, ExportResult, ImportResult, ImportTarget, NotationFailure, NotationFormat}
+import chess.notation.api.{
+  ExportFailure,
+  ExportResult,
+  ImportResult,
+  ImportTarget,
+  NotationFailure,
+  NotationFormat
+}
 import chess.notation.pgn.PgnNotationFacade
 import org.scalatest.EitherValues
 import org.scalatest.OptionValues
@@ -14,11 +21,10 @@ import org.scalatest.matchers.should.Matchers
 import java.time.Instant
 
 /** Tests for [[ArchiveMaterializer.materialize]].
- *
- *  Covers result derivation for all [[GameClosure]] variants, PGN header
- *  assembly, FEN population, cancelled-game edge cases, and error propagation
- *  when the injected notation exporters fail.
- */
+  *
+  * Covers result derivation for all [[GameClosure]] variants, PGN header assembly, FEN population,
+  * cancelled-game edge cases, and error propagation when the injected notation exporters fail.
+  */
 class ArchiveMaterializerSpec extends AnyFlatSpec with Matchers with EitherValues with OptionValues:
 
   private val mat = ArchiveMaterializer()
@@ -28,21 +34,21 @@ class ArchiveMaterializerSpec extends AnyFlatSpec with Matchers with EitherValue
   private val fixedNow = Instant.parse("2026-04-20T10:00:00Z")
 
   private def snapshot(
-    closure:   GameClosure,
-    state:     GameState = GameStateFactory.initial(),
-    createdAt: Instant   = fixedNow
+      closure: GameClosure,
+      state: GameState = GameStateFactory.initial(),
+      createdAt: Instant = fixedNow
   ): GameArchiveSnapshot =
     val gameId = GameId.random()
     GameArchiveSnapshot(
-      sessionId       = SessionId.random(),
-      gameId          = gameId,
-      mode            = SessionMode.HumanVsHuman,
+      sessionId = SessionId.random(),
+      gameId = gameId,
+      mode = SessionMode.HumanVsHuman,
       whiteController = SideController.HumanLocal,
       blackController = SideController.HumanLocal,
-      closure         = closure,
-      finalState      = GameView.fromState(gameId, state),
-      createdAt       = createdAt,
-      closedAt        = createdAt.plusSeconds(120)
+      closure = closure,
+      finalState = GameView.fromState(gameId, state),
+      createdAt = createdAt,
+      closedAt = createdAt.plusSeconds(120)
     )
 
   /** Import a PGN string to a GameState with a non-empty move history. */
@@ -57,16 +63,16 @@ class ArchiveMaterializerSpec extends AnyFlatSpec with Matchers with EitherValue
 
   "ArchiveMaterializer.materialize" should "produce an ArchiveRecord for a resigned game" in {
     val state = GameStateFactory.initial().copy(status = GameStatus.Resigned(Color.White))
-    val snap  = snapshot(GameClosure.Resigned(Color.White), state)
+    val snap = snapshot(GameClosure.Resigned(Color.White), state)
 
     val record = mat.materialize(snap, fixedNow).value
 
-    record.closure         shouldBe GameClosure.Resigned(Color.White)
-    record.pgn             shouldBe defined
-    record.finalFen        shouldBe defined
-    record.gameId          shouldBe snap.gameId
-    record.sessionId       shouldBe snap.sessionId
-    record.materializedAt  shouldBe fixedNow
+    record.closure shouldBe GameClosure.Resigned(Color.White)
+    record.pgn shouldBe defined
+    record.finalFen shouldBe defined
+    record.gameId shouldBe snap.gameId
+    record.sessionId shouldBe snap.sessionId
+    record.materializedAt shouldBe fixedNow
   }
 
   it should "embed 1-0 result tag in PGN when White wins by resignation" in {
@@ -89,8 +95,8 @@ class ArchiveMaterializerSpec extends AnyFlatSpec with Matchers with EitherValue
     val state = GameStateFactory.initial().copy(status = GameStatus.Checkmate(Color.White))
     val record = mat.materialize(snapshot(GameClosure.Checkmate(Color.White), state)).value
 
-    record.closure  shouldBe GameClosure.Checkmate(Color.White)
-    record.pgn      shouldBe defined
+    record.closure shouldBe GameClosure.Checkmate(Color.White)
+    record.pgn shouldBe defined
     record.finalFen shouldBe defined
   }
 
@@ -114,8 +120,8 @@ class ArchiveMaterializerSpec extends AnyFlatSpec with Matchers with EitherValue
     val state = GameStateFactory.initial().copy(status = GameStatus.Draw(DrawReason.Stalemate))
     val record = mat.materialize(snapshot(GameClosure.Draw(DrawReason.Stalemate), state)).value
 
-    record.closure  shouldBe GameClosure.Draw(DrawReason.Stalemate)
-    record.pgn      shouldBe defined
+    record.closure shouldBe GameClosure.Draw(DrawReason.Stalemate)
+    record.pgn shouldBe defined
     record.finalFen shouldBe defined
   }
 
@@ -132,8 +138,8 @@ class ArchiveMaterializerSpec extends AnyFlatSpec with Matchers with EitherValue
     val stateWithMoves = stateFromPgn("1. e4 e5 *")
     val record = mat.materialize(snapshot(GameClosure.Cancelled, stateWithMoves)).value
 
-    record.closure         shouldBe GameClosure.Cancelled
-    record.pgn             shouldBe defined
+    record.closure shouldBe GameClosure.Cancelled
+    record.pgn shouldBe defined
     record.pgn.value should include("1. e4")
     record.pgn.value should endWith("*")
     record.pgn.value should include("""[Result "*"]""")
@@ -149,7 +155,7 @@ class ArchiveMaterializerSpec extends AnyFlatSpec with Matchers with EitherValue
 
   it should "set pgn to None for a cancelled game with no moves" in {
     val record = mat.materialize(snapshot(GameClosure.Cancelled)).value
-    record.pgn     shouldBe None
+    record.pgn shouldBe None
     record.closure shouldBe GameClosure.Cancelled
   }
 
@@ -175,16 +181,16 @@ class ArchiveMaterializerSpec extends AnyFlatSpec with Matchers with EitherValue
   }
 
   it should "format the Date tag from createdAt in yyyy.MM.dd format" in {
-    val state   = GameStateFactory.initial().copy(status = GameStatus.Resigned(Color.White))
-    val snap    = snapshot(GameClosure.Resigned(Color.White), state, createdAt = fixedNow)
-    val record  = mat.materialize(snap).value
+    val state = GameStateFactory.initial().copy(status = GameStatus.Resigned(Color.White))
+    val snap = snapshot(GameClosure.Resigned(Color.White), state, createdAt = fixedNow)
+    val record = mat.materialize(snap).value
     record.pgn.value should include("""[Date "2026.04.20"]""")
   }
 
   it should "emit headers before movetext with a blank-line separator" in {
-    val state  = GameStateFactory.initial().copy(status = GameStatus.Resigned(Color.White))
+    val state = GameStateFactory.initial().copy(status = GameStatus.Resigned(Color.White))
     val record = mat.materialize(snapshot(GameClosure.Resigned(Color.White), state)).value
-    val pgn    = record.pgn.value
+    val pgn = record.pgn.value
     val headerEnd = pgn.indexOf("\n\n")
     headerEnd should be > 0
     pgn.substring(0, headerEnd) should startWith("[Event")
@@ -193,7 +199,7 @@ class ArchiveMaterializerSpec extends AnyFlatSpec with Matchers with EitherValue
   // ── FEN content ──────────────────────────────────────────────────────────────
 
   it should "produce the standard starting-position FEN for an initial-state game" in {
-    val state  = GameStateFactory.initial().copy(status = GameStatus.Resigned(Color.White))
+    val state = GameStateFactory.initial().copy(status = GameStatus.Resigned(Color.White))
     val record = mat.materialize(snapshot(GameClosure.Resigned(Color.White), state)).value
     // Standard starting FEN — verifies FEN round-trip is exact
     record.finalFen.value shouldBe "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
@@ -202,17 +208,17 @@ class ArchiveMaterializerSpec extends AnyFlatSpec with Matchers with EitherValue
   // ── ArchiveRecord metadata ────────────────────────────────────────────────────
 
   it should "copy session/game identity fields from the snapshot" in {
-    val snap   = snapshot(GameClosure.Cancelled)
+    val snap = snapshot(GameClosure.Cancelled)
     val record = mat.materialize(snap, fixedNow).value
 
-    record.gameId          shouldBe snap.gameId
-    record.sessionId       shouldBe snap.sessionId
-    record.mode            shouldBe snap.mode
+    record.gameId shouldBe snap.gameId
+    record.sessionId shouldBe snap.sessionId
+    record.mode shouldBe snap.mode
     record.whiteController shouldBe snap.whiteController
     record.blackController shouldBe snap.blackController
-    record.createdAt       shouldBe snap.createdAt
-    record.closedAt        shouldBe snap.closedAt
-    record.materializedAt  shouldBe fixedNow
+    record.createdAt shouldBe snap.createdAt
+    record.closedAt shouldBe snap.closedAt
+    record.materializedAt shouldBe fixedNow
   }
 
   // ── Error propagation ────────────────────────────────────────────────────────
@@ -234,9 +240,11 @@ class ArchiveMaterializerSpec extends AnyFlatSpec with Matchers with EitherValue
     val failMat = ArchiveMaterializer.withExporters(realFen, failingPgn)
 
     // Use a resigned state with a move so PGN derivation is attempted
-    val state  = stateFromPgn("1. e4 *")
-    val snap   = snapshot(GameClosure.Resigned(Color.White),
-                          state.copy(status = GameStatus.Resigned(Color.White)))
+    val state = stateFromPgn("1. e4 *")
+    val snap = snapshot(
+      GameClosure.Resigned(Color.White),
+      state.copy(status = GameStatus.Resigned(Color.White))
+    )
     val result = failMat.materialize(snap)
     result.left.value shouldBe a[ArchiveMaterializeError.PgnExportFailed]
   }

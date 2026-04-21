@@ -9,5 +9,5 @@ object ConsoleIO extends Console:
   private[textui] var in: () => String = () => scala.io.StdIn.readLine()
 
   def readLine(): String = in()
-  def print(text: String): Unit   = scala.Console.print(text)
+  def print(text: String): Unit = scala.Console.print(text)
   def printLine(text: String): Unit = scala.Console.println(text)

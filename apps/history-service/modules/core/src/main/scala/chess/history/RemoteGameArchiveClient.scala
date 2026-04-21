@@ -15,9 +15,9 @@ enum GameArchiveClientError:
   case DecodeFailure(message: String)
 
 class RemoteGameArchiveClient(
-  baseUrl:       String,
-  timeoutMillis: Int = 2000,
-  client:        HttpClient = HttpClient.newHttpClient()
+    baseUrl: String,
+    timeoutMillis: Int = 2000,
+    client: HttpClient = HttpClient.newHttpClient()
 ):
 
   def fetch(gameId: GameId): Either[GameArchiveClientError, GameArchiveSnapshot] =
@@ -89,7 +89,11 @@ class RemoteGameArchiveClient(
             "status" -> status,
             "elapsedMillis" -> elapsed
           )
-          Left(GameArchiveClientError.TransportFailure(s"Game Service returned HTTP $status: ${response.body()}"))
+          Left(
+            GameArchiveClientError.TransportFailure(
+              s"Game Service returned HTTP $status: ${response.body()}"
+            )
+          )
     catch
       case NonFatal(e) =>
         StructuredLog.warn(

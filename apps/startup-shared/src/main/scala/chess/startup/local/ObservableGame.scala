@@ -5,9 +5,10 @@ import chess.domain.state.GameState
 import scala.collection.mutable
 
 /** Concrete synchronized implementation of [[GameStateObservable]] for local clients. */
-class ObservableGame(initialState: GameState = ChessService.createNewGame()) extends GameStateObservable:
+class ObservableGame(initialState: GameState = ChessService.createNewGame())
+    extends GameStateObservable:
   private var state: GameState = initialState
-  private val observers        = mutable.ListBuffer[GameState => Unit]()
+  private val observers = mutable.ListBuffer[GameState => Unit]()
 
   def getState: GameState = synchronized { state }
 

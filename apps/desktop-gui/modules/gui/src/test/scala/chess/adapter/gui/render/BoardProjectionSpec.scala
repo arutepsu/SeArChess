@@ -48,7 +48,7 @@ class BoardProjectionSpec extends AnyFlatSpec with Matchers:
 
   it should "scale with squareSize" in {
     BoardProjection.toPixelX(pos(0, 4), 100.0) shouldBe 400.0
-    BoardProjection.toPixelX(pos(0, 4), 72.0)  shouldBe (4 * 72.0)
+    BoardProjection.toPixelX(pos(0, 4), 72.0) shouldBe (4 * 72.0)
   }
 
   it should "be independent of file" in {
@@ -67,7 +67,7 @@ class BoardProjectionSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "scale with squareSize" in {
-    BoardProjection.toPixelY(pos(4, 0), 100.0) shouldBe 300.0  // (7-4)*100
+    BoardProjection.toPixelY(pos(4, 0), 100.0) shouldBe 300.0 // (7-4)*100
   }
 
   it should "be independent of rank" in {

@@ -8,22 +8,22 @@ import org.http4s.headers.`Content-Type`
 import java.util.UUID
 
 /** Shared response-building helpers for http4s route classes.
- *
- *  All methods return `IO[Response[IO]]` so they compose naturally with
- *  http4s's `HttpRoutes.of[IO]` blocks.
- *
- *  JSON serialisation uses ujson (already a project dependency) rather than
- *  circe, keeping the adapter self-contained.
- */
+  *
+  * All methods return `IO[Response[IO]]` so they compose naturally with http4s's
+  * `HttpRoutes.of[IO]` blocks.
+  *
+  * JSON serialisation uses ujson (already a project dependency) rather than circe, keeping the
+  * adapter self-contained.
+  */
 object Http4sRouteSupport:
 
   /** Build a JSON HTTP response with the given status and ujson body. */
   def jsonResponse(status: Status, json: ujson.Value): IO[Response[IO]] =
     IO.pure(
       Response[IO](
-        status  = status,
+        status = status,
         headers = Headers(`Content-Type`(MediaType.application.json)),
-        body    = Stream.emits(ujson.write(json).getBytes("UTF-8")).covary[IO]
+        body = Stream.emits(ujson.write(json).getBytes("UTF-8")).covary[IO]
       )
     )
 

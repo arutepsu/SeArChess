@@ -23,9 +23,9 @@ class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherV
   }
 
   it should "allow the legacy ingestion alias to be explicitly enabled" in {
-    val config = HistoryServiceConfig.load(key =>
-      Map("HISTORY_ACCEPT_LEGACY_INGESTION_PATH" -> "true").get(key)
-    ).value
+    val config = HistoryServiceConfig
+      .load(key => Map("HISTORY_ACCEPT_LEGACY_INGESTION_PATH" -> "true").get(key))
+      .value
 
     config.acceptLegacyIngestionPath shouldBe true
   }
@@ -34,12 +34,13 @@ class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherV
     HistoryServiceConfig
       .load(key => Map("HISTORY_ACCEPT_LEGACY_INGESTION_PATH" -> "yes").get(key))
       .left
-      .value should include ("HISTORY_ACCEPT_LEGACY_INGESTION_PATH must be true or false")
+      .value should include("HISTORY_ACCEPT_LEGACY_INGESTION_PATH must be true or false")
   }
 
   "HistoryRoutes" should "keep the legacy ingestion alias disabled by default" in {
     withRoutes() { http =>
-      val response = http.run(post(GameHistoryIngestionContract.LegacyGameEventsPath, "{}")).unsafeRunSync()
+      val response =
+        http.run(post(GameHistoryIngestionContract.LegacyGameEventsPath, "{}")).unsafeRunSync()
 
       response.status shouldBe Status.NotFound
     }
@@ -47,7 +48,8 @@ class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherV
 
   it should "enable the legacy ingestion alias only when explicitly configured" in {
     withRoutes(acceptLegacy = true) { http =>
-      val response = http.run(post(GameHistoryIngestionContract.LegacyGameEventsPath, "{}")).unsafeRunSync()
+      val response =
+        http.run(post(GameHistoryIngestionContract.LegacyGameEventsPath, "{}")).unsafeRunSync()
 
       response.status shouldBe Status.BadRequest
     }
@@ -55,7 +57,8 @@ class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherV
 
   it should "report internal boundary details from health without checking optional dependencies" in {
     withRoutes() { http =>
-      val response = http.run(Request[IO](Method.GET, Uri.unsafeFromString("/health"))).unsafeRunSync()
+      val response =
+        http.run(Request[IO](Method.GET, Uri.unsafeFromString("/health"))).unsafeRunSync()
       val body = response.bodyText.compile.string.unsafeRunSync()
       val json = ujson.read(body)
 
