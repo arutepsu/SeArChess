@@ -2,6 +2,7 @@ package chess.adapter.ai.remote
 
 import chess.application.port.ai.{AIError, AiMoveSuggestionClient, AIRequestContext, AIResponse}
 import chess.domain.model.{Move, PieceType, Position}
+import chess.observability.StructuredLog
 
 import java.net.URI
 import java.net.http.{HttpClient, HttpRequest, HttpResponse}
@@ -27,18 +28,35 @@ class RemoteAiMoveSuggestionClient(
     URI.create(s"${baseUrl.stripSuffix("/")}${RemoteAiServiceContract.MoveSuggestionsPath}")
 
   override def suggestMove(context: AIRequestContext): Either[AIError, AIResponse] =
-    for
-      request <- RemoteAiRequestMapper
-                   .toRequest(
-                     context         = context,
-                     timeoutMillis   = timeoutMillis,
-                     defaultEngineId = defaultEngineId,
-                     testMode        = testMode
-                   )
-                   .left.map(err => AIError.MalformedResponse(s"failed to build AI request: $err"))
-      response <- send(request)
-      move     <- toDomainMove(response.move)
-    yield AIResponse(move)
+    val request =
+      RemoteAiRequestMapper
+        .toRequest(
+          context         = context,
+          timeoutMillis   = timeoutMillis,
+          defaultEngineId = defaultEngineId,
+          testMode        = testMode
+        )
+        .left.map { err =>
+          StructuredLog.warn(
+            "game-service",
+            "ai_request_build_failed",
+                "requestId" -> context.requestId,
+                "gameId" -> context.gameId.value.toString,
+                "sessionId" -> context.sessionId.value.toString,
+                "sideToMove" -> context.sideToMove.toString.toLowerCase,
+                "error" -> err.toString
+              )
+          AIError.MalformedResponse(s"failed to build AI request: $err")
+        }
+
+    request.flatMap { requestDto =>
+      send(requestDto).flatMap { response =>
+        toDomainMove(response.move).left.map { err =>
+          logWarn("ai_response_move_invalid", requestDto, "error" -> describe(err))
+          err
+        }.map(AIResponse.apply)
+      }
+    }
 
   private def send(requestDto: RemoteAiMoveSuggestionRequest): Either[AIError, RemoteAiMoveSuggestionResponse] =
     val body = RemoteAiJson.requestToJson(requestDto)
@@ -50,17 +68,66 @@ class RemoteAiMoveSuggestionClient(
       .POST(HttpRequest.BodyPublishers.ofString(body))
       .build()
 
+    val started = System.nanoTime()
+    logInfo(
+      "ai_request_started",
+      requestDto,
+      "endpoint" -> endpoint.toString,
+      "timeoutMillis" -> timeoutMillis,
+      "legalMoveCount" -> requestDto.legalMoves.size
+    )
+
     try
       val response = client.send(request, HttpResponse.BodyHandlers.ofString())
+      val elapsed = elapsedMillis(started)
       response.statusCode() match
         case status if status >= 200 && status < 300 =>
-          RemoteAiJson.responseFromJson(response.body()).left.map(AIError.MalformedResponse.apply)
+          RemoteAiJson.responseFromJson(response.body()) match
+            case Right(parsed) =>
+              logInfo(
+                "ai_request_succeeded",
+                requestDto,
+                "status" -> status,
+                "elapsedMillis" -> elapsed,
+                "responseEngineId" -> parsed.engineId,
+                "move" -> s"${parsed.move.from}${parsed.move.to}"
+              )
+              Right(parsed)
+            case Left(err) =>
+              logWarn(
+                "ai_response_malformed",
+                requestDto,
+                "status" -> status,
+                "elapsedMillis" -> elapsed,
+                "error" -> err
+              )
+              Left(AIError.MalformedResponse(err))
         case _ =>
-          Left(mapRemoteError(response.statusCode(), response.body()))
+          val error = mapRemoteError(response.statusCode(), response.body())
+          logWarn(
+            "ai_request_failed",
+            requestDto,
+            "status" -> response.statusCode(),
+            "elapsedMillis" -> elapsed,
+            "error" -> describe(error)
+          )
+          Left(error)
     catch
       case _: java.net.http.HttpTimeoutException =>
+        logWarn(
+          "ai_request_timeout",
+          requestDto,
+          "elapsedMillis" -> elapsedMillis(started),
+          "timeoutMillis" -> timeoutMillis
+        )
         Left(AIError.Timeout(s"timed out after ${timeoutMillis}ms"))
       case NonFatal(e) =>
+        logWarn(
+          "ai_request_transport_failed",
+          requestDto,
+          "elapsedMillis" -> elapsedMillis(started),
+          "error" -> e.getMessage
+        )
         Left(AIError.Unavailable(s"transport failure: ${e.getMessage}"))
 
   private def mapRemoteError(status: Int, body: String): AIError =
@@ -93,3 +160,28 @@ class RemoteAiMoveSuggestionClient(
           .find(_.toString.equalsIgnoreCase(raw))
           .map(pt => Right(Some(pt)))
           .getOrElse(Left(AIError.MalformedResponse(s"invalid AI promotion piece: '$raw'")))
+
+  private def fieldsFor(request: RemoteAiMoveSuggestionRequest): Seq[(String, Any)] =
+    Seq(
+      "requestId" -> request.requestId,
+      "gameId" -> request.gameId,
+      "sessionId" -> request.sessionId,
+      "sideToMove" -> request.sideToMove,
+      "engineId" -> request.engine.engineId
+    )
+
+  private def logInfo(event: String, request: RemoteAiMoveSuggestionRequest, fields: (String, Any)*): Unit =
+    StructuredLog.info("game-service", event, (fieldsFor(request) ++ fields)*)
+
+  private def logWarn(event: String, request: RemoteAiMoveSuggestionRequest, fields: (String, Any)*): Unit =
+    StructuredLog.warn("game-service", event, (fieldsFor(request) ++ fields)*)
+
+  private def elapsedMillis(startedNanos: Long): Long =
+    (System.nanoTime() - startedNanos) / 1000000L
+
+  private def describe(error: AIError): String = error match
+    case AIError.NoLegalMove              => "NoLegalMove"
+    case AIError.Unavailable(message)     => s"Unavailable: $message"
+    case AIError.Timeout(message)         => s"Timeout: $message"
+    case AIError.EngineFailure(message)   => s"EngineFailure: $message"
+    case AIError.MalformedResponse(error) => s"MalformedResponse: $error"

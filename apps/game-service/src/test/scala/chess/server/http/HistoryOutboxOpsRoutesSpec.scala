@@ -72,6 +72,7 @@ class HistoryOutboxOpsRoutesSpec extends AnyFlatSpec with Matchers:
     try
       val event = AppEvent.SessionCancelled(SessionId.random(), GameId.random())
       val id = append(outbox, event)
+      outbox.markAttempted(id).toOption.get
       outbox.markFailed(id, "history down").toOption.get
       val routes = HistoryOutboxOpsRoutes(Some(outbox)).routes.orNotFound
 
@@ -82,6 +83,7 @@ class HistoryOutboxOpsRoutesSpec extends AnyFlatSpec with Matchers:
       val detail = bodyJson(run(routes, Request[IO](Method.GET, Uri.unsafeFromString(s"/ops/history-outbox/$id"))))
       detail("status").str shouldBe "retrying"
       detail("attempts").num.toInt shouldBe 1
+      detail("lastAttemptedAt").str should not be empty
       detail("lastError").str shouldBe "history down"
       detail("payloadJson")("type").str shouldBe "game.session.cancelled.v1"
     finally outbox.close()

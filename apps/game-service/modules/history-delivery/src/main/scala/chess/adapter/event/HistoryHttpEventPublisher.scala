@@ -2,6 +2,7 @@ package chess.adapter.event
 
 import chess.application.event.AppEvent
 import chess.application.port.event.EventPublisher
+import chess.observability.StructuredLog
 import java.net.URI
 import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.time.Duration
@@ -26,11 +27,33 @@ class HistoryHttpEventPublisher(
     if DurableHistoryEventPublisher.isTerminalBoundaryEvent(event) then
       try
         AppEventSerializer.serialize(event).foreach(json =>
+          StructuredLog.info(
+            "game-service",
+            "history_direct_delivery_attempted",
+            "eventType" -> DurableHistoryEventPublisher.eventName(event),
+            "gameId" -> event.gameId.value.toString,
+            "sessionId" -> event.sessionId.value.toString,
+            "endpoint" -> endpoint.toString
+          )
           sendJson(endpoint, json, timeoutMillis)
+          StructuredLog.info(
+            "game-service",
+            "history_direct_delivery_succeeded",
+            "eventType" -> DurableHistoryEventPublisher.eventName(event),
+            "gameId" -> event.gameId.value.toString,
+            "sessionId" -> event.sessionId.value.toString
+          )
         )
       catch
         case NonFatal(e) =>
-          System.err.println(s"[chess] History event forwarding failed: ${e.getMessage}")
+          StructuredLog.warn(
+            "game-service",
+            "history_direct_delivery_failed",
+            "eventType" -> DurableHistoryEventPublisher.eventName(event),
+            "gameId" -> event.gameId.value.toString,
+            "sessionId" -> event.sessionId.value.toString,
+            "error" -> e.getMessage
+          )
 
 object HistoryHttpEventPublisher:
 

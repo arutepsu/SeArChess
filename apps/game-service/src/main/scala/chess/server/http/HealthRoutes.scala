@@ -17,7 +17,7 @@ import org.http4s.headers.`Content-Type`
  *    GET /health -> 200 OK
  *    Content-Type: application/json
  *
- *    {"status":"ok"}
+ *    {"status":"ok","service":"searchess-game-service","check":"process-liveness"}
  *  }}}
  *
  *  No deep dependency checks are performed; the response indicates the server
@@ -30,5 +30,5 @@ object HealthRoutes:
   def routes: HttpRoutes[IO] =
     HttpRoutes.of[IO]:
       case GET -> Root / `HealthSegment` =>
-        Ok("""{"status":"ok"}""")
+        Ok("""{"status":"ok","service":"searchess-game-service","check":"process-liveness","optionalDependencies":["ai-service","history-service"]}""")
           .map(_.withContentType(`Content-Type`(MediaType.application.json)))

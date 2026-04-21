@@ -59,7 +59,7 @@ class SqliteHistoryEventOutbox(path: String) extends HistoryEventOutbox:
       try
         val stmt = conn.prepareStatement(
           """SELECT id, event_type, session_id, game_id, payload_json, created_at,
-            |       attempts, last_error, delivered_at
+            |       attempts, last_attempted_at, last_error, delivered_at
             |FROM history_event_outbox
             |WHERE delivered_at IS NULL
             |ORDER BY id ASC
@@ -81,7 +81,7 @@ class SqliteHistoryEventOutbox(path: String) extends HistoryEventOutbox:
       try
         val stmt = conn.prepareStatement(
           """SELECT id, event_type, session_id, game_id, payload_json, created_at,
-            |       attempts, last_error, delivered_at
+            |       attempts, last_attempted_at, last_error, delivered_at
             |FROM history_event_outbox
             |WHERE id = ?""".stripMargin
         )
@@ -94,6 +94,16 @@ class SqliteHistoryEventOutbox(path: String) extends HistoryEventOutbox:
           finally rs.close()
         finally stmt.close()
       catch case NonFatal(e) => Left(e.getMessage)
+
+  override def markAttempted(id: Long): Either[String, Unit] =
+    synchronized:
+      update(
+        """UPDATE history_event_outbox
+          |SET attempts = attempts + 1, last_attempted_at = ?, last_error = NULL
+          |WHERE id = ? AND delivered_at IS NULL""".stripMargin,
+        _.setString(1, Instant.now().toString),
+        id
+      )
 
   override def markDelivered(id: Long): Either[String, Unit] =
     synchronized:
@@ -109,8 +119,8 @@ class SqliteHistoryEventOutbox(path: String) extends HistoryEventOutbox:
     synchronized:
       update(
         """UPDATE history_event_outbox
-          |SET attempts = attempts + 1, last_error = ?
-          |WHERE id = ?""".stripMargin,
+          |SET last_error = ?
+          |WHERE id = ? AND delivered_at IS NULL""".stripMargin,
         _.setString(1, error.take(1000)),
         id
       )
@@ -130,10 +140,12 @@ class SqliteHistoryEventOutbox(path: String) extends HistoryEventOutbox:
             |  payload_json TEXT NOT NULL,
             |  created_at   TEXT NOT NULL,
             |  attempts     INTEGER NOT NULL DEFAULT 0,
+            |  last_attempted_at TEXT,
             |  last_error   TEXT,
             |  delivered_at TEXT
             |)""".stripMargin
         )
+        addColumnIfMissing(stmt, "last_attempted_at", "TEXT")
         stmt.execute(
           """CREATE INDEX IF NOT EXISTS idx_history_event_outbox_pending
             |ON history_event_outbox(delivered_at, id)""".stripMargin
@@ -167,7 +179,7 @@ class SqliteHistoryEventOutbox(path: String) extends HistoryEventOutbox:
       try
         val stmt = conn.prepareStatement(
           """SELECT id, event_type, session_id, game_id, payload_json, created_at,
-            |       attempts, last_error, delivered_at
+            |       attempts, last_attempted_at, last_error, delivered_at
             |FROM history_event_outbox
             |ORDER BY id ASC""".stripMargin
         )
@@ -190,6 +202,13 @@ class SqliteHistoryEventOutbox(path: String) extends HistoryEventOutbox:
       payloadJson = rs.getString("payload_json"),
       createdAt   = Instant.parse(rs.getString("created_at")),
       attempts    = rs.getInt("attempts"),
+      lastAttemptedAt = Option(rs.getString("last_attempted_at")).map(Instant.parse),
       lastError   = Option(rs.getString("last_error")),
       deliveredAt = Option(rs.getString("delivered_at")).map(Instant.parse)
     )
+
+  private def addColumnIfMissing(stmt: java.sql.Statement, name: String, tpe: String): Unit =
+    val rs = conn.getMetaData.getColumns(null, null, "history_event_outbox", name)
+    try
+      if !rs.next() then stmt.execute(s"ALTER TABLE history_event_outbox ADD COLUMN $name $tpe")
+    finally rs.close()

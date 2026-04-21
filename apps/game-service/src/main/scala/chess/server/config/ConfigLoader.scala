@@ -1,5 +1,7 @@
 package chess.server.config
 
+import chess.observability.StructuredLog
+
 /** Loads Game Service runtime configuration from environment variables. */
 object ConfigLoader:
 
@@ -58,7 +60,10 @@ object ConfigLoader:
 
   def loadOrExit(): AppConfig =
     load().fold(
-      err => { System.err.println(s"[game] Configuration error: $err"); sys.exit(1) },
+      err => {
+        StructuredLog.error("game-service", "configuration_error", "error" -> err)
+        sys.exit(1)
+      },
       identity
     )
 

@@ -1,5 +1,7 @@
 package chess.historyservice
 
+import chess.observability.StructuredLog
+
 final case class HistoryServiceConfig(
   host:               String,
   port:               Int,
@@ -11,7 +13,10 @@ final case class HistoryServiceConfig(
 object HistoryServiceConfig:
   def loadOrExit(): HistoryServiceConfig =
     load().fold(
-      err => { System.err.println(s"[history] Configuration error: $err"); sys.exit(1) },
+      err => {
+        StructuredLog.error("history-service", "configuration_error", "error" -> err)
+        sys.exit(1)
+      },
       identity
     )
 

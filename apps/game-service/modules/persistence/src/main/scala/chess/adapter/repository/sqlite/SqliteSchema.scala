@@ -44,6 +44,7 @@ object SqliteSchema:
       |  payload_json TEXT NOT NULL,
       |  created_at   TEXT NOT NULL,
       |  attempts     INTEGER NOT NULL DEFAULT 0,
+      |  last_attempted_at TEXT,
       |  last_error   TEXT,
       |  delivered_at TEXT
       |)""".stripMargin

@@ -10,6 +10,7 @@ final case class HistoryOutboxEntry(
   payloadJson: String,
   createdAt:   Instant,
   attempts:    Int,
+  lastAttemptedAt: Option[Instant],
   lastError:   Option[String],
   deliveredAt: Option[Instant]
 )
@@ -29,5 +30,6 @@ trait HistoryEventOutbox:
   def summary(): Either[String, HistoryOutboxSummary]
   def pending(limit: Int): Either[String, List[HistoryOutboxEntry]]
   def find(id: Long): Either[String, Option[HistoryOutboxEntry]]
+  def markAttempted(id: Long): Either[String, Unit]
   def markDelivered(id: Long): Either[String, Unit]
   def markFailed(id: Long, error: String): Either[String, Unit]

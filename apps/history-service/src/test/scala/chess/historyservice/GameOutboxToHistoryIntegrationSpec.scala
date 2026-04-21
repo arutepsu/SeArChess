@@ -2,7 +2,7 @@ package chess.historyservice
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-import chess.adapter.event.{DurableHistoryEventPublisher, GameHistoryIngestionContract, HistoryOutboxForwarder, SqliteHistoryEventOutbox}
+import chess.adapter.event.{AppEventSerializer, DurableHistoryEventPublisher, GameHistoryIngestionContract, HistoryOutboxForwarder, SqliteHistoryEventOutbox}
 import chess.application.event.AppEvent
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import chess.history.{ArchiveMaterializer, HistoryIngestionService, RemoteGameArchiveClient}
@@ -51,11 +51,15 @@ class GameOutboxToHistoryIntegrationSpec extends AnyFlatSpec with Matchers:
           timeoutMillis  = 2000,
           sendJson       = (_, _, _) => throw RuntimeException("history unavailable")
         )
-        failingForwarder.runOnce()
+        val failedDrain = failingForwarder.runOnce()
 
         val afterFailure = outbox.pending(10).toOption.get
         afterFailure should have size 1
+        failedDrain.attempted shouldBe 1
+        failedDrain.delivered shouldBe 0
+        failedDrain.failed shouldBe 1
         afterFailure.head.attempts shouldBe 1
+        afterFailure.head.lastAttemptedAt.value should not be null
         afterFailure.head.lastError.value should include ("history unavailable")
 
         val recoveringForwarder = HistoryOutboxForwarder(
@@ -64,8 +68,11 @@ class GameOutboxToHistoryIntegrationSpec extends AnyFlatSpec with Matchers:
           timeoutMillis  = 2000,
           sendJson       = (_, json, _) => postToHistory(historyHttp, json)
         )
-        recoveringForwarder.runOnce()
+        val recoveredDrain = recoveringForwarder.runOnce()
 
+        recoveredDrain.attempted shouldBe 1
+        recoveredDrain.delivered shouldBe 1
+        recoveredDrain.failed shouldBe 0
         outbox.pending(10).toOption.get shouldBe empty
 
         val archived = historyRepo.findByGameId(gameId).toOption.get.value
@@ -85,6 +92,36 @@ class GameOutboxToHistoryIntegrationSpec extends AnyFlatSpec with Matchers:
         Files.deleteIfExists(outboxDb)
         Files.deleteIfExists(historyDb)
     }
+
+  it should "treat duplicate terminal event delivery as idempotent on History" in {
+    val gameArchiveServer = archiveServer(archiveSnapshotJson)
+    gameArchiveServer.start()
+
+    val historyDb = Files.createTempFile("searchess-history-duplicate-", ".sqlite")
+    val historyRepo = SqliteArchiveRepository(historyDb.toString)
+
+    try
+      val archiveBaseUrl = s"http://127.0.0.1:${gameArchiveServer.getAddress.getPort}"
+      val ingestion = HistoryIngestionService(
+        archiveClient = RemoteGameArchiveClient(archiveBaseUrl, timeoutMillis = 2000),
+        materializer  = ArchiveMaterializer(),
+        repository    = historyRepo
+      )
+      val historyHttp = HistoryRoutes(ingestion, historyRepo).routes.orNotFound
+      val payload = AppEventSerializer.serialize(AppEvent.SessionCancelled(sessionId, gameId)).value
+
+      postToHistory(historyHttp, payload)
+      gameArchiveServer.stop(0)
+      postToHistory(historyHttp, payload)
+
+      val archived = historyRepo.findByGameId(gameId).toOption.get.value
+      archived.gameId shouldBe gameId
+      archived.sessionId shouldBe sessionId
+    finally
+      historyRepo.close()
+      gameArchiveServer.stop(0)
+      Files.deleteIfExists(historyDb)
+  }
 
   private def postToHistory(historyHttp: org.http4s.HttpApp[IO], json: String): Unit =
     val req = Request[IO](

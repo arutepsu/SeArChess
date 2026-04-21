@@ -3,6 +3,7 @@ package chess.server.assembly
 import chess.adapter.event.{AppEventSerializer, FanOutEventPublisher, HistoryEventOutbox, HistoryHttpEventPublisher, HistoryOutboxForwarder, SqliteHistoryEventOutbox}
 import chess.adapter.websocket.{ChessWebSocketServer, WebSocketConnectionRegistry, WebSocketEventPublisher}
 import chess.application.port.event.{EventPublisher, NoOpTerminalEventJsonSerializer, TerminalEventJsonSerializer}
+import chess.observability.StructuredLog
 import chess.server.config.{AppConfig, EventMode, PersistenceMode}
 
 /** Game Service event runtime produced by [[EventAssembly.assemble]].
@@ -88,7 +89,11 @@ object EventAssembly:
           (Seq.empty, AppEventSerializer, Some(outbox), () => { forwarder.stop(); outbox.close() })
 
         case PersistenceMode.InMemory =>
-          System.err.println(
-            "[chess] History forwarding is best-effort because PERSISTENCE_MODE is not sqlite"
+          StructuredLog.warn(
+            "game-service",
+            "history_forwarding_best_effort",
+            "reason" -> "PERSISTENCE_MODE is not sqlite",
+            "persistence" -> config.persistence.toString,
+            "historyBaseUrl" -> url
           )
           (Seq(HistoryHttpEventPublisher(url, config.history.timeoutMillis)), NoOpTerminalEventJsonSerializer, None, () => ())
