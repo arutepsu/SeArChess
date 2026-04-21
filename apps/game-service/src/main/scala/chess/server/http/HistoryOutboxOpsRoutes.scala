@@ -51,6 +51,9 @@ class HistoryOutboxOpsRoutes(outbox: Option[HistoryEventOutbox]):
 
   private def summaryJson(summary: HistoryOutboxSummary): ujson.Value =
     ujson.Obj(
+      "sourceOfTruth"   -> "history_event_outbox",
+      "delivery"        -> "at-least-once",
+      "healthImpact"    -> "non-critical",
       "totalCount"      -> summary.totalCount,
       "pendingCount"    -> summary.pendingCount,
       "deliveredCount"  -> summary.deliveredCount,
@@ -70,6 +73,7 @@ class HistoryOutboxOpsRoutes(outbox: Option[HistoryEventOutbox]):
       "gameId"      -> entry.gameId,
       "createdAt"   -> entry.createdAt.toString,
       "attempts"    -> entry.attempts,
+      "lastAttemptedAt" -> instantOrNull(entry.lastAttemptedAt),
       "status"      -> status(entry),
       "pending"     -> entry.deliveredAt.isEmpty,
       "lastError"   -> entry.lastError.fold(ujson.Null: ujson.Value)(ujson.Str(_)),

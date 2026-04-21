@@ -2,6 +2,7 @@ package chess.adapter.event
 
 import chess.application.event.AppEvent
 import chess.application.port.event.EventPublisher
+import chess.observability.StructuredLog
 import scala.util.control.NonFatal
 
 /** Writes terminal History-facing Game events to a durable outbox.
@@ -18,12 +19,22 @@ class DurableHistoryEventPublisher(outbox: HistoryEventOutbox) extends EventPubl
       try
         AppEventSerializer.serialize(event).foreach { json =>
           outbox.append(json).left.foreach { err =>
-            System.err.println(s"[chess] History outbox write failed: $err")
+            StructuredLog.warn(
+              "game-service",
+              "history_outbox_write_failed",
+              "eventType" -> DurableHistoryEventPublisher.eventName(event),
+              "error" -> err
+            )
           }
         }
       catch
         case NonFatal(e) =>
-          System.err.println(s"[chess] History outbox write failed: ${e.getMessage}")
+          StructuredLog.warn(
+            "game-service",
+            "history_outbox_write_failed",
+            "eventType" -> DurableHistoryEventPublisher.eventName(event),
+            "error" -> e.getMessage
+          )
 
 object DurableHistoryEventPublisher:
 
@@ -32,3 +43,16 @@ object DurableHistoryEventPublisher:
     case _: AppEvent.GameResigned     => true
     case _: AppEvent.SessionCancelled => true
     case _                            => false
+
+  def eventName(event: AppEvent): String = event match
+    case _: AppEvent.GameFinished             => "GameFinished"
+    case _: AppEvent.GameResigned             => "GameResigned"
+    case _: AppEvent.SessionCancelled         => "SessionCancelled"
+    case _: AppEvent.SessionCreated           => "SessionCreated"
+    case _: AppEvent.MoveApplied              => "MoveApplied"
+    case _: AppEvent.MoveRejected             => "MoveRejected"
+    case _: AppEvent.PromotionPending         => "PromotionPending"
+    case _: AppEvent.SessionLifecycleChanged  => "SessionLifecycleChanged"
+    case _: AppEvent.AITurnRequested          => "AITurnRequested"
+    case _: AppEvent.AITurnCompleted          => "AITurnCompleted"
+    case _: AppEvent.AITurnFailed             => "AITurnFailed"

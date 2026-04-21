@@ -1,13 +1,33 @@
 package chess.historyservice
 
+import chess.observability.StructuredLog
+
 object HistoryServiceMain:
 
   def main(args: Array[String]): Unit =
     val config = HistoryServiceConfig.loadOrExit()
-    println(s"[history] Game Service archive base URL: ${config.gameServiceBaseUrl}")
-    println(s"[history] Archive DB: ${config.dbPath}")
+    StructuredLog.info(
+      "history-service",
+      "startup_config",
+      "httpHost" -> config.host,
+      "httpPort" -> config.port,
+      "gameServiceArchiveBaseUrl" -> config.gameServiceBaseUrl,
+      "dbPath" -> config.dbPath
+    )
 
     val runtime = HistoryServiceWiring.start(config)
-    Runtime.getRuntime.addShutdownHook(new Thread(() => runtime.shutdown()))
+    StructuredLog.info(
+      "history-service",
+      "started",
+      "httpHost" -> config.host,
+      "httpPort" -> config.port,
+      "healthPath" -> "/health",
+      "downstreamIngestionPath" -> chess.adapter.event.GameHistoryIngestionContract.GameEventsPath
+    )
+    Runtime.getRuntime.addShutdownHook(new Thread(() => {
+      StructuredLog.info("history-service", "shutdown_started")
+      runtime.shutdown()
+      StructuredLog.info("history-service", "shutdown_completed")
+    }))
 
     Thread.currentThread().join()

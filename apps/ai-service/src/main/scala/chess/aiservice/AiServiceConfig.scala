@@ -1,5 +1,7 @@
 package chess.aiservice
 
+import chess.observability.StructuredLog
+
 final case class AiServiceConfig(
   host:      String,
   port:      Int,
@@ -10,7 +12,10 @@ final case class AiServiceConfig(
 object AiServiceConfig:
   def loadOrExit(): AiServiceConfig =
     load().fold(
-      err => { System.err.println(s"[ai] Configuration error: $err"); sys.exit(1) },
+      err => {
+        StructuredLog.error("ai-service", "configuration_error", "error" -> err)
+        sys.exit(1)
+      },
       identity
     )
 

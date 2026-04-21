@@ -22,6 +22,9 @@ class HistoryRoutes(
     case GET -> Root / "health" =>
       json(Status.Ok, ujson.Obj(
         "status"                  -> "ok",
+        "service"                 -> "searchess-history-service",
+        "check"                   -> "process-liveness",
+        "gameServiceDependency"   -> "optional-for-health",
         "downstreamIngestionPath" -> GameHistoryIngestionContract.GameEventsPath
       ))
   }
