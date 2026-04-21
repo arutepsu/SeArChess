@@ -138,6 +138,7 @@ export async function requestAiMove(
   gameId: string
 ): Promise<{ game: GameState; lifecycle: string }> {
   if (useMock) {
+    
     const from = mockState.activeColor === "black" ? "e7" : "e2";
     const to = mockLegalMoves[from]?.[0] ?? from;
     applyMockMove({ from, to });
@@ -210,6 +211,16 @@ function mockSession(): SessionContext {
     updatedAt: new Date().toISOString()
   };
 }
+const mockLegalMoves: Record<string, string[]> = {
+  e2: ["e3", "e4"],
+  d2: ["d3", "d4"],
+  g1: ["f3", "h3"],
+  b1: ["a3", "c3"],
+  e7: ["e6", "e5"],
+  d7: ["d6", "d5"],
+  g8: ["f6", "h6"],
+  b8: ["a6", "c6"]
+};
 
 function mockGameState(): GameState {
   const emptyRow = Array.from({ length: 8 }, () => null);
@@ -296,13 +307,3 @@ function cloneBoard(board: GameState["board"]): GameState["board"] {
   return board.map((row) => [...row]);
 }
 
-const mockLegalMoves: Record<string, string[]> = {
-  e2: ["e3", "e4"],
-  d2: ["d3", "d4"],
-  g1: ["f3", "h3"],
-  b1: ["a3", "c3"],
-  e7: ["e6", "e5"],
-  d7: ["d6", "d5"],
-  g8: ["f6", "h6"],
-  b8: ["a6", "c6"]
-};
