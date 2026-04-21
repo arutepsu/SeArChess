@@ -35,13 +35,15 @@ async function fetchJson<T>(path: string, options?: RequestInit): Promise<T> {
   if (!response.ok) {
     const raw = await response.text();
 
+    let parsedError: ErrorResponse | undefined;
     try {
-      const parsed = JSON.parse(raw) as ErrorResponse;
-      if (parsed.code && parsed.message) {
-        throw new Error(`${parsed.code}: ${parsed.message}`);
-      }
+      parsedError = JSON.parse(raw) as ErrorResponse;
     } catch {
-      // ignore parse failure, fall through
+      parsedError = undefined;
+    }
+
+    if (parsedError?.code && parsedError.message) {
+      throw new Error(`${parsedError.code}: ${parsedError.message}`);
     }
 
     throw new Error(raw || `Request failed: ${response.status}`);
@@ -75,7 +77,7 @@ export async function getGameState(gameId: string): Promise<GameState> {
 }
 
 export async function startNewGame(
-  _payload: NewGameRequest
+  payload: NewGameRequest
 ): Promise<{ game: GameState; session: SessionContext }> {
   if (useMock) {
     resetMockState();
@@ -84,7 +86,9 @@ export async function startNewGame(
 
   const response = await fetchJson<CreateSessionResponse>("/api/sessions", {
     method: "POST",
-    body: JSON.stringify({})
+    body: JSON.stringify({
+      mode: payload.mode ?? "HumanVsHuman"
+    })
   });
 
   const session: SessionContext = {
@@ -122,6 +126,27 @@ export async function submitMove(
   const response = await fetchJson<SubmitMoveResponse>(
     `/api/games/${gameId}/moves`,
     { method: "POST", body: JSON.stringify(body) }
+  );
+
+  return {
+    game: mapGameResponseToGameState(response.game),
+    lifecycle: response.sessionLifecycle
+  };
+}
+
+export async function requestAiMove(
+  gameId: string
+): Promise<{ game: GameState; lifecycle: string }> {
+  if (useMock) {
+    const from = mockState.activeColor === "black" ? "e7" : "e2";
+    const to = mockLegalMoves[from]?.[0] ?? from;
+    applyMockMove({ from, to });
+    return { game: getMockState(), lifecycle: "active" };
+  }
+
+  const response = await fetchJson<SubmitMoveResponse>(
+    `/api/games/${gameId}/ai-move`,
+    { method: "POST" }
   );
 
   return {
@@ -204,6 +229,8 @@ function mockGameState(): GameState {
     board,
     activeColor: "white",
     status: "active",
+    winner: undefined,
+    drawReason: undefined,
     fullMove: 1,
     halfMoveClock: 0,
     moves: [],

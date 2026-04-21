@@ -45,8 +45,15 @@ function mapBoard(pieces: GameResponse["board"]): BoardMatrix {
 
 function mapStatus(status: string, inCheck: boolean): GameStatus {
   if (status === "Checkmate") return "checkmate";
-  if (status === "Draw") return "stalemate";
+  if (status === "Draw") return "draw";
+  if (status === "Resigned") return "resigned";
   return inCheck ? "check" : "active";
+}
+
+function mapColor(color: string | null): PlayerColor | undefined {
+  if (color === "White") return "white";
+  if (color === "Black") return "black";
+  return undefined;
 }
 
 function mapMoveHistoryEntry(entry: MoveHistoryEntryDto, ply: number): MoveRecord {
@@ -144,6 +151,8 @@ export function mapGameResponseToGameState(game: GameResponse): GameState {
     board,
     activeColor: game.currentPlayer.toLowerCase() as PlayerColor,
     status: mapStatus(game.status, game.inCheck),
+    winner: mapColor(game.winner),
+    drawReason: game.drawReason ?? undefined,
     fullMove: game.fullmoveNumber,
     halfMoveClock: game.halfmoveClock,
     lastMove: moves.length > 0 ? moves[moves.length - 1] : undefined,

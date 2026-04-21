@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PieceCode, PlayerColor } from "./api/types";
-import { connectWebSocket } from "./api/ws";
-import type { WsClient } from "./api/ws";
-import { useSession } from "./session/SessionProvider";
 import type { SpriteCatalog } from "./assets/spriteCatalog";
 import { loadSpriteCatalog } from "./assets/spriteCatalog";
 import { apiBaseUrl } from "./api/client";
+import { connectWebSocket, type WsClient } from "./api/ws";
+import type { WsEvent } from "./api/wsTypes";
 import { useGameState } from "./game/useGameState";
+import { useSession } from "./session/SessionProvider";
 import ChessBoard from "./components/ChessBoard.tsx";
 import ControlPanel from "./components/ControlPanel.tsx";
 import MoveList from "./components/MoveList.tsx";
+import StatusBanner from "./components/StatusBanner.tsx";
 import "./App.css";
 
 type ConnectionState = "connected" | "offline" | "loading";
+type LiveConnectionState = "idle" | "connecting" | "live" | "disconnected";
 
 const baseClockMs = 10 * 60 * 1000;
 
@@ -28,27 +30,28 @@ export default function App() {
     selectedSquare,
     legalMoves,
     busy,
+    message,
     animationPlan,
+    gameMode,
     pgnExport,
     loadGame,
     refreshFromServer,
     handleSelect,
+    setGameMode,
     handleNewGame,
-    handleUndo,
-    handleRedo,
-    handleExport,
     handleAnimationFinished,
     clearPgnExport,
     setMessage,
-    setBusy
+    setBusy,
   } = useGameState();
-
   const { getSessionId } = useSession();
-  const [, setConnection] = useState<ConnectionState>("loading");
-  const wsClientRef = useRef<WsClient | null>(null);
+
+  const [connection, setConnection] = useState<ConnectionState>("loading");
+  const [liveConnection, setLiveConnection] = useState<LiveConnectionState>("idle");
   const [whiteClockMs, setWhiteClockMs] = useState(baseClockMs);
   const [blackClockMs, setBlackClockMs] = useState(baseClockMs);
   const lastTickMs = useRef<number | null>(null);
+  const wsClientRef = useRef<WsClient | null>(null);
   const [backgroundId, setBackgroundId] = useState(backgrounds[0].id);
   const [spriteCatalog, setSpriteCatalog] = useState<SpriteCatalog | null>(null);
 
@@ -77,6 +80,90 @@ export default function App() {
       resetClocks();
     }
   }, [game?.id, resetClocks]);
+
+  useEffect(() => {
+    wsClientRef.current?.close();
+    wsClientRef.current = null;
+
+    if (!game?.id) {
+      setLiveConnection("idle");
+      return;
+    }
+
+    let active = true;
+    setLiveConnection("connecting");
+
+    const refreshAfterSignal = async (event: WsEvent): Promise<void> => {
+      try {
+        await refreshFromServer();
+        setBusy(false);
+        if (event.eventType === "SessionCancelled") {
+          setMessage("This session was cancelled.");
+        }
+      } catch (error) {
+        if (!active) return;
+        setLiveConnection("disconnected");
+        setMessage(
+          error instanceof Error
+            ? `Live update received, but refresh failed. ${error.message}`
+            : "Live update received, but refresh failed."
+        );
+      }
+    };
+
+    const client = connectWebSocket({
+      gameId: game.id,
+      getSessionId,
+      onOpen: () => {
+        if (active) setLiveConnection("live");
+      },
+      onClose: () => {
+        if (active) setLiveConnection("disconnected");
+      },
+      onError: () => {
+        if (active) setLiveConnection("disconnected");
+      },
+      onMessage: (event) => {
+        if (!active) return;
+
+        switch (event.eventType) {
+          case "AITurnRequested":
+            setBusy(true);
+            setMessage(`AI is thinking for ${event.currentPlayer}...`);
+            return;
+          case "AITurnFailed":
+            setBusy(false);
+            setMessage(`AI move failed. ${event.reason}`);
+            return;
+          case "MoveRejected":
+            setBusy(false);
+            setMessage(`Move rejected. ${event.reason}`);
+            return;
+          case "MoveApplied":
+          case "GameFinished":
+          case "SessionLifecycleChanged":
+          case "PromotionPending":
+          case "AITurnCompleted":
+          case "GameResigned":
+          case "SessionCancelled":
+            void refreshAfterSignal(event);
+            return;
+          case "SessionCreated":
+            return;
+        }
+      }
+    });
+
+    wsClientRef.current = client;
+
+    return () => {
+      active = false;
+      client.close();
+      if (wsClientRef.current === client) {
+        wsClientRef.current = null;
+      }
+    };
+  }, [game?.id, getSessionId, refreshFromServer, setBusy, setMessage]);
 
   const clockStateRef = useRef({
     running: false,
@@ -141,61 +228,6 @@ export default function App() {
     [spriteCatalog]
   );
 
-  // WebSocket subscription.
-  // refreshFromServer is stable (empty useCallback deps inside the hook),
-  // so this effect re-subscribes only when the WS url changes (never in practice).
-  useEffect(() => {
-    wsClientRef.current?.close();
-
-    const client = connectWebSocket({
-      getSessionId,
-      onOpen: () => { setConnection("connected"); },
-      onClose: () => { /* REST may still work; don't force offline */ },
-      onError: () => { /* lightweight warning can be added later */ },
-      onMessage: async (event) => {
-        try {
-          switch (event.eventType) {
-            case "MoveApplied":
-            case "PromotionPending":
-            case "GameFinished":
-            case "SessionLifecycleChanged":
-            case "AITurnCompleted": {
-              await refreshFromServer();
-              setBusy(false);
-              break;
-            }
-            case "AITurnRequested": {
-              setMessage(`AI is thinking for ${event.currentPlayer}...`);
-              setBusy(true);
-              break;
-            }
-            case "AITurnFailed": {
-              setMessage(`AI turn failed: ${event.reason}`);
-              setBusy(false);
-              break;
-            }
-            case "SessionCreated":
-            default:
-              break;
-          }
-        } catch (error) {
-          setBusy(false);
-          setMessage(
-            error instanceof Error
-              ? `Failed to refresh game: ${error.message}`
-              : "Failed to refresh game."
-          );
-        }
-      }
-    });
-
-    wsClientRef.current = client;
-    return () => {
-      client.close();
-      if (wsClientRef.current === client) wsClientRef.current = null;
-    };
-  }, [refreshFromServer, setBusy, setMessage]);
-
   const isRainBackground = backgroundId === "river";
   const isSakuraBackground = backgroundId === "sakura-grove";
 
@@ -223,6 +255,12 @@ export default function App() {
           <span className="leaf leaf-6"></span>
         </div>
       )}
+      <StatusBanner
+        game={game}
+        connection={connection}
+        liveConnection={liveConnection}
+        message={message}
+      />
       <main className="layout">
         {game ? (
           <ChessBoard
@@ -247,10 +285,9 @@ export default function App() {
             blackTimeMs={blackClockMs}
             activeColor={game?.activeColor}
             clockRunning={clockRunning}
+            gameMode={gameMode}
+            onGameModeChange={setGameMode}
             onNewGame={handleNewGame}
-            onUndo={handleUndo}
-            onRedo={handleRedo}
-            onExport={handleExport}
           />
           <section className="panel background-panel">
             <header>
