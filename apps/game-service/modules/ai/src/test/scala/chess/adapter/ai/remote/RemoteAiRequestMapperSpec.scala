@@ -36,8 +36,7 @@ class RemoteAiRequestMapperSpec extends AnyFlatSpec with Matchers with EitherVal
       .toRequest(
         context         = AIRequestContext.fromSession(session, state, requestId = "req-1"),
         timeoutMillis   = 1500,
-        defaultEngineId = None,
-        testMode        = None
+        defaultEngineId = None
       )
       .value
 
@@ -48,24 +47,21 @@ class RemoteAiRequestMapperSpec extends AnyFlatSpec with Matchers with EitherVal
     request.engine.engineId        shouldBe Some("stockfish-default")
     request.limits.timeoutMillis   shouldBe 1500
     request.metadata.mode          shouldBe "HumanVsAI"
-    request.metadata.testMode      shouldBe None
     request.legalMoves             should have size 20
     request.legalMoves.map(m => (m.from, m.to)) should contain allOf (("e2", "e3"), ("e2", "e4"), ("g1", "f3"))
   }
 
-  it should "include the optional local-dev test mode in metadata when configured" in {
+  it should "keep local-dev test mode out of the request body contract" in {
     val request = RemoteAiRequestMapper
       .toRequest(
         context         = AIRequestContext.fromSession(aiSession(), GameStateFactory.initial(), requestId = "req-test"),
         timeoutMillis   = 1000,
-        defaultEngineId = None,
-        testMode        = Some("illegal_move")
+        defaultEngineId = None
       )
       .value
 
     request.metadata.mode          shouldBe "HumanVsAI"
-    request.metadata.testMode shouldBe Some("illegal_move")
-    RemoteAiJson.requestToJson(request) should include (""""testMode":"illegal_move"""")
+    RemoteAiJson.requestToJson(request) should not include "testMode"
   }
 
   it should "send sideToMove as lowercase 'white' for a white-to-move position" in {
@@ -73,8 +69,7 @@ class RemoteAiRequestMapperSpec extends AnyFlatSpec with Matchers with EitherVal
       .toRequest(
         context         = AIRequestContext.fromSession(aiSession(), GameStateFactory.initial(), requestId = "req-w"),
         timeoutMillis   = 1000,
-        defaultEngineId = None,
-        testMode        = None
+        defaultEngineId = None
       )
       .value
 
@@ -94,8 +89,7 @@ class RemoteAiRequestMapperSpec extends AnyFlatSpec with Matchers with EitherVal
       .toRequest(
         context         = AIRequestContext.fromSession(session, blackToMove, requestId = "req-b"),
         timeoutMillis   = 1000,
-        defaultEngineId = None,
-        testMode        = None
+        defaultEngineId = None
       )
       .value
 
@@ -111,8 +105,7 @@ class RemoteAiRequestMapperSpec extends AnyFlatSpec with Matchers with EitherVal
       .toRequest(
         context         = AIRequestContext.fromSession(session, promoState, requestId = "req-promo"),
         timeoutMillis   = 1000,
-        defaultEngineId = None,
-        testMode        = None
+        defaultEngineId = None
       )
       .value
 

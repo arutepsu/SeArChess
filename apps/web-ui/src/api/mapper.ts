@@ -7,16 +7,7 @@ import type {
   PieceCode,
   PlayerColor
 } from "./types";
-
-const FILES = "abcdefgh";
-
-function squareToPosition(square: string): { row: number; col: number } | null {
-  if (square.length !== 2) return null;
-  const col = FILES.indexOf(square[0].toLowerCase());
-  const rank = Number(square[1]);
-  if (col < 0 || Number.isNaN(rank) || rank < 1 || rank > 8) return null;
-  return { row: 8 - rank, col };
-}
+import { squareToIndex } from "../domain/board";
 
 function mapPieceCode(color: string, pieceType: string): PieceCode | null {
   const prefix = color === "White" ? "w" : color === "Black" ? "b" : null;
@@ -43,7 +34,7 @@ function mapBoard(pieces: GameResponse["board"]): BoardMatrix {
   );
 
   for (const piece of pieces) {
-    const pos = squareToPosition(piece.square);
+    const pos = squareToIndex(piece.square);
     if (!pos) continue;
     const code = mapPieceCode(piece.color, piece.pieceType);
     if (code !== null) board[pos.row][pos.col] = code;

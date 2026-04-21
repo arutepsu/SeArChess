@@ -18,7 +18,11 @@ object HistoryServiceWiring:
       repository    = repository
     )
 
-    val httpApp = HistoryRoutes(ingestion, repository).routes.orNotFound
+    val httpApp = HistoryRoutes(
+      ingestion,
+      repository,
+      acceptLegacyIngestionPath = config.acceptLegacyIngestionPath
+    ).routes.orNotFound
     val host = Host.fromString(config.host).getOrElse(throw RuntimeException(s"Invalid HISTORY_HTTP_HOST: ${config.host}"))
     val port = Port.fromInt(config.port).getOrElse(throw RuntimeException(s"Invalid HISTORY_HTTP_PORT: ${config.port}"))
 

@@ -1,6 +1,6 @@
 # History Service HTTP Contract v1
 
-Status: local/dev extraction contract  
+Status: internal downstream local/dev extraction contract  
 Owner: History Service  
 Base path: `/`  
 Content type: `application/json`
@@ -12,13 +12,14 @@ guarantees than the code provides.
 
 ## Service Role
 
-History is downstream of Game Service.
+History is downstream of Game Service. This is not a public edge contract in
+the current Compose/Envoy topology.
 
 - Game Service owns active game/session state.
 - Game Service exposes archive snapshots at `GET /archive/games/{gameId}`.
 - Game Service emits terminal event JSON and, in SQLite mode, stores those
   events in its own durable outbox before forwarding them.
-- History receives terminal event JSON at `POST /events/game`.
+- History receives terminal event JSON at `POST /internal/events/game`.
 - History uses the event only as a trigger, then calls Game Service over HTTP
   to fetch the archive snapshot.
 - History materializes and owns archival records in its own SQLite database.
@@ -34,6 +35,7 @@ History must not read Game Service SQLite tables.
 | `GAME_SERVICE_BASE_URL` | `http://127.0.0.1:8080` | base URL used for `GET /archive/games/{gameId}` |
 | `HISTORY_DB_PATH` | `history.sqlite` | History-owned SQLite database path |
 | `HISTORY_GAME_SERVICE_TIMEOUT_MILLIS` | `2000` | timeout for Game archive snapshot fetch |
+| `HISTORY_ACCEPT_LEGACY_INGESTION_PATH` | `false` | opt-in temporary alias for `POST /events/game` |
 
 In Compose, `GAME_SERVICE_BASE_URL` should use the service name:
 `http://game-service:8080`.
@@ -53,8 +55,8 @@ UUID path values are plain UUID strings. Invalid UUIDs return `400 BAD_REQUEST`.
 
 ## Terminal Game Event Input
 
-`POST /events/game` accepts terminal Game event JSON using the Game event wire
-contract. Only these event types are accepted:
+`POST /internal/events/game` accepts terminal Game event JSON using the Game
+event wire contract. Only these event types are accepted:
 
 - `game.finished.v1`
 - `game.resigned.v1`
@@ -127,7 +129,7 @@ Response `200 OK`:
 This is process liveness only. It does not verify Game Service reachability or
 SQLite readiness.
 
-### POST /events/game
+### POST /internal/events/game
 
 Ingest a terminal Game event trigger.
 
@@ -154,9 +156,21 @@ Errors:
 | `502` | `GAME_SERVICE_FETCH_FAILED` | Game archive fetch failed due to transport or unexpected Game response |
 | `500` | `PERSISTENCE_FAILED` | History SQLite write failed |
 
+### POST /events/game
+
+Temporary compatibility alias for older local/dev callers.
+
+This path is disabled by default. It is available only when
+`HISTORY_ACCEPT_LEGACY_INGESTION_PATH=true`, and it should not be routed through
+the public edge. New callers must use `POST /internal/events/game`.
+
 ### GET /archives/{gameId}
 
 Read the History-owned archive record for a game.
+
+This endpoint is internal for now. If History archive reads become public,
+introduce a separate public History archive contract/version before exposing it
+at the edge.
 
 Response `200 OK`: `ArchiveRecord`
 

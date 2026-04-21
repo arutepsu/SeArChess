@@ -1,20 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { BoardMatrix, GameState, MoveRequest, PieceCode } from "./api/types";
+import type { PieceCode, PlayerColor } from "./api/types";
+import { connectWebSocket } from "./api/ws";
+import type { WsClient } from "./api/ws";
+import { useSession } from "./session/SessionProvider";
 import type { SpriteCatalog } from "./assets/spriteCatalog";
 import { loadSpriteCatalog } from "./assets/spriteCatalog";
-import {
-  apiBaseUrl,
-  exportPgn,
-  getCurrentGameId,
-  getGameState,
-  getLegalMoves,
-  getStatus,
-  redoMove,
-  startNewGame,
-  submitMove,
-  undoMove
-} from "./api/client";
-import ChessBoard, { type BoardAnimation } from "./components/ChessBoard.tsx";
+import { apiBaseUrl } from "./api/client";
+import { useGameState } from "./game/useGameState";
+import ChessBoard from "./components/ChessBoard.tsx";
 import ControlPanel from "./components/ControlPanel.tsx";
 import MoveList from "./components/MoveList.tsx";
 import "./App.css";
@@ -29,32 +22,30 @@ const backgrounds = [
   { id: "forest", label: "Forest", url: "/assets/backgrounds/new.jpg" }
 ];
 
-const pieceAt = (board: BoardMatrix, square: string): PieceCode | null => {
-  const position = squareToIndex(square);
-  if (!position) return null;
-  return board[position.row]?.[position.col] ?? null;
-};
-
-const squareToIndex = (square: string): { row: number; col: number } | null => {
-  if (square.length !== 2) return null;
-  const files = "abcdefgh";
-  const file = square[0].toLowerCase();
-  const rank = Number(square[1]);
-  const col = files.indexOf(file);
-  if (col < 0 || Number.isNaN(rank) || rank < 1 || rank > 8) return null;
-  return { row: 8 - rank, col };
-};
-
 export default function App() {
-  const [game, setGame] = useState<GameState>();
+  const {
+    game,
+    selectedSquare,
+    legalMoves,
+    busy,
+    animationPlan,
+    pgnExport,
+    loadGame,
+    refreshFromServer,
+    handleSelect,
+    handleNewGame,
+    handleUndo,
+    handleRedo,
+    handleExport,
+    handleAnimationFinished,
+    clearPgnExport,
+    setMessage,
+    setBusy
+  } = useGameState();
+
+  const { getSessionId } = useSession();
   const [, setConnection] = useState<ConnectionState>("loading");
-  const [, setMessage] = useState<string>();
-  const [selectedSquare, setSelectedSquare] = useState<string>();
-  const [legalMoves, setLegalMoves] = useState<string[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [pgnExport, setPgnExport] = useState("");
-  const [animationPlan, setAnimationPlan] = useState<BoardAnimation | null>(null);
-  const animationCounter = useRef(0);
+  const wsClientRef = useRef<WsClient | null>(null);
   const [whiteClockMs, setWhiteClockMs] = useState(baseClockMs);
   const [blackClockMs, setBlackClockMs] = useState(baseClockMs);
   const lastTickMs = useRef<number | null>(null);
@@ -66,172 +57,26 @@ export default function App() {
     return status === "active" || status === "check";
   }, [game?.status]);
 
-  const loadGame = useCallback(async () => {
-    setConnection("loading");
-    try {
-      await getStatus();
-      const existingId = getCurrentGameId();
-      const state = existingId ? await getGameState() : await startNewGame({});
-      setGame(state);
-      setAnimationPlan(null);
-      setLegalMoves([]);
-      setConnection("connected");
-      setMessage(undefined);
-    } catch (error) {
-      setConnection("offline");
-      setMessage(
-        error instanceof Error
-          ? `Service offline. ${error.message}`
-          : "Service offline."
-      );
-    }
-  }, []);
-
   const resetClocks = useCallback(() => {
     setWhiteClockMs(baseClockMs);
     setBlackClockMs(baseClockMs);
     lastTickMs.current = performance.now();
   }, []);
 
-
-
-  const planAnimation = useCallback((prevBoard: BoardMatrix, nextGame?: GameState): BoardAnimation | null => {
-    if (!nextGame?.lastMove) return null;
-    const from = nextGame.lastMove.from;
-    const to = nextGame.lastMove.to;
-    const movingPiece = pieceAt(prevBoard, from);
-    if (!movingPiece) return null;
-    const capturedPiece = pieceAt(prevBoard, to) ?? undefined;
-    animationCounter.current += 1;
-    return {
-      id: animationCounter.current,
-      from,
-      to,
-      movingPiece,
-      capturedPiece,
-      isCapture: Boolean(capturedPiece)
-    };
-  }, []);
-
-  const handleSelect = useCallback(
-    async (square: string) => {
-      if (!game || busy) return;
-      if (!selectedSquare) {
-        setSelectedSquare(square);
-        try {
-          const result = await getLegalMoves(square);
-          setLegalMoves(result.moves);
-        } catch {
-          setLegalMoves([]);
-        }
-        return;
-      }
-
-      if (selectedSquare === square) {
-        setSelectedSquare(undefined);
-        setLegalMoves([]);
-        return;
-      }
-
-      if (legalMoves.length > 0 && !legalMoves.includes(square)) {
-        setMessage("Select a legal target square.");
-        return;
-      }
-
-      const move: MoveRequest = { from: selectedSquare, to: square };
-      const prevBoard = game.board;
-      setSelectedSquare(undefined);
-      setLegalMoves([]);
-      setBusy(true);
-      try {
-        const nextGame = await submitMove(move);
-        setGame(nextGame);
-        setAnimationPlan(planAnimation(prevBoard, nextGame));
-        setMessage(undefined);
-      } catch (error) {
-        setMessage(
-          error instanceof Error ? error.message : "Move rejected by service."
-        );
-      } finally {
-        setBusy(false);
-      }
-    },
-    [busy, game, legalMoves, planAnimation, selectedSquare]
-  );
-
-  const handleNewGame = useCallback(async () => {
-    setBusy(true);
-    try {
-      const nextGame = await startNewGame({});
-      setGame(nextGame);
-      setMessage(undefined);
-      setSelectedSquare(undefined);
-      setLegalMoves([]);
-      setAnimationPlan(null);
-    } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Failed to start game."
-      );
-    } finally {
-      setBusy(false);
-    }
-  }, []);
-
-  const handleUndo = useCallback(async () => {
-    setBusy(true);
-    try {
-      const prevBoard = game?.board ?? null;
-      const nextGame = await undoMove();
-      setGame(nextGame);
-      setSelectedSquare(undefined);
-      setLegalMoves([]);
-      if (prevBoard) {
-        setAnimationPlan(planAnimation(prevBoard, nextGame));
-      }
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Undo failed.");
-    } finally {
-      setBusy(false);
-    }
-  }, [game?.board, planAnimation]);
-
-  const handleRedo = useCallback(async () => {
-    setBusy(true);
-    try {
-      const prevBoard = game?.board ?? null;
-      const nextGame = await redoMove();
-      setGame(nextGame);
-      setSelectedSquare(undefined);
-      setLegalMoves([]);
-      if (prevBoard) {
-        setAnimationPlan(planAnimation(prevBoard, nextGame));
-      }
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Redo failed.");
-    } finally {
-      setBusy(false);
-    }
-  }, [game?.board, planAnimation]);
-
-  const handleExport = useCallback(async () => {
-    setBusy(true);
-    try {
-      const result = await exportPgn();
-      setPgnExport(result.pgn);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Export failed.");
-    } finally {
-      setBusy(false);
-    }
-  }, []);
-
-  const handleAnimationFinished = useCallback((id: number) => {
-    setAnimationPlan((current) => (current?.id === id ? null : current));
-  }, []);
-
+  // Initial load: hook handles game state; App wraps with connection state.
   useEffect(() => {
-    loadGame();
+    setConnection("loading");
+    loadGame()
+      .then(() => setConnection("connected"))
+      .catch(() => setConnection("offline"));
   }, [loadGame]);
+
+  // Reset clocks whenever a new game begins (new game.id).
+  useEffect(() => {
+    if (game?.id) {
+      resetClocks();
+    }
+  }, [game?.id, resetClocks]);
 
   const clockStateRef = useRef({
     running: false,
@@ -251,25 +96,17 @@ export default function App() {
       const now = performance.now();
       const last = lastTickMs.current ?? now;
       lastTickMs.current = now;
-
       const { running, activeColor } = clockStateRef.current;
       if (!running) return;
-
       const delta = Math.max(0, now - last);
       if (activeColor === "white") {
-        setWhiteClockMs((value) => Math.max(0, value - delta));
+        setWhiteClockMs((v) => Math.max(0, v - delta));
       } else {
-        setBlackClockMs((value) => Math.max(0, value - delta));
+        setBlackClockMs((v) => Math.max(0, v - delta));
       }
     }, 250);
     return () => window.clearInterval(intervalId);
   }, []);
-
-  useEffect(() => {
-    if (game?.id) {
-      resetClocks();
-    }
-  }, [game?.id, resetClocks]);
 
   useEffect(() => {
     const match = backgrounds.find((item) => item.id === backgroundId);
@@ -280,15 +117,9 @@ export default function App() {
   useEffect(() => {
     let active = true;
     loadSpriteCatalog()
-      .then((catalog) => {
-        if (active) setSpriteCatalog(catalog);
-      })
-      .catch(() => {
-        if (active) setSpriteCatalog(null);
-      });
-    return () => {
-      active = false;
-    };
+      .then((catalog) => { if (active) setSpriteCatalog(catalog); })
+      .catch(() => { if (active) setSpriteCatalog(null); });
+    return () => { active = false; };
   }, []);
 
   const spriteInfoFor = useCallback(
@@ -297,12 +128,7 @@ export default function App() {
       const color = piece.startsWith("w") ? "white" : "black";
       const letter = piece[1];
       const nameMap: Record<string, string> = {
-        K: "king",
-        Q: "queen",
-        R: "rook",
-        B: "bishop",
-        N: "knight",
-        P: "pawn"
+        K: "king", Q: "queen", R: "rook", B: "bishop", N: "knight", P: "pawn"
       };
       const name = nameMap[letter] ?? "pawn";
       const key = `classic/${color}_${name}_idle`;
@@ -314,6 +140,61 @@ export default function App() {
     },
     [spriteCatalog]
   );
+
+  // WebSocket subscription.
+  // refreshFromServer is stable (empty useCallback deps inside the hook),
+  // so this effect re-subscribes only when the WS url changes (never in practice).
+  useEffect(() => {
+    wsClientRef.current?.close();
+
+    const client = connectWebSocket({
+      getSessionId,
+      onOpen: () => { setConnection("connected"); },
+      onClose: () => { /* REST may still work; don't force offline */ },
+      onError: () => { /* lightweight warning can be added later */ },
+      onMessage: async (event) => {
+        try {
+          switch (event.eventType) {
+            case "MoveApplied":
+            case "PromotionPending":
+            case "GameFinished":
+            case "SessionLifecycleChanged":
+            case "AITurnCompleted": {
+              await refreshFromServer();
+              setBusy(false);
+              break;
+            }
+            case "AITurnRequested": {
+              setMessage(`AI is thinking for ${event.currentPlayer}...`);
+              setBusy(true);
+              break;
+            }
+            case "AITurnFailed": {
+              setMessage(`AI turn failed: ${event.reason}`);
+              setBusy(false);
+              break;
+            }
+            case "SessionCreated":
+            default:
+              break;
+          }
+        } catch (error) {
+          setBusy(false);
+          setMessage(
+            error instanceof Error
+              ? `Failed to refresh game: ${error.message}`
+              : "Failed to refresh game."
+          );
+        }
+      }
+    });
+
+    wsClientRef.current = client;
+    return () => {
+      client.close();
+      if (wsClientRef.current === client) wsClientRef.current = null;
+    };
+  }, [refreshFromServer, setBusy, setMessage]);
 
   const isRainBackground = backgroundId === "river";
   const isSakuraBackground = backgroundId === "sakura-grove";
@@ -410,7 +291,6 @@ export default function App() {
                         backgroundPosition: "0% 50%"
                       }
                     : undefined;
-
                   return (
                     <span
                       key={`${piece}-${index}`}
@@ -431,7 +311,7 @@ export default function App() {
         <section className="panel export">
           <div className="export-header">
             <h2>PGN Export</h2>
-            <button type="button" onClick={() => setPgnExport("")}>
+            <button type="button" onClick={clearPgnExport}>
               Close
             </button>
           </div>

@@ -20,8 +20,7 @@ object RemoteAiRequestMapper:
   def toRequest(
     context:         AIRequestContext,
     timeoutMillis:   Int,
-    defaultEngineId: Option[String],
-    testMode:        Option[String]
+    defaultEngineId: Option[String]
   ): Either[NotationFailure, RemoteAiMoveSuggestionRequest] =
     val state = context.state
     FenSerializer.exportNotation(state, NotationFormat.FEN).map { fen =>
@@ -34,7 +33,7 @@ object RemoteAiRequestMapper:
         legalMoves = legalMoveDtos(state),
         engine     = RemoteAiEngineSelection(context.engineId.orElse(defaultEngineId)),
         limits     = RemoteAiLimits(timeoutMillis),
-        metadata   = RemoteAiMetadata(mode = context.mode.toString, testMode = testMode)
+        metadata   = RemoteAiMetadata(mode = context.mode.toString)
       )
     }
 
@@ -43,14 +42,12 @@ object RemoteAiRequestMapper:
     session:         GameSession,
     state:           GameState,
     timeoutMillis:   Int,
-    defaultEngineId: Option[String] = None,
-    testMode:        Option[String] = None
+    defaultEngineId: Option[String] = None
   ): Either[NotationFailure, RemoteAiMoveSuggestionRequest] =
     toRequest(
       context         = AIRequestContext.fromSession(session, state, requestId),
       timeoutMillis   = timeoutMillis,
-      defaultEngineId = defaultEngineId,
-      testMode        = testMode
+      defaultEngineId = defaultEngineId
     )
 
   private def legalMoveDtos(state: GameState): List[RemoteAiMoveDto] =

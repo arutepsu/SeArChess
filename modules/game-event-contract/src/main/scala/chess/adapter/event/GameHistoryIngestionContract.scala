@@ -7,4 +7,6 @@ object GameHistoryIngestionContract:
   val Interaction: String = "asynchronous-http-delivery"
 
   val GameEventsPath:       String = "/internal/events/game"
+
+  /** Temporary compatibility alias. History Service keeps it disabled unless explicitly configured. */
   val LegacyGameEventsPath: String = "/events/game"

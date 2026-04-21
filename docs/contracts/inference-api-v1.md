@@ -1,7 +1,8 @@
-# Inference API v1 — Shared Contract
+# Inference API v1 - Internal Synchronous Contract
 
 **Version:** 1.0.0  
-**Status:** Draft  
+**Status:** internal local/dev contract  
+**Audience:** internal Game -> AI HTTP only; not public edge-facing  
 **Owner:** Game Service (Scala) — authoritative for contract definition  
 **Consumer:** AI Service (Python) — implements this contract  
 **Scope:** Move suggestion inference only. Training, evaluation, model lifecycle, and engine

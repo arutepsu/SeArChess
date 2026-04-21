@@ -142,6 +142,23 @@ class RemoteAiMoveSuggestionClientSpec extends AnyFlatSpec with Matchers with Ei
     }
   }
 
+  it should "send local-dev test mode as a header instead of a body field" in {
+    var capturedBody = ""
+    var capturedMode: Option[String] = None
+
+    withServer { exchange =>
+      capturedBody = requestBody(exchange)
+      capturedMode = Option(exchange.getRequestHeaders.getFirst("X-Searchess-AI-Test-Mode"))
+      respond(exchange, 200, """{"requestId":"req-test-mode","move":{"from":"e2","to":"e4"}}""")
+    } { baseUrl =>
+      RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 1000, testMode = Some("illegal_move"))
+        .suggestMove(context(requestId = "req-test-mode"))
+
+      capturedMode shouldBe Some("illegal_move")
+      capturedBody should not include "testMode"
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Error code mapping — all six contract codes
   // ---------------------------------------------------------------------------

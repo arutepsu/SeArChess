@@ -10,6 +10,7 @@ export interface WsClient {
 }
 
 export function connectWebSocket(handlers: {
+  getSessionId: () => string | null;
   onOpen?: () => void;
   onClose?: () => void;
   onError?: (event: Event) => void;
@@ -32,6 +33,16 @@ export function connectWebSocket(handlers: {
   socket.onmessage = (messageEvent) => {
     try {
       const parsed = JSON.parse(messageEvent.data) as WsEvent;
+      const sessionId = handlers.getSessionId();
+
+      if (!sessionId) {
+        return;
+      }
+
+      if (parsed.sessionId !== sessionId) {
+        return;
+      }
+
       handlers.onMessage?.(parsed);
     } catch {
       // ignore malformed messages

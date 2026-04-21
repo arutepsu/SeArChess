@@ -13,3 +13,8 @@ serialization separate from Game Service orchestration internals.
 
 It does not own delivery. Publishing, outbox storage, retry, and HTTP forwarding
 belong to the Game Service runtime/delivery modules.
+
+The canonical History ingestion route metadata is
+`GameHistoryIngestionContract.GameEventsPath`, currently
+`/internal/events/game`. `LegacyGameEventsPath` exists only as a temporary
+compatibility marker and is disabled by default in History Service startup.

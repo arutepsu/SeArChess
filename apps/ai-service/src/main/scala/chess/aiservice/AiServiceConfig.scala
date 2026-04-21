@@ -5,8 +5,7 @@ import chess.observability.StructuredLog
 final case class AiServiceConfig(
   host:      String,
   port:      Int,
-  engineId:  String,
-  testMode:  Option[String]
+  engineId:  String
 )
 
 object AiServiceConfig:
@@ -25,8 +24,7 @@ object AiServiceConfig:
     yield AiServiceConfig(
       host     = env("AI_HTTP_HOST").getOrElse("0.0.0.0"),
       port     = port,
-      engineId = env("AI_ENGINE_ID").getOrElse("random-legal"),
-      testMode = env("AI_REMOTE_TEST_MODE").map(_.trim).filter(_.nonEmpty)
+      engineId = env("AI_ENGINE_ID").getOrElse("random-legal")
     )
 
   private def parsePort(name: String, value: String): Either[String, Int] =

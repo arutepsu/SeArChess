@@ -24,6 +24,8 @@ class RemoteAiMoveSuggestionClient(
   client:           HttpClient = HttpClient.newHttpClient()
 ) extends AiMoveSuggestionClient:
 
+  private val TestModeHeader = "X-Searchess-AI-Test-Mode"
+
   private val endpoint: URI =
     URI.create(s"${baseUrl.stripSuffix("/")}${RemoteAiServiceContract.MoveSuggestionsPath}")
 
@@ -33,8 +35,7 @@ class RemoteAiMoveSuggestionClient(
         .toRequest(
           context         = context,
           timeoutMillis   = timeoutMillis,
-          defaultEngineId = defaultEngineId,
-          testMode        = testMode
+          defaultEngineId = defaultEngineId
         )
         .left.map { err =>
           StructuredLog.warn(
@@ -60,13 +61,14 @@ class RemoteAiMoveSuggestionClient(
 
   private def send(requestDto: RemoteAiMoveSuggestionRequest): Either[AIError, RemoteAiMoveSuggestionResponse] =
     val body = RemoteAiJson.requestToJson(requestDto)
-    val request = HttpRequest
+    val requestBuilder = HttpRequest
       .newBuilder(endpoint)
       .timeout(Duration.ofMillis(timeoutMillis.toLong))
       .header("Content-Type", "application/json")
       .header("Accept", "application/json")
       .POST(HttpRequest.BodyPublishers.ofString(body))
-      .build()
+    testMode.foreach(mode => requestBuilder.header(TestModeHeader, mode))
+    val request = requestBuilder.build()
 
     val started = System.nanoTime()
     logInfo(

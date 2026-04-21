@@ -11,7 +11,7 @@ Contract reference: `docs/contracts/history-service-http-v1.md`.
 - Game Service exposes `GET /archive/games/{gameId}` as the History-facing read
   contract.
 - Game Service forwards terminal Game event JSON to History Service at
-  `POST /events/game` over HTTP in local/dev compose.
+  `POST /internal/events/game` over HTTP in local/dev compose.
 - The event is only a trigger. History then pulls the archive snapshot from Game
   Service over HTTP.
 - History materializes PGN/FEN with the existing notation path and stores its
@@ -41,6 +41,7 @@ History Service environment:
 | `GAME_SERVICE_BASE_URL` | `http://game-service:8080` |
 | `HISTORY_DB_PATH` | `/history-data/history.sqlite` |
 | `HISTORY_GAME_SERVICE_TIMEOUT_MILLIS` | `2000` |
+| `HISTORY_ACCEPT_LEGACY_INGESTION_PATH` | `false` |
 
 Game Service History forwarding environment:
 
@@ -122,7 +123,8 @@ inside `/data/searchess.sqlite`. Rows remain pending while `delivered_at` is
 
 ## Manual Test Hook
 
-`POST /events/game` remains available as a local/dev test hook for exercising
+`POST /events/game` remains available only when
+`HISTORY_ACCEPT_LEGACY_INGESTION_PATH=true` as a local/dev compatibility hook for exercising
 History directly, but it is no longer required for the normal compose proof.
 
 ## Honest Boundary
