@@ -37,7 +37,7 @@ class RemoteAiMoveSuggestionClientSpec extends AnyFlatSpec with Matchers with Ei
 
   private def withServer(handler: HttpExchange => Unit)(test: String => Unit): Unit =
     val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
-    server.createContext("/v1/move-suggestions", exchange => handler(exchange))
+    server.createContext(RemoteAiServiceContract.MoveSuggestionsPath, exchange => handler(exchange))
     server.start()
     try test(s"http://127.0.0.1:${server.getAddress.getPort}")
     finally server.stop(0)

@@ -1,0 +1,30 @@
+# syntax=docker/dockerfile:1
+
+FROM sbtscala/scala-sbt:eclipse-temurin-21.0.8_9_1.12.6_3.8.2 AS build
+
+WORKDIR /build
+
+COPY project/ project/
+COPY build.sbt ./
+COPY apps/ apps/
+COPY modules/ modules/
+
+RUN sbt "aiService / stage"
+
+FROM eclipse-temurin:21-jre
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=build /build/apps/ai-service/target/universal/stage/ ./
+
+EXPOSE 8765
+
+ENV AI_HTTP_HOST=0.0.0.0 \
+    AI_HTTP_PORT=8765 \
+    AI_ENGINE_ID=random-legal
+
+CMD ["bin/searchess-ai-service"]

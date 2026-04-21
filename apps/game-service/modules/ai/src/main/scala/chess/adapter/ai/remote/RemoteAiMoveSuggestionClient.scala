@@ -24,7 +24,7 @@ class RemoteAiMoveSuggestionClient(
 ) extends AiMoveSuggestionClient:
 
   private val endpoint: URI =
-    URI.create(s"${baseUrl.stripSuffix("/")}/v1/move-suggestions")
+    URI.create(s"${baseUrl.stripSuffix("/")}${RemoteAiServiceContract.MoveSuggestionsPath}")
 
   override def suggestMove(context: AIRequestContext): Either[AIError, AIResponse] =
     for

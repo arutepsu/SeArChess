@@ -7,7 +7,7 @@ import chess.adapter.websocket.ChessWebSocketServer
  *
  *  Contains only the server-specific concerns started during server startup.
  *  Does not carry stable application services — those live in
- *  [[chess.startup.assembly.AppContext]].
+ *  [[chess.server.assembly.AppContext]].
  *
  *  @param wsServer      live WebSocket server handle, present when WebSocket is
  *                       enabled in config; call `stop(0)` on the contained

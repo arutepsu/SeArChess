@@ -4,12 +4,12 @@ import chess.adapter.event.CollectingEventPublisher
 import chess.adapter.ai.remote.RemoteAiMoveSuggestionClient
 import chess.application.ai.service.AITurnError
 import chess.application.session.model.{SessionMode, SideController}
-import chess.config.{
+import chess.server.config.{
   AiConfig, AiProviderMode, AppConfig, CorsConfig, EventMode, HttpConfig,
   HistoryForwardingConfig, PersistenceMode, WebSocketConfig
 }
 import chess.server.assembly.EventWiring
-import chess.startup.assembly.{CoreAssembly, PersistenceAssembly}
+import chess.server.assembly.{CoreAssembly, PersistenceAssembly}
 import org.scalatest.{EitherValues, OptionValues}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -24,7 +24,7 @@ class ServerWiringSpec extends AnyFlatSpec with Matchers with EitherValues with 
     eventMode   = EventMode.InProcess,
     cors        = CorsConfig(enabled = false, allowedOrigin = "*"),
     history     = HistoryForwardingConfig(enabled = false, baseUrl = None, timeoutMillis = 2000),
-    ai          = AiConfig(AiProviderMode.Remote, remote = Some(chess.config.RemoteAiConfig("http://ai-service:8765")), timeoutMillis = 2000, defaultEngineId = None)
+    ai          = AiConfig(AiProviderMode.Remote, remote = Some(chess.server.config.RemoteAiConfig("http://ai-service:8765")), timeoutMillis = 2000, defaultEngineId = None)
   )
 
   "ServerWiring.withServerAi" should "configure the Game Service AI endpoint path" in {
@@ -47,7 +47,7 @@ class ServerWiringSpec extends AnyFlatSpec with Matchers with EitherValues with 
     serverCtx.gameService.triggerAIMoveByGameId(session.gameId).isRight shouldBe true
   }
 
-  it should "leave the shared CoreAssembly context explicit about AI absence" in {
+  it should "leave the base Game Service context explicit about AI absence" in {
     val persistence = PersistenceAssembly.assemble(config)
     val events      = EventWiring(CollectingEventPublisher(), wsServer = None)
     val baseCtx     = CoreAssembly.build(persistence, events.coreEvents)
@@ -81,7 +81,7 @@ class ServerWiringSpec extends AnyFlatSpec with Matchers with EitherValues with 
   it should "select the remote AI client when remote mode is configured" in {
     val client = ServerWiring.aiClientFor(AiConfig(
       mode            = AiProviderMode.Remote,
-      remote          = Some(chess.config.RemoteAiConfig("http://ai.local")),
+      remote          = Some(chess.server.config.RemoteAiConfig("http://ai.local")),
       timeoutMillis   = 2000,
       defaultEngineId = Some("stockfish-default")
     ))

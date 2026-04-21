@@ -19,7 +19,7 @@ class HistoryOutboxForwarder(
 ):
 
   private val endpoint: URI =
-    URI.create(s"${historyBaseUrl.stripSuffix("/")}/events/game")
+    URI.create(s"${historyBaseUrl.stripSuffix("/")}${GameHistoryIngestionContract.GameEventsPath}")
 
   @volatile private var running = false
   private var worker: Option[Thread] = None

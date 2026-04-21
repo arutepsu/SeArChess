@@ -78,7 +78,7 @@ class HistoryOutboxSpec extends AnyFlatSpec with Matchers with OptionValues:
       forwarder.runOnce()
 
       posts should have size 1
-      posts.head._1.toString shouldBe "http://history.local:8081/events/game"
+      posts.head._1.toString shouldBe s"http://history.local:8081${GameHistoryIngestionContract.GameEventsPath}"
       posts.head._3 shouldBe 777
       outbox.pending(10).toOption.get shouldBe empty
     finally outbox.close()

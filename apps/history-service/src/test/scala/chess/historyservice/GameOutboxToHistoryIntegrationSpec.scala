@@ -2,7 +2,7 @@ package chess.historyservice
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-import chess.adapter.event.{DurableHistoryEventPublisher, HistoryOutboxForwarder, SqliteHistoryEventOutbox}
+import chess.adapter.event.{DurableHistoryEventPublisher, GameHistoryIngestionContract, HistoryOutboxForwarder, SqliteHistoryEventOutbox}
 import chess.application.event.AppEvent
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import chess.history.{ArchiveMaterializer, HistoryIngestionService, RemoteGameArchiveClient}
@@ -89,7 +89,7 @@ class GameOutboxToHistoryIntegrationSpec extends AnyFlatSpec with Matchers:
   private def postToHistory(historyHttp: org.http4s.HttpApp[IO], json: String): Unit =
     val req = Request[IO](
       method = Method.POST,
-      uri    = Uri.unsafeFromString("/events/game"),
+      uri    = Uri.unsafeFromString(GameHistoryIngestionContract.GameEventsPath),
       body   = Stream.emits(json.getBytes(StandardCharsets.UTF_8)).covary[IO]
     )
     val resp = historyHttp.run(req).unsafeRunSync()

@@ -4,88 +4,41 @@ import cats.data.Kleisli
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import cats.syntax.semigroupk.*
-import chess.adapter.ai.LocalDeterministicAiClient
-import chess.adapter.ai.remote.RemoteAiMoveSuggestionClient
 import chess.adapter.http4s.Http4sApp
-import chess.application.DefaultGameService
-import chess.application.ai.service.AITurnService
-import chess.application.port.ai.AiMoveSuggestionClient
-import chess.config.{AiConfig, AiProviderMode, AppConfig}
-import chess.server.assembly.{EventAssembly, EventWiring}
+import chess.server.assembly.{AppContext, EventWiring}
+import chess.server.config.{AiConfig, AppConfig}
 import chess.server.http.{CorsMiddleware, HealthRoutes, HistoryOutboxOpsRoutes}
-import chess.startup.assembly.{AppContext, CoreAssembly, PersistenceAssembly}
 import com.comcast.ip4s.{Host, Port}
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.{HttpApp, Request}
 
-/** Assembles all server-specific runtime from [[AppConfig]].
- *
- *  Owns everything that is a server deployment concern:
- *
- *   1. Persistence infrastructure ([[PersistenceAssembly]])
- *   2. Game Service event distribution infrastructure ([[EventAssembly]]), which starts the
- *      WebSocket server when enabled
- *   3. Shared application runtime ([[CoreAssembly]])
- *   4. HTTP surface composition (chess routes + health routes + CORS)
- *   5. Ember HTTP server startup
- *
- *  Returns the stable [[AppContext]] alongside the server runtime handles
- *  ([[ServerRuntime]]) so that callers can use application services without
- *  depending on server internals.
- *
- *  `CoreAssembly.build(persistence, events.coreEvents)` is used here - not the
- *  `build(config)` convenience — so that the event publisher wired into
- *  application services is the same one attached to the WebSocket server.
- */
+/** Starts the Game Service HTTP runtime from service-owned composition. */
 object ServerWiring:
 
-  /** Start all server infrastructure and return live handles.
-   *
-   *  Fails fast (throws) if `config.http.host` cannot be parsed as a valid
-   *  hostname or IP address.  Port range is already validated by
-   *  [[chess.config.ConfigLoader]], so [[Port.fromInt]] will not fail in practice.
-   */
   def start(config: AppConfig): (AppContext, ServerRuntime) =
+    val (ctx, events) = GameServiceComposition.assemble(config)
 
-    // ── Infrastructure assembly ──────────────────────────────────────────────
-    // EventAssembly starts the WebSocket server (when enabled) and produces
-    // the publisher that is injected into the application service layer.
-    // Both share the same registry, so they must be assembled together here.
-    val persistence = PersistenceAssembly.assemble(config)
-    val events      = EventAssembly.assemble(config)
-
-    // ── Shared application context ───────────────────────────────────────────
-    // CoreAssembly wires persistence and events into application services.
-    // The overload that takes pre-assembled wiring is used here to ensure
-    // the app services see the same publisher as the live WebSocket server.
-    val baseCtx = CoreAssembly.build(persistence, events.coreEvents)
-    val ctx     = withServerAi(baseCtx, events, config.ai)
-
-    // ── HTTP surface composition ─────────────────────────────────────────────
-    // Operational routes (health) are tried first; unmatched requests fall
-    // through to the chess HttpApp.  CORS middleware wraps the entire surface.
-    val chessHttpApp: HttpApp[IO] =
+    val publicGameplayApi: HttpApp[IO] =
       Http4sApp(ctx.gameService).httpApp
+
+    val internalOpsRoutes =
+      HealthRoutes.routes <+> HistoryOutboxOpsRoutes(events.historyOutbox).routes
 
     val composedApp: HttpApp[IO] =
       Kleisli { (req: Request[IO]) =>
-        (HealthRoutes.routes <+> HistoryOutboxOpsRoutes(events.historyOutbox).routes)
+        internalOpsRoutes
           .run(req)
-          .getOrElseF(chessHttpApp.run(req))
+          .getOrElseF(publicGameplayApi.run(req))
       }
 
     val httpApp: HttpApp[IO] =
       CorsMiddleware(config.cors, composedApp)
 
-    // ── HTTP server startup ──────────────────────────────────────────────────
-    // Resolve config strings to ip4s types; port is already range-validated by
-    // ConfigLoader so Port.fromInt will not fail in practice.
     val host = Host.fromString(config.http.host)
       .getOrElse(throw RuntimeException(s"[chess] Invalid HTTP host: '${config.http.host}'"))
     val port = Port.fromInt(config.http.port)
       .getOrElse(throw RuntimeException(s"[chess] HTTP port out of ip4s range: ${config.http.port}"))
 
-    // The IO[Unit] returned by .allocated shuts the server down cleanly.
     val (_, shutdownHttp) =
       EmberServerBuilder
         .default[IO]
@@ -98,46 +51,15 @@ object ServerWiring:
 
     (ctx, ServerRuntime(events.wsServer, shutdownHttp, IO(events.shutdown())))
 
-  /** Attach the server's configured AI move-suggestion client to the Game Service boundary.
-   *
-   *  `CoreAssembly` intentionally leaves AI disabled for shared GUI/TUI
-   *  composition. The HTTP server exposes `/games/{id}/ai-move`, so this runtime
-   *  wires the configured AI client through the single AI port and turn service.
-   */
   private[server] def withServerAi(baseCtx: AppContext, events: EventWiring): AppContext =
-    withServerAi(
-      baseCtx,
-      events,
-      AiConfig(AiProviderMode.Remote, Some(chess.config.RemoteAiConfig("http://ai-service:8765")), 2000, None)
-    )
+    GameServiceComposition.withAi(baseCtx, events)
 
   private[server] def withServerAi(
     baseCtx: AppContext,
     events:  EventWiring,
     config:  AiConfig
   ): AppContext =
-    val aiService = aiClientFor(config).map(client =>
-      AITurnService(client, baseCtx.commands, events.publisher))
-    baseCtx.copy(gameService = DefaultGameService(
-      commands       = baseCtx.commands,
-      sessionService = baseCtx.sessionService,
-      gameRepository = baseCtx.gameRepository,
-      publisher      = events.publisher,
-      aiService      = aiService
-    ))
+    GameServiceComposition.withAi(baseCtx, events, config)
 
-  private[server] def aiClientFor(config: AiConfig): Option[AiMoveSuggestionClient] =
-    config.mode match
-      case AiProviderMode.LocalDeterministic => Some(LocalDeterministicAiClient())
-      case AiProviderMode.Disabled           => None
-      case AiProviderMode.Remote             =>
-        config.remote match
-          case Some(remote) =>
-            Some(RemoteAiMoveSuggestionClient(
-              baseUrl         = remote.baseUrl,
-              timeoutMillis   = config.timeoutMillis,
-              defaultEngineId = config.defaultEngineId,
-              testMode        = remote.testMode
-            ))
-          case None =>
-            throw IllegalArgumentException("AI remote mode requires AI_REMOTE_BASE_URL")
+  private[server] def aiClientFor(config: AiConfig): Option[chess.application.port.ai.AiMoveSuggestionClient] =
+    GameServiceComposition.aiClientFor(config)

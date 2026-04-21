@@ -102,7 +102,7 @@ class RemoteAiIntegrationSpec extends AnyFlatSpec with Matchers with EitherValue
         |}""".stripMargin
 
     val request = java.net.http.HttpRequest
-      .newBuilder(java.net.URI.create(s"$baseUrl/v1/move-suggestions"))
+      .newBuilder(java.net.URI.create(s"$baseUrl${RemoteAiServiceContract.MoveSuggestionsPath}"))
       .header("Content-Type", "application/json")
       .POST(java.net.http.HttpRequest.BodyPublishers.ofString(body))
       .build()
@@ -141,7 +141,7 @@ class RemoteAiIntegrationSpec extends AnyFlatSpec with Matchers with EitherValue
          |}""".stripMargin
 
     val request = java.net.http.HttpRequest
-      .newBuilder(java.net.URI.create(s"$baseUrl/v1/move-suggestions"))
+      .newBuilder(java.net.URI.create(s"$baseUrl${RemoteAiServiceContract.MoveSuggestionsPath}"))
       .header("Content-Type", "application/json")
       .POST(java.net.http.HttpRequest.BodyPublishers.ofString(body))
       .build()

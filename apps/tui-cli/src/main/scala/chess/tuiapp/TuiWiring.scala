@@ -3,14 +3,13 @@ package chess.tuiapp
 import chess.adapter.textui.TuiRunner
 import chess.application.session.model.{DesktopSessionContext, SessionMode, SideController}
 import chess.application.session.model.SessionIds.GameId
-import chess.config.AppConfig
-import chess.startup.assembly.{CoreAssembly, ObservableGame}
+import chess.startup.local.{LocalGameAssembly, LocalRuntimeConfig, ObservableGame}
 
-/** Assembles the TUI-only runtime from [[AppConfig]] and starts the TUI loop.
+/** Assembles the TUI-only runtime from [[LocalRuntimeConfig]] and starts the TUI loop.
  *
  *  Owns everything specific to the standalone TUI deployment:
  *
- *   1. Shared application runtime via [[CoreAssembly.build(AppConfig)]]
+ *   1. Local application runtime via [[LocalGameAssembly.build]]
  *      (in-process, no-op event publisher — no HTTP or WebSocket server)
  *   2. One TUI-local session (HumanVsHuman, both sides local)
  *   3. The [[ObservableGame]] notification bridge for the TUI adapter
@@ -30,10 +29,10 @@ object TuiWiring:
    *
    *  Throws if the session cannot be created (e.g. repository failure).
    */
-  def start(config: AppConfig): Unit =
+  def start(config: LocalRuntimeConfig): Unit =
 
     // ── Shared application context ───────────────────────────────────────────
-    val ctx = CoreAssembly.build(config)
+    val ctx = LocalGameAssembly.build(config)
 
     // ── TUI-local session ────────────────────────────────────────────────────
     val session = ctx.sessionService

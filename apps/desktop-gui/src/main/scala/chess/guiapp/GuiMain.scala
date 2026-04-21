@@ -1,11 +1,12 @@
 package chess.guiapp
 
 import chess.adapter.gui.ChessApp
-import chess.config.ConfigLoader
+import chess.startup.local.LocalRuntimeConfigLoader
 
 /** Entry point for the standalone GUI app.
  *
- *  Loads config from environment variables via [[ConfigLoader]], delegates
+ *  Loads local-client config from environment variables via
+ *  [[LocalRuntimeConfigLoader]], delegates
  *  composition to [[GuiWiring]], then launches the JavaFX event loop.
  *
  *  Does not start the TUI.  GUI is a self-contained runtime shape.
@@ -21,6 +22,6 @@ import chess.config.ConfigLoader
 object GuiMain:
 
   def main(args: Array[String]): Unit =
-    val config = ConfigLoader.loadOrExit()
+    val config = LocalRuntimeConfigLoader.loadOrExit("gui")
     GuiWiring.prepare(config)
     ChessApp.main(args)
