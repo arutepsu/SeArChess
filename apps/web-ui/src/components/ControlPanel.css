@@ -276,12 +276,16 @@
   gap: 10px;
 }
 
+<<<<<<< HEAD
 /* --- Mode select --- */
+=======
+>>>>>>> 3bfa20a2 (polish web ui)
 .control-panel .mode-select {
   display: grid;
   gap: 6px;
 }
 
+<<<<<<< HEAD
 .control-panel select,
 .control-panel .notation-output textarea,
 .control-panel .import-notation textarea {
@@ -297,13 +301,26 @@
 .control-panel textarea:focus {
   border-color: #e6b347;
   outline: none;
+=======
+.control-panel select {
+  min-height: 38px;
+  border: 1px solid rgba(255, 206, 116, 0.35);
+  border-radius: 14px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f4efe6;
+  font: inherit;
+>>>>>>> 3bfa20a2 (polish web ui)
 }
 
 .control-panel select:disabled {
   opacity: 0.6;
 }
 
+<<<<<<< HEAD
 /* --- Buttons --- */
+=======
+>>>>>>> 3bfa20a2 (polish web ui)
 .control-panel button {
   border: none;
   border-radius: 14px;

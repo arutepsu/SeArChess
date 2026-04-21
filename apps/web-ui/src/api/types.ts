@@ -1,6 +1,10 @@
 export type PlayerColor = "white" | "black";
 export type GameStatus = "active" | "check" | "checkmate" | "draw" | "resigned";
+<<<<<<< HEAD
 export type PlayableGameMode = "HumanVsHuman" | "HumanVsAI" | "AIVsAI";
+=======
+export type SessionMode = "HumanVsHuman" | "HumanVsAI";
+>>>>>>> 3bfa20a2 (polish web ui)
 
 export type PieceCode =
   | "wK"
@@ -44,3 +48,27 @@ export interface GameState {
   legalTargetsByFrom: Record<string, string[]>;
 }
 
+<<<<<<< HEAD
+=======
+export interface NewGameRequest {
+  mode?: SessionMode;
+  startingFen?: string;
+}
+
+export interface MoveRequest {
+  from: string;
+  to: string;
+  promotion?: string;
+}
+
+export interface LegalMovesResponse {
+  from: string;
+  moves: string[];
+}
+
+export interface ApiStatus {
+  ok: boolean;
+  serviceName: string;
+  version: string;
+}
+>>>>>>> 3bfa20a2 (polish web ui)

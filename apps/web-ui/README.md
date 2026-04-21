@@ -26,10 +26,14 @@ The Compose Game Service enables CORS for the Vite dev origin
 
 - `VITE_API_BASE_URL` (default: `http://localhost:10000`)
 <<<<<<< HEAD
+<<<<<<< HEAD
 - `VITE_WS_URL` (default: `ws://localhost:10000/ws`; games connect at `/games/{gameId}`)
 =======
 - `VITE_WS_URL` (default: `ws://localhost:10000/ws`)
 >>>>>>> abcc8c8c (envoy + ai service prerp)
+=======
+- `VITE_WS_URL` (default: `ws://localhost:10000/ws`; games connect at `/games/{gameId}`)
+>>>>>>> 3bfa20a2 (polish web ui)
 - `VITE_API_MOCK` set to `true` to use mock data
 
 The browser talks only to Envoy. HTTP commands and reads remain authoritative;

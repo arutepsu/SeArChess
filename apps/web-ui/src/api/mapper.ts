@@ -60,7 +60,11 @@ function mapStatus(status: BackendGameStatus, inCheck: boolean): GameStatus {
   return inCheck ? "check" : "active";
 }
 
+<<<<<<< HEAD
 function mapColor(color: Color | null): PlayerColor | undefined {
+=======
+function mapColor(color: string | null): PlayerColor | undefined {
+>>>>>>> 3bfa20a2 (polish web ui)
   if (color === "White") return "white";
   if (color === "Black") return "black";
   return undefined;
