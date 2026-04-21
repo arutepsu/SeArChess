@@ -57,6 +57,25 @@ export interface AITurnFailedEvent extends BaseWsEvent {
   reason: string;
 }
 
+export interface MoveRejectedEvent extends BaseWsEvent {
+  eventType: "MoveRejected";
+  move: {
+    from: string;
+    to: string;
+    promotion?: string;
+  };
+  reason: string;
+}
+
+export interface GameResignedEvent extends BaseWsEvent {
+  eventType: "GameResigned";
+  winner: string;
+}
+
+export interface SessionCancelledEvent extends BaseWsEvent {
+  eventType: "SessionCancelled";
+}
+
 export type WsEvent =
   | MoveAppliedEvent
   | GameFinishedEvent
@@ -65,4 +84,7 @@ export type WsEvent =
   | PromotionPendingEvent
   | AITurnRequestedEvent
   | AITurnCompletedEvent
-  | AITurnFailedEvent;
+  | AITurnFailedEvent
+  | MoveRejectedEvent
+  | GameResignedEvent
+  | SessionCancelledEvent;

@@ -105,6 +105,8 @@ object JsonNotationFacade extends NotationFacade[GameState]:
       Obj("type" -> "Checkmate", "winner" -> winner.toString)
     case GameStatus.Draw(reason) =>
       Obj("type" -> "Draw", "reason" -> reason.toString)
+    case GameStatus.Resigned(winner) =>
+      Obj("type" -> "Resigned", "winner" -> winner.toString)
   }
 
   private def toJsonCastlingRights(cr: CastlingRights): Obj =
@@ -204,6 +206,8 @@ object JsonNotationFacade extends NotationFacade[GameState]:
         .map(GameStatus.Checkmate(_)).toRight("Invalid winner in Checkmate")
       case "Draw"      => DrawReason.values.find(_.toString == json("reason").str)
         .map(GameStatus.Draw(_)).toRight("Invalid reason in Draw")
+      case "Resigned"  => Color.values.find(_.toString == json("winner").str)
+        .map(GameStatus.Resigned(_)).toRight("Invalid winner in Resigned")
       case other        => Left(s"Unknown GameStatus type: $other")
     }
 

@@ -1,0 +1,103 @@
+services:
+  envoy:
+    image: envoyproxy/envoy:v1.32-latest
+    depends_on:
+      game-service:
+        condition: service_healthy
+    ports:
+      - "10000:10000"
+    volumes:
+      - ./config/envoy/envoy.yaml:/etc/envoy/envoy.yaml:ro
+
+  game-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    expose:
+      - "8080"
+      - "9090"
+    environment:
+      HTTP_HOST: 0.0.0.0
+      HTTP_PORT: 8080
+      CORS_ENABLED: "true"
+      CORS_ALLOWED_ORIGIN: http://localhost:5173
+      WS_ENABLED: "true"
+      WS_PORT: 9090
+      PERSISTENCE_MODE: sqlite
+      CHESS_DB_PATH: /data/searchess.sqlite
+      EVENT_MODE: in-process
+      HISTORY_FORWARDING_ENABLED: "true"
+      HISTORY_SERVICE_BASE_URL: http://history-service:8081
+      HISTORY_FORWARDING_TIMEOUT_MILLIS: 2000
+      AI_PROVIDER_MODE: remote
+      AI_REMOTE_BASE_URL: http://ai-service:8765
+      AI_TIMEOUT_MILLIS: 2000
+      AI_REMOTE_TEST_MODE: ${AI_REMOTE_TEST_MODE:-}
+    volumes:
+      - game-service-data:/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-fsS",
+          "http://127.0.0.1:8080/health"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  history-service:
+    # Internal downstream Game -> History ingestion/archive service. Not required for Game health.
+    build:
+      context: .
+      dockerfile: Dockerfile.history
+    expose:
+      - "8081"
+    environment:
+      HISTORY_HTTP_HOST: 0.0.0.0
+      HISTORY_HTTP_PORT: 8081
+      GAME_SERVICE_BASE_URL: http://game-service:8080
+      HISTORY_DB_PATH: /history-data/history.sqlite
+      HISTORY_GAME_SERVICE_TIMEOUT_MILLIS: 2000
+      HISTORY_ACCEPT_LEGACY_INGESTION_PATH: "false"
+    volumes:
+      - history-service-data:/history-data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-fsS",
+          "http://127.0.0.1:8081/health"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  ai-service:
+    # Internal Game -> AI dependency. Not published on the host edge.
+    build:
+      context: .
+      dockerfile: Dockerfile.ai
+    expose:
+      - "8765"
+    environment:
+      AI_HTTP_HOST: 0.0.0.0
+      AI_HTTP_PORT: 8765
+      AI_ENGINE_ID: random-legal
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-fsS",
+          "http://127.0.0.1:8765/health"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  game-service-data:
+  history-service-data:

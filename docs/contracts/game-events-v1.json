@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "title": "Game Service Events v1",
+  "description": "Wire contract for the five Game Service boundary events. Internal events are excluded.",
+  "oneOf": [
+    { "$ref": "#/definitions/SessionCreated" },
+    { "$ref": "#/definitions/MoveApplied" },
+    { "$ref": "#/definitions/GameFinished" },
+    { "$ref": "#/definitions/GameResigned" },
+    { "$ref": "#/definitions/SessionCancelled" }
+  ],
+  "definitions": {
+
+    "SessionCreated": {
+      "type": "object",
+      "description": "New game session is persisted and ready for play.",
+      "required": ["type", "sessionId", "gameId", "mode", "whiteController", "blackController"],
+      "additionalProperties": false,
+      "properties": {
+        "type":            { "type": "string", "enum": ["game.session.created.v1"] },
+        "sessionId":       { "$ref": "#/definitions/UuidString" },
+        "gameId":          { "$ref": "#/definitions/UuidString" },
+        "mode":            { "$ref": "#/definitions/SessionMode" },
+        "whiteController": { "$ref": "#/definitions/SideController" },
+        "blackController": { "$ref": "#/definitions/SideController" }
+      }
+    },
+
+    "MoveApplied": {
+      "type": "object",
+      "description": "A move was successfully applied and persisted.",
+      "required": ["type", "sessionId", "gameId", "move", "playerWhoMoved"],
+      "additionalProperties": false,
+      "properties": {
+        "type":           { "type": "string", "enum": ["game.move.applied.v1"] },
+        "sessionId":      { "$ref": "#/definitions/UuidString" },
+        "gameId":         { "$ref": "#/definitions/UuidString" },
+        "move":           { "$ref": "#/definitions/Move" },
+        "playerWhoMoved": { "$ref": "#/definitions/Color" }
+      }
+    },
+
+    "GameFinished": {
+      "type": "object",
+      "description": "Terminal game state reached (Checkmate or Draw). GameStatus.Resigned is NOT surfaced here — see GameResigned.",
+      "required": ["type", "sessionId", "gameId", "result", "winner", "drawReason"],
+      "additionalProperties": false,
+      "properties": {
+        "type":       { "type": "string", "enum": ["game.finished.v1"] },
+        "sessionId":  { "$ref": "#/definitions/UuidString" },
+        "gameId":     { "$ref": "#/definitions/UuidString" },
+        "result":     { "type": "string", "enum": ["Checkmate", "Draw"] },
+        "winner":     {
+          "description": "Present (White|Black) for Checkmate; null for Draw.",
+          "oneOf": [{ "$ref": "#/definitions/Color" }, { "type": "null" }]
+        },
+        "drawReason": {
+          "description": "Present for Draw; null for Checkmate. Additional reasons may be added in future minor versions.",
+          "oneOf": [{ "type": "string", "enum": ["Stalemate"] }, { "type": "null" }]
+        }
+      }
+    },
+
+    "GameResigned": {
+      "type": "object",
+      "description": "A player resigned. winner is the side that did NOT resign.",
+      "required": ["type", "sessionId", "gameId", "winner"],
+      "additionalProperties": false,
+      "properties": {
+        "type":      { "type": "string", "enum": ["game.resigned.v1"] },
+        "sessionId": { "$ref": "#/definitions/UuidString" },
+        "gameId":    { "$ref": "#/definitions/UuidString" },
+        "winner":    { "$ref": "#/definitions/Color" }
+      }
+    },
+
+    "SessionCancelled": {
+      "type": "object",
+      "description": "Session closed administratively. No game result recorded; game state is left Ongoing.",
+      "required": ["type", "sessionId", "gameId"],
+      "additionalProperties": false,
+      "properties": {
+        "type":      { "type": "string", "enum": ["game.session.cancelled.v1"] },
+        "sessionId": { "$ref": "#/definitions/UuidString" },
+        "gameId":    { "$ref": "#/definitions/UuidString" }
+      }
+    },
+
+    "Move": {
+      "type": "object",
+      "required": ["from", "to", "promotion"],
+      "additionalProperties": false,
+      "properties": {
+        "from":      { "$ref": "#/definitions/Square" },
+        "to":        { "$ref": "#/definitions/Square" },
+        "promotion": {
+          "description": "null for non-promotion moves. Piece type the pawn is replaced with on the back rank.",
+          "oneOf": [
+            { "type": "string", "enum": ["Queen", "Rook", "Bishop", "Knight"] },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+
+    "Color": {
+      "type": "string",
+      "enum": ["White", "Black"]
+    },
+
+    "SessionMode": {
+      "type": "string",
+      "enum": ["HumanVsHuman", "HumanVsAI", "AIVsAI"]
+    },
+
+    "SideController": {
+      "type": "string",
+      "description": "Who controls a side. 'AI' when no specific engine requested; 'AI:<engineId>' when an engine was specified (e.g. 'AI:stockfish-15').",
+      "examples": ["HumanLocal", "HumanRemote", "AI", "AI:stockfish-15"]
+    },
+
+    "Square": {
+      "type": "string",
+      "description": "Algebraic square notation: file a-h followed by rank 1-8.",
+      "pattern": "^[a-h][1-8]$",
+      "examples": ["e2", "e4", "a1", "h8"]
+    },
+
+    "UuidString": {
+      "type": "string",
+      "description": "Opaque UUID string. Treat as an equality key only.",
+      "format": "uuid",
+      "examples": ["550e8400-e29b-41d4-a716-446655440000"]
+    }
+  }
+}

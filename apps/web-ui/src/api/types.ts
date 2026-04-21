@@ -1,5 +1,6 @@
 export type PlayerColor = "white" | "black";
-export type GameStatus = "active" | "check" | "checkmate" | "stalemate" | "resigned";
+export type GameStatus = "active" | "check" | "checkmate" | "draw" | "resigned";
+export type SessionMode = "HumanVsHuman" | "HumanVsAI";
 
 export type PieceCode =
   | "wK"
@@ -32,6 +33,8 @@ export interface GameState {
   board: BoardMatrix;
   activeColor: PlayerColor;
   status: GameStatus;
+  winner?: PlayerColor;
+  drawReason?: string;
   fullMove: number;
   halfMoveClock: number;
   lastMove?: MoveRecord;
@@ -42,6 +45,7 @@ export interface GameState {
 }
 
 export interface NewGameRequest {
+  mode?: SessionMode;
   startingFen?: string;
 }
 

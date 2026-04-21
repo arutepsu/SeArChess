@@ -1,0 +1,359 @@
+openapi: "3.1.0"
+
+info:
+  title: Searchess Inference API
+  version: "1.0.0"
+  description: >
+    Internal synchronous HTTP contract between Game Service and AI Service for
+    move suggestion inference. This API is not edge-facing; clients call Game
+    Service, and Game Service calls AI Service. Game Service is authoritative for legality,
+    persistence, and lifecycle. AI Service proposes; Game Service decides.
+    All JSON field names on the wire use camelCase. Training, evaluation,
+    model lifecycle, and engine management are explicitly out of scope for v1.
+
+servers:
+  - url: /v1
+    description: Inference API v1
+
+paths:
+  /move-suggestions:
+    post:
+      operationId: suggestMove
+      summary: Request a move suggestion for the current position
+      description: >
+        Game Service submits the current position (FEN) and the complete legal
+        move set. AI Service returns one move from that set. Game Service
+        re-validates the returned move and remains the sole authority on
+        whether it is applied.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoveSuggestionRequest'
+            example:
+              requestId: "550e8400-e29b-41d4-a716-446655440000"
+              gameId: "123e4567-e89b-12d3-a456-426614174000"
+              sessionId: "789abcde-f012-3456-b789-abcdef012345"
+              sideToMove: "black"
+              fen: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+              legalMoves:
+                - { from: "e7", to: "e5" }
+                - { from: "e7", to: "e6" }
+                - { from: "g8", to: "f6" }
+              engine:
+                engineId: "random-legal"
+              limits:
+                timeoutMillis: 3000
+              metadata:
+                mode: "HumanVsAI"
+      responses:
+        '200':
+          description: Move suggestion produced successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MoveSuggestionResponse'
+              example:
+                requestId: "550e8400-e29b-41d4-a716-446655440000"
+                move: { from: "e7", to: "e5" }
+                engineId: "random-legal"
+                engineVersion: "0.1.0"
+                elapsedMillis: 12
+                confidence: 0.83
+        '400':
+          description: Malformed request — BAD_REQUEST
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                requestId: "550e8400-e29b-41d4-a716-446655440000"
+                code: BAD_REQUEST
+                message: "required field 'fen' is missing"
+        '422':
+          description: Valid request but unprocessable position — BAD_POSITION or NO_LEGAL_MOVE
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                badPosition:
+                  summary: Invalid FEN
+                  value:
+                    requestId: "550e8400-e29b-41d4-a716-446655440000"
+                    code: BAD_POSITION
+                    message: "FEN string could not be parsed"
+                noLegalMove:
+                  summary: Empty legal move set
+                  value:
+                    requestId: "550e8400-e29b-41d4-a716-446655440000"
+                    code: NO_LEGAL_MOVE
+                    message: "legalMoves is empty; position appears to be terminal"
+        '500':
+          description: Internal engine error — ENGINE_FAILURE
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                requestId: "550e8400-e29b-41d4-a716-446655440000"
+                code: ENGINE_FAILURE
+                message: "engine raised an unexpected exception"
+        '503':
+          description: Engine not available — ENGINE_UNAVAILABLE
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                requestId: "550e8400-e29b-41d4-a716-446655440000"
+                code: ENGINE_UNAVAILABLE
+                message: "engine 'random-legal' is not loaded"
+        '504':
+          description: Engine timed out — ENGINE_TIMEOUT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                requestId: "550e8400-e29b-41d4-a716-446655440000"
+                code: ENGINE_TIMEOUT
+                message: "engine did not respond within 3000ms"
+
+  /health:
+    get:
+      operationId: getHealth
+      summary: Service health check
+      description: >
+        Liveness and readiness probe used by Game Service before routing
+        inference traffic and by infrastructure health checks.
+      responses:
+        '200':
+          description: Service is healthy or degraded but accepting requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: "ok"
+                service: "searchess-ai-service"
+                version: "0.1.0"
+        '503':
+          description: Service is not ready to accept requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+components:
+  schemas:
+
+    MoveSuggestionRequest:
+      type: object
+      required:
+        - requestId
+        - gameId
+        - sessionId
+        - sideToMove
+        - fen
+        - legalMoves
+        - limits
+      additionalProperties: false
+      properties:
+        requestId:
+          type: string
+          format: uuid
+          description: >
+            Client-generated correlation ID. Echoed verbatim in all responses
+            (success and error). Game Service generates one UUID per AI turn
+            invocation. camelCase on the wire.
+        gameId:
+          type: string
+          format: uuid
+          description: >
+            Game Service game identifier. Authoritative. AI Service uses it
+            for diagnostics and log correlation only.
+        sessionId:
+          type: string
+          format: uuid
+          description: >
+            Game Service session identifier. Authoritative. AI Service uses
+            it for diagnostics and log correlation only.
+        sideToMove:
+          type: string
+          enum: [white, black]
+          description: The side whose turn it is to move. Always lowercase.
+        fen:
+          type: string
+          minLength: 1
+          description: >
+            Current position in Forsyth-Edwards Notation (FEN). Game Service
+            is the authority on position correctness. AI Service validates
+            syntax only and returns BAD_POSITION if it cannot parse the FEN.
+        legalMoves:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/MoveDto'
+          description: >
+            Complete set of legal moves for the side to move, computed by
+            Game Service. AI Service MUST return a move from this list.
+            Game Service guarantees this list is non-empty for a valid request.
+            An empty list is a BAD_REQUEST. NO_LEGAL_MOVE is a defensive
+            engine-layer signal, not a synonym for an empty list.
+        engine:
+          $ref: '#/components/schemas/EngineSelection'
+        limits:
+          $ref: '#/components/schemas/ExecutionLimits'
+        metadata:
+          $ref: '#/components/schemas/RequestMetadata'
+
+    MoveDto:
+      type: object
+      required:
+        - from
+        - to
+      additionalProperties: false
+      properties:
+        from:
+          type: string
+          pattern: '^[a-h][1-8]$'
+          description: Source square in lowercase algebraic notation (e.g. "e2").
+        to:
+          type: string
+          pattern: '^[a-h][1-8]$'
+          description: Destination square in lowercase algebraic notation (e.g. "e4").
+        promotion:
+          type: string
+          enum: [queen, rook, bishop, knight]
+          description: >
+            Promotion piece type, lowercase. Present only for pawn promotion
+            moves. Game Service includes one MoveDto per promotion choice in
+            legalMoves; AI Service picks one. Must be present in the response
+            move if the chosen move is a promotion.
+
+    EngineSelection:
+      type: object
+      additionalProperties: false
+      properties:
+        engineId:
+          type: string
+          minLength: 1
+          description: >
+            Optional opaque engine identifier. If absent, AI Service selects
+            its configured default engine.
+
+    ExecutionLimits:
+      type: object
+      required:
+        - timeoutMillis
+      additionalProperties: false
+      properties:
+        timeoutMillis:
+          type: integer
+          minimum: 1
+          description: >
+            Maximum milliseconds the AI Service may spend before it MUST
+            respond. Game Service enforces an independent HTTP client timeout
+            at the same value. AI Service SHOULD return ENGINE_TIMEOUT itself
+            rather than allowing the connection to drop.
+
+    RequestMetadata:
+      type: object
+      additionalProperties: false
+      properties:
+        mode:
+          type: string
+          minLength: 1
+          description: >
+            Session mode hint (e.g. "HumanVsAI", "AIVsAI"). Informational
+            only. AI Service MAY use for routing or diagnostics; MAY ignore.
+
+    MoveSuggestionResponse:
+      type: object
+      required:
+        - requestId
+        - move
+      additionalProperties: true
+      properties:
+        requestId:
+          type: string
+          format: uuid
+          description: Echoes the requestId from the request.
+        move:
+          $ref: '#/components/schemas/MoveDto'
+          description: >
+            The move AI Service proposes. MUST be an element of the
+            legalMoves set supplied in the request. Game Service re-validates
+            before applying; a move not in the legal set is treated as
+            ENGINE_FAILURE.
+        engineId:
+          type: string
+          description: Identifier of the engine or model that produced this suggestion.
+        engineVersion:
+          type: string
+          description: Version of the engine or model used.
+        elapsedMillis:
+          type: integer
+          minimum: 0
+          description: Wall-clock milliseconds spent computing the suggestion.
+        confidence:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          description: >
+            Engine confidence in the suggested move, if available.
+            Normalization method is AI Service's choice.
+
+    ErrorResponse:
+      type: object
+      required:
+        - requestId
+        - code
+        - message
+      additionalProperties: false
+      properties:
+        requestId:
+          type: string
+          description: >
+            Echoes the requestId from the request if the body was parseable
+            JSON containing that field. Empty string if the body could not be
+            parsed (invalid JSON or missing requestId field).
+        code:
+          type: string
+          enum:
+            - BAD_REQUEST
+            - BAD_POSITION
+            - NO_LEGAL_MOVE
+            - ENGINE_UNAVAILABLE
+            - ENGINE_TIMEOUT
+            - ENGINE_FAILURE
+          description: >
+            Machine-readable error code. ENGINE_UNAVAILABLE and ENGINE_TIMEOUT
+            are safe to retry. Others will not succeed on retry without fixing
+            the request or system state.
+        message:
+          type: string
+          description: Human-readable description. Not for programmatic handling.
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+      additionalProperties: true
+      properties:
+        status:
+          type: string
+          enum: [ok]
+          description: >
+            "ok" — service is up and accepting inference requests. HTTP 503
+            with no body means the service is not ready. No fine-grained
+            status values for v1.
+        service:
+          type: string
+          description: Service name.
+        version:
+          type: string
+          description: Service version.

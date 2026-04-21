@@ -66,6 +66,6 @@ This keeps the system clean:
 - `domain` = rules and core model
 - `application` = use cases and orchestration
 - adapters = transport, UI, persistence, AI, events
-- `bootstrap-server` = runtime assembly
+- `game-service` = runtime assembly
 
 If this boundary stays clean, the whole architecture stays stable as the system grows.

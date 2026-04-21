@@ -8,7 +8,7 @@ final case class MoveHistoryEntry(from: String, to: String, promotion: Option[St
 /** A single occupied square on the board. */
 final case class PieceDto(square: String, color: String, pieceType: String)
 
-/** Transport representation of a [[chess.domain.state.GameState]].
+/** Wire representation of a game state response.
  *
  *  @param gameId              opaque UUID string identifying the game record
  *  @param currentPlayer       "White" or "Black"
