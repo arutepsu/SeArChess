@@ -4,6 +4,7 @@
   padding: 6px;
   width: fit-content;
   justify-self: start;
+  margin-left: 40px;
   --square-size: 72px;
 }
 
@@ -54,8 +55,6 @@
   background-repeat: no-repeat;
   background-position: center;
   background-size: contain;
-  transform: scale(2);
-  transform-origin: center;
   z-index: 1;
 }
 
@@ -65,11 +64,6 @@
 
 .piece-dark {
   color: #1a1411;
-}
-
-.piece-dark.has-sprite {
-  transform: scaleX(-1);
-  transform-origin: center;
 }
 
 .has-sprite {
@@ -89,7 +83,6 @@
   background-position: 0% 50%;
   background-size: 100% 100%;
   transform-origin: center;
-  transform: scale(1.08);
 }
 
 .is-selected {
