@@ -1,4 +1,10 @@
-import type { GameResponse, MoveHistoryEntryDto } from "./backendTypes";
+import type {
+  Color,
+  GameSnapshot,
+  GameStatus as BackendGameStatus,
+  MoveHistoryEntryDto,
+  PieceType
+} from "./backendTypes";
 import type {
   BoardMatrix,
   GameState,
@@ -9,7 +15,7 @@ import type {
 } from "./types";
 import { squareToIndex } from "../domain/board";
 
-function mapPieceCode(color: string, pieceType: string): PieceCode | null {
+function mapPieceCode(color: Color, pieceType: PieceType): PieceCode | null {
   const prefix = color === "White" ? "w" : color === "Black" ? "b" : null;
   if (!prefix) return null;
 
@@ -28,7 +34,7 @@ function mapPieceCode(color: string, pieceType: string): PieceCode | null {
   return `${prefix}${letter}` as PieceCode;
 }
 
-function mapBoard(pieces: GameResponse["board"]): BoardMatrix {
+function mapBoard(pieces: GameSnapshot["board"]): BoardMatrix {
   const board: BoardMatrix = Array.from({ length: 8 }, () =>
     Array(8).fill(null)
   );
@@ -43,14 +49,14 @@ function mapBoard(pieces: GameResponse["board"]): BoardMatrix {
   return board;
 }
 
-function mapStatus(status: string, inCheck: boolean): GameStatus {
+function mapStatus(status: BackendGameStatus, inCheck: boolean): GameStatus {
   if (status === "Checkmate") return "checkmate";
   if (status === "Draw") return "draw";
   if (status === "Resigned") return "resigned";
   return inCheck ? "check" : "active";
 }
 
-function mapColor(color: string | null): PlayerColor | undefined {
+function mapColor(color: Color | null): PlayerColor | undefined {
   if (color === "White") return "white";
   if (color === "Black") return "black";
   return undefined;
@@ -138,7 +144,7 @@ function computeCapturedPieces(board: BoardMatrix): PieceCode[] {
   return captured;
 }
 
-export function mapGameResponseToGameState(game: GameResponse): GameState {
+export function mapGameSnapshotToGameState(game: GameSnapshot): GameState {
   const moves = game.moveHistory.map((entry, index) =>
     mapMoveHistoryEntry(entry, index + 1)
   );

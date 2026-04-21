@@ -2,7 +2,7 @@ package chess.adapter.rest.contract.dto
 
 import ujson.Value
 
-/** Response body for POST /games/{gameId}/moves.
+/** Canonical command response body for Game commands that return updated state.
  *
  *  @param game             updated game state after the move
  *  @param sessionLifecycle updated session lifecycle phase after the move.
@@ -16,11 +16,24 @@ import ujson.Value
  *  `"promotion"` field populated; that second submission succeeds and returns
  *  `"Active"` (or `"Finished"` if it delivers checkmate).
  */
-final case class SubmitMoveResponse(game: GameResponse, sessionLifecycle: String)
+final case class CommandGameResponse(game: GameSnapshot, sessionLifecycle: String)
 
-object SubmitMoveResponse:
-  def toJson(r: SubmitMoveResponse): Value =
+object CommandGameResponse:
+  def toJson(r: CommandGameResponse): Value =
     ujson.Obj(
-      "game"             -> GameResponse.toJson(r.game),
+      "game"             -> GameSnapshot.toJson(r.game),
       "sessionLifecycle" -> ujson.Str(r.sessionLifecycle)
     )
+
+/** Temporary source-compatible alias for pre-cleanup DTO naming.
+ *
+ *  New code should use [[CommandGameResponse]]. The JSON wire shape is unchanged.
+ */
+type SubmitMoveResponse = CommandGameResponse
+
+object SubmitMoveResponse:
+  def apply(game: GameSnapshot, sessionLifecycle: String): CommandGameResponse =
+    CommandGameResponse(game, sessionLifecycle)
+
+  def toJson(r: CommandGameResponse): Value =
+    CommandGameResponse.toJson(r)

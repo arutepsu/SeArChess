@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { loadStoredSession, persistSession } from "./sessionStore";
 import type { SessionContext } from "./sessionStore";
 
 type SessionStore = {
@@ -12,11 +13,13 @@ type SessionStore = {
 const SessionCtx = createContext<SessionStore | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [session, setSessionState] = useState<SessionContext | null>(null);
-  const sessionRef = useRef<SessionContext | null>(null);
+  const initialSession = useRef<SessionContext | null>(loadStoredSession());
+  const [session, setSessionState] = useState<SessionContext | null>(initialSession.current);
+  const sessionRef = useRef<SessionContext | null>(initialSession.current);
 
   const setSession = useCallback((s: SessionContext | null) => {
     sessionRef.current = s;
+    persistSession(s);
     setSessionState(s);
   }, []);
 
