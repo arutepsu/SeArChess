@@ -14,6 +14,7 @@
   grid-template-columns: minmax(360px, 1.6fr) minmax(200px, 0.4fr);
   gap: 36px;
   align-items: start;
+  padding-top: 84px;
 }
 
 .side {
