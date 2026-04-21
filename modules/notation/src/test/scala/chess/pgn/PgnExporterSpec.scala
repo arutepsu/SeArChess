@@ -8,22 +8,22 @@ import chess.notation.api._
 import chess.domain.model.{Color, GameStatus}
 import chess.domain.state.{GameState, GameStateFactory}
 
-/** Specification for [[PgnExporter]] via [[PgnNotationFacade.executeExport]]
- *  (Phase 4: real PGN export).
- *
- *  Covers:
- *  - initial / empty game state → result token only
- *  - simple one-move and multi-move sequences
- *  - captures (pawn captures, piece captures)
- *  - disambiguation (two pieces of the same type can reach the same square)
- *  - castling (O-O, O-O-O)
- *  - pawn promotion suffix
- *  - check suffix
- *  - checkmate suffix and result token 0-1
- *  - all result token mappings (1-0, 0-1, 1/2-1/2, *)
- *  - non-PGN format → UnsupportedExportFormat
- *  - export → import round-trip: final board matches
- */
+/** Specification for [[PgnExporter]] via [[PgnNotationFacade.executeExport]] (Phase 4: real PGN
+  * export).
+  *
+  * Covers:
+  *   - initial / empty game state → result token only
+  *   - simple one-move and multi-move sequences
+  *   - captures (pawn captures, piece captures)
+  *   - disambiguation (two pieces of the same type can reach the same square)
+  *   - castling (O-O, O-O-O)
+  *   - pawn promotion suffix
+  *   - check suffix
+  *   - checkmate suffix and result token 0-1
+  *   - all result token mappings (1-0, 0-1, 1/2-1/2, *)
+  *   - non-PGN format → UnsupportedExportFormat
+  *   - export → import round-trip: final board matches
+  */
 class PgnExporterSpec extends AnyFlatSpec with Matchers with EitherValues with OptionValues:
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -117,10 +117,13 @@ class PgnExporterSpec extends AnyFlatSpec with Matchers with EitherValues with O
 
   it should "export pawn promotion with '=Q'" in {
     val tokens = Vector("d4", "e5", "d5", "Nf6", "d6", "Be7", "dxc7", "O-O", "cxd8=Q")
-    val pgn    = ParsedNotation.ParsedPgn("", PgnData(Map.empty, tokens, None))
-    val state  = PgnNotationFacade.executeImport(pgn, ImportTarget.GameTarget).value
-      .asInstanceOf[ImportResult.GameImportResult[GameState]].data
-    val text   = PgnNotationFacade.executeExport(state, NotationFormat.PGN).value.text
+    val pgn = ParsedNotation.ParsedPgn("", PgnData(Map.empty, tokens, None))
+    val state = PgnNotationFacade
+      .executeImport(pgn, ImportTarget.GameTarget)
+      .value
+      .asInstanceOf[ImportResult.GameImportResult[GameState]]
+      .data
+    val text = PgnNotationFacade.executeExport(state, NotationFormat.PGN).value.text
     text should include("cxd8=Q")
   }
 
@@ -158,12 +161,25 @@ class PgnExporterSpec extends AnyFlatSpec with Matchers with EitherValues with O
     // White has Nd4 and Nc3 — both can legally reach b5 (no pins involved).
     // "Ndb5" or "Ncb5" must appear in the export.
     val tokens = Vector(
-      "e4", "e5", "Nf3", "d6", "Nc3", "Nf6", "d4", "exd4", "Nxd4", "Nc6", "Ndb5"
+      "e4",
+      "e5",
+      "Nf3",
+      "d6",
+      "Nc3",
+      "Nf6",
+      "d4",
+      "exd4",
+      "Nxd4",
+      "Nc6",
+      "Ndb5"
     )
-    val pgn   = ParsedNotation.ParsedPgn("", PgnData(Map.empty, tokens, None))
-    val state = PgnNotationFacade.executeImport(pgn, ImportTarget.GameTarget).value
-      .asInstanceOf[ImportResult.GameImportResult[GameState]].data
-    val text  = PgnNotationFacade.executeExport(state, NotationFormat.PGN).value.text
+    val pgn = ParsedNotation.ParsedPgn("", PgnData(Map.empty, tokens, None))
+    val state = PgnNotationFacade
+      .executeImport(pgn, ImportTarget.GameTarget)
+      .value
+      .asInstanceOf[ImportResult.GameImportResult[GameState]]
+      .data
+    val text = PgnNotationFacade.executeExport(state, NotationFormat.PGN).value.text
     // The last white move must carry a file disambiguator
     text should (include("Ndb5") or include("Ncb5"))
   }
@@ -171,14 +187,14 @@ class PgnExporterSpec extends AnyFlatSpec with Matchers with EitherValues with O
   // ── Round-trip correctness ────────────────────────────────────────────────────
 
   it should "produce a PGN that re-imports to the same board position" in {
-    val original  = importState("1. e4 e5 2. Nf3 Nc6 3. Bb5 a6")
-    val exported  = PgnNotationFacade.executeExport(original, NotationFormat.PGN).value.text
+    val original = importState("1. e4 e5 2. Nf3 Nc6 3. Bb5 a6")
+    val exported = PgnNotationFacade.executeExport(original, NotationFormat.PGN).value.text
     val reimported = PgnNotationFacade
       .parseAndImport(NotationFormat.PGN, exported, ImportTarget.GameTarget)
       .value
       .asInstanceOf[ImportResult.GameImportResult[GameState]]
       .data
-    reimported.board          shouldBe original.board
-    reimported.currentPlayer  shouldBe original.currentPlayer
+    reimported.board shouldBe original.board
+    reimported.currentPlayer shouldBe original.currentPlayer
     reimported.castlingRights shouldBe original.castlingRights
   }

@@ -5,22 +5,20 @@ import java.util.concurrent.{ConcurrentHashMap, CopyOnWriteArraySet}
 import scala.jdk.CollectionConverters.*
 
 /** Thread-safe in-memory registry that maps [[GameId]] subscriptions to live
- *  [[WebSocketConnection]]s.
- *
- *  Clients subscribe by connecting to a path that encodes their `gameId`.
- *  Multiple clients can subscribe to the same `gameId`; all receive matching
- *  events.
- *
- *  === Thread safety ===
- *  [[ConcurrentHashMap]] and [[CopyOnWriteArraySet]] provide safe concurrent
- *  access across multiple WebSocket connection threads without external
- *  synchronisation.
- *
- *  === Lifecycle ===
- *  Call [[subscribe]] on connection open and [[unsubscribe]] on connection
- *  close.  The registry never holds a reference to a connection longer than
- *  needed; stale entries are cleaned up on [[unsubscribe]].
- */
+  * [[WebSocketConnection]]s.
+  *
+  * Clients subscribe by connecting to a path that encodes their `gameId`. Multiple clients can
+  * subscribe to the same `gameId`; all receive matching events.
+  *
+  * ===Thread safety===
+  * [[ConcurrentHashMap]] and [[CopyOnWriteArraySet]] provide safe concurrent access across multiple
+  * WebSocket connection threads without external synchronisation.
+  *
+  * ===Lifecycle===
+  * Call [[subscribe]] on connection open and [[unsubscribe]] on connection close. The registry
+  * never holds a reference to a connection longer than needed; stale entries are cleaned up on
+  * [[unsubscribe]].
+  */
 class WebSocketConnectionRegistry:
 
   private val subscriptions: ConcurrentHashMap[GameId, CopyOnWriteArraySet[WebSocketConnection]] =
@@ -33,9 +31,9 @@ class WebSocketConnectionRegistry:
       .add(conn)
 
   /** Remove `conn` from all game subscriptions.
-   *
-   *  Safe to call even if `conn` was never registered.
-   */
+    *
+    * Safe to call even if `conn` was never registered.
+    */
   def unsubscribe(conn: WebSocketConnection): Unit =
     subscriptions.values.forEach(_.remove(conn))
 

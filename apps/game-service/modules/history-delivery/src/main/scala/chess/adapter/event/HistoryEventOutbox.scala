@@ -3,26 +3,26 @@ package chess.adapter.event
 import java.time.Instant
 
 final case class HistoryOutboxEntry(
-  id:          Long,
-  eventType:   String,
-  sessionId:   String,
-  gameId:      String,
-  payloadJson: String,
-  createdAt:   Instant,
-  attempts:    Int,
-  lastAttemptedAt: Option[Instant],
-  lastError:   Option[String],
-  deliveredAt: Option[Instant]
+    id: Long,
+    eventType: String,
+    sessionId: String,
+    gameId: String,
+    payloadJson: String,
+    createdAt: Instant,
+    attempts: Int,
+    lastAttemptedAt: Option[Instant],
+    lastError: Option[String],
+    deliveredAt: Option[Instant]
 )
 
 final case class HistoryOutboxSummary(
-  totalCount:       Int,
-  pendingCount:     Int,
-  deliveredCount:   Int,
-  retryingCount:    Int,
-  oldestPendingAt:  Option[Instant],
-  newestPendingAt:  Option[Instant],
-  pendingByType:    Map[String, Int]
+    totalCount: Int,
+    pendingCount: Int,
+    deliveredCount: Int,
+    retryingCount: Int,
+    oldestPendingAt: Option[Instant],
+    newestPendingAt: Option[Instant],
+    pendingByType: Map[String, Int]
 )
 
 trait HistoryEventOutbox:

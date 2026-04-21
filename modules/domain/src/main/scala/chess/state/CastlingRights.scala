@@ -1,17 +1,17 @@
 package chess.domain.state
 
 /** Tracks which castling moves are still legally available.
- *
- *  A right becomes permanently false once:
- *  - the corresponding king moves, OR
- *  - the corresponding rook moves from its original square, OR
- *  - a rook is captured on its original square.
- */
+  *
+  * A right becomes permanently false once:
+  *   - the corresponding king moves, OR
+  *   - the corresponding rook moves from its original square, OR
+  *   - a rook is captured on its original square.
+  */
 final case class CastlingRights(
-  whiteKingSide:  Boolean,
-  whiteQueenSide: Boolean,
-  blackKingSide:  Boolean,
-  blackQueenSide: Boolean
+    whiteKingSide: Boolean,
+    whiteQueenSide: Boolean,
+    blackKingSide: Boolean,
+    blackQueenSide: Boolean
 )
 
 object CastlingRights:

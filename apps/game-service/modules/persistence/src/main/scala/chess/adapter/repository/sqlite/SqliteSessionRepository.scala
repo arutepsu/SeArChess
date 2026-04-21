@@ -9,11 +9,11 @@ import java.time.Instant
 import java.util.UUID
 
 /** SQLite-backed [[SessionRepository]].
- *
- *  Session metadata is stored as flat columns in the `sessions` table.
- *  Transactional multi-table writes are handled at the [[SqliteSessionGameStore]] level
- *  for game-state operations and by [[saveCancelWithOutbox]] for session-cancel operations.
- */
+  *
+  * Session metadata is stored as flat columns in the `sessions` table. Transactional multi-table
+  * writes are handled at the [[SqliteSessionGameStore]] level for game-state operations and by
+  * [[saveCancelWithOutbox]] for session-cancel operations.
+  */
 class SqliteSessionRepository(ds: SqliteDataSource) extends SessionRepository:
 
   override def save(session: GameSession): Either[RepositoryError, Unit] =
@@ -37,8 +37,7 @@ class SqliteSessionRepository(ds: SqliteDataSource) extends SessionRepository:
           else Left(RepositoryError.NotFound(id.value.toString))
         finally
           rs.close()
-      finally
-        ps.close()
+      finally ps.close()
     }
 
   override def loadByGameId(id: GameId): Either[RepositoryError, GameSession] =
@@ -52,8 +51,7 @@ class SqliteSessionRepository(ds: SqliteDataSource) extends SessionRepository:
           else Left(RepositoryError.NotFound(id.value.toString))
         finally
           rs.close()
-      finally
-        ps.close()
+      finally ps.close()
     }
 
   override def listActive(): Either[RepositoryError, List[GameSession]] =
@@ -67,25 +65,22 @@ class SqliteSessionRepository(ds: SqliteDataSource) extends SessionRepository:
           val buf = collection.mutable.ListBuffer.empty[GameSession]
           while rs.next() do buf += rowToSession(rs)
           Right(buf.toList)
-        finally
-          rs.close()
-      finally
-        ps.close()
+        finally rs.close()
+      finally ps.close()
     }
 
   /** Persist a cancelled session and its outbox payload in one JDBC transaction.
-   *
-   *  When `outboxPayload` is [[None]] (no-op serialiser or history disabled),
-   *  delegates to [[save]] — same behaviour as before.
-   *
-   *  When `outboxPayload` is [[Some]], the session upsert and the outbox row
-   *  insert share a single transaction.  If either write fails the other is also
-   *  rolled back so the `sessions` row and the `history_event_outbox` row always
-   *  agree.
-   */
+    *
+    * When `outboxPayload` is [[None]] (no-op serialiser or history disabled), delegates to [[save]]
+    * — same behaviour as before.
+    *
+    * When `outboxPayload` is [[Some]], the session upsert and the outbox row insert share a single
+    * transaction. If either write fails the other is also rolled back so the `sessions` row and the
+    * `history_event_outbox` row always agree.
+    */
   override def saveCancelWithOutbox(
-    session:       GameSession,
-    outboxPayload: Option[String]
+      session: GameSession,
+      outboxPayload: Option[String]
   ): Either[RepositoryError, Unit] =
     outboxPayload match
       case None => save(session)
@@ -118,21 +113,20 @@ class SqliteSessionRepository(ds: SqliteDataSource) extends SessionRepository:
       ps.setString(7, session.createdAt.toString)
       ps.setString(8, session.updatedAt.toString)
       ps.executeUpdate()
-    finally
-      ps.close()
+    finally ps.close()
 
   // ── Row → model ───────────────────────────────────────────────────────────
 
   private def rowToSession(rs: ResultSet): GameSession =
     GameSession(
-      sessionId       = SessionId(UUID.fromString(rs.getString("session_id"))),
-      gameId          = GameId(UUID.fromString(rs.getString("game_id"))),
-      mode            = parseMode(rs.getString("mode")),
+      sessionId = SessionId(UUID.fromString(rs.getString("session_id"))),
+      gameId = GameId(UUID.fromString(rs.getString("game_id"))),
+      mode = parseMode(rs.getString("mode")),
       whiteController = parseController(rs.getString("white_controller")),
       blackController = parseController(rs.getString("black_controller")),
-      lifecycle       = parseLifecycle(rs.getString("lifecycle")),
-      createdAt       = Instant.parse(rs.getString("created_at")),
-      updatedAt       = Instant.parse(rs.getString("updated_at"))
+      lifecycle = parseLifecycle(rs.getString("lifecycle")),
+      createdAt = Instant.parse(rs.getString("created_at")),
+      updatedAt = Instant.parse(rs.getString("updated_at"))
     )
 
   // ── Encoders ──────────────────────────────────────────────────────────────
@@ -164,11 +158,11 @@ class SqliteSessionRepository(ds: SqliteDataSource) extends SessionRepository:
     case other          => throw IllegalStateException(s"Unknown session mode in DB: $other")
 
   private def parseController(s: String): SideController = s match
-    case "HumanLocal"  => SideController.HumanLocal
-    case "HumanRemote" => SideController.HumanRemote
-    case "AI"          => SideController.AI(None)
+    case "HumanLocal"               => SideController.HumanLocal
+    case "HumanRemote"              => SideController.HumanRemote
+    case "AI"                       => SideController.AI(None)
     case ai if ai.startsWith("AI:") => SideController.AI(Some(ai.stripPrefix("AI:")))
-    case other         => throw IllegalStateException(s"Unknown controller in DB: $other")
+    case other => throw IllegalStateException(s"Unknown controller in DB: $other")
 
   private def parseLifecycle(s: String): SessionLifecycle = s match
     case "Created"           => SessionLifecycle.Created

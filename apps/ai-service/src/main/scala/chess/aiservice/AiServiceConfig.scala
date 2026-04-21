@@ -3,9 +3,9 @@ package chess.aiservice
 import chess.observability.StructuredLog
 
 final case class AiServiceConfig(
-  host:      String,
-  port:      Int,
-  engineId:  String
+    host: String,
+    port: Int,
+    engineId: String
 )
 
 object AiServiceConfig:
@@ -18,12 +18,13 @@ object AiServiceConfig:
       identity
     )
 
-  def load(env: String => Option[String] = key => Option(System.getenv(key)).filter(_.nonEmpty)): Either[String, AiServiceConfig] =
-    for
-      port <- parsePort("AI_HTTP_PORT", env("AI_HTTP_PORT").getOrElse("8765"))
+  def load(
+      env: String => Option[String] = key => Option(System.getenv(key)).filter(_.nonEmpty)
+  ): Either[String, AiServiceConfig] =
+    for port <- parsePort("AI_HTTP_PORT", env("AI_HTTP_PORT").getOrElse("8765"))
     yield AiServiceConfig(
-      host     = env("AI_HTTP_HOST").getOrElse("0.0.0.0"),
-      port     = port,
+      host = env("AI_HTTP_HOST").getOrElse("0.0.0.0"),
+      port = port,
       engineId = env("AI_ENGINE_ID").getOrElse("random-legal")
     )
 

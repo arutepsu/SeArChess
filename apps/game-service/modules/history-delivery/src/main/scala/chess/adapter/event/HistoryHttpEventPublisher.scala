@@ -9,15 +9,15 @@ import java.time.Duration
 import scala.util.control.NonFatal
 
 /** Best-effort direct HTTP bridge from Game Service terminal events to History.
- *
- *  SQLite Game Service deployments should use [[DurableHistoryEventPublisher]]
- *  plus [[HistoryOutboxForwarder]]. This class remains as the small fallback
- *  for non-durable in-memory development mode.
- */
+  *
+  * SQLite Game Service deployments should use [[DurableHistoryEventPublisher]] plus
+  * [[HistoryOutboxForwarder]]. This class remains as the small fallback for non-durable in-memory
+  * development mode.
+  */
 class HistoryHttpEventPublisher(
-  historyBaseUrl: String,
-  timeoutMillis:  Int,
-  sendJson:       (URI, String, Int) => Unit = HistoryHttpEventPublisher.defaultSend
+    historyBaseUrl: String,
+    timeoutMillis: Int,
+    sendJson: (URI, String, Int) => Unit = HistoryHttpEventPublisher.defaultSend
 ) extends EventPublisher:
 
   private val endpoint: URI =
@@ -26,24 +26,26 @@ class HistoryHttpEventPublisher(
   override def publish(event: AppEvent): Unit =
     if DurableHistoryEventPublisher.isTerminalBoundaryEvent(event) then
       try
-        AppEventSerializer.serialize(event).foreach(json =>
-          StructuredLog.info(
-            "game-service",
-            "history_direct_delivery_attempted",
-            "eventType" -> DurableHistoryEventPublisher.eventName(event),
-            "gameId" -> event.gameId.value.toString,
-            "sessionId" -> event.sessionId.value.toString,
-            "endpoint" -> endpoint.toString
+        AppEventSerializer
+          .serialize(event)
+          .foreach(json =>
+            StructuredLog.info(
+              "game-service",
+              "history_direct_delivery_attempted",
+              "eventType" -> DurableHistoryEventPublisher.eventName(event),
+              "gameId" -> event.gameId.value.toString,
+              "sessionId" -> event.sessionId.value.toString,
+              "endpoint" -> endpoint.toString
+            )
+            sendJson(endpoint, json, timeoutMillis)
+            StructuredLog.info(
+              "game-service",
+              "history_direct_delivery_succeeded",
+              "eventType" -> DurableHistoryEventPublisher.eventName(event),
+              "gameId" -> event.gameId.value.toString,
+              "sessionId" -> event.sessionId.value.toString
+            )
           )
-          sendJson(endpoint, json, timeoutMillis)
-          StructuredLog.info(
-            "game-service",
-            "history_direct_delivery_succeeded",
-            "eventType" -> DurableHistoryEventPublisher.eventName(event),
-            "gameId" -> event.gameId.value.toString,
-            "sessionId" -> event.sessionId.value.toString
-          )
-        )
       catch
         case NonFatal(e) =>
           StructuredLog.warn(

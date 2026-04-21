@@ -9,7 +9,11 @@ import org.scalatest.matchers.should.Matchers
 import java.net.URI
 import scala.collection.mutable
 
-class HistoryHttpEventPublisherSpec extends AnyFlatSpec with Matchers with EitherValues with OptionValues:
+class HistoryHttpEventPublisherSpec
+    extends AnyFlatSpec
+    with Matchers
+    with EitherValues
+    with OptionValues:
 
   private val sid = SessionId.random()
   private val gid = GameId.random()
@@ -66,8 +70,10 @@ class HistoryHttpEventPublisherSpec extends AnyFlatSpec with Matchers with Eithe
     val bridge = HistoryHttpEventPublisher(
       historyBaseUrl = "http://history.local:8081",
       timeoutMillis = 500,
-      sendJson = (_, _, _) => throw RuntimeException("history down")
+      sendJson = (_, _, _) => scala.sys.error("history down")
     )
 
-    noException should be thrownBy bridge.publish(AppEvent.GameFinished(sid, gid, GameStatus.Draw(DrawReason.Stalemate)))
+    noException should be thrownBy bridge.publish(
+      AppEvent.GameFinished(sid, gid, GameStatus.Draw(DrawReason.Stalemate))
+    )
   }

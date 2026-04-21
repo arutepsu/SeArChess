@@ -9,79 +9,82 @@ import chess.notation.pgn.PgnNotationFacade
 import java.time.format.DateTimeFormatter
 import java.time.{Instant, ZoneOffset}
 
-/** Turns a [[GameArchiveSnapshot]] into a durable [[ArchiveRecord]] by
- *  deriving FEN and PGN notation from the snapshot's final game state.
- *
- *  === Design ===
- *  The two exporter functions are injected so that tests can verify error
- *  propagation without depending on the real notation engine.  Production
- *  callers use [[ArchiveMaterializer.apply]] which wires the real facades.
- *
- *  === Usage from a future History subscriber ===
- *  {{{
- *    val materializer = ArchiveMaterializer()
- *    // On receiving a terminal AppEvent:
- *    gameService.getArchiveSnapshot(gameId).flatMap { snapshot =>
- *      materializer.materialize(snapshot).left.map(handleMaterializeError)
- *    }
- *  }}}
- *
- *  @param fenExport derive FEN text from a [[GameState]]
- *  @param pgnExport derive PGN document from a [[GameState]] and header pairs
- */
+/** Turns a [[GameArchiveSnapshot]] into a durable [[ArchiveRecord]] by deriving FEN and PGN
+  * notation from the snapshot's final game state.
+  *
+  * ===Design===
+  * The two exporter functions are injected so that tests can verify error propagation without
+  * depending on the real notation engine. Production callers use [[ArchiveMaterializer.apply]]
+  * which wires the real facades.
+  *
+  * ===Usage from a future History subscriber===
+  * {{{
+  *    val materializer = ArchiveMaterializer()
+  *    // On receiving a terminal AppEvent:
+  *    gameService.getArchiveSnapshot(gameId).flatMap { snapshot =>
+  *      materializer.materialize(snapshot).left.map(handleMaterializeError)
+  *    }
+  * }}}
+  *
+  * @param fenExport
+  *   derive FEN text from a [[GameState]]
+  * @param pgnExport
+  *   derive PGN document from a [[GameState]] and header pairs
+  */
 class ArchiveMaterializer private (
-  fenExport: GameState => Either[NotationFailure, ExportResult],
-  pgnExport: (GameState, Seq[(String, String)]) => Either[NotationFailure, ExportResult]
+    fenExport: GameState => Either[NotationFailure, ExportResult],
+    pgnExport: (GameState, Seq[(String, String)]) => Either[NotationFailure, ExportResult]
 ):
 
   def materialize(
-    snapshot: GameArchiveSnapshot,
-    now:      Instant = Instant.now()
+      snapshot: GameArchiveSnapshot,
+      now: Instant = Instant.now()
   ): Either[ArchiveMaterializeError, ArchiveRecord] =
     val state = snapshot.finalState.toGameState
     for
-      fenResult <- fenExport(state)
-                     .left.map(e => ArchiveMaterializeError.FenExportFailed(e.toString))
-      pgnOpt    <- derivePgn(snapshot, state)
+      fenResult <- fenExport(state).left.map(e =>
+        ArchiveMaterializeError.FenExportFailed(e.toString)
+      )
+      pgnOpt <- derivePgn(snapshot, state)
     yield ArchiveRecord(
-      gameId          = snapshot.gameId,
-      sessionId       = snapshot.sessionId,
-      mode            = snapshot.mode,
+      gameId = snapshot.gameId,
+      sessionId = snapshot.sessionId,
+      mode = snapshot.mode,
       whiteController = snapshot.whiteController,
       blackController = snapshot.blackController,
-      closure         = snapshot.closure,
-      pgn             = pgnOpt,
-      finalFen        = Some(fenResult.text),
-      createdAt       = snapshot.createdAt,
-      closedAt        = snapshot.closedAt,
-      materializedAt  = now
+      closure = snapshot.closure,
+      pgn = pgnOpt,
+      finalFen = Some(fenResult.text),
+      createdAt = snapshot.createdAt,
+      closedAt = snapshot.closedAt,
+      materializedAt = now
     )
 
   // ── Private helpers ──────────────────────────────────────────────────────────
 
   private def derivePgn(
-    snapshot: GameArchiveSnapshot,
-    state:    GameState
+      snapshot: GameArchiveSnapshot,
+      state: GameState
   ): Either[ArchiveMaterializeError, Option[String]] =
     // A cancelled game with no moves has no game to record — skip PGN.
-    if snapshot.closure == GameClosure.Cancelled && state.moveHistory.isEmpty then
-      Right(None)
+    if snapshot.closure == GameClosure.Cancelled && state.moveHistory.isEmpty then Right(None)
     else
       pgnExport(state, buildHeaders(snapshot))
         .map(r => Some(r.text))
-        .left.map(e => ArchiveMaterializeError.PgnExportFailed(e.toString))
+        .left
+        .map(e => ArchiveMaterializeError.PgnExportFailed(e.toString))
 
   private val dateFmt: DateTimeFormatter =
     DateTimeFormatter.ofPattern("yyyy.MM.dd").withZone(ZoneOffset.UTC)
 
   private def buildHeaders(snapshot: GameArchiveSnapshot): Seq[(String, String)] =
     Seq(
-      "Event"  -> "?",
-      "Site"   -> "searchess",
-      "Date"   -> dateFmt.format(snapshot.createdAt),
-      "Round"  -> "?",
-      "White"  -> controllerLabel(snapshot.whiteController),
-      "Black"  -> controllerLabel(snapshot.blackController),
+      "Event" -> "?",
+      "Site" -> "searchess",
+      "Date" -> dateFmt.format(snapshot.createdAt),
+      "Round" -> "?",
+      "White" -> controllerLabel(snapshot.whiteController),
+      "Black" -> controllerLabel(snapshot.blackController),
       "Result" -> pgnResultTag(snapshot.closure)
     )
 
@@ -111,7 +114,7 @@ object ArchiveMaterializer:
 
   /** Test-only factory for injecting alternative export functions. */
   def withExporters(
-    fenExport: GameState => Either[NotationFailure, ExportResult],
-    pgnExport: (GameState, Seq[(String, String)]) => Either[NotationFailure, ExportResult]
+      fenExport: GameState => Either[NotationFailure, ExportResult],
+      pgnExport: (GameState, Seq[(String, String)]) => Either[NotationFailure, ExportResult]
   ): ArchiveMaterializer =
     new ArchiveMaterializer(fenExport, pgnExport)

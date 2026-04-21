@@ -12,8 +12,8 @@ import chess.application.ChessCommand.*
 
 class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with OptionValues:
 
-  private val a1        = Position.from(0, 0).value
-  private val a2        = Position.from(0, 1).value
+  private val a1 = Position.from(0, 0).value
+  private val a2 = Position.from(0, 1).value
   private val whitePawn = Piece(Color.White, PieceType.Pawn)
   private val blackPawn = Piece(Color.Black, PieceType.Pawn)
 
@@ -38,30 +38,34 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with 
   // ── applyMove: success ─────────────────────────────────────────────────────
 
   "ChessService.applyMove" should "update the board when the current player moves their own piece" in {
-    val state  = ChessService.createNewGame().copy(board = Board.empty.place(a1, whitePawn))
+    val state = ChessService.createNewGame().copy(board = Board.empty.place(a1, whitePawn))
     val result = ChessService.applyMove(state, Move(a1, a2)).value
     result.board.pieceAt(a2) shouldBe Some(whitePawn)
     result.board.pieceAt(a1) shouldBe None
   }
 
   it should "switch the current player after a successful move" in {
-    val state  = ChessService.createNewGame().copy(board = Board.empty.place(a1, whitePawn))
+    val state = ChessService.createNewGame().copy(board = Board.empty.place(a1, whitePawn))
     val result = ChessService.applyMove(state, Move(a1, a2)).value
     result.currentPlayer shouldBe Color.Black
   }
 
   it should "append the move to history after a successful move" in {
-    val move   = Move(a1, a2)
-    val state  = ChessService.createNewGame().copy(board = Board.empty.place(a1, whitePawn))
+    val move = Move(a1, a2)
+    val state = ChessService.createNewGame().copy(board = Board.empty.place(a1, whitePawn))
     val result = ChessService.applyMove(state, move).value
     result.moveHistory shouldBe List(move)
   }
 
   it should "evaluate status for the next player after a successful move" in {
     // white pawn a1→a2, black king at e8 — result: black's turn, not in check, has moves
-    val state  = ChessService.createNewGame().copy(board =
-      Board.empty.place(a1, whitePawn).place(Position.fromAlgebraic("e8").value, Piece(Color.Black, PieceType.King))
-    )
+    val state = ChessService
+      .createNewGame()
+      .copy(board =
+        Board.empty
+          .place(a1, whitePawn)
+          .place(Position.fromAlgebraic("e8").value, Piece(Color.Black, PieceType.King))
+      )
     val result = ChessService.applyMove(state, Move(a1, a2)).value
     result.status shouldBe GameStatus.Ongoing(false)
   }
@@ -69,7 +73,7 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with 
   // ── applyMove: turn enforcement ────────────────────────────────────────────
 
   it should "fail with NotPlayersTurn when moving a piece belonging to the other player" in {
-    val state  = ChessService.createNewGame().copy(board = Board.empty.place(a1, blackPawn))
+    val state = ChessService.createNewGame().copy(board = Board.empty.place(a1, blackPawn))
     ChessService.applyMove(state, Move(a1, a2)).left.value shouldBe NotPlayersTurn
   }
 
@@ -77,13 +81,13 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with 
     val state = ChessService.createNewGame().copy(board = Board.empty.place(a1, blackPawn))
     ChessService.applyMove(state, Move(a1, a2))
     state.currentPlayer shouldBe Color.White
-    state.moveHistory   shouldBe Nil
+    state.moveHistory shouldBe Nil
   }
 
   // ── applyMove: domain failure ──────────────────────────────────────────────
 
   it should "wrap a domain error as DomainFailure when the source square is empty" in {
-    val state  = ChessService.createNewGame().copy(board = Board.empty)
+    val state = ChessService.createNewGame().copy(board = Board.empty)
     val result = ChessService.applyMove(state, Move(a1, a2))
     result.left.value shouldBe a[DomainFailure]
     result.left.value.asInstanceOf[DomainFailure].error shouldBe a[DomainError.EmptySourceSquare]
@@ -93,24 +97,29 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with 
     val state = ChessService.createNewGame().copy(board = Board.empty)
     ChessService.applyMove(state, Move(a1, a2))
     state.currentPlayer shouldBe Color.White
-    state.moveHistory   shouldBe Nil
+    state.moveHistory shouldBe Nil
   }
 
   // ── handleCommand ──────────────────────────────────────────────────────────
 
   "ChessService.handleCommand" should "reset state on NewGame" in {
-    val dirty  = GameState(Board.empty.place(a1, whitePawn), Color.Black, List(Move(a1, a2)), GameStatus.Ongoing(false))
+    val dirty = GameState(
+      Board.empty.place(a1, whitePawn),
+      Color.Black,
+      List(Move(a1, a2)),
+      GameStatus.Ongoing(false)
+    )
     val result = ChessService.handleCommand(dirty, NewGame).value
     result.currentPlayer shouldBe Color.White
-    result.board         shouldBe Board.initial
-    result.moveHistory   shouldBe Nil
+    result.board shouldBe Board.initial
+    result.moveHistory shouldBe Nil
   }
 
   it should "delegate MakeMove to applyMove" in {
-    val state  = ChessService.createNewGame().copy(board = Board.empty.place(a1, whitePawn))
+    val state = ChessService.createNewGame().copy(board = Board.empty.place(a1, whitePawn))
     val result = ChessService.handleCommand(state, MakeMove(Move(a1, a2))).value
     result.board.pieceAt(a2) shouldBe Some(whitePawn)
-    result.currentPlayer     shouldBe Color.Black
+    result.currentPlayer shouldBe Color.Black
   }
 
   // ── applyMove: inline promotion workflow ──────────────────────────────────
@@ -118,9 +127,11 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with 
   it should "fail with MissingPromotionChoice when a pawn reaches the last rank without specifying a promotion piece" in {
     val a7 = Position.from(0, 6).value
     val a8 = Position.from(0, 7).value
-    val state = ChessService.createNewGame().copy(
-      board = Board.empty.place(a7, Piece(Color.White, PieceType.Pawn))
-    )
+    val state = ChessService
+      .createNewGame()
+      .copy(
+        board = Board.empty.place(a7, Piece(Color.White, PieceType.Pawn))
+      )
     val result = ChessService.applyMove(state, Move(a7, a8))
     result.left.value shouldBe DomainFailure(DomainError.MissingPromotionChoice)
   }
@@ -129,15 +140,17 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with 
     val a7 = Position.from(0, 6).value
     val a8 = Position.from(0, 7).value
     val e8 = Position.fromAlgebraic("e8").value
-    val state = ChessService.createNewGame().copy(
-      board = Board.empty
-        .place(a7, Piece(Color.White, PieceType.Pawn))
-        .place(e8, Piece(Color.Black, PieceType.King))
-    )
+    val state = ChessService
+      .createNewGame()
+      .copy(
+        board = Board.empty
+          .place(a7, Piece(Color.White, PieceType.Pawn))
+          .place(e8, Piece(Color.Black, PieceType.King))
+      )
     val result = ChessService.applyMove(state, Move(a7, a8, Some(PieceType.Queen))).value
     result.board.pieceAt(a8) shouldBe Some(Piece(Color.White, PieceType.Queen))
-    result.currentPlayer     shouldBe Color.Black
-    result.moveHistory       shouldBe List(Move(a7, a8, Some(PieceType.Queen)))
+    result.currentPlayer shouldBe Color.Black
+    result.moveHistory shouldBe List(Move(a7, a8, Some(PieceType.Queen)))
   }
 
   // ── castling rights ────────────────────────────────────────────────────────
@@ -153,11 +166,12 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with 
     val board = Board.empty
       .place(e1, Piece(Color.White, PieceType.King))
       .place(e8, Piece(Color.Black, PieceType.King))
-    val state  = ChessService.createNewGame().copy(board = board, castlingRights = CastlingRights.full)
+    val state =
+      ChessService.createNewGame().copy(board = board, castlingRights = CastlingRights.full)
     val result = ChessService.applyMove(state, Move(e1, f1)).value
-    result.castlingRights.whiteKingSide  shouldBe false
+    result.castlingRights.whiteKingSide shouldBe false
     result.castlingRights.whiteQueenSide shouldBe false
-    result.castlingRights.blackKingSide  shouldBe true
+    result.castlingRights.blackKingSide shouldBe true
     result.castlingRights.blackQueenSide shouldBe true
   }
 
@@ -171,13 +185,14 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with 
       .place(e1, Piece(Color.White, PieceType.King))
       .place(h1, Piece(Color.White, PieceType.Rook))
       .place(e8, Piece(Color.Black, PieceType.King))
-    val state  = ChessService.createNewGame().copy(board = board, castlingRights = CastlingRights.full)
+    val state =
+      ChessService.createNewGame().copy(board = board, castlingRights = CastlingRights.full)
     val result = ChessService.applyMove(state, Move(e1, g1)).value
     result.board.pieceAt(g1) shouldBe Some(Piece(Color.White, PieceType.King))
     result.board.pieceAt(f1) shouldBe Some(Piece(Color.White, PieceType.Rook))
     result.board.pieceAt(e1) shouldBe None
     result.board.pieceAt(h1) shouldBe None
-    result.currentPlayer     shouldBe Color.Black
+    result.currentPlayer shouldBe Color.Black
   }
 
   it should "apply black queen-side castling and place king on c8, rook on d8" in {
@@ -190,17 +205,19 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with 
       .place(e8, Piece(Color.Black, PieceType.King))
       .place(a8, Piece(Color.Black, PieceType.Rook))
       .place(e1, Piece(Color.White, PieceType.King))
-    val state  = ChessService.createNewGame().copy(
-      board          = board,
-      currentPlayer  = Color.Black,
-      castlingRights = CastlingRights.full
-    )
+    val state = ChessService
+      .createNewGame()
+      .copy(
+        board = board,
+        currentPlayer = Color.Black,
+        castlingRights = CastlingRights.full
+      )
     val result = ChessService.applyMove(state, Move(e8, c8)).value
     result.board.pieceAt(c8) shouldBe Some(Piece(Color.Black, PieceType.King))
     result.board.pieceAt(d8) shouldBe Some(Piece(Color.Black, PieceType.Rook))
     result.board.pieceAt(e8) shouldBe None
     result.board.pieceAt(a8) shouldBe None
-    result.currentPlayer     shouldBe Color.White
+    result.currentPlayer shouldBe Color.White
   }
 
   // ── en passant: state lifecycle ────────────────────────────────────────────
@@ -213,7 +230,7 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with 
     val board = Board.empty
       .place(e2, Piece(Color.White, PieceType.Pawn))
       .place(e8, Piece(Color.Black, PieceType.King))
-    val state  = ChessService.createNewGame().copy(board = board)
+    val state = ChessService.createNewGame().copy(board = board)
     val result = ChessService.applyMove(state, Move(e2, e4)).value
     result.enPassantState shouldBe Some(EnPassantState(e3, e4, Color.White))
   }
@@ -226,7 +243,7 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with 
     val board = Board.empty
       .place(d7, Piece(Color.Black, PieceType.Pawn))
       .place(e1, Piece(Color.White, PieceType.King))
-    val state  = ChessService.createNewGame().copy(board = board, currentPlayer = Color.Black)
+    val state = ChessService.createNewGame().copy(board = board, currentPlayer = Color.Black)
     val result = ChessService.applyMove(state, Move(d7, d5)).value
     result.enPassantState shouldBe Some(EnPassantState(d6, d5, Color.Black))
   }
@@ -241,7 +258,7 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with 
     val board = Board.empty
       .place(e1, Piece(Color.White, PieceType.King))
       .place(e8, Piece(Color.Black, PieceType.King))
-    val ep    = EnPassantState(e3, e4, Color.Black)
+    val ep = EnPassantState(e3, e4, Color.Black)
     val state = ChessService.createNewGame().copy(board = board, enPassantState = Some(ep))
     val result = ChessService.applyMove(state, Move(e1, f1)).value
     result.enPassantState shouldBe None
@@ -256,12 +273,14 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with 
       .place(d4, Piece(Color.Black, PieceType.Pawn))
       .place(e4, Piece(Color.White, PieceType.Pawn))
       .place(e8, Piece(Color.Black, PieceType.King))
-    val ep    = EnPassantState(e3, e4, Color.White)
-    val state = ChessService.createNewGame().copy(
-      board          = board,
-      currentPlayer  = Color.Black,
-      enPassantState = Some(ep)
-    )
+    val ep = EnPassantState(e3, e4, Color.White)
+    val state = ChessService
+      .createNewGame()
+      .copy(
+        board = board,
+        currentPlayer = Color.Black,
+        enPassantState = Some(ep)
+      )
     val result = ChessService.applyMove(state, Move(d4, e3)).value
     result.enPassantState shouldBe None
   }
@@ -277,12 +296,14 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with 
       .place(e1, Piece(Color.White, PieceType.King))
       .place(h1, Piece(Color.White, PieceType.Rook))
       .place(e8, Piece(Color.Black, PieceType.King))
-    val ep    = EnPassantState(e3, e4, Color.Black)
-    val state = ChessService.createNewGame().copy(
-      board          = board,
-      castlingRights = CastlingRights.full,
-      enPassantState = Some(ep)
-    )
+    val ep = EnPassantState(e3, e4, Color.Black)
+    val state = ChessService
+      .createNewGame()
+      .copy(
+        board = board,
+        castlingRights = CastlingRights.full,
+        enPassantState = Some(ep)
+      )
     val result = ChessService.applyMove(state, Move(e1, g1)).value
     result.enPassantState shouldBe None
   }
@@ -294,12 +315,14 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with 
     val e3 = Position.fromAlgebraic("e3").value
     val e8 = Position.fromAlgebraic("e8").value
     val ep = EnPassantState(e3, e4, Color.Black)
-    val state = ChessService.createNewGame().copy(
-      board          = Board.empty
-        .place(a7, Piece(Color.White, PieceType.Pawn))
-        .place(e8, Piece(Color.Black, PieceType.King)),
-      enPassantState = Some(ep)
-    )
+    val state = ChessService
+      .createNewGame()
+      .copy(
+        board = Board.empty
+          .place(a7, Piece(Color.White, PieceType.Pawn))
+          .place(e8, Piece(Color.Black, PieceType.King)),
+        enPassantState = Some(ep)
+      )
     val result = ChessService.applyMove(state, Move(a7, a8, Some(PieceType.Queen))).value
     result.enPassantState shouldBe None
   }
@@ -311,25 +334,27 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with 
     val board = Board.empty
       .place(e2, Piece(Color.White, PieceType.Pawn))
       .place(e8, Piece(Color.Black, PieceType.King))
-    val state  = ChessService.createNewGame().copy(board = board)
+    val state = ChessService.createNewGame().copy(board = board)
     val result = ChessService.applyMove(state, Move(e2, e4)).value
     result.status shouldBe GameStatus.Ongoing(false)
   }
 
   it should "switch back to White after Black makes a successful move" in {
-    val blackPawnPos  = Position.fromAlgebraic("e7").value
-    val blackTarget   = Position.fromAlgebraic("e6").value
-    val whiteKing     = Position.fromAlgebraic("e1").value
-    val blackKing     = Position.fromAlgebraic("e8").value
+    val blackPawnPos = Position.fromAlgebraic("e7").value
+    val blackTarget = Position.fromAlgebraic("e6").value
+    val whiteKing = Position.fromAlgebraic("e1").value
+    val blackKing = Position.fromAlgebraic("e8").value
     val board = Board.empty
       .place(a1, whitePawn)
       .place(blackPawnPos, blackPawn)
       .place(whiteKing, Piece(Color.White, PieceType.King))
-      .place(blackKing,  Piece(Color.Black, PieceType.King))
-    val afterWhite = ChessService.applyMove(
-      GameState(board, Color.White, Nil, GameStatus.Ongoing(false)),
-      Move(a1, a2)
-    ).value
+      .place(blackKing, Piece(Color.Black, PieceType.King))
+    val afterWhite = ChessService
+      .applyMove(
+        GameState(board, Color.White, Nil, GameStatus.Ongoing(false)),
+        Move(a1, a2)
+      )
+      .value
     afterWhite.currentPlayer shouldBe Color.Black
     val afterBlack = ChessService.applyMove(afterWhite, Move(blackPawnPos, blackTarget)).value
     afterBlack.currentPlayer shouldBe Color.White
@@ -339,124 +364,124 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with 
 
   "ChessService.legalTargetsFrom" should "return the two forward squares for a pawn on its starting rank" in {
     val state = ChessService.createNewGame()
-    val e2    = Position.fromAlgebraic("e2").value
-    val e3    = Position.fromAlgebraic("e3").value
-    val e4    = Position.fromAlgebraic("e4").value
+    val e2 = Position.fromAlgebraic("e2").value
+    val e3 = Position.fromAlgebraic("e3").value
+    val e4 = Position.fromAlgebraic("e4").value
     ChessService.legalTargetsFrom(state, e2) shouldBe Set(e3, e4)
   }
 
   it should "return an empty set for an empty square" in {
     val state = ChessService.createNewGame()
-    val e4    = Position.fromAlgebraic("e4").value
+    val e4 = Position.fromAlgebraic("e4").value
     ChessService.legalTargetsFrom(state, e4) shouldBe empty
   }
 
   it should "return an empty set for an opponent's piece when it is not their turn" in {
-    val state = ChessService.createNewGame()   // White to move
-    val e7    = Position.fromAlgebraic("e7").value
+    val state = ChessService.createNewGame() // White to move
+    val e7 = Position.fromAlgebraic("e7").value
     ChessService.legalTargetsFrom(state, e7) shouldBe empty
   }
 
   // ── applyMoveWithEvents ────────────────────────────────────────────────────
 
   "ChessService.applyMoveWithEvents" should "return Right(ApplyMoveResult) for a legal move" in {
-    val state  = ChessService.createNewGame()
-    val e2     = Position.fromAlgebraic("e2").value
-    val e4     = Position.fromAlgebraic("e4").value
+    val state = ChessService.createNewGame()
+    val e2 = Position.fromAlgebraic("e2").value
+    val e4 = Position.fromAlgebraic("e4").value
     ChessService.applyMoveWithEvents(state, Move(e2, e4)).isRight shouldBe true
   }
 
   it should "return Left for an illegal move" in {
     val state = ChessService.createNewGame()
-    val e2    = Position.fromAlgebraic("e2").value
-    val e5    = Position.fromAlgebraic("e5").value  // pawn can't jump three squares
+    val e2 = Position.fromAlgebraic("e2").value
+    val e5 = Position.fromAlgebraic("e5").value // pawn can't jump three squares
     ChessService.applyMoveWithEvents(state, Move(e2, e5)).isLeft shouldBe true
   }
 
   it should "update state fields the same way applyMove does" in {
-    val state  = ChessService.createNewGame()
-    val e2     = Position.fromAlgebraic("e2").value
-    val e4     = Position.fromAlgebraic("e4").value
+    val state = ChessService.createNewGame()
+    val e2 = Position.fromAlgebraic("e2").value
+    val e4 = Position.fromAlgebraic("e4").value
     val result = ChessService.applyMoveWithEvents(state, Move(e2, e4)).value
     result.state.currentPlayer shouldBe Color.Black
-    result.state.moveHistory   shouldBe List(Move(e2, e4))
-    result.state.status        shouldBe GameStatus.Ongoing(false)
+    result.state.moveHistory shouldBe List(Move(e2, e4))
+    result.state.status shouldBe GameStatus.Ongoing(false)
   }
 
   it should "always emit MoveApplied as the first event" in {
-    val state  = ChessService.createNewGame()
-    val e2     = Position.fromAlgebraic("e2").value
-    val e4     = Position.fromAlgebraic("e4").value
+    val state = ChessService.createNewGame()
+    val e2 = Position.fromAlgebraic("e2").value
+    val e4 = Position.fromAlgebraic("e4").value
     val result = ChessService.applyMoveWithEvents(state, Move(e2, e4)).value
     result.events.head shouldBe DomainEvent.MoveApplied(Move(e2, e4))
   }
 
   it should "emit MoveApplied and MoveExecuted (and nothing else) for a quiet move that leaves status Ongoing" in {
-    val state  = ChessService.createNewGame()
-    val e2     = Position.fromAlgebraic("e2").value
-    val e4     = Position.fromAlgebraic("e4").value
-    val move   = Move(e2, e4)
+    val state = ChessService.createNewGame()
+    val e2 = Position.fromAlgebraic("e2").value
+    val e4 = Position.fromAlgebraic("e4").value
+    val move = Move(e2, e4)
     val result = ChessService.applyMoveWithEvents(state, move).value
-    result.events.count(_.isInstanceOf[DomainEvent.MoveApplied])  shouldBe 1
+    result.events.count(_.isInstanceOf[DomainEvent.MoveApplied]) shouldBe 1
     result.events.count(_.isInstanceOf[DomainEvent.MoveExecuted]) shouldBe 1
     result.events should have size 2
   }
 
   it should "emit PieceCaptured when a piece is taken at the destination square" in {
-    val a5  = Position.fromAlgebraic("a5").value
-    val h1  = Position.fromAlgebraic("h1").value
-    val h8  = Position.fromAlgebraic("h8").value
+    val a5 = Position.fromAlgebraic("a5").value
+    val h1 = Position.fromAlgebraic("h1").value
+    val h8 = Position.fromAlgebraic("h8").value
     val board = Board.empty
-      .place(a1,  Piece(Color.White, PieceType.Rook))
-      .place(a5,  Piece(Color.Black, PieceType.Pawn))
-      .place(h1,  Piece(Color.White, PieceType.King))
-      .place(h8,  Piece(Color.Black, PieceType.King))
-    val state  = GameState(board, Color.White, Nil, GameStatus.Ongoing(false), CastlingRights.none)
+      .place(a1, Piece(Color.White, PieceType.Rook))
+      .place(a5, Piece(Color.Black, PieceType.Pawn))
+      .place(h1, Piece(Color.White, PieceType.King))
+      .place(h8, Piece(Color.Black, PieceType.King))
+    val state = GameState(board, Color.White, Nil, GameStatus.Ongoing(false), CastlingRights.none)
     val result = ChessService.applyMoveWithEvents(state, Move(a1, a5)).value
-    result.events should contain (DomainEvent.PieceCaptured(Piece(Color.Black, PieceType.Pawn), a5))
+    result.events should contain(DomainEvent.PieceCaptured(Piece(Color.Black, PieceType.Pawn), a5))
   }
 
   it should "emit CheckDeclared and GameStatusChanged when the move gives check" in {
     // White queen d1→d7 puts black king on d8 in check (clear d-file, no other pieces).
-    val d1  = Position.fromAlgebraic("d1").value
-    val d7  = Position.fromAlgebraic("d7").value
-    val d8  = Position.fromAlgebraic("d8").value
+    val d1 = Position.fromAlgebraic("d1").value
+    val d7 = Position.fromAlgebraic("d7").value
+    val d8 = Position.fromAlgebraic("d8").value
     val board = Board.empty
       .place(d1, Piece(Color.White, PieceType.Queen))
       .place(d8, Piece(Color.Black, PieceType.King))
       .place(a1, Piece(Color.White, PieceType.King))
-    val state  = GameState(board, Color.White, Nil, GameStatus.Ongoing(false), CastlingRights.none)
+    val state = GameState(board, Color.White, Nil, GameStatus.Ongoing(false), CastlingRights.none)
     val result = ChessService.applyMoveWithEvents(state, Move(d1, d7)).value
-    result.events should contain (DomainEvent.CheckDeclared(Color.Black))
-    result.events should contain (DomainEvent.GameStatusChanged(GameStatus.Ongoing(true)))
+    result.events should contain(DomainEvent.CheckDeclared(Color.Black))
+    result.events should contain(DomainEvent.GameStatusChanged(GameStatus.Ongoing(true)))
     result.state.status shouldBe GameStatus.Ongoing(true)
   }
 
   it should "return Left(MissingPromotionChoice) when a pawn reaches the last rank with no promotion piece" in {
-    val e7  = Position.fromAlgebraic("e7").value
-    val e8  = Position.fromAlgebraic("e8").value
-    val h8  = Position.fromAlgebraic("h8").value
+    val e7 = Position.fromAlgebraic("e7").value
+    val e8 = Position.fromAlgebraic("e8").value
+    val h8 = Position.fromAlgebraic("h8").value
     val board = Board.empty
       .place(e7, Piece(Color.White, PieceType.Pawn))
       .place(a1, Piece(Color.White, PieceType.King))
       .place(h8, Piece(Color.Black, PieceType.King))
-    val state  = GameState(board, Color.White, Nil, GameStatus.Ongoing(false), CastlingRights.none)
+    val state = GameState(board, Color.White, Nil, GameStatus.Ongoing(false), CastlingRights.none)
     ChessService.applyMoveWithEvents(state, Move(e7, e8)).left.value shouldBe
       DomainError.MissingPromotionChoice
   }
 
   it should "emit MoveApplied, Promoted, and MoveExecuted for an inline promotion move" in {
-    val e7  = Position.fromAlgebraic("e7").value
-    val e8  = Position.fromAlgebraic("e8").value
-    val h8  = Position.fromAlgebraic("h8").value
+    val e7 = Position.fromAlgebraic("e7").value
+    val e8 = Position.fromAlgebraic("e8").value
+    val h8 = Position.fromAlgebraic("h8").value
     val board = Board.empty
       .place(e7, Piece(Color.White, PieceType.Pawn))
       .place(a1, Piece(Color.White, PieceType.King))
       .place(h8, Piece(Color.Black, PieceType.King))
-    val state  = GameState(board, Color.White, Nil, GameStatus.Ongoing(false), CastlingRights.none)
+    val state = GameState(board, Color.White, Nil, GameStatus.Ongoing(false), CastlingRights.none)
     val result = ChessService.applyMoveWithEvents(state, Move(e7, e8, Some(PieceType.Queen))).value
-    result.events should contain (DomainEvent.MoveApplied(Move(e7, e8, Some(PieceType.Queen))))
-    result.events should contain (DomainEvent.Promoted(e8, Color.White, PieceType.Queen))
+    result.events should contain(DomainEvent.MoveApplied(Move(e7, e8, Some(PieceType.Queen))))
+    result.events should contain(DomainEvent.Promoted(e8, Color.White, PieceType.Queen))
     result.events.last shouldBe a[DomainEvent.MoveExecuted]
     result.state.board.pieceAt(e8) shouldBe Some(Piece(Color.White, PieceType.Queen))
   }
@@ -464,42 +489,42 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with 
   // ── MoveExecuted ───────────────────────────────────────────────────────────
 
   "ChessService.applyMoveWithEvents" should "emit MoveExecuted as the last event for a normal move" in {
-    val state  = ChessService.createNewGame()
-    val e2     = Position.fromAlgebraic("e2").value
-    val e4     = Position.fromAlgebraic("e4").value
+    val state = ChessService.createNewGame()
+    val e2 = Position.fromAlgebraic("e2").value
+    val e4 = Position.fromAlgebraic("e4").value
     val result = ChessService.applyMoveWithEvents(state, Move(e2, e4)).value
-    result.events.last shouldBe a [DomainEvent.MoveExecuted]
+    result.events.last shouldBe a[DomainEvent.MoveExecuted]
   }
 
   it should "populate core MoveExecuted fields correctly for a normal pawn advance" in {
-    val state  = ChessService.createNewGame()
-    val e2     = Position.fromAlgebraic("e2").value
-    val e4     = Position.fromAlgebraic("e4").value
+    val state = ChessService.createNewGame()
+    val e2 = Position.fromAlgebraic("e2").value
+    val e4 = Position.fromAlgebraic("e4").value
     val result = ChessService.applyMoveWithEvents(state, Move(e2, e4)).value
-    val evt    = result.events.collectFirst { case e: DomainEvent.MoveExecuted => e }.value
-    evt.piece     shouldBe PieceType.Pawn
-    evt.color     shouldBe Color.White
-    evt.from      shouldBe e2
-    evt.to        shouldBe e4
-    evt.capture   shouldBe None
+    val evt = result.events.collectFirst { case e: DomainEvent.MoveExecuted => e }.value
+    evt.piece shouldBe PieceType.Pawn
+    evt.color shouldBe Color.White
+    evt.from shouldBe e2
+    evt.to shouldBe e4
+    evt.capture shouldBe None
     evt.promotion shouldBe None
-    evt.check     shouldBe false
+    evt.check shouldBe false
     evt.checkmate shouldBe false
     evt.stalemate shouldBe false
   }
 
   it should "populate capture in MoveExecuted when a piece is taken" in {
-    val a5   = Position.fromAlgebraic("a5").value
-    val h1   = Position.fromAlgebraic("h1").value
-    val h8   = Position.fromAlgebraic("h8").value
+    val a5 = Position.fromAlgebraic("a5").value
+    val h1 = Position.fromAlgebraic("h1").value
+    val h8 = Position.fromAlgebraic("h8").value
     val board = Board.empty
-      .place(a1,  Piece(Color.White, PieceType.Rook))
-      .place(a5,  Piece(Color.Black, PieceType.Pawn))
-      .place(h1,  Piece(Color.White, PieceType.King))
-      .place(h8,  Piece(Color.Black, PieceType.King))
-    val state  = GameState(board, Color.White, Nil, GameStatus.Ongoing(false), CastlingRights.none)
+      .place(a1, Piece(Color.White, PieceType.Rook))
+      .place(a5, Piece(Color.Black, PieceType.Pawn))
+      .place(h1, Piece(Color.White, PieceType.King))
+      .place(h8, Piece(Color.Black, PieceType.King))
+    val state = GameState(board, Color.White, Nil, GameStatus.Ongoing(false), CastlingRights.none)
     val result = ChessService.applyMoveWithEvents(state, Move(a1, a5)).value
-    val evt    = result.events.collectFirst { case e: DomainEvent.MoveExecuted => e }.value
+    val evt = result.events.collectFirst { case e: DomainEvent.MoveExecuted => e }.value
     evt.capture shouldBe defined
     evt.capture.map(_.piece) shouldBe Some(PieceType.Pawn)
     evt.capture.map(_.color) shouldBe Some(Color.Black)
@@ -513,33 +538,33 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with 
       .place(a7, Piece(Color.White, PieceType.Pawn))
       .place(a1, Piece(Color.White, PieceType.King))
       .place(e8, Piece(Color.Black, PieceType.King))
-    val state  = GameState(board, Color.White, Nil, GameStatus.Ongoing(false), CastlingRights.none)
+    val state = GameState(board, Color.White, Nil, GameStatus.Ongoing(false), CastlingRights.none)
     val result = ChessService.applyMoveWithEvents(state, Move(a7, a8, Some(PieceType.Queen))).value
-    val evt    = result.events.collectFirst { case e: DomainEvent.MoveExecuted => e }.value
-    evt.piece     shouldBe PieceType.Pawn
-    evt.color     shouldBe Color.White
+    val evt = result.events.collectFirst { case e: DomainEvent.MoveExecuted => e }.value
+    evt.piece shouldBe PieceType.Pawn
+    evt.color shouldBe Color.White
     evt.promotion shouldBe Some(PieceType.Queen)
-    evt.from      shouldBe a7
-    evt.to        shouldBe a8
+    evt.from shouldBe a7
+    evt.to shouldBe a8
   }
 
   it should "emit CheckDeclared before GameStatusChanged when promotion results in check" in {
     // White pawn on b7 promotes to queen on b8, putting black king on d8 in check.
-    val b7  = Position.fromAlgebraic("b7").value
-    val b8  = Position.fromAlgebraic("b8").value
-    val d8  = Position.fromAlgebraic("d8").value
+    val b7 = Position.fromAlgebraic("b7").value
+    val b8 = Position.fromAlgebraic("b8").value
+    val d8 = Position.fromAlgebraic("d8").value
     val board = Board.empty
       .place(b7, Piece(Color.White, PieceType.Pawn))
       .place(d8, Piece(Color.Black, PieceType.King))
       .place(a1, Piece(Color.White, PieceType.King))
-    val state  = GameState(board, Color.White, Nil, GameStatus.Ongoing(false), CastlingRights.none)
+    val state = GameState(board, Color.White, Nil, GameStatus.Ongoing(false), CastlingRights.none)
     val result = ChessService.applyMoveWithEvents(state, Move(b7, b8, Some(PieceType.Queen))).value
     result.state.status shouldBe GameStatus.Ongoing(true)
-    val checkIdx  = result.events.indexWhere(_.isInstanceOf[DomainEvent.CheckDeclared])
+    val checkIdx = result.events.indexWhere(_.isInstanceOf[DomainEvent.CheckDeclared])
     val statusIdx = result.events.indexWhere(_.isInstanceOf[DomainEvent.GameStatusChanged])
-    checkIdx  should be >= 0
+    checkIdx should be >= 0
     statusIdx should be >= 0
-    checkIdx  should be < statusIdx
+    checkIdx should be < statusIdx
   }
 
   // ── MoveExecuted enrichment: castling, en passant, promotion capture ────────
@@ -553,9 +578,10 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with 
       .place(e1, Piece(Color.White, PieceType.King))
       .place(h1, Piece(Color.White, PieceType.Rook))
       .place(e8, Piece(Color.Black, PieceType.King))
-    val state  = ChessService.createNewGame().copy(board = board, castlingRights = CastlingRights.full)
+    val state =
+      ChessService.createNewGame().copy(board = board, castlingRights = CastlingRights.full)
     val result = ChessService.applyMoveWithEvents(state, Move(e1, g1)).value
-    val evt    = result.events.collectFirst { case e: DomainEvent.MoveExecuted => e }.value
+    val evt = result.events.collectFirst { case e: DomainEvent.MoveExecuted => e }.value
     import chess.domain.event.CastlingSide
     evt.castling shouldBe Some(CastlingSide.KingSide)
   }
@@ -569,9 +595,11 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with 
       .place(e8, Piece(Color.Black, PieceType.King))
       .place(a8, Piece(Color.Black, PieceType.Rook))
       .place(e1, Piece(Color.White, PieceType.King))
-    val state  = ChessService.createNewGame().copy(board = board, currentPlayer = Color.Black, castlingRights = CastlingRights.full)
+    val state = ChessService
+      .createNewGame()
+      .copy(board = board, currentPlayer = Color.Black, castlingRights = CastlingRights.full)
     val result = ChessService.applyMoveWithEvents(state, Move(e8, c8)).value
-    val evt    = result.events.collectFirst { case e: DomainEvent.MoveExecuted => e }.value
+    val evt = result.events.collectFirst { case e: DomainEvent.MoveExecuted => e }.value
     import chess.domain.event.CastlingSide
     evt.castling shouldBe Some(CastlingSide.QueenSide)
   }
@@ -585,42 +613,44 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with 
       .place(d4, Piece(Color.Black, PieceType.Pawn))
       .place(e4, Piece(Color.White, PieceType.Pawn))
       .place(e8, Piece(Color.Black, PieceType.King))
-    val ep    = EnPassantState(e3, e4, Color.White)
-    val state = ChessService.createNewGame().copy(
-      board          = board,
-      currentPlayer  = Color.Black,
-      enPassantState = Some(ep)
-    )
+    val ep = EnPassantState(e3, e4, Color.White)
+    val state = ChessService
+      .createNewGame()
+      .copy(
+        board = board,
+        currentPlayer = Color.Black,
+        enPassantState = Some(ep)
+      )
     val result = ChessService.applyMoveWithEvents(state, Move(d4, e3)).value
     // PieceCaptured must be emitted at the captured pawn's actual square (e4, not e3)
-    result.events should contain (DomainEvent.PieceCaptured(Piece(Color.White, PieceType.Pawn), e4))
+    result.events should contain(DomainEvent.PieceCaptured(Piece(Color.White, PieceType.Pawn), e4))
     val evt = result.events.collectFirst { case e: DomainEvent.MoveExecuted => e }.value
-    evt.enPassant            shouldBe true
-    evt.capture              shouldBe defined
+    evt.enPassant shouldBe true
+    evt.capture shouldBe defined
     evt.capture.map(_.piece) shouldBe Some(PieceType.Pawn)
     evt.capture.map(_.color) shouldBe Some(Color.White)
-    evt.capture.map(_.at)    shouldBe Some(e4)   // captured pawn's square, not move.to (e3)
+    evt.capture.map(_.at) shouldBe Some(e4) // captured pawn's square, not move.to (e3)
   }
 
   it should "set capture in MoveExecuted when a pawn promotes via a diagonal capture" in {
     // White pawn on b7 captures black rook on c8 and promotes to Queen.
-    val b7  = Position.fromAlgebraic("b7").value
-    val c8  = Position.fromAlgebraic("c8").value
-    val e1  = Position.fromAlgebraic("e1").value
-    val e8  = Position.fromAlgebraic("e8").value
+    val b7 = Position.fromAlgebraic("b7").value
+    val c8 = Position.fromAlgebraic("c8").value
+    val e1 = Position.fromAlgebraic("e1").value
+    val e8 = Position.fromAlgebraic("e8").value
     val board = Board.empty
       .place(b7, Piece(Color.White, PieceType.Pawn))
       .place(c8, Piece(Color.Black, PieceType.Rook))
       .place(e1, Piece(Color.White, PieceType.King))
       .place(e8, Piece(Color.Black, PieceType.King))
-    val state  = GameState(board, Color.White, Nil, GameStatus.Ongoing(false), CastlingRights.none)
+    val state = GameState(board, Color.White, Nil, GameStatus.Ongoing(false), CastlingRights.none)
     val result = ChessService.applyMoveWithEvents(state, Move(b7, c8, Some(PieceType.Queen))).value
-    val evt    = result.events.collectFirst { case e: DomainEvent.MoveExecuted => e }.value
-    evt.promotion              shouldBe Some(PieceType.Queen)
-    evt.capture                shouldBe defined
-    evt.capture.map(_.piece)   shouldBe Some(PieceType.Rook)
-    evt.capture.map(_.color)   shouldBe Some(Color.Black)
-    evt.capture.map(_.at)      shouldBe Some(c8)
+    val evt = result.events.collectFirst { case e: DomainEvent.MoveExecuted => e }.value
+    evt.promotion shouldBe Some(PieceType.Queen)
+    evt.capture shouldBe defined
+    evt.capture.map(_.piece) shouldBe Some(PieceType.Rook)
+    evt.capture.map(_.color) shouldBe Some(Color.Black)
+    evt.capture.map(_.at) shouldBe Some(c8)
   }
 
   it should "not emit GameStatusChanged when status does not change after a promotion" in {
@@ -633,7 +663,7 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with 
       .place(a7, Piece(Color.White, PieceType.Pawn))
       .place(a1, Piece(Color.White, PieceType.King))
       .place(e5, Piece(Color.Black, PieceType.King))
-    val state  = GameState(board, Color.White, Nil, GameStatus.Ongoing(false), CastlingRights.none)
+    val state = GameState(board, Color.White, Nil, GameStatus.Ongoing(false), CastlingRights.none)
     val result = ChessService.applyMoveWithEvents(state, Move(a7, a8, Some(PieceType.Queen))).value
     result.state.status shouldBe GameStatus.Ongoing(false)
     result.events.exists(_.isInstanceOf[DomainEvent.GameStatusChanged]) shouldBe false
@@ -643,8 +673,8 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with 
 
   "ChessService.applyMove" should "reset halfmoveClock on a pawn move" in {
     val state = ChessService.createNewGame().copy(halfmoveClock = 5)
-    val e2    = Position.fromAlgebraic("e2").value
-    val e4    = Position.fromAlgebraic("e4").value
+    val e2 = Position.fromAlgebraic("e2").value
+    val e4 = Position.fromAlgebraic("e4").value
     ChessService.applyMove(state, Move(e2, e4)).value.halfmoveClock shouldBe 0
   }
 
@@ -668,11 +698,13 @@ class ChessServiceSpec extends AnyFlatSpec with Matchers with EitherValues with 
       .place(e1, Piece(Color.White, PieceType.King))
       .place(e8, Piece(Color.Black, PieceType.King))
       .place(d7, Piece(Color.Black, PieceType.Pawn))
-    val state = ChessService.createNewGame().copy(
-      board         = board,
-      currentPlayer = Color.Black,
-      fullmoveNumber = 5
-    )
+    val state = ChessService
+      .createNewGame()
+      .copy(
+        board = board,
+        currentPlayer = Color.Black,
+        fullmoveNumber = 5
+      )
     ChessService.applyMove(state, Move(d7, d6)).value.fullmoveNumber shouldBe 6
   }
 

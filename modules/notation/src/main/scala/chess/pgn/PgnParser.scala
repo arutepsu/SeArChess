@@ -3,15 +3,14 @@ package chess.notation.pgn
 import chess.notation.api.{ParseFailure, ParsedNotation, PgnData}
 
 /** Thin PGN parser adapter.
- *
- *  Delegates raw parsing to the selected [[PgnGrammar]], then converts the
- *  parser-local [[PgnRecord]] into shared [[PgnData]] and wraps it as
- *  [[ParsedNotation.ParsedPgn]].
- */
+  *
+  * Delegates raw parsing to the selected [[PgnGrammar]], then converts the parser-local
+  * [[PgnRecord]] into shared [[PgnData]] and wraps it as [[ParsedNotation.ParsedPgn]].
+  */
 private[pgn] object PgnParser:
 
   private val grammar: PgnGrammar = PgnGrammarSelector.default
-  
+
   val default: PgnGrammar = PgnFastParseGrammar
 
   def parse(input: String): Either[ParseFailure, PgnData] =

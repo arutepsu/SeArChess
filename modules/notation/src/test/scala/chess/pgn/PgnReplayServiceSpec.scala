@@ -8,15 +8,14 @@ import chess.domain.state.{GameState, GameStateFactory}
 import chess.notation.api.ValidationFailure
 
 /** Unit tests for [[PgnReplayService.replayFrom]].
- *
- *  Targets the two branches not covered by PgnImporterSpec:
- *  1. Error short-circuit — once a Left is in the accumulator all subsequent
- *     tokens are skipped and the same Left is returned (line 27).
- *  2. applyMove failure — a token that SanResolver accepts as a valid SAN
- *     shape but which produces a DomainError when applied (line 31-34).
- *
- *  All tests use real GameState flows; no mocking.
- */
+  *
+  * Targets the two branches not covered by PgnImporterSpec:
+  *   1. Error short-circuit — once a Left is in the accumulator all subsequent tokens are skipped
+  *      and the same Left is returned (line 27). 2. applyMove failure — a token that SanResolver
+  *      accepts as a valid SAN shape but which produces a DomainError when applied (line 31-34).
+  *
+  * All tests use real GameState flows; no mocking.
+  */
 class PgnReplayServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   private val initial = GameStateFactory.initial()
@@ -110,7 +109,7 @@ class PgnReplayServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
     // Build a mid-game state first
     val midGame = PgnReplayService.replayFrom(initial, Vector("e4", "e5")).value
     // Continue replay from that state
-    val result  = PgnReplayService.replayFrom(midGame, Vector("Nf3", "Nc6"))
+    val result = PgnReplayService.replayFrom(midGame, Vector("Nf3", "Nc6"))
     result.value.moveHistory should have size 4
     result.value.currentPlayer shouldBe Color.White
   }

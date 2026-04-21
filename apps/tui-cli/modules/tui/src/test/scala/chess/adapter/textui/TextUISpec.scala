@@ -1,6 +1,10 @@
 package chess.adapter.textui
 
-import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionGameStore, InMemorySessionRepository}
+import chess.adapter.repository.{
+  InMemoryGameRepository,
+  InMemorySessionGameStore,
+  InMemorySessionRepository
+}
 import chess.application.{ChessService, GameStateObservable}
 import chess.application.event.AppEvent
 import chess.application.port.event.EventPublisher
@@ -19,7 +23,7 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
   /** Minimal in-process [[GameStateObservable]] for unit tests. */
   private class TestObservableGame(initial: GameState = ChessService.createNewGame())
       extends GameStateObservable:
-    private var s   = initial
+    private var s = initial
     private val cbs = scala.collection.mutable.ListBuffer.empty[GameState => Unit]
     def getState: GameState = synchronized(s)
     def updateState(n: GameState): Unit =
@@ -29,27 +33,27 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
 
   /** A scriptable in-memory Console for testing. */
   private class TestConsole(inputs: List[String]) extends Console:
-    private val queue  = mutable.Queue(inputs*)
+    private val queue = mutable.Queue(inputs*)
     private val buffer = mutable.ListBuffer.empty[String]
 
-    def readLine(): String            = if queue.isEmpty then null else queue.dequeue()
-    def print(text: String): Unit     = buffer += text
+    def readLine(): String = if queue.isEmpty then null else queue.dequeue()
+    def print(text: String): Unit = buffer += text
     def printLine(text: String): Unit = buffer += text
-    def printed: String               = buffer.mkString("\n")
+    def printed: String = buffer.mkString("\n")
 
   // ── TuiExitReason ──────────────────────────────────────────────────────────
 
   "TextUI.run()" should "return EndOfInput and print Goodbye when stdin closes immediately" in {
     val c = TestConsole(List())
     val reason = TextUI(c).run()
-    reason  shouldBe TuiExitReason.EndOfInput
+    reason shouldBe TuiExitReason.EndOfInput
     c.printed should include("Goodbye!")
   }
 
   it should "return UserQuit when the user types quit" in {
     val c = TestConsole(List("quit"))
     val reason = TextUI(c).run()
-    reason  shouldBe TuiExitReason.UserQuit
+    reason shouldBe TuiExitReason.UserQuit
     c.printed should include("Goodbye!")
   }
 
@@ -58,7 +62,7 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
   it should "display help again when the help command is entered" in {
     val c = TestConsole(List("help", "quit"))
     TextUI(c).run()
-    c.printed.split("move").length should be >= 2   // help printed twice
+    c.printed.split("move").length should be >= 2 // help printed twice
   }
 
   it should "redisplay the board on 'show' command" in {
@@ -174,7 +178,7 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
   it should "resolve a pending promotion to Rook successfully" in {
     val c = TestConsole(List("move a7 a8", "promote r", "quit"))
     TextUI(c, promotionReadyState).run()
-    c.printed should include("r")   // black side shows lowercase; our promoted piece is white 'R'
+    c.printed should include("r") // black side shows lowercase; our promoted piece is white 'R'
     c.printed should include("Goodbye!")
   }
 
@@ -206,90 +210,115 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     def publish(event: AppEvent): Unit = events += event
 
   "TextUI (session-aware)" should "persist game state after a successful move" in {
-    val collector    = new TestEventPublisher
-    val sessionRepo  = new InMemorySessionRepository
-    val gameRepo     = new InMemoryGameRepository
-    val store        = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionSvc   = new SessionService(sessionRepo, _ => ())
-    val svc          = new SessionGameService(sessionSvc, store, collector.publish(_))
-    val gameId       = GameId.random()
-    val session      = svc.createSession(
-      gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
-    ).value
+    val collector = new TestEventPublisher
+    val sessionRepo = new InMemorySessionRepository
+    val gameRepo = new InMemoryGameRepository
+    val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionSvc = new SessionService(sessionRepo, _ => ())
+    val svc = new SessionGameService(sessionSvc, store, collector.publish(_))
+    val gameId = GameId.random()
+    val session = svc
+      .createSession(
+        gameId,
+        SessionMode.HumanVsHuman,
+        SideController.HumanLocal,
+        SideController.HumanLocal
+      )
+      .value
     val game = new TestObservableGame()
-    val c    = TestConsole(List("move e2 e4", "quit"))
+    val c = TestConsole(List("move e2 e4", "quit"))
     new TextUI(c, game, Some(svc), Some(new DesktopSessionContext(session))).run()
     val savedState = gameRepo.load(gameId).value
     savedState.moveHistory.size shouldBe 1
   }
 
   it should "publish MoveApplied after a successful move" in {
-    val collector    = new TestEventPublisher
-    val sessionRepo  = new InMemorySessionRepository
-    val gameRepo     = new InMemoryGameRepository
-    val store        = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionSvc   = new SessionService(sessionRepo, _ => ())
-    val svc          = new SessionGameService(sessionSvc, store, collector.publish(_))
-    val gameId       = GameId.random()
-    val session      = svc.createSession(
-      gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
-    ).value
+    val collector = new TestEventPublisher
+    val sessionRepo = new InMemorySessionRepository
+    val gameRepo = new InMemoryGameRepository
+    val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionSvc = new SessionService(sessionRepo, _ => ())
+    val svc = new SessionGameService(sessionSvc, store, collector.publish(_))
+    val gameId = GameId.random()
+    val session = svc
+      .createSession(
+        gameId,
+        SessionMode.HumanVsHuman,
+        SideController.HumanLocal,
+        SideController.HumanLocal
+      )
+      .value
     val game = new TestObservableGame()
-    collector.events.clear()  // discard SessionCreated from setup
+    collector.events.clear() // discard SessionCreated from setup
     val c = TestConsole(List("move e2 e4", "quit"))
     new TextUI(c, game, Some(svc), Some(new DesktopSessionContext(session))).run()
     val moveEvents = collector.events.collect { case e: AppEvent.MoveApplied => e }
     moveEvents should have size 1
     moveEvents.head.move.from.toString shouldBe "e2"
-    moveEvents.head.move.to.toString   shouldBe "e4"
+    moveEvents.head.move.to.toString shouldBe "e4"
   }
 
   it should "not publish MoveApplied after an illegal move" in {
-    val collector    = new TestEventPublisher
-    val sessionRepo  = new InMemorySessionRepository
-    val gameRepo     = new InMemoryGameRepository
-    val store        = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionSvc   = new SessionService(sessionRepo, _ => ())
-    val svc          = new SessionGameService(sessionSvc, store, collector.publish(_))
-    val gameId       = GameId.random()
-    val session      = svc.createSession(
-      gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
-    ).value
+    val collector = new TestEventPublisher
+    val sessionRepo = new InMemorySessionRepository
+    val gameRepo = new InMemoryGameRepository
+    val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionSvc = new SessionService(sessionRepo, _ => ())
+    val svc = new SessionGameService(sessionSvc, store, collector.publish(_))
+    val gameId = GameId.random()
+    val session = svc
+      .createSession(
+        gameId,
+        SessionMode.HumanVsHuman,
+        SideController.HumanLocal,
+        SideController.HumanLocal
+      )
+      .value
     val game = new TestObservableGame()
     collector.events.clear()
-    val c = TestConsole(List("move e2 e5", "quit"))  // three-square jump is illegal
+    val c = TestConsole(List("move e2 e5", "quit")) // three-square jump is illegal
     new TextUI(c, game, Some(svc), Some(new DesktopSessionContext(session))).run()
     collector.events.collect { case e: AppEvent.MoveApplied => e } shouldBe empty
   }
 
   it should "render an error and continue after an illegal move in session mode" in {
-    val sessionRepo  = new InMemorySessionRepository
-    val gameRepo     = new InMemoryGameRepository
-    val store        = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionSvc   = new SessionService(sessionRepo, _ => ())
-    val svc          = new SessionGameService(sessionSvc, store, _ => ())
-    val gameId       = GameId.random()
-    val session      = svc.createSession(
-      gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
-    ).value
+    val sessionRepo = new InMemorySessionRepository
+    val gameRepo = new InMemoryGameRepository
+    val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionSvc = new SessionService(sessionRepo, _ => ())
+    val svc = new SessionGameService(sessionSvc, store, _ => ())
+    val gameId = GameId.random()
+    val session = svc
+      .createSession(
+        gameId,
+        SessionMode.HumanVsHuman,
+        SideController.HumanLocal,
+        SideController.HumanLocal
+      )
+      .value
     val game = new TestObservableGame()
-    val c    = TestConsole(List("move e2 e5", "quit"))
+    val c = TestConsole(List("move e2 e5", "quit"))
     new TextUI(c, game, Some(svc), Some(new DesktopSessionContext(session))).run()
     c.printed should include("Goodbye!")
   }
 
   it should "notify ObservableGame after a successful move in session mode" in {
-    val sessionRepo    = new InMemorySessionRepository
-    val gameRepo       = new InMemoryGameRepository
-    val store          = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionSvc     = new SessionService(sessionRepo, _ => ())
-    val svc            = new SessionGameService(sessionSvc, store, _ => ())
-    val gameId         = GameId.random()
-    val session        = svc.createSession(
-      gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
-    ).value
-    val game           = new TestObservableGame()
-    var observedCount  = 0
+    val sessionRepo = new InMemorySessionRepository
+    val gameRepo = new InMemoryGameRepository
+    val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionSvc = new SessionService(sessionRepo, _ => ())
+    val svc = new SessionGameService(sessionSvc, store, _ => ())
+    val gameId = GameId.random()
+    val session = svc
+      .createSession(
+        gameId,
+        SessionMode.HumanVsHuman,
+        SideController.HumanLocal,
+        SideController.HumanLocal
+      )
+      .value
+    val game = new TestObservableGame()
+    var observedCount = 0
     game.addObserver { _ => observedCount += 1 }
     val c = TestConsole(List("move e2 e4", "quit"))
     new TextUI(c, game, Some(svc), Some(new DesktopSessionContext(session))).run()
@@ -297,15 +326,20 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   it should "persist fresh game state after 'new' command in session mode" in {
-    val sessionRepo  = new InMemorySessionRepository
-    val gameRepo     = new InMemoryGameRepository
-    val store        = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionSvc   = new SessionService(sessionRepo, _ => ())
-    val svc          = new SessionGameService(sessionSvc, store, _ => ())
-    val gameId       = GameId.random()
-    val session      = svc.createSession(
-      gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
-    ).value
+    val sessionRepo = new InMemorySessionRepository
+    val gameRepo = new InMemoryGameRepository
+    val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionSvc = new SessionService(sessionRepo, _ => ())
+    val svc = new SessionGameService(sessionSvc, store, _ => ())
+    val gameId = GameId.random()
+    val session = svc
+      .createSession(
+        gameId,
+        SessionMode.HumanVsHuman,
+        SideController.HumanLocal,
+        SideController.HumanLocal
+      )
+      .value
     val game = new TestObservableGame()
     // Make a move first, then reset.  After 'new', the game in the observer
     // bridge should be back to the initial position (no move history).
@@ -315,17 +349,22 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   it should "still accept moves after 'new' command in session mode" in {
-    val collector    = new TestEventPublisher
-    val sessionRepo  = new InMemorySessionRepository
-    val gameRepo     = new InMemoryGameRepository
-    val store        = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionSvc   = new SessionService(sessionRepo, _ => ())
-    val svc          = new SessionGameService(sessionSvc, store, collector.publish(_))
-    val gameId       = GameId.random()
-    val session      = svc.createSession(
-      gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
-    ).value
-    val game     = new TestObservableGame()
+    val collector = new TestEventPublisher
+    val sessionRepo = new InMemorySessionRepository
+    val gameRepo = new InMemoryGameRepository
+    val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionSvc = new SessionService(sessionRepo, _ => ())
+    val svc = new SessionGameService(sessionSvc, store, collector.publish(_))
+    val gameId = GameId.random()
+    val session = svc
+      .createSession(
+        gameId,
+        SessionMode.HumanVsHuman,
+        SideController.HumanLocal,
+        SideController.HumanLocal
+      )
+      .value
+    val game = new TestObservableGame()
     collector.events.clear()
     val c = TestConsole(List("new", "move d2 d4", "quit"))
     new TextUI(c, game, Some(svc), Some(new DesktopSessionContext(session))).run()
@@ -341,15 +380,20 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
   "Shared desktop session" should "accumulate moves from two adapters in the same repo entry" in {
     // Shared infrastructure — exactly as the composition root creates it.
     val sessionRepo = new InMemorySessionRepository
-    val gameRepo    = new InMemoryGameRepository
-    val store       = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionSvc  = new SessionService(sessionRepo, _ => ())
-    val svc         = new SessionGameService(sessionSvc, store, _ => ())
-    val gameId      = GameId.random()
-    val session     = svc.createSession(
-      gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
-    ).value
-    val sharedGame    = new TestObservableGame()
+    val gameRepo = new InMemoryGameRepository
+    val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionSvc = new SessionService(sessionRepo, _ => ())
+    val svc = new SessionGameService(sessionSvc, store, _ => ())
+    val gameId = GameId.random()
+    val session = svc
+      .createSession(
+        gameId,
+        SessionMode.HumanVsHuman,
+        SideController.HumanLocal,
+        SideController.HumanLocal
+      )
+      .value
+    val sharedGame = new TestObservableGame()
     val sharedContext = new DesktopSessionContext(session)
 
     // Adapter A (simulating TUI) makes the first move.
@@ -369,19 +413,24 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   it should "publish events for moves from both adapters sharing the same session" in {
-    val collector   = new TestEventPublisher
+    val collector = new TestEventPublisher
     val sessionRepo = new InMemorySessionRepository
-    val gameRepo    = new InMemoryGameRepository
-    val store       = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionSvc  = new SessionService(sessionRepo, _ => ())
-    val svc         = new SessionGameService(sessionSvc, store, collector.publish(_))
-    val gameId      = GameId.random()
-    val session     = svc.createSession(
-      gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
-    ).value
-    val sharedGame    = new TestObservableGame()
+    val gameRepo = new InMemoryGameRepository
+    val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionSvc = new SessionService(sessionRepo, _ => ())
+    val svc = new SessionGameService(sessionSvc, store, collector.publish(_))
+    val gameId = GameId.random()
+    val session = svc
+      .createSession(
+        gameId,
+        SessionMode.HumanVsHuman,
+        SideController.HumanLocal,
+        SideController.HumanLocal
+      )
+      .value
+    val sharedGame = new TestObservableGame()
     val sharedContext = new DesktopSessionContext(session)
-    collector.events.clear()  // discard SessionCreated
+    collector.events.clear() // discard SessionCreated
 
     val cA = TestConsole(List("move d2 d4", "quit"))
     new TextUI(cA, sharedGame, Some(svc), Some(sharedContext)).run()
@@ -397,15 +446,20 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
 
   it should "make state from the first adapter visible to the second adapter via ObservableGame" in {
     val sessionRepo = new InMemorySessionRepository
-    val gameRepo    = new InMemoryGameRepository
-    val store       = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionSvc  = new SessionService(sessionRepo, _ => ())
-    val svc         = new SessionGameService(sessionSvc, store, _ => ())
-    val gameId      = GameId.random()
-    val session     = svc.createSession(
-      gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
-    ).value
-    val sharedGame    = new TestObservableGame()
+    val gameRepo = new InMemoryGameRepository
+    val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionSvc = new SessionService(sessionRepo, _ => ())
+    val svc = new SessionGameService(sessionSvc, store, _ => ())
+    val gameId = GameId.random()
+    val session = svc
+      .createSession(
+        gameId,
+        SessionMode.HumanVsHuman,
+        SideController.HumanLocal,
+        SideController.HumanLocal
+      )
+      .value
+    val sharedGame = new TestObservableGame()
     val sharedContext = new DesktopSessionContext(session)
 
     // Adapter A makes a move — updates sharedGame via updateState.
@@ -427,16 +481,21 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
 
   it should "update DesktopSessionContext after 'new' command so a second adapter sees the new session" in {
     val sessionRepo = new InMemorySessionRepository
-    val gameRepo    = new InMemoryGameRepository
-    val store       = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionSvc  = new SessionService(sessionRepo, _ => ())
-    val svc         = new SessionGameService(sessionSvc, store, _ => ())
-    val gameId      = GameId.random()
-    val session     = svc.createSession(
-      gameId, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
-    ).value
+    val gameRepo = new InMemoryGameRepository
+    val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionSvc = new SessionService(sessionRepo, _ => ())
+    val svc = new SessionGameService(sessionSvc, store, _ => ())
+    val gameId = GameId.random()
+    val session = svc
+      .createSession(
+        gameId,
+        SessionMode.HumanVsHuman,
+        SideController.HumanLocal,
+        SideController.HumanLocal
+      )
+      .value
     val sharedContext = new DesktopSessionContext(session)
-    val sharedGame    = new TestObservableGame()
+    val sharedGame = new TestObservableGame()
 
     val c = TestConsole(List("new", "quit"))
     new TextUI(c, sharedGame, Some(svc), Some(sharedContext)).run()

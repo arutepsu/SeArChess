@@ -14,16 +14,16 @@ class CheckValidatorSpec extends AnyFlatSpec with Matchers with EitherValues:
   private def boardWith(placements: (String, Piece)*): Board =
     placements.foldLeft(Board.empty) { case (b, (sq, p)) => b.place(at(sq), p) }
 
-  private val whiteKing  = Piece(Color.White, PieceType.King)
-  private val blackKing  = Piece(Color.Black, PieceType.King)
-  private val whiteRook  = Piece(Color.White, PieceType.Rook)
-  private val blackRook  = Piece(Color.Black, PieceType.Rook)
-  private val whitePawn  = Piece(Color.White, PieceType.Pawn)
-  private val blackPawn  = Piece(Color.Black, PieceType.Pawn)
+  private val whiteKing = Piece(Color.White, PieceType.King)
+  private val blackKing = Piece(Color.Black, PieceType.King)
+  private val whiteRook = Piece(Color.White, PieceType.Rook)
+  private val blackRook = Piece(Color.Black, PieceType.Rook)
+  private val whitePawn = Piece(Color.White, PieceType.Pawn)
+  private val blackPawn = Piece(Color.Black, PieceType.Pawn)
   private val whiteBishop = Piece(Color.White, PieceType.Bishop)
   private val blackBishop = Piece(Color.Black, PieceType.Bishop)
   private val blackKnight = Piece(Color.Black, PieceType.Knight)
-  private val whiteQueen  = Piece(Color.White, PieceType.Queen)
+  private val whiteQueen = Piece(Color.White, PieceType.Queen)
 
   // ── isKingInCheck: positive cases ─────────────────────────────────────────
 
@@ -103,32 +103,41 @@ class CheckValidatorSpec extends AnyFlatSpec with Matchers with EitherValues:
     // white king e1, white rook e4 (pinned), black rook e8
     val board = boardWith("e1" -> whiteKing, "e4" -> whiteRook, "e8" -> blackRook)
     // moving the pinned rook sideways exposes the king
-    MoveApplier.applyMove(board, Move(at("e4"), at("d4"))).left.value shouldBe DomainError.KingInCheck
+    MoveApplier
+      .applyMove(board, Move(at("e4"), at("d4")))
+      .left
+      .value shouldBe DomainError.KingInCheck
   }
 
   it should "reject moving the king into an attacked square" in {
     // white king e1, black rook d8 — d1 is on the d-file, attacked
     val board = boardWith("e1" -> whiteKing, "d8" -> blackRook)
-    MoveApplier.applyMove(board, Move(at("e1"), at("d1"))).left.value shouldBe DomainError.KingInCheck
+    MoveApplier
+      .applyMove(board, Move(at("e1"), at("d1")))
+      .left
+      .value shouldBe DomainError.KingInCheck
   }
 
   it should "allow a move that blocks an existing check" in {
     // white king e1 in check from black rook e8; white rook a4 blocks by moving to e4
     val board = boardWith("e1" -> whiteKing, "e8" -> blackRook, "a4" -> whiteRook)
-    val MoveResult.Applied(result) = MoveApplier.applyMove(board, Move(at("a4"), at("e4"))).value: @unchecked
+    val MoveResult.Applied(result) =
+      MoveApplier.applyMove(board, Move(at("a4"), at("e4"))).value: @unchecked
     result.pieceAt(at("e4")) shouldBe Some(whiteRook)
   }
 
   it should "allow capturing the attacking piece to resolve check" in {
     // white king e1, black rook e4 gives check (e2/e3 clear); white rook h4 captures
     val board = boardWith("e1" -> whiteKing, "e4" -> blackRook, "h4" -> whiteRook)
-    val MoveResult.Applied(result) = MoveApplier.applyMove(board, Move(at("h4"), at("e4"))).value: @unchecked
+    val MoveResult.Applied(result) =
+      MoveApplier.applyMove(board, Move(at("h4"), at("e4"))).value: @unchecked
     result.pieceAt(at("e4")) shouldBe Some(whiteRook)
   }
 
   it should "allow the king to escape check by moving to a safe square" in {
     // white king e1 in check from black rook e8; king escapes to d1 (d-file is clear)
     val board = boardWith("e1" -> whiteKing, "e8" -> blackRook)
-    val MoveResult.Applied(result) = MoveApplier.applyMove(board, Move(at("e1"), at("d1"))).value: @unchecked
+    val MoveResult.Applied(result) =
+      MoveApplier.applyMove(board, Move(at("e1"), at("d1"))).value: @unchecked
     result.pieceAt(at("d1")) shouldBe Some(whiteKing)
   }

@@ -3,16 +3,16 @@ package chess.notation.fen
 import chess.notation.api.ParseFailure
 
 /** Internal regex-based grammar for strict FEN syntax.
- *
- *  Responsibilities:
- *  - parse the full six-field FEN grammar using regex/manual parsing
- *  - construct a parser-local [[FenRecord]]
- *  - enforce syntax and structural constraints only
- *
- *  Intentionally NOT responsible for:
- *  - semantic chess validation
- *  - mapping to domain objects
- */
+  *
+  * Responsibilities:
+  *   - parse the full six-field FEN grammar using regex/manual parsing
+  *   - construct a parser-local [[FenRecord]]
+  *   - enforce syntax and structural constraints only
+  *
+  * Intentionally NOT responsible for:
+  *   - semantic chess validation
+  *   - mapping to domain objects
+  */
 private[fen] object FenRegexGrammar extends FenGrammar:
 
   private val FenPattern =
@@ -28,16 +28,22 @@ private[fen] object FenRegexGrammar extends FenGrammar:
     raw"^\d+$$".r
 
   def parseRecord(input: String): Either[ParseFailure, FenRecord] =
-    if input.isEmpty then
-      Left(ParseFailure.UnexpectedEndOfInput("FEN string is empty"))
+    if input.isEmpty then Left(ParseFailure.UnexpectedEndOfInput("FEN string is empty"))
     else
       input match
-        case FenPattern(piecePlacement, activeColor, castling, enPassant, halfmoveClock, fullmoveNumber) =>
+        case FenPattern(
+              piecePlacement,
+              activeColor,
+              castling,
+              enPassant,
+              halfmoveClock,
+              fullmoveNumber
+            ) =>
           for
-            ranks    <- parsePiecePlacement(piecePlacement)
-            color    <- parseActiveColor(activeColor)
-            castle   <- parseCastling(castling)
-            ep       <- parseEnPassant(enPassant)
+            ranks <- parsePiecePlacement(piecePlacement)
+            color <- parseActiveColor(activeColor)
+            castle <- parseCastling(castling)
+            ep <- parseEnPassant(enPassant)
             halfmove <- parseHalfmoveClock(halfmoveClock)
             fullmove <- parseFullmoveNumber(fullmoveNumber)
           yield FenRecord(
@@ -50,11 +56,13 @@ private[fen] object FenRegexGrammar extends FenGrammar:
           )
 
         case _ =>
-          Left(ParseFailure.SyntaxError(
-            message = "[line 1, column 1] failed parsing FEN: expected 6 space-separated fields",
-            line = Some(1),
-            column = Some(1)
-          ))
+          Left(
+            ParseFailure.SyntaxError(
+              message = "[line 1, column 1] failed parsing FEN: expected 6 space-separated fields",
+              line = Some(1),
+              column = Some(1)
+            )
+          )
 
   // ── Piece placement ───────────────────────────────────────────────────────
 
@@ -62,17 +70,17 @@ private[fen] object FenRegexGrammar extends FenGrammar:
     val rankStrings = s.split("/", -1).toVector
     if rankStrings.length != 8 then
       Left(syntaxError(s"piece placement must contain exactly 8 ranks; got ${rankStrings.length}"))
-    else
-      sequence(rankStrings.map(parseRank))
+    else sequence(rankStrings.map(parseRank))
 
   private def parseRank(rankStr: String): Either[ParseFailure, Vector[FenSquare]] =
-    val expanded = rankStr.toVector.foldLeft[Either[ParseFailure, Vector[FenSquare]]](Right(Vector.empty)) {
-      case (acc, c) =>
-        for
-          squares <- acc
-          next    <- rankAtomToSquares(c)
-        yield squares ++ next
-    }
+    val expanded =
+      rankStr.toVector.foldLeft[Either[ParseFailure, Vector[FenSquare]]](Right(Vector.empty)) {
+        case (acc, c) =>
+          for
+            squares <- acc
+            next <- rankAtomToSquares(c)
+          yield squares ++ next
+      }
 
     expanded.flatMap { squares =>
       if squares.length == 8 then Right(squares)
@@ -113,8 +121,7 @@ private[fen] object FenRegexGrammar extends FenGrammar:
   // ── Castling ──────────────────────────────────────────────────────────────
 
   private def parseCastling(s: String): Either[ParseFailure, FenCastlingAvailability] =
-    if s == "-" then
-      Right(FenCastlingAvailability.none)
+    if s == "-" then Right(FenCastlingAvailability.none)
     else
       s match
         case CastlingPattern() =>
@@ -136,8 +143,7 @@ private[fen] object FenRegexGrammar extends FenGrammar:
   // ── En passant ────────────────────────────────────────────────────────────
 
   private def parseEnPassant(s: String): Either[ParseFailure, FenEnPassantTarget] =
-    if s == "-" then
-      Right(FenEnPassantTarget.Absent)
+    if s == "-" then Right(FenEnPassantTarget.Absent)
     else
       s match
         case EnPassantPattern(fileStr, rankStr) =>
@@ -178,10 +184,12 @@ private[fen] object FenRegexGrammar extends FenGrammar:
       column = Some(1)
     )
 
-  private def sequence[A](values: Vector[Either[ParseFailure, A]]): Either[ParseFailure, Vector[A]] =
+  private def sequence[A](
+      values: Vector[Either[ParseFailure, A]]
+  ): Either[ParseFailure, Vector[A]] =
     values.foldLeft[Either[ParseFailure, Vector[A]]](Right(Vector.empty)) { (acc, next) =>
       for
         xs <- acc
-        x  <- next
+        x <- next
       yield xs :+ x
     }
