@@ -540,12 +540,175 @@ The completed slice proves that current game-state persistence is database-indep
 - relational and document databases use different storage shapes without changing the domain model.
 - rule-critical chess state is protected by shared contract tests.
 
-This gives the team a proven pattern for the next persistence slice, `SessionGameStore`, where session metadata and game state must be written together.
+This gives the team a proven pattern for coordinated persistence through `SessionGameStore`, where session metadata and game state must be written together.
+
+# SessionGameStore Slice
+
+## Purpose
+
+`SessionGameStore` is the coordinating persistence port for commands that must persist a `GameSession` and the current `GameState` as one logical write.
+
+The assignment language uses the DAO pattern, but this port remains a domain-oriented repository boundary: the application/core layer depends on `SessionGameStore`, not on Slick, SQL, Mongo, JDBC, rows, documents, transactions, or adapter internals.
+
+The port exists because some chess use cases change two persistence concerns at once:
+- session metadata, such as lifecycle and timestamps.
+- authoritative current game state, such as board, turn, status, and move history.
+
+Writing those separately from application code would make partial updates too easy.
+
+## When It Must Be Used
+
+Use `SessionGameStore` whenever a command produces both an updated `GameSession` and an updated `GameState`.
+
+Typical examples:
+- creating a new game and session together.
+- applying a move that updates the board and may advance the session lifecycle.
+- resigning a game and finishing the session.
+- any future command where the session lifecycle and game state must become visible together.
+
+Use `SessionRepository` alone only for session-only workflows. Use `GameRepository` alone only for game-state-only workflows. Application services must not manually call both repositories for a command that requires coordinated persistence.
+
+## What It Does Not Do
+
+`SessionGameStore` deliberately stays small. It does not:
+- expose read APIs.
+- replace `SessionRepository.load`, `SessionRepository.loadByGameId`, or `GameRepository.load`.
+- define a generic transaction framework.
+- store archive/history/PGN/event-outbox data.
+- own session or game storage models.
+- introduce database-specific types into application/core.
+- define Mongo-specific transaction behavior for the initial baseline.
+
+## Port Contract
+
+The approved port shape is:
+
+```scala
+trait SessionGameStore:
+  def save(session: GameSession, state: GameState): Either[RepositoryError, Unit]
+```
+
+`Right(())` means both writes are visible through the normal repositories:
+- `SessionRepository.load(session.sessionId)` returns the saved `GameSession`.
+- `GameRepository.load(session.gameId)` returns the saved `GameState`.
+
+`Left(error)` means the combined write failed and the application must not publish success events or treat either side as committed.
+
+## Shared Behavioral Guarantees
+
+The shared `SessionGameStoreContract` enforces:
+- successful `save(session, state)` persists both sides.
+- repeated saves for the same session/game association replace both sides.
+- duplicate `GameId` ownership conflicts are surfaced as `RepositoryError.Conflict`.
+- a rejected session write must not make the new game-state side visible.
+- `GameState` rule-critical fields round-trip through the underlying `GameRepository`.
+- saved sessions are visible through the underlying `SessionRepository`.
+
+The contract intentionally tests behavior through the two read repositories, because `SessionGameStore` itself has no read methods.
+
+## Implementation Summary
+
+### InMemory
+
+`InMemorySessionGameStore` coordinates the existing in-memory repositories:
+- `InMemorySessionRepository`
+- `InMemoryGameRepository`
+
+It calls `sessionRepo.save(session)` first and then `gameRepo.save(session.gameId, state)`.
+
+This is enough for the in-memory adapter because the current in-memory repositories are simple process-local stores and the game-side write does not fail in normal operation. The implementation is useful for unit tests, local composition, and fast feedback.
+
+The in-memory implementation guarantees the logical contract used by the application, but it is not a durable transactional database.
+
+### PostgreSQL/Slick
+
+`PostgresSessionGameStore` uses the existing Postgres persistence shapes:
+- `sessions` table for `GameSession` metadata.
+- `game_states` table for the current `GameState` snapshot.
+
+The implementation:
+- maps `GameSession` with `PostgresSessionMapper`.
+- serializes `GameState` with `PostgresGameStateJson`.
+- writes the session row and game-state row inside one Slick `.transactionally` action.
+- checks existing `GameId` ownership before writing.
+- maps duplicate `GameId` ownership to `RepositoryError.Conflict`.
+- maps storage, transaction, or serialization failures to `RepositoryError.StorageFailure`.
+
+This gives the durable adapter real database transaction behavior while keeping Slick and row types inside the Postgres adapter package.
+
+## Cross-Implementation Rules
+
+All implementations must:
+- implement only `save(session, state)`.
+- return `Either[RepositoryError, Unit]`.
+- make both saved values observable after `Right(())`.
+- reject a different `SessionId` claiming an already-owned `GameId` with `RepositoryError.Conflict`.
+- preserve the `GameSession` and application-equivalent `GameState` at the repository boundary.
+- avoid read APIs on `SessionGameStore`.
+- keep database-specific transaction, row, document, or driver types out of application/core.
+
+## Stronger PostgreSQL Guarantees
+
+PostgreSQL/Slick provides stronger guarantees than the in-memory implementation:
+- a real database transaction commits the session and game-state rows together.
+- if the transaction fails, neither write is committed.
+- unique `GameId` ownership can be protected by relational constraints and conflict mapping.
+- data is durable across process restarts.
+- the temporary-schema contract spec can verify the adapter against a real Postgres instance.
+
+In-memory remains valuable for tests and local development, but its guarantees are process-local and non-durable.
+
+## How to Run the Tests
+
+Run the full persistence module tests:
+
+```powershell
+sbt "adapterPersistence/test"
+```
+
+Run only the in-memory `SessionGameStore` contract:
+
+```powershell
+sbt "adapterPersistence/testOnly chess.adapter.repository.InMemorySessionGameStoreSpec"
+```
+
+Run the PostgreSQL/Slick `SessionGameStore` contract:
+
+```powershell
+$env:SEARCHESS_POSTGRES_URL="jdbc:postgresql://localhost:5432/searchess_test"
+$env:SEARCHESS_POSTGRES_USER="postgres"
+$env:SEARCHESS_POSTGRES_PASSWORD="postgres"
+
+sbt "adapterPersistence/testOnly chess.adapter.repository.postgres.PostgresSessionGameStoreSpec"
+```
+
+The Postgres spec creates a temporary schema for the suite and drops it afterward. The configured user must be allowed to create and drop schemas.
+
+If `SEARCHESS_POSTGRES_URL` is not configured, the Postgres contract tests cancel cleanly instead of failing the normal test run.
+
+## Why This Architecture Matters
+
+This slice completes the core persistence story:
+- `SessionRepository` owns session metadata.
+- `GameRepository` owns current authoritative game state.
+- `SessionGameStore` owns coordinated writes when both must change together.
+
+The application can express its consistency requirement directly without depending on database transactions. Each adapter is responsible for satisfying the same behavior contract using its own storage technology.
+
+This keeps the architecture small enough for a student team while still demonstrating clean ports, adapter-local database code, reusable contract tests, and meaningful consistency boundaries.
+
+## Is Mongo SessionGameStore Worth It?
+
+Mongo `SessionGameStore` is a reasonable stretch goal, but it is not necessary for the mandatory baseline.
+
+Implement it only if the team has time after documenting and verifying the current slices. It would be useful to demonstrate the same coordinating port over a document database, especially if Mongo is part of the final evaluation story. However, it may require extra care around Mongo sessions/transactions, replica-set requirements, and local setup complexity.
+
+Recommendation: keep Mongo `SessionGameStore` as optional stretch work. The completed in-memory and PostgreSQL/Slick implementations already prove the architecture and the transactional durable path.
 
 ## Small Cleanup Suggestions
 
-Before moving to `SessionGameStore`, consider:
-- Run the Postgres and Mongo game repository contract specs once with real local services and record the output.
-- Decide whether SQLite game repository tests should also be migrated to the shared contract or left as legacy coverage.
-- Consider extracting shared JSON/state mapping later only if duplication between adapters becomes painful; do not do it preemptively.
-- Document that `SessionGameStore` must coordinate already-proven `SessionRepository` and `GameRepository` behavior rather than redefining their storage models.
+Before final evaluation, consider:
+- Run the Postgres `SessionGameStore` contract once with a real local Postgres instance and record the result.
+- Run the Postgres and Mongo repository contract specs with real local services if the report wants durable-adapter evidence.
+- Keep SQLite-specific persistence tests documented as legacy/local coverage unless the team decides to migrate them to shared contracts later.
+- Add a short report note that `SessionGameStore` coordinates proven repository behavior instead of redefining session or game storage.
