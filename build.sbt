@@ -125,7 +125,10 @@ lazy val adapterPersistence = project
     commonSettings,
     libraryDependencies ++= Seq(
       "com.lihaoyi" %% "ujson"        % "4.0.2",
-      "org.xerial"   % "sqlite-jdbc"  % "3.46.1.3"
+      "org.xerial"   % "sqlite-jdbc"  % "3.46.1.3",
+      "com.typesafe.slick" %% "slick" % "3.6.1",
+      "org.postgresql" % "postgresql" % "42.7.7",
+      "org.mongodb" % "mongodb-driver-sync" % "5.2.1"
     )
   )
   // Event modules are only needed for test fixtures and transactional outbox specs.

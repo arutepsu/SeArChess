@@ -81,6 +81,7 @@ class SessionService(
       .left
       .map:
         case RepositoryError.NotFound(_)         => SessionError.SessionNotFound(id)
+        case err: RepositoryError.Conflict       => SessionError.PersistenceFailed(err)
         case err: RepositoryError.StorageFailure => SessionError.PersistenceFailed(err)
 
   /** Transition the session to a new [[SessionLifecycle]] phase and persist the change.
@@ -140,6 +141,7 @@ class SessionService(
       .left
       .map:
         case RepositoryError.NotFound(_)         => SessionError.GameSessionNotFound(gameId)
+        case err: RepositoryError.Conflict       => SessionError.PersistenceFailed(err)
         case err: RepositoryError.StorageFailure => SessionError.PersistenceFailed(err)
 
   /** Cancel a session by advancing its lifecycle to [[SessionLifecycle.Cancelled]].

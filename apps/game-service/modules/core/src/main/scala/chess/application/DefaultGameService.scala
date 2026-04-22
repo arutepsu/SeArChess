@@ -220,6 +220,7 @@ class DefaultGameService(
       )
       state <- gameRepository.load(id).left.map {
         case RepositoryError.NotFound(_)         => ArchiveError.GameNotFound(id)
+        case RepositoryError.Conflict(msg)       => ArchiveError.StorageFailure(msg)
         case RepositoryError.StorageFailure(msg) => ArchiveError.StorageFailure(msg)
       }
     yield GameArchiveSnapshot(

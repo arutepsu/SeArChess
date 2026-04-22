@@ -9,5 +9,8 @@ enum RepositoryError:
   /** No record with the given identifier exists in the store. */
   case NotFound(id: String)
 
+  /** The requested write conflicts with an existing persistence invariant. */
+  case Conflict(message: String)
+
   /** The underlying store produced an unexpected failure. */
   case StorageFailure(message: String)
