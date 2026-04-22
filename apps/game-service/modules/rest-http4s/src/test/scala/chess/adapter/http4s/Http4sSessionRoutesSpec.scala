@@ -178,6 +178,33 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers:
     bodyJson(resp)("code").str shouldBe "BAD_REQUEST"
   }
 
+  "POST /sessions/import" should "create a new session from FEN" in {
+    val routes = makeRoutes()
+    val body =
+      """{"format":"FEN","notation":"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"}"""
+    val req = Request[IO](Method.POST, uri"/sessions/import")
+      .withBodyStream(fs2.Stream.emits(body.getBytes("UTF-8")).covary[IO])
+
+    val resp = run(routes, req)
+    resp.status shouldBe Status.Created
+    val json = bodyJson(resp)
+    json("session")("lifecycle").str shouldBe "Active"
+    json("game")("currentPlayer").str shouldBe "White"
+  }
+
+  it should "create a new session from PGN" in {
+    val routes = makeRoutes()
+    val body = """{"format":"PGN","notation":"1. e4 e5 *"}"""
+    val req = Request[IO](Method.POST, uri"/sessions/import")
+      .withBodyStream(fs2.Stream.emits(body.getBytes("UTF-8")).covary[IO])
+
+    val resp = run(routes, req)
+    resp.status shouldBe Status.Created
+    val json = bodyJson(resp)
+    json("session")("lifecycle").str shouldBe "Active"
+    json("game")("currentPlayer").str shouldBe "White"
+  }
+
   // ── GET /sessions ──────────────────────────────────────────────────────────
 
   "GET /sessions" should "return 200 with empty list when no sessions exist" in {

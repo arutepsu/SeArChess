@@ -11,6 +11,7 @@ export type InboundController = "HumanLocal" | "HumanRemote";
 export type OutboundController = "HumanLocal" | "HumanRemote" | "AI";
 export type PieceType = "King" | "Queen" | "Rook" | "Bishop" | "Knight" | "Pawn";
 export type PromotionPiece = "Queen" | "Rook" | "Bishop" | "Knight";
+export type NotationFormat = "FEN" | "PGN";
 
 export interface MoveHistoryEntryDto {
   from: string;
@@ -46,6 +47,14 @@ export interface CreateGameRequest {
   blackController?: InboundController;
 }
 
+export interface ImportNotationRequest {
+  format: NotationFormat;
+  notation: string;
+  mode?: SessionMode;
+  whiteController?: InboundController;
+  blackController?: InboundController;
+}
+
 export interface SubmitMoveRequest {
   from: string;
   to: string;
@@ -76,6 +85,11 @@ export interface CreateGameResponse {
 export interface CommandGameResponse {
   game: GameSnapshot;
   sessionLifecycle: SessionLifecycle;
+}
+
+export interface GameNotationResponse {
+  fen: string;
+  pgn: string;
 }
 
 export interface HealthResponse {

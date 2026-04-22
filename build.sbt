@@ -3,10 +3,10 @@ import wartremover.WartRemover.autoImport._
 
 // ── Versions ──────────────────────────────────────────────────────────────────
 
-val scala3Version    = "3.8.2"
-val scalaFxVersion   = "21.0.0-R32"
-val javaFxVersion    = "21.0.1"
-val http4sVersion    = "0.23.29"
+val scala3Version = "3.8.2"
+val scalaFxVersion = "21.0.0-R32"
+val javaFxVersion = "21.0.1"
+val http4sVersion = "0.23.29"
 
 lazy val osClassifier: String = System.getProperty("os.name") match {
   case n if n.startsWith("Windows") => "win"
@@ -109,8 +109,8 @@ lazy val history = project
   .settings(
     commonSettings,
     libraryDependencies ++= Seq(
-      "com.lihaoyi" %% "ujson"       % "4.0.2",
-      "org.xerial"   % "sqlite-jdbc" % "3.46.1.3"
+      "com.lihaoyi" %% "ujson" % "4.0.2",
+      "org.xerial" % "sqlite-jdbc" % "3.46.1.3"
     )
   )
   // adapterPersistence and adapterEvent are only needed for legacy test fixtures
@@ -124,8 +124,8 @@ lazy val adapterPersistence = project
   .settings(
     commonSettings,
     libraryDependencies ++= Seq(
-      "com.lihaoyi" %% "ujson"        % "4.0.2",
-      "org.xerial"   % "sqlite-jdbc"  % "3.46.1.3"
+      "com.lihaoyi" %% "ujson" % "4.0.2",
+      "org.xerial" % "sqlite-jdbc" % "3.46.1.3"
     )
   )
   // Event modules are only needed for test fixtures and transactional outbox specs.
@@ -141,7 +141,14 @@ lazy val adapterAi = project
   )
   // adapterPersistence and adapterEvent are only needed for test fixtures
   // (InMemorySessionRepository, CollectingEventPublisher).
-  .dependsOn(gameCore, notation, aiContract, observability, adapterPersistence % Test, adapterEvent % Test)
+  .dependsOn(
+    gameCore,
+    notation,
+    aiContract,
+    observability,
+    adapterPersistence % Test,
+    adapterEvent % Test
+  )
 
 // Module: adapter-event (internal in-process publishers/test collectors)
 
@@ -167,8 +174,8 @@ lazy val gameHistoryDelivery = project
   .settings(
     commonSettings,
     libraryDependencies ++= Seq(
-      "com.lihaoyi" %% "ujson"       % "4.0.2",
-      "org.xerial"   % "sqlite-jdbc" % "3.46.1.3"
+      "com.lihaoyi" %% "ujson" % "4.0.2",
+      "org.xerial" % "sqlite-jdbc" % "3.46.1.3"
     )
   )
   .dependsOn(gameContract, gameEventContract, observability)
@@ -181,7 +188,6 @@ lazy val adapterRestContract = project
     commonSettings,
     libraryDependencies += "com.lihaoyi" %% "ujson" % "4.0.2"
   )
-
 
 // Module: adapter-rest-http4s (authoritative REST adapter)
 
@@ -200,7 +206,7 @@ lazy val adapterRestHttp4s = project
   // gameCore is required by the HTTP adapter's internal mapping layer; the
   // public adapter-rest-contract module remains wire-only.
   // adapterPersistence is only needed for test fixtures (InMemoryGameRepository etc.)
-  .dependsOn(adapterRestContract, gameCore, adapterPersistence % Test)
+  .dependsOn(adapterRestContract, gameCore, notation, adapterPersistence % Test)
 
 // Module: adapter-websocket
 
@@ -209,8 +215,8 @@ lazy val adapterWebsocket = project
   .settings(
     commonSettings,
     libraryDependencies ++= Seq(
-      "com.lihaoyi"        %% "ujson"            % "4.0.2",
-      "org.java-websocket"  % "Java-WebSocket"   % "1.5.7"
+      "com.lihaoyi" %% "ujson" % "4.0.2",
+      "org.java-websocket" % "Java-WebSocket" % "1.5.7"
     ),
     excludeFromCoverage(
       ".*adapter.websocket.ChessWebSocketServer.*",
@@ -286,8 +292,8 @@ lazy val desktopGui = project
     commonSettings,
     coverageMinimumStmtTotal := 0,
     Compile / mainClass := Some("chess.guiapp.GuiMain"),
-    run / mainClass     := Some("chess.guiapp.GuiMain"),
-    run / fork          := true,
+    run / mainClass := Some("chess.guiapp.GuiMain"),
+    run / fork := true,
     excludeFromCoverage(
       ".*chess.guiapp.GuiMain.*",
       ".*chess.guiapp.GuiWiring.*"
@@ -303,8 +309,8 @@ lazy val tuiCli = project
     commonSettings,
     coverageMinimumStmtTotal := 0,
     Compile / mainClass := Some("chess.tuiapp.TuiMain"),
-    run / mainClass     := Some("chess.tuiapp.TuiMain"),
-    run / fork          := true,
+    run / mainClass := Some("chess.tuiapp.TuiMain"),
+    run / fork := true,
     excludeFromCoverage(
       ".*chess.tuiapp.TuiMain.*",
       ".*chess.tuiapp.TuiWiring.*"
@@ -322,8 +328,8 @@ lazy val gameService = project
     name := "searchess-game-service",
     coverageMinimumStmtTotal := 0,
     Compile / mainClass := Some("chess.server.GameServiceMain"),
-    run / mainClass     := Some("chess.server.GameServiceMain"),
-    run / fork          := true,
+    run / mainClass := Some("chess.server.GameServiceMain"),
+    run / fork := true,
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-ember-server" % http4sVersion,
       "org.http4s" %% "http4s-dsl" % http4sVersion
@@ -367,11 +373,11 @@ lazy val historyService = project
     name := "searchess-history-service",
     coverageMinimumStmtTotal := 0,
     Compile / mainClass := Some("chess.historyservice.HistoryServiceMain"),
-    run / mainClass     := Some("chess.historyservice.HistoryServiceMain"),
-    run / fork          := true,
+    run / mainClass := Some("chess.historyservice.HistoryServiceMain"),
+    run / fork := true,
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-ember-server" % http4sVersion,
-      "org.http4s" %% "http4s-dsl"          % http4sVersion
+      "org.http4s" %% "http4s-dsl" % http4sVersion
     ),
     excludeFromCoverage(
       ".*chess.historyservice.HistoryServiceMain.*",
@@ -391,12 +397,12 @@ lazy val aiService = project
     name := "searchess-ai-service",
     coverageMinimumStmtTotal := 0,
     Compile / mainClass := Some("chess.aiservice.AiServiceMain"),
-    run / mainClass     := Some("chess.aiservice.AiServiceMain"),
-    run / fork          := true,
+    run / mainClass := Some("chess.aiservice.AiServiceMain"),
+    run / fork := true,
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-ember-server" % http4sVersion,
-      "org.http4s" %% "http4s-dsl"          % http4sVersion,
-      "com.lihaoyi" %% "ujson"              % "4.0.2"
+      "org.http4s" %% "http4s-dsl" % http4sVersion,
+      "com.lihaoyi" %% "ujson" % "4.0.2"
     ),
     excludeFromCoverage(
       ".*chess.aiservice.*"
@@ -437,93 +443,121 @@ lazy val aiService = project
 
 // ── Full-project ──────────────────────────────────────────────────────────────
 
-addCommandAlias("build",   "compile")
+addCommandAlias("build", "compile")
 addCommandAlias("rebuild", ";clean;compile")
-addCommandAlias("check",   ";compile;test")
-addCommandAlias("report",
-  ";set ThisBuild/coverageEnabled := true;clean;test;coverageAggregate;set ThisBuild/coverageEnabled := false")
-addCommandAlias("ci",
-  ";set ThisBuild/coverageEnabled := true;clean;test;coverageAggregate;coveralls;set ThisBuild/coverageEnabled := false")
+addCommandAlias("check", ";compile;test")
+addCommandAlias(
+  "report",
+  ";set ThisBuild/coverageEnabled := true;clean;test;coverageAggregate;set ThisBuild/coverageEnabled := false"
+)
+addCommandAlias(
+  "ci",
+  ";set ThisBuild/coverageEnabled := true;clean;test;coverageAggregate;coveralls;set ThisBuild/coverageEnabled := false"
+)
 
 // ── Per-module test ───────────────────────────────────────────────────────────
 
-addCommandAlias("testDomain",             "domain/test")
-addCommandAlias("testObservability",      "observability/test")
-addCommandAlias("testNotation",           "notation/test")
-addCommandAlias("testGameContract",       "gameContract/test")
-addCommandAlias("testAiContract",         "aiContract/test")
-addCommandAlias("testGameCore",           "gameCore/test")
-addCommandAlias("testHistory",            "history/test")
+addCommandAlias("testDomain", "domain/test")
+addCommandAlias("testObservability", "observability/test")
+addCommandAlias("testNotation", "notation/test")
+addCommandAlias("testGameContract", "gameContract/test")
+addCommandAlias("testAiContract", "aiContract/test")
+addCommandAlias("testGameCore", "gameCore/test")
+addCommandAlias("testHistory", "history/test")
 addCommandAlias("testAdapterPersistence", "adapterPersistence/test")
-addCommandAlias("testAdapterAi",          "adapterAi/test")
-addCommandAlias("testAdapterEvent",       "adapterEvent/test")
-addCommandAlias("testGameEventContract",  "gameEventContract/test")
-addCommandAlias("testGameHistoryDelivery","gameHistoryDelivery/test")
-addCommandAlias("testAdapterRestContract","adapterRestContract/test")
-addCommandAlias("testAdapterRestHttp4s",  "adapterRestHttp4s/test")
-addCommandAlias("testAdapterWebsocket",   "adapterWebsocket/test")
-addCommandAlias("testAdapterGui",         "adapterGui/test")
-addCommandAlias("testAdapterTui",         "adapterTui/test")
-addCommandAlias("testStartupShared",      "startupShared/test")
-addCommandAlias("testGameService",        "gameService/test")
-addCommandAlias("testHistoryService",     "historyService/test")
-addCommandAlias("testAiService",          "aiService/test")
-addCommandAlias("testDesktopGui",         "desktopGui/test")
-addCommandAlias("testTuiCli",             "tuiCli/test")
+addCommandAlias("testAdapterAi", "adapterAi/test")
+addCommandAlias("testAdapterEvent", "adapterEvent/test")
+addCommandAlias("testGameEventContract", "gameEventContract/test")
+addCommandAlias("testGameHistoryDelivery", "gameHistoryDelivery/test")
+addCommandAlias("testAdapterRestContract", "adapterRestContract/test")
+addCommandAlias("testAdapterRestHttp4s", "adapterRestHttp4s/test")
+addCommandAlias("testAdapterWebsocket", "adapterWebsocket/test")
+addCommandAlias("testAdapterGui", "adapterGui/test")
+addCommandAlias("testAdapterTui", "adapterTui/test")
+addCommandAlias("testStartupShared", "startupShared/test")
+addCommandAlias("testGameService", "gameService/test")
+addCommandAlias("testHistoryService", "historyService/test")
+addCommandAlias("testAiService", "aiService/test")
+addCommandAlias("testDesktopGui", "desktopGui/test")
+addCommandAlias("testTuiCli", "tuiCli/test")
 
 // ── Grouped test: by architectural concern ────────────────────────────────────
 
-addCommandAlias("testCore",
-  ";domain/test;observability/test;notation/test;gameContract/test;aiContract/test;gameCore/test;history/test")
+addCommandAlias(
+  "testCore",
+  ";domain/test;observability/test;notation/test;gameContract/test;aiContract/test;gameCore/test;history/test"
+)
 
-addCommandAlias("testInfra",
+addCommandAlias(
+  "testInfra",
   ";adapterPersistence/test;adapterEvent/test;gameEventContract/test;gameHistoryDelivery/test" +
-  ";adapterAi/test;adapterWebsocket/test")
+    ";adapterAi/test;adapterWebsocket/test"
+)
 
-addCommandAlias("testRest",
-  ";adapterRestContract/test;adapterRestHttp4s/test")
+addCommandAlias("testRest", ";adapterRestContract/test;adapterRestHttp4s/test")
 
-addCommandAlias("testUi",
-  ";adapterGui/test;adapterTui/test")
+addCommandAlias("testUi", ";adapterGui/test;adapterTui/test")
 
-addCommandAlias("testAllAdapters",
+addCommandAlias(
+  "testAllAdapters",
   ";adapterPersistence/test;adapterEvent/test;gameEventContract/test;gameHistoryDelivery/test" +
-  ";adapterAi/test;adapterWebsocket/test" +
-  ";adapterRestContract/test;adapterRestHttp4s/test" +
-  ";adapterGui/test;adapterTui/test")
+    ";adapterAi/test;adapterWebsocket/test" +
+    ";adapterRestContract/test;adapterRestHttp4s/test" +
+    ";adapterGui/test;adapterTui/test"
+)
 
-addCommandAlias("testApps",
-  ";startupShared/test;gameService/test;historyService/test;aiService/test;desktopGui/test;tuiCli/test")
+addCommandAlias(
+  "testApps",
+  ";startupShared/test;gameService/test;historyService/test;aiService/test;desktopGui/test;tuiCli/test"
+)
 
 // ── Compile slices ────────────────────────────────────────────────────────────
 
-addCommandAlias("compileCore",
-  ";domain/compile;observability/compile;notation/compile;gameContract/compile;aiContract/compile;gameCore/compile")
+addCommandAlias(
+  "compileCore",
+  ";domain/compile;observability/compile;notation/compile;gameContract/compile;aiContract/compile;gameCore/compile"
+)
 
-addCommandAlias("compileRest",
-  ";adapterRestContract/compile;adapterRestHttp4s/compile")
+addCommandAlias("compileRest", ";adapterRestContract/compile;adapterRestHttp4s/compile")
 
-addCommandAlias("compileUi",
-  ";adapterGui/compile;adapterTui/compile")
+addCommandAlias("compileUi", ";adapterGui/compile;adapterTui/compile")
 
 lazy val root = project
   .in(file("."))
   .enablePlugins(CoverallsPlugin)
   .settings(
-    name         := "SeArChess",
-    version      := "0.1.0-SNAPSHOT",
+    name := "SeArChess",
+    version := "0.1.0-SNAPSHOT",
     scalaVersion := scala3Version,
     // Root project has no sources; all code lives in submodules.
     // Disable source scanning so the legacy src/ tree (kept as reference) is ignored.
     Compile / unmanagedSourceDirectories := Nil,
-    Test    / unmanagedSourceDirectories := Nil,
+    Test / unmanagedSourceDirectories := Nil,
     // Root project has no sources; coverage aggregation happens via subprojects.
     coverageEnabled := false
   )
   .aggregate(
-    domain, observability, notation, gameContract, aiContract, gameCore, history,
-    adapterPersistence, adapterAi, adapterEvent, gameEventContract, gameHistoryDelivery,
-    adapterRestContract, adapterRestHttp4s,
-    adapterWebsocket, adapterGui, adapterTui,
-    startupShared, gameService, historyService, aiService, desktopGui, tuiCli
+    domain,
+    observability,
+    notation,
+    gameContract,
+    aiContract,
+    gameCore,
+    history,
+    adapterPersistence,
+    adapterAi,
+    adapterEvent,
+    gameEventContract,
+    gameHistoryDelivery,
+    adapterRestContract,
+    adapterRestHttp4s,
+    adapterWebsocket,
+    adapterGui,
+    adapterTui,
+    startupShared,
+    gameService,
+    historyService,
+    aiService,
+    desktopGui,
+    tuiCli
   )

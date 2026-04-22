@@ -50,6 +50,8 @@ export default function App() {
     message,
     animationPlan,
     gameMode,
+    notation,
+    handleImportNotation,
     sessionLifecycle,
     loadGame,
     refreshFromServer,
@@ -316,6 +318,9 @@ export default function App() {
             clockRunning={clockRunning}
             gameMode={gameMode}
             canResign={canResign}
+            fen={notation?.fen}
+            pgn={notation?.pgn}
+            onImportNotation={handleImportNotation}
             onGameModeChange={setGameMode}
             onNewGame={handleNewGame}
             onResign={handleResign}
@@ -354,10 +359,10 @@ export default function App() {
                   const frameCount = sprite?.frameCount ?? 1;
                   const style = sprite
                     ? {
-                        backgroundImage: `url(${sprite.url})`,
-                        backgroundSize: `${frameCount * 100}% 100%`,
-                        backgroundPosition: "0% 50%"
-                      }
+                      backgroundImage: `url(${sprite.url})`,
+                      backgroundSize: `${frameCount * 100}% 100%`,
+                      backgroundPosition: "0% 50%"
+                    }
                     : undefined;
                   return (
                     <span

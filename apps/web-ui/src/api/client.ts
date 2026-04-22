@@ -3,8 +3,10 @@ import type {
   CreateGameRequest,
   CreateGameResponse,
   ErrorResponse,
+  GameNotationResponse,
   GameSnapshot,
   HealthResponse,
+  ImportNotationRequest,
   ResignRequest,
   SubmitMoveRequest
 } from "./backendTypes";
@@ -48,10 +50,23 @@ export async function getGameState(gameId: string): Promise<GameSnapshot> {
   return fetchJson<GameSnapshot>(`/api/games/${gameId}`);
 }
 
+export async function getGameNotation(gameId: string): Promise<GameNotationResponse> {
+  return fetchJson<GameNotationResponse>(`/api/games/${gameId}/notation`);
+}
+
 export async function createGame(
   payload: CreateGameRequest
 ): Promise<CreateGameResponse> {
   return fetchJson<CreateGameResponse>("/api/sessions", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function importGameFromNotation(
+  payload: ImportNotationRequest
+): Promise<CreateGameResponse> {
+  return fetchJson<CreateGameResponse>("/api/sessions/import", {
     method: "POST",
     body: JSON.stringify(payload)
   });

@@ -55,6 +55,19 @@ trait GameSessionCommands:
       now: Instant = Instant.now()
   ): Either[SessionError, (GameState, GameSession)]
 
+  /** Create a new session seeded with an imported [[GameState]].
+    *
+    * Persists the provided state and a new session atomically via
+    * [[chess.application.port.repository.SessionGameStore]].
+    */
+  def newGameFromState(
+      state: GameState,
+      mode: SessionMode,
+      whiteController: SideController,
+      blackController: SideController,
+      now: Instant = Instant.now()
+  ): Either[SessionError, (GameState, GameSession)]
+
   /** Apply a move through the session boundary and persist the result atomically.
     *
     * On success: session and game state are saved together via

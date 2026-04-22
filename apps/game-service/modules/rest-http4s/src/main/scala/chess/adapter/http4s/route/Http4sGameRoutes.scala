@@ -4,6 +4,7 @@ import cats.effect.IO
 import chess.adapter.http4s.mapper.{GameMapper, MoveMapper, SessionMapper}
 import chess.adapter.http4s.route.Http4sRouteSupport.*
 import chess.adapter.rest.contract.dto.{
+  GameNotationResponse,
   GameResponse,
   LegalMovesResponse,
   ResignRequest,
@@ -20,6 +21,9 @@ import chess.application.query.game.GameView
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import chess.application.session.service.{SessionError, SessionMoveError}
 import chess.domain.error.DomainError
+import chess.notation.api.NotationFormat
+import chess.notation.fen.FenSerializer
+import chess.notation.pgn.PgnNotationFacade
 import org.http4s.*
 import org.http4s.dsl.io.*
 
@@ -30,6 +34,7 @@ import org.http4s.dsl.io.*
   *   - `POST /games/{gameId}/moves` → [[handleSubmitMove]] (command — submit move)
   *   - `POST /games/{gameId}/resign` → [[handleResign]] (command — resign)
   *   - `POST /games/{gameId}/ai-move` → [[handleAIMove]] (command — trigger AI)
+  *   - `GET /games/{gameId}/notation` → [[handleGetNotation]] (query — FEN/PGN)
   *
   * All operations are routed through [[GameServiceApi]] — the single Game Service boundary. This
   * class has one dependency instead of the previous three
@@ -52,6 +57,9 @@ class Http4sGameRoutes(gameService: GameServiceApi):
 
     case GET -> Root / "games" / id / "legal-moves" =>
       handleGetLegalMoves(id)
+
+    case GET -> Root / "games" / id / "notation" =>
+      handleGetNotation(id)
 
     case req @ POST -> Root / "games" / id / "moves" =>
       req.bodyText.compile.string.flatMap(handleSubmitMove(id, _))
@@ -93,6 +101,32 @@ class Http4sGameRoutes(gameService: GameServiceApi):
               Status.Ok,
               LegalMovesResponse.toJson(GameMapper.toLegalMovesResponse(view))
             )
+
+  private def handleGetNotation(gameIdStr: String): IO[Response[IO]] =
+    parseUUID(gameIdStr) match
+      case Left(msg) =>
+        jsonError(Status.BadRequest, "BAD_REQUEST", msg)
+      case Right(uuid) =>
+        gameService.getGame(GameId(uuid)) match
+          case Left(RepositoryError.NotFound(_)) =>
+            jsonError(Status.NotFound, "GAME_NOT_FOUND", s"Game not found: $gameIdStr")
+          case Left(RepositoryError.StorageFailure(msg)) =>
+            jsonError(Status.InternalServerError, "INTERNAL_ERROR", msg)
+          case Right(view) =>
+            val state = view.toGameState
+            val fenResult = FenSerializer.exportNotation(state, NotationFormat.FEN)
+            val pgnResult = PgnNotationFacade.executeExport(state, NotationFormat.PGN)
+
+            (fenResult, pgnResult) match
+              case (Right(fen), Right(pgn)) =>
+                jsonResponse(
+                  Status.Ok,
+                  GameNotationResponse.toJson(GameNotationResponse(fen.text, pgn.text))
+                )
+              case (Left(err), _) =>
+                jsonError(Status.InternalServerError, "NOTATION_FAILED", s"FEN export failed: $err")
+              case (_, Left(err)) =>
+                jsonError(Status.InternalServerError, "NOTATION_FAILED", s"PGN export failed: $err")
 
   /** Submit a move through the game service boundary.
     *

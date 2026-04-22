@@ -203,6 +203,18 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     legal("e2").arr.map(_.str).toSet should contain allOf ("e3", "e4")
   }
 
+  "GET /games/{gameId}/notation" should "return FEN and PGN for the current game" in {
+    val (gameRoutes, sessRoutes) = makeRoutes()
+    val gameId = createSession(sessRoutes)
+
+    val resp =
+      run(gameRoutes, Request[IO](Method.GET, Uri.unsafeFromString(s"/games/$gameId/notation")))
+    resp.status shouldBe Status.Ok
+    val json = bodyJson(resp)
+    json("fen").str shouldBe "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+    json("pgn").str shouldBe "*"
+  }
+
   it should "return an empty moveHistory and null lastMove for a fresh game" in {
     val (gameRoutes, sessRoutes) = makeRoutes()
     val gameId = createSession(sessRoutes)

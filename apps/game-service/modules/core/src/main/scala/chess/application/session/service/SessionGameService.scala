@@ -160,6 +160,51 @@ class SessionGameService(
         (fresh, session)
       }
 
+  /** Create a new session seeded with an imported [[GameState]].
+    *
+    * The imported state is persisted as-is; session lifecycle is derived from the imported status
+    * (Active for ongoing games, Finished for terminal states).
+    */
+  def newGameFromState(
+      state: GameState,
+      mode: SessionMode,
+      whiteController: SideController,
+      blackController: SideController,
+      now: Instant = Instant.now()
+  ): Either[SessionError, (GameState, GameSession)] =
+    val gameId = GameId.random()
+    val baseSession = GameSession.create(gameId, mode, whiteController, blackController, now)
+    val targetLifecycle = lifecycleForImportedState(state)
+    val session =
+      if targetLifecycle == baseSession.lifecycle then baseSession
+      else GameSession.withLifecycle(baseSession, targetLifecycle, now)
+
+    store
+      .save(session, state)
+      .left
+      .map(SessionError.PersistenceFailed(_))
+      .map { _ =>
+        publisher.publish(
+          AppEvent.SessionCreated(
+            session.sessionId,
+            session.gameId,
+            session.mode,
+            session.whiteController,
+            session.blackController
+          )
+        )
+        if session.lifecycle != baseSession.lifecycle then
+          publisher.publish(
+            AppEvent.SessionLifecycleChanged(
+              session.sessionId,
+              session.gameId,
+              baseSession.lifecycle,
+              session.lifecycle
+            )
+          )
+        (state, session)
+      }
+
   /** Record a resignation: set [[GameStatus.Resigned]] on the game state, advance the session
     * lifecycle to [[SessionLifecycle.Finished]], and persist both together with the outbox payload
     * atomically via [[SessionGameStore.saveTerminal]].
@@ -249,3 +294,10 @@ class SessionGameService(
   private def isTerminalStatus(status: GameStatus): Boolean = status match
     case GameStatus.Checkmate(_) | GameStatus.Draw(_) | GameStatus.Resigned(_) => true
     case _                                                                     => false
+
+  private def lifecycleForImportedState(state: GameState): SessionLifecycle =
+    state.status match
+      case GameStatus.Checkmate(_) | GameStatus.Draw(_) | GameStatus.Resigned(_) =>
+        SessionLifecycle.Finished
+      case _ =>
+        SessionLifecycle.Active

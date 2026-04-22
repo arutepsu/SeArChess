@@ -54,6 +54,15 @@ trait GameServiceApi:
       now: Instant = Instant.now()
   ): Either[SessionError, (GameState, GameSession)]
 
+  /** Create a new session seeded with an imported game state. */
+  def createGameFromState(
+      state: GameState,
+      mode: SessionMode,
+      whiteController: SideController,
+      blackController: SideController,
+      now: Instant = Instant.now()
+  ): Either[SessionError, (GameState, GameSession)]
+
   /** Submit a move for the game identified by [[gameId]].
     *
     * Loads the session and game state, validates the move against session policy and domain rules,

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { GameState, PlayableGameMode, PlayerColor } from "../api/types";
 import "./ControlPanel.css";
 
@@ -10,6 +11,9 @@ type ControlPanelProps = {
   clockRunning?: boolean;
   gameMode: PlayableGameMode;
   canResign: boolean;
+  fen?: string;
+  pgn?: string;
+  onImportNotation: (format: "FEN" | "PGN", notation: string) => void;
   onGameModeChange: (mode: PlayableGameMode) => void;
   onNewGame: () => void;
   onResign: () => void;
@@ -45,12 +49,17 @@ export default function ControlPanel({
   clockRunning,
   gameMode,
   canResign,
+  fen,
+  pgn,
+  onImportNotation,
   onGameModeChange,
   onNewGame,
   onResign
 }: ControlPanelProps) {
   const whiteActive = activeColor === "white" && clockRunning;
   const blackActive = activeColor === "black" && clockRunning;
+  const [fenDraft, setFenDraft] = useState("");
+  const [pgnDraft, setPgnDraft] = useState("");
 
   return (
     <section className="control-panel" aria-label="Controls">
@@ -80,6 +89,52 @@ export default function ControlPanel({
         <div>
           <span className="label">Half move</span>
           <strong>{game?.halfMoveClock ?? 0}</strong>
+        </div>
+      </div>
+      <div className="notation">
+        <div>
+          <span className="label">FEN</span>
+          <pre className="notation-text">{fen ?? "Not available"}</pre>
+        </div>
+        <div>
+          <span className="label">PGN</span>
+          <pre className="notation-text">{pgn ?? "Not available"}</pre>
+        </div>
+      </div>
+      <div className="import-notation">
+        <div>
+          <span className="label">Import FEN</span>
+          <textarea
+            value={fenDraft}
+            onChange={(event) => setFenDraft(event.target.value)}
+            placeholder="Paste FEN here"
+            rows={3}
+            disabled={busy}
+          />
+          <button
+            type="button"
+            disabled={busy || !fenDraft.trim()}
+            onClick={() => onImportNotation("FEN", fenDraft)}
+          >
+            Import FEN
+          </button>
+        </div>
+        <div>
+          <span className="label">Import PGN</span>
+          <textarea
+            value={pgnDraft}
+            onChange={(event) => setPgnDraft(event.target.value)}
+            placeholder="Paste PGN here"
+            rows={3}
+            disabled={busy}
+          />
+          <button
+            type="button"
+            disabled={busy || !pgnDraft.trim()}
+            onClick={() => onImportNotation("PGN", pgnDraft)}
+          >
+            Import PGN
+          </button>
         </div>
       </div>
       <div className="actions">

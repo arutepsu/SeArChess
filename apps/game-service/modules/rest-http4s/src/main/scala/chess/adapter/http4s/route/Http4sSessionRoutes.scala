@@ -6,6 +6,7 @@ import chess.adapter.http4s.route.Http4sRouteSupport.*
 import chess.adapter.rest.contract.dto.{
   CreateSessionRequest,
   CreateSessionResponse,
+  ImportNotationRequest,
   SessionListResponse,
   SessionResponse
 }
@@ -13,6 +14,9 @@ import chess.application.GameServiceApi
 import chess.application.query.game.GameView
 import chess.application.session.model.SessionIds.SessionId
 import chess.application.session.service.SessionError
+import chess.notation.api.{ImportResult, ImportTarget, NotationFormat}
+import chess.notation.fen.FenNotationFacade
+import chess.notation.pgn.PgnNotationFacade
 import org.http4s.*
 import org.http4s.dsl.io.*
 
@@ -38,6 +42,9 @@ class Http4sSessionRoutes(gameService: GameServiceApi):
 
     case req @ POST -> Root / "sessions" =>
       req.bodyText.compile.string.flatMap(handleCreate)
+
+    case req @ POST -> Root / "sessions" / "import" =>
+      req.bodyText.compile.string.flatMap(handleImport)
 
     case GET -> Root / "sessions" =>
       handleList()
@@ -68,6 +75,30 @@ class Http4sSessionRoutes(gameService: GameServiceApi):
         session,
         session.gameId,
         GameMapper.toGameResponse(GameView.fromState(session.gameId, state))
+      )
+
+    result match
+      case Right(resp) => jsonResponse(Status.Created, CreateSessionResponse.toJson(resp))
+      case Left(msg)   => jsonError(Status.BadRequest, "BAD_REQUEST", msg)
+
+  private def handleImport(body: String): IO[Response[IO]] =
+    val result =
+      for
+        req <- ImportNotationRequest.fromJson(body)
+        mode <- SessionMapper.parseMode(req.mode)
+        controllers <- SessionMapper.resolveCreateControllers(
+          mode,
+          req.whiteController,
+          req.blackController
+        )
+        (white, black) = controllers
+        state <- parseImportedState(req)
+        pair <- gameService.createGameFromState(state, mode, white, black).left.map(sessionErrMsg)
+        (nextState, session) = pair
+      yield SessionMapper.toCreateSessionResponse(
+        session,
+        session.gameId,
+        GameMapper.toGameResponse(GameView.fromState(session.gameId, nextState))
       )
 
     result match
@@ -127,3 +158,41 @@ class Http4sSessionRoutes(gameService: GameServiceApi):
     case SessionError.GameSessionNotFound(id)       => s"Game session not found: ${id.value}"
     case SessionError.PersistenceFailed(cause)      => s"Storage error: $cause"
     case SessionError.InvalidLifecycleTransition(r) => s"Invalid lifecycle transition: $r"
+
+  private def parseImportedState(
+      req: ImportNotationRequest
+  ): Either[String, chess.domain.state.GameState] =
+    val text = req.notation.trim
+    if text.isEmpty then Left("notation is empty")
+    else
+      req.format.toUpperCase match
+        case "FEN" =>
+          for
+            parsed <- FenNotationFacade
+              .parse(NotationFormat.FEN, text)
+              .left
+              .map(_.toString)
+            imported <- FenNotationFacade
+              .executeImport(parsed, ImportTarget.PositionTarget)
+              .left
+              .map(_.toString)
+            state <- imported match
+              case ImportResult.PositionImportResult(data, _, _, _) => Right(data)
+              case other => Left(s"FEN import did not produce a position: ${other.sourceFormat}")
+          yield state
+        case "PGN" =>
+          for
+            parsed <- PgnNotationFacade
+              .parse(NotationFormat.PGN, text)
+              .left
+              .map(_.toString)
+            imported <- PgnNotationFacade
+              .executeImport(parsed, ImportTarget.GameTarget)
+              .left
+              .map(_.toString)
+            state <- imported match
+              case ImportResult.GameImportResult(data, _, _, _, _) => Right(data)
+              case other => Left(s"PGN import did not produce a game: ${other.sourceFormat}")
+          yield state
+        case other =>
+          Left(s"Unknown notation format: '$other'. Expected FEN or PGN")

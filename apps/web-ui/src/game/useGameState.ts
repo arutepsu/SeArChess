@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BoardMatrix, GameState, PlayableGameMode, PlayerColor } from "../api/types";
-import type { CreateGameRequest, GameSnapshot, PromotionPiece } from "../api/backendTypes";
+import type {
+  CreateGameRequest,
+  GameNotationResponse,
+  GameSnapshot,
+  ImportNotationRequest,
+  PromotionPiece
+} from "../api/backendTypes";
 import {
   createGame,
   getGameState,
+  getGameNotation,
   getStatus,
+  importGameFromNotation,
   requestAiMove,
   resignGame,
   submitMove
@@ -66,6 +74,7 @@ export type UseGameStateReturn = {
   message: string | undefined;
   animationPlan: BoardAnimation | null;
   gameMode: PlayableGameMode;
+  notation: GameNotationResponse | undefined;
   sessionLifecycle: SessionContext["lifecycle"] | undefined;
 
   // ── Actions ───────────────────────────────────────────────────────────────
@@ -77,6 +86,7 @@ export type UseGameStateReturn = {
   handleSelect: (square: string) => Promise<void>;
   setGameMode: (mode: PlayableGameMode) => void;
   handleNewGame: () => Promise<void>;
+  handleImportNotation: (format: "FEN" | "PGN", notation: string) => Promise<void>;
   handleResign: () => Promise<void>;
   handleAnimationFinished: (id: number) => void;
 
@@ -101,6 +111,7 @@ export function useGameState(): UseGameStateReturn {
   const [message, setMessageState] = useState<string | undefined>(undefined);
   const [animationPlan, setAnimationPlan] = useState<BoardAnimation | null>(null);
   const [gameMode, setGameMode] = useState<PlayableGameMode>("HumanVsHuman");
+  const [notation, setNotation] = useState<GameNotationResponse | undefined>(undefined);
 
   // boardRef holds the board that was rendered most recently.
   // Async callbacks (refreshFromServer, submit move, AI move) read this ref so they
@@ -110,6 +121,7 @@ export function useGameState(): UseGameStateReturn {
   const animationCounter = useRef(0);
   const refreshPromiseRef = useRef<Promise<void> | null>(null);
   const refreshQueuedRef = useRef(false);
+  const notationRequestId = useRef(0);
 
   // Stale-response guard.
   // Every async operation that writes game state bumps this counter before
@@ -165,6 +177,20 @@ export function useGameState(): UseGameStateReturn {
 
   // ── Async operations ──────────────────────────────────────────────────────
 
+  const refreshNotation = useCallback(async (gameId: string, thisGen: number): Promise<void> => {
+    const requestId = ++notationRequestId.current;
+    try {
+      const response = await getGameNotation(gameId);
+      if (thisGen !== generation.current) return;
+      if (requestId !== notationRequestId.current) return;
+      setNotation(response);
+    } catch {
+      if (thisGen !== generation.current) return;
+      if (requestId !== notationRequestId.current) return;
+      setNotation(undefined);
+    }
+  }, []);
+
   const loadGame = useCallback(async (): Promise<void> => {
     const thisGen = ++generation.current;
     try {
@@ -176,6 +202,7 @@ export function useGameState(): UseGameStateReturn {
         setAnimationPlan(null);
         setLegalMoves([]);
         setSelectedSquare(undefined);
+        setNotation(undefined);
         setMessageState("Start a new game to play.");
         return;
       }
@@ -191,6 +218,7 @@ export function useGameState(): UseGameStateReturn {
           setAnimationPlan(null);
           setLegalMoves([]);
           setSelectedSquare(undefined);
+          setNotation(undefined);
           setMessageState("Previous game was not found. Start a new game to play.");
           return;
         }
@@ -204,6 +232,7 @@ export function useGameState(): UseGameStateReturn {
 
       if (thisGen !== generation.current) return;
       commitGameSnapshot(hydratedSnapshot);
+      void refreshNotation(existingGameId, thisGen);
       setMessageState(undefined);
     } catch (error) {
       if (thisGen !== generation.current) return;
@@ -211,6 +240,7 @@ export function useGameState(): UseGameStateReturn {
       setAnimationPlan(null);
       setLegalMoves([]);
       setSelectedSquare(undefined);
+      setNotation(undefined);
       setMessageState(
         error instanceof Error
           ? `Could not restore previous game. ${error.message}`
@@ -218,7 +248,7 @@ export function useGameState(): UseGameStateReturn {
       );
       throw error; // re-throw so App can update its connection state
     }
-  }, [getGameId, setSession]);
+  }, [getGameId, refreshNotation, setSession]);
 
   const runRefreshFromServer = useCallback(async (): Promise<void> => {
     do {
@@ -233,9 +263,10 @@ export function useGameState(): UseGameStateReturn {
       const snapshot = await getGameState(gameId);
       if (thisGen !== generation.current) continue;
       commitGameSnapshot(snapshot, { previousBoard });
+      void refreshNotation(gameId, thisGen);
       setMessageState(undefined);
     } while (refreshQueuedRef.current);
-  }, [commitGameSnapshot, getGameId]);
+  }, [commitGameSnapshot, getGameId, refreshNotation]);
 
   const refreshFromServer = useCallback(async (): Promise<void> => {
     const inFlight = refreshPromiseRef.current;
@@ -271,6 +302,7 @@ export function useGameState(): UseGameStateReturn {
         const response = await requestAiMove(gameId);
         if (thisGen !== generation.current) return;
         commitGameSnapshot(response.game, { previousBoard });
+        void refreshNotation(gameId, thisGen);
         if (sessionSnapshot) {
           setSession({ ...sessionSnapshot, lifecycle: response.sessionLifecycle });
         }
@@ -282,7 +314,7 @@ export function useGameState(): UseGameStateReturn {
         );
       }
     },
-    [commitGameSnapshot, setSession]
+    [commitGameSnapshot, refreshNotation, setSession]
   );
 
   const handleSelect = useCallback(
@@ -360,6 +392,7 @@ export function useGameState(): UseGameStateReturn {
         const response = await submitMove(gameId, { from: selectedSquare, to: normalizedSquare });
         if (thisGen !== generation.current) return;
         const nextGame = commitGameSnapshot(response.game, { previousBoard: prevBoard });
+        void refreshNotation(gameId, thisGen);
         if (session) {
           setSession({ ...session, lifecycle: response.sessionLifecycle });
         }
@@ -381,6 +414,7 @@ export function useGameState(): UseGameStateReturn {
             });
             if (thisGen !== generation.current) return;
             const nextGame = commitGameSnapshot(response.game, { previousBoard: prevBoard });
+            void refreshNotation(gameId, thisGen);
             if (session) {
               setSession({ ...session, lifecycle: response.sessionLifecycle });
             }
@@ -401,7 +435,7 @@ export function useGameState(): UseGameStateReturn {
         setBusyState(false);
       }
     },
-    [applyAiMoveIfNeeded, busy, commitGameSnapshot, game, getGameId, legalMoves, selectedSquare, session, setSession]
+    [applyAiMoveIfNeeded, busy, commitGameSnapshot, game, getGameId, legalMoves, refreshNotation, selectedSquare, session, setSession]
   );
 
   const handleNewGame = useCallback(async (): Promise<void> => {
@@ -414,6 +448,7 @@ export function useGameState(): UseGameStateReturn {
       if (thisGen !== generation.current) return;
       setSession(response.session);
       commitGameSnapshot(response.game);
+      void refreshNotation(response.game.gameId, thisGen);
       setMessageState(undefined);
       // Clock reset is NOT called here: App watches game?.id and calls
       // resetClocks reactively via a useEffect, which is equivalent.
@@ -425,7 +460,42 @@ export function useGameState(): UseGameStateReturn {
     } finally {
       setBusyState(false);
     }
-  }, [commitGameSnapshot, gameMode, setSession]);
+  }, [commitGameSnapshot, gameMode, refreshNotation, setSession]);
+
+  const handleImportNotation = useCallback(
+    async (format: "FEN" | "PGN", notation: string): Promise<void> => {
+      const trimmed = notation.trim();
+      if (!trimmed) {
+        setMessageState("Notation is empty.");
+        return;
+      }
+
+      const thisGen = ++generation.current;
+      const request: ImportNotationRequest = {
+        format,
+        notation: trimmed,
+        mode: gameMode
+      };
+      setBusyState(true);
+      setMessageState(`Importing ${format}...`);
+      try {
+        const response = await importGameFromNotation(request);
+        if (thisGen !== generation.current) return;
+        setSession(response.session);
+        commitGameSnapshot(response.game);
+        void refreshNotation(response.game.gameId, thisGen);
+        setMessageState(undefined);
+      } catch (error) {
+        if (thisGen !== generation.current) return;
+        setMessageState(
+          error instanceof Error ? error.message : "Import failed."
+        );
+      } finally {
+        setBusyState(false);
+      }
+    },
+    [commitGameSnapshot, gameMode, refreshNotation, setSession]
+  );
 
   const handleResign = useCallback(async (): Promise<void> => {
     if (!game || busy || isTerminal(game) || isClosedLifecycle(session)) return;
@@ -449,6 +519,7 @@ export function useGameState(): UseGameStateReturn {
       const response = await resignGame(gameId, { side: resigningSide });
       if (thisGen !== generation.current) return;
       commitGameSnapshot(response.game, { previousBoard });
+      void refreshNotation(gameId, thisGen);
       if (session) {
         setSession({ ...session, lifecycle: response.sessionLifecycle });
       }
@@ -461,7 +532,7 @@ export function useGameState(): UseGameStateReturn {
     } finally {
       setBusyState(false);
     }
-  }, [busy, commitGameSnapshot, game, getGameId, session, setSession]);
+  }, [busy, commitGameSnapshot, game, getGameId, refreshNotation, session, setSession]);
 
   const handleAnimationFinished = useCallback((id: number): void => {
     setAnimationPlan((current) => (current?.id === id ? null : current));
@@ -475,12 +546,14 @@ export function useGameState(): UseGameStateReturn {
     message,
     animationPlan,
     gameMode,
+    notation,
     sessionLifecycle: session?.lifecycle,
     loadGame,
     refreshFromServer,
     handleSelect,
     setGameMode,
     handleNewGame,
+    handleImportNotation,
     handleResign,
     handleAnimationFinished,
     setMessage,

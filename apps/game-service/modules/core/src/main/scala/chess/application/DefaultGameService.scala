@@ -72,6 +72,15 @@ class DefaultGameService(
   ): Either[SessionError, (GameState, GameSession)] =
     commands.newGame(mode, whiteController, blackController, now)
 
+  def createGameFromState(
+      state: GameState,
+      mode: SessionMode,
+      whiteController: SideController,
+      blackController: SideController,
+      now: Instant = Instant.now()
+  ): Either[SessionError, (GameState, GameSession)] =
+    commands.newGameFromState(state, mode, whiteController, blackController, now)
+
   /** Load session and state, then route through the session command boundary.
     *
     * [[AppEvent.MoveRejected]] is an '''interaction/audit event''', not a state- transition event:
