@@ -5,10 +5,9 @@ import chess.application.session.model.SessionIds.GameId
 import chess.domain.state.GameState
 import slick.jdbc.PostgresProfile.api.*
 
-import scala.concurrent.Await
-import scala.concurrent.ExecutionContext
+import java.util.UUID
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
-import scala.util.control.NonFatal
 
 class PostgresGameRepository(
     db: Database,
@@ -17,10 +16,19 @@ class PostgresGameRepository(
 
   import PostgresGameRepository.*
 
-  private given ExecutionContext = ExecutionContext.global
+  override def load(gameId: GameId): Either[RepositoryError, GameState] =
+    PostgresRepositorySupport.run(db, timeout) {
+      GameStates
+        .filter(_.gameId === gameId.value)
+        .result
+        .headOption
+        .map:
+          case Some(row) => PostgresGameStateJson.decode(row.stateJson)
+          case None      => Left(RepositoryError.NotFound(gameId.value.toString))
+    }
 
   override def save(gameId: GameId, state: GameState): Either[RepositoryError, Unit] =
-    run {
+    PostgresRepositorySupport.run(db, timeout) {
       val row = PostgresGameStateRow(
         gameId = gameId.value,
         stateJson = PostgresGameStateJson.encode(state)
@@ -28,22 +36,17 @@ class PostgresGameRepository(
       GameStates.insertOrUpdate(row).map(_ => Right(()))
     }
 
-  override def load(gameId: GameId): Either[RepositoryError, GameState] =
-    run {
-      GameStates
-        .filter(_.gameId === gameId.value)
-        .map(_.stateJson)
-        .result
-        .headOption
-        .map:
-          case Some(json) => PostgresGameStateJson.decode(json)
-          case None       => Left(RepositoryError.NotFound(gameId.value.toString))
-    }
-
-  private def run[A](action: DBIO[Either[RepositoryError, A]]): Either[RepositoryError, A] =
-    try Await.result(db.run(action), timeout)
-    catch case NonFatal(e) =>
-      Left(RepositoryError.StorageFailure(Option(e.getMessage).getOrElse(e.getClass.getSimpleName)))
-
 object PostgresGameRepository:
-  private[postgres] val GameStates = TableQuery[PostgresGameStateTable]
+  private[postgres] final case class PostgresGameStateRow(
+      gameId: UUID,
+      stateJson: String
+  )
+
+  private[postgres] final class PostgresGameTable(tag: Tag)
+      extends Table[PostgresGameStateRow](tag, "game_states"):
+
+    def gameId = column[UUID]("game_id", O.PrimaryKey)
+    def stateJson = column[String]("state_json")
+    def * = (gameId, stateJson).mapTo[PostgresGameStateRow]
+
+  private[postgres] val GameStates = TableQuery[PostgresGameTable]

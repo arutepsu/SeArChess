@@ -119,3 +119,204 @@ sbt "gameService / stage"
 The project intentionally keeps this step structural only: no runtime behavior,
 contracts, routes, persistence semantics, or delivery semantics are changed by
 the service-oriented directory layout.
+
+## Persistence Migration
+
+### Why it exists
+
+The persistence migration feature exists to prove that the repository/DAO
+abstraction is real rather than cosmetic. Sessions and game states can move
+between PostgreSQL and MongoDB through application ports and adapters, not
+through raw DB-to-DB copy scripts.
+
+This also keeps migration logic aligned with the functional architecture:
+
+- source sessions are enumerated through `SessionMigrationReader`
+- source game states are loaded through `GameRepository`
+- target comparison uses `SessionRepository` and `GameRepository`
+- target writes go through `SessionGameStore`
+
+`SessionMigrationReader` exists specifically so the normal
+`SessionRepository` does not need a migration-only `listAll()`.
+
+### Why it is not a microservice yet
+
+Migration is currently an internal operational capability, not a runtime
+business feature. Keeping it as an internal CLI keeps the implementation small,
+reuses the existing adapters directly, and avoids premature work on HTTP admin
+surfaces, authentication, deployment, and service-to-service coordination.
+
+### Architecture
+
+The migration service is `PersistenceMigrationService`. It owns all migration
+decisions. The CLI only parses arguments, wires adapters, and prints the
+resulting report.
+
+At a high level:
+
+- source side:
+  - `SessionMigrationReader`
+  - `GameRepository`
+- target side:
+  - `SessionRepository`
+  - `GameRepository`
+  - `SessionGameStore`
+
+This means the same application-level migration logic can run across different
+backends while staying DB-independent.
+
+### Migration Flow
+
+1. Enumerate source `GameSession` records through `SessionMigrationReader`.
+2. For each session, load the source `GameState` through the source
+   `GameRepository`.
+3. Compare target state through the target `SessionRepository` and
+   `GameRepository`.
+4. In `Execute`, write missing aggregates through `SessionGameStore`.
+5. Return a `MigrationReport` summarizing the run.
+
+### Modes
+
+#### DryRun
+
+- reads source sessions
+- loads source game states
+- inspects target state
+- reports what would happen
+- writes nothing
+
+#### Execute
+
+- reads source sessions
+- loads source game states
+- inspects target state
+- migrates missing aggregates
+- skips equivalent aggregates
+- reports conflicts for different target data
+
+#### ValidateOnly
+
+- reads source sessions
+- loads source game states
+- inspects target state
+- reports whether target matches source
+- writes nothing
+
+### Conflict and Idempotency Policy
+
+`Execute` is idempotent-safe by default:
+
+- missing target session + game state: migrate
+- equivalent target session + game state: skip
+- different target data: conflict
+- partial target aggregate: conflict/mismatch
+
+The migration does not overwrite different target data by default.
+
+### Supported Paths
+
+Current tested cross-database paths:
+
+- PostgreSQL -> MongoDB
+- MongoDB -> PostgreSQL
+
+The service remains adapter-driven, so the core logic is not specialized to one
+pair of databases.
+
+### CLI Usage
+
+Entry point:
+
+- `chess.server.migration.PersistenceMigrationMain`
+
+Examples:
+
+```powershell
+sbt "gameService/runMain chess.server.migration.PersistenceMigrationMain --from postgres --to mongo --mode dry-run"
+```
+
+```powershell
+sbt "gameService/runMain chess.server.migration.PersistenceMigrationMain --from postgres --to mongo --mode execute --batch-size 200"
+```
+
+```powershell
+sbt "gameService/runMain chess.server.migration.PersistenceMigrationMain --from mongo --to postgres --mode validate-only"
+```
+
+Supported arguments:
+
+- `--from postgres|mongo`
+- `--to postgres|mongo`
+- `--mode dry-run|execute|validate-only`
+- `--batch-size N`
+
+### Environment Variables
+
+PostgreSQL:
+
+- `SEARCHESS_POSTGRES_URL`
+- `SEARCHESS_POSTGRES_USER`
+- `SEARCHESS_POSTGRES_PASSWORD`
+
+MongoDB:
+
+- `SEARCHESS_MONGO_URI`
+
+### Testing Strategy
+
+The migration feature is tested in layers:
+
+- migration-core behavior tests with in-memory adapters
+- shared `SessionMigrationReader` contract tests
+- adapter-specific reader tests for:
+  - in-memory
+  - PostgreSQL
+  - MongoDB
+- cross-database integration tests for:
+  - PostgreSQL -> MongoDB
+  - MongoDB -> PostgreSQL
+
+Database-backed tests are environment-gated and use isolated temporary schemas
+or temporary Mongo databases.
+
+### Guarantees and Limitations
+
+Guarantees:
+
+- migration logic stays in `PersistenceMigrationService`
+- normal `SessionRepository` is not polluted with migration-only methods
+- `DryRun` and `ValidateOnly` write nothing
+- target writes go through `SessionGameStore`
+- Postgres target writes use real transaction semantics
+- Mongo target writes still go through the same `SessionGameStore` boundary, but the current Mongo
+  implementation is best-effort rather than a full rollback-capable transaction
+
+Limitations:
+
+- migration is internal CLI-only today
+- supported source/target backends are currently PostgreSQL and MongoDB
+- Mongo `SessionGameStore` is intentionally minimal best-effort coordination:
+  `Right(())` means both writes completed, but a failure after the first write may leave a partial
+  aggregate and require reconciliation
+- Postgres currently provides the stronger coordinated-write guarantee because
+  `PostgresSessionGameStore` uses a real database transaction
+
+### Future Extension: Admin API / Microservice
+
+The current design is intentionally suitable for later exposure as an admin API
+or dedicated migration service. The migration orchestration already lives behind
+application ports; the CLI is only a thin operational shell around it.
+## Coordinated Write Guarantees
+
+Persistence migration consistently writes through the `SessionGameStore` boundary rather than
+copying session and game data independently.
+
+- `PostgresSessionGameStore` uses a real database transaction for coordinated writes.
+- `MongoSessionGameStore` is currently best-effort: it writes session and game state sequentially
+  and returns success only after both writes complete, but it does not provide rollback-atomic
+  semantics if the second write fails after the first succeeds.
+
+This is a known limitation and is documented explicitly rather than hidden behind a common
+abstraction. The migration architecture remains the same: coordinated target writes still go
+through `SessionGameStore`, and future hardening can replace the Mongo implementation with a
+transactional one where deployment support exists.

@@ -132,7 +132,20 @@ lazy val adapterPersistence = project
     )
   )
   // Event modules are only needed for test fixtures and transactional outbox specs.
-  .dependsOn(gameCore, adapterEvent % Test, gameEventContract % Test, gameHistoryDelivery % Test)
+  .dependsOn(
+    gameCore,
+    migration % "compile->compile;test->test",
+    adapterEvent % Test,
+    gameEventContract % Test,
+    gameHistoryDelivery % Test
+  )
+
+// Module: migration
+
+lazy val migration = project
+  .in(file("apps/game-service/modules/migration"))
+  .settings(commonSettings)
+  .dependsOn(gameCore)
 
 // Module: adapter-ai
 
@@ -356,6 +369,7 @@ lazy val gameService = project
     adapterEvent,
     gameEventContract,
     gameHistoryDelivery,
+    migration,
     adapterPersistence,
     observability
   )
@@ -458,6 +472,7 @@ addCommandAlias("testAiContract",         "aiContract/test")
 addCommandAlias("testGameCore",           "gameCore/test")
 addCommandAlias("testHistory",            "history/test")
 addCommandAlias("testAdapterPersistence", "adapterPersistence/test")
+addCommandAlias("testMigration",          "migration/test")
 addCommandAlias("testAdapterAi",          "adapterAi/test")
 addCommandAlias("testAdapterEvent",       "adapterEvent/test")
 addCommandAlias("testGameEventContract",  "gameEventContract/test")
@@ -480,7 +495,7 @@ addCommandAlias("testCore",
   ";domain/test;observability/test;notation/test;gameContract/test;aiContract/test;gameCore/test;history/test")
 
 addCommandAlias("testInfra",
-  ";adapterPersistence/test;adapterEvent/test;gameEventContract/test;gameHistoryDelivery/test" +
+  ";adapterPersistence/test;migration/test;adapterEvent/test;gameEventContract/test;gameHistoryDelivery/test" +
   ";adapterAi/test;adapterWebsocket/test")
 
 addCommandAlias("testRest",
@@ -490,7 +505,7 @@ addCommandAlias("testUi",
   ";adapterGui/test;adapterTui/test")
 
 addCommandAlias("testAllAdapters",
-  ";adapterPersistence/test;adapterEvent/test;gameEventContract/test;gameHistoryDelivery/test" +
+  ";adapterPersistence/test;migration/test;adapterEvent/test;gameEventContract/test;gameHistoryDelivery/test" +
   ";adapterAi/test;adapterWebsocket/test" +
   ";adapterRestContract/test;adapterRestHttp4s/test" +
   ";adapterGui/test;adapterTui/test")
@@ -525,7 +540,7 @@ lazy val root = project
   )
   .aggregate(
     domain, observability, notation, gameContract, aiContract, gameCore, history,
-    adapterPersistence, adapterAi, adapterEvent, gameEventContract, gameHistoryDelivery,
+    adapterPersistence, migration, adapterAi, adapterEvent, gameEventContract, gameHistoryDelivery,
     adapterRestContract, adapterRestHttp4s,
     adapterWebsocket, adapterGui, adapterTui,
     startupShared, gameService, historyService, aiService, desktopGui, tuiCli

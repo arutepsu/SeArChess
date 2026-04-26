@@ -22,7 +22,8 @@ class PostgresSessionGameStore(
     try
       run {
         val sessionRow = PostgresSessionMapper.toRow(session)
-        val gameRow = PostgresGameStateRow(
+      val gameRow =
+        PostgresGameRepository.PostgresGameStateRow(
           gameId = session.gameId.value,
           stateJson = PostgresGameStateJson.encode(state)
         )
