@@ -9,13 +9,14 @@ import chess.adapter.repository.{
   InMemorySessionRepository
 }
 import chess.application.DefaultGameService
-import chess.application.port.repository.RepositoryError
+import chess.application.port.repository.{RepositoryError, SessionGameStore}
 import chess.application.session.model.{SessionMode, SideController}
 import chess.application.session.model.SessionIds.GameId
 import chess.application.session.service.{
   PersistentSessionAggregate,
   PersistentSessionError,
   PersistentSessionService,
+  SessionSnapshotTransferService,
   SessionGameCommandService,
   SessionLifecycleService
 }
@@ -50,13 +51,26 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers with EitherValue
     val sessionLifecycleService = SessionLifecycleService(sessionRepo, _ => ())
     val persistentSessionService =
       PersistentSessionService(sessionRepo, gameRepo, store, sessionLifecycleService)
+    val snapshotTransferService =
+      SessionSnapshotTransferService(persistentSessionService, store)
     val svc = SessionGameCommandService(sessionLifecycleService, store, _ => ())
     val gameService = DefaultGameService(svc, sessionLifecycleService, gameRepo, _ => ())
-    Http4sSessionRoutes(gameService, persistentSessionService).routes.orNotFound
+    Http4sSessionRoutes(gameService, persistentSessionService, snapshotTransferService).routes.orNotFound
 
   /** Run a request through the route under test and return the response. */
   private def run(routes: HttpApp[IO], req: Request[IO]): Response[IO] =
     routes.run(req).unsafeRunSync()
+
+  private def sessionRoutes(
+      gameService: DefaultGameService,
+      persistentSessionService: PersistentSessionService,
+      store: SessionGameStore
+  ): HttpApp[IO] =
+    Http4sSessionRoutes(
+      gameService,
+      persistentSessionService,
+      SessionSnapshotTransferService(persistentSessionService, store)
+    ).routes.orNotFound
 
   private def bodyJson(resp: Response[IO]): ujson.Value =
     ujson.read(resp.bodyText.compile.string.unsafeRunSync())
@@ -278,6 +292,113 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers with EitherValue
     bodyJson(resp)("code").str shouldBe "BAD_REQUEST"
   }
 
+  "GET /sessions/{sessionId}/export" should "return a versioned session export envelope" in {
+    val routes = makeRoutes()
+    val created = bodyJson(
+      run(
+        routes,
+        Request[IO](Method.POST, uri"/sessions")
+          .withBodyStream(fs2.Stream.emits("{}".getBytes("UTF-8")).covary[IO])
+      )
+    )
+    val sessionId = created("session")("sessionId").str
+
+    val resp =
+      run(routes, Request[IO](Method.GET, Uri.unsafeFromString(s"/sessions/$sessionId/export")))
+
+    resp.status shouldBe Status.Ok
+    val json = bodyJson(resp)
+    json("schema").str shouldBe "searchess.session-export"
+    json("version").num.toInt shouldBe 1
+    json("exportedAt").str should not be empty
+    json("snapshot")("session")("sessionId").str shouldBe sessionId
+    json("snapshot")("castlingRights")("whiteKingSide").bool shouldBe true
+  }
+
+  it should "return 404 for exporting an unknown session id" in {
+    val routes = makeRoutes()
+    val unknown = UUID.randomUUID().toString
+    val resp =
+      run(routes, Request[IO](Method.GET, Uri.unsafeFromString(s"/sessions/$unknown/export")))
+    resp.status shouldBe Status.NotFound
+    bodyJson(resp)("code").str shouldBe "SESSION_NOT_FOUND"
+  }
+
+  it should "return 400 for exporting a non-UUID session id" in {
+    val routes = makeRoutes()
+    val resp = run(routes, Request[IO](Method.GET, uri"/sessions/not-a-uuid/export"))
+    resp.status shouldBe Status.BadRequest
+    bodyJson(resp)("code").str shouldBe "BAD_REQUEST"
+  }
+
+  "POST /sessions/import" should "create a new session from a valid export envelope" in {
+    val routes = makeRoutes()
+    val created = bodyJson(
+      run(
+        routes,
+        Request[IO](Method.POST, uri"/sessions")
+          .withBodyStream(fs2.Stream.emits("{}".getBytes("UTF-8")).covary[IO])
+      )
+    )
+    val originalSessionId = created("session")("sessionId").str
+    val originalGameId = created("session")("gameId").str
+    val exported = bodyJson(
+      run(
+        routes,
+        Request[IO](Method.GET, Uri.unsafeFromString(s"/sessions/$originalSessionId/export"))
+      )
+    )
+
+    val resp = run(
+      routes,
+      Request[IO](Method.POST, uri"/sessions/import")
+        .withBodyStream(fs2.Stream.emits(exported.render().getBytes("UTF-8")).covary[IO])
+    )
+
+    resp.status shouldBe Status.Created
+    val json = bodyJson(resp)
+    json("session")("sessionId").str should not be originalSessionId
+    json("session")("gameId").str should not be originalGameId
+    json("game")("gameId").str shouldBe json("session")("gameId").str
+    json("castlingRights")("whiteKingSide").bool shouldBe true
+  }
+
+  it should "return 400 for malformed import JSON" in {
+    val routes = makeRoutes()
+    val resp = run(
+      routes,
+      Request[IO](Method.POST, uri"/sessions/import")
+        .withBodyStream(fs2.Stream.emits("not json".getBytes("UTF-8")).covary[IO])
+    )
+    resp.status shouldBe Status.BadRequest
+    bodyJson(resp)("code").str shouldBe "BAD_REQUEST"
+  }
+
+  it should "return 400 for an unsupported export version" in {
+    val routes = makeRoutes()
+    val created = bodyJson(
+      run(
+        routes,
+        Request[IO](Method.POST, uri"/sessions")
+          .withBodyStream(fs2.Stream.emits("{}".getBytes("UTF-8")).covary[IO])
+      )
+    )
+    val sessionId = created("session")("sessionId").str
+    val exported = bodyJson(
+      run(routes, Request[IO](Method.GET, Uri.unsafeFromString(s"/sessions/$sessionId/export")))
+    )
+    exported("version") = ujson.Num(999)
+
+    val resp = run(
+      routes,
+      Request[IO](Method.POST, uri"/sessions/import")
+        .withBodyStream(fs2.Stream.emits(exported.render().getBytes("UTF-8")).covary[IO])
+    )
+
+    resp.status shouldBe Status.BadRequest
+    bodyJson(resp)("code").str shouldBe "BAD_REQUEST"
+  }
+
   it should "return 500 when the session exists but the game state is missing" in {
     val sessionRepo = InMemorySessionRepository()
     val gameRepo = InMemoryGameRepository()
@@ -287,7 +408,7 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers with EitherValue
       PersistentSessionService(sessionRepo, gameRepo, store, sessionLifecycleService)
     val svc = SessionGameCommandService(sessionLifecycleService, store, _ => ())
     val gameService = DefaultGameService(svc, sessionLifecycleService, gameRepo, _ => ())
-    val routes = Http4sSessionRoutes(gameService, persistentSessionService).routes.orNotFound
+    val routes = sessionRoutes(gameService, persistentSessionService, store)
 
     val session = sessionLifecycleService
       .createSession(
@@ -409,11 +530,11 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers with EitherValue
     val svc = SessionGameCommandService(sessionLifecycleService, store, _ => ())
     val gameService = DefaultGameService(svc, sessionLifecycleService, gameRepo, _ => ())
     val routes =
-      Http4sSessionRoutes(gameService, conflictingPersistentSessionService).routes.orNotFound
+      sessionRoutes(gameService, conflictingPersistentSessionService, store)
 
     val created = bodyJson(
       run(
-        Http4sSessionRoutes(gameService, realPersistentSessionService).routes.orNotFound,
+        sessionRoutes(gameService, realPersistentSessionService, store),
         Request[IO](Method.POST, uri"/sessions")
           .withBodyStream(fs2.Stream.emits("{}".getBytes("UTF-8")).covary[IO])
       )
@@ -421,7 +542,7 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers with EitherValue
     val sessionId = created("session")("sessionId").str
     val stateJson = bodyJson(
       run(
-        Http4sSessionRoutes(gameService, realPersistentSessionService).routes.orNotFound,
+        sessionRoutes(gameService, realPersistentSessionService, store),
         Request[IO](Method.GET, Uri.unsafeFromString(s"/sessions/$sessionId/state"))
       )
     )
@@ -455,8 +576,8 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers with EitherValue
         Left(PersistentSessionError.StorageFailure("disk full"))
     val svc = SessionGameCommandService(sessionLifecycleService, store, _ => ())
     val gameService = DefaultGameService(svc, sessionLifecycleService, gameRepo, _ => ())
-    val createRoutes = Http4sSessionRoutes(gameService, realPersistentSessionService).routes.orNotFound
-    val routes = Http4sSessionRoutes(gameService, failingPersistentSessionService).routes.orNotFound
+    val createRoutes = sessionRoutes(gameService, realPersistentSessionService, store)
+    val routes = sessionRoutes(gameService, failingPersistentSessionService, store)
 
     val created = bodyJson(
       run(

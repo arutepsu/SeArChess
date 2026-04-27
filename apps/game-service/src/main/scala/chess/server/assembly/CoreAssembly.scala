@@ -8,10 +8,11 @@ import chess.application.port.event.{
   NoOpTerminalEventJsonSerializer,
   TerminalEventJsonSerializer
 }
-import chess.application.port.repository.GameRepository
+import chess.application.port.repository.{GameRepository, SessionGameStore}
 import chess.application.session.service.{
   GameSessionCommands,
   PersistentSessionService,
+  SessionSnapshotTransferService,
   SessionGameCommandService,
   SessionLifecycleService
 }
@@ -25,6 +26,8 @@ final case class AppContext(
     commands: GameSessionCommands,
     sessionLifecycleService: SessionLifecycleService,
     persistentSessionService: PersistentSessionService,
+    snapshotTransferService: SessionSnapshotTransferService,
+    sessionGameStore: SessionGameStore,
     gameRepository: GameRepository,
     gameService: GameServiceApi
 )
@@ -47,6 +50,8 @@ object CoreAssembly:
       persistence.store,
       sessionLifecycleService
     )
+    val snapshotTransferService =
+      SessionSnapshotTransferService(persistentSessionService, persistence.store)
     val gameService = DefaultGameService(
       commands = commands,
       sessionLifecycleService = sessionLifecycleService,
@@ -58,6 +63,8 @@ object CoreAssembly:
       commands,
       sessionLifecycleService,
       persistentSessionService,
+      snapshotTransferService,
+      persistence.store,
       persistence.gameRepository,
       gameService
     )

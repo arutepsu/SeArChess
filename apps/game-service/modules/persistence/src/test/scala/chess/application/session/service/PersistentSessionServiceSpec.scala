@@ -18,6 +18,7 @@ class PersistentSessionServiceSpec extends AnyFlatSpec with Matchers with Either
 
   private final case class Fixture(
       service: PersistentSessionService,
+      transferService: SessionSnapshotTransferService,
       sessionRepo: InMemorySessionRepository,
       gameRepo: InMemoryGameRepository,
       store: SessionGameStore,
@@ -37,6 +38,15 @@ class PersistentSessionServiceSpec extends AnyFlatSpec with Matchers with Either
         gameRepository = gameRepo,
         store = storeOverride.getOrElse(defaultStore),
         sessionLifecycleService = sessionLifecycleService
+      ),
+      transferService = SessionSnapshotTransferService(
+        PersistentSessionService(
+          sessionRepository = sessionRepo,
+          gameRepository = gameRepo,
+          store = storeOverride.getOrElse(defaultStore),
+          sessionLifecycleService = sessionLifecycleService
+        ),
+        storeOverride.getOrElse(defaultStore)
       ),
       sessionRepo = sessionRepo,
       gameRepo = gameRepo,
@@ -155,6 +165,47 @@ class PersistentSessionServiceSpec extends AnyFlatSpec with Matchers with Either
 
     cancelled.lifecycle shouldBe SessionLifecycle.Cancelled
     fx.sessionRepo.load(aggregate.session.sessionId).value.lifecycle shouldBe SessionLifecycle.Cancelled
+  }
+
+  "SessionSnapshotTransferService.exportSnapshot" should "return a versioned envelope" in {
+    val fx = fixture()
+    val aggregate = persistedAggregate(fx.sessionRepo, fx.gameRepo)
+
+    val envelope = fx.transferService.exportSnapshot(aggregate.session.sessionId).value
+
+    envelope.schema shouldBe SessionSnapshotTransferService.Schema
+    envelope.version shouldBe SessionSnapshotTransferService.Version
+    envelope.snapshot shouldBe aggregate
+  }
+
+  "SessionSnapshotTransferService.importSnapshot" should "regenerate ids and persist through the store" in {
+    val fx = fixture()
+    val aggregate = persistedAggregate(fx.sessionRepo, fx.gameRepo)
+    val envelope = fx.transferService.exportSnapshot(aggregate.session.sessionId).value
+
+    val imported = fx.transferService.importSnapshot(envelope).value
+
+    imported.session.sessionId should not be aggregate.session.sessionId
+    imported.session.gameId should not be aggregate.session.gameId
+    imported.state shouldBe aggregate.state
+    fx.sessionRepo.load(imported.session.sessionId).value shouldBe imported.session
+    fx.gameRepo.load(imported.session.gameId).value shouldBe imported.state
+  }
+
+  it should "reject unsupported schema and version before writing" in {
+    val fx = fixture()
+    val aggregate = persistedAggregate(fx.sessionRepo, fx.gameRepo)
+    val envelope = fx.transferService.exportSnapshot(aggregate.session.sessionId).value
+
+    fx.transferService
+      .importSnapshot(envelope.copy(schema = "other.schema"))
+      .left
+      .value shouldBe SessionSnapshotTransferError.BadInput("Unsupported export schema: other.schema")
+
+    fx.transferService
+      .importSnapshot(envelope.copy(version = 999))
+      .left
+      .value shouldBe SessionSnapshotTransferError.BadInput("Unsupported export version: 999")
   }
 
   private final case class FailingStore(

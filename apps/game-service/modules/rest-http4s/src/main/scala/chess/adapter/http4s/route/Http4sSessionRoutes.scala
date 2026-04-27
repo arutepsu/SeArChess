@@ -6,6 +6,7 @@ import chess.adapter.http4s.route.Http4sRouteSupport.*
 import chess.adapter.rest.contract.dto.{
   CreateSessionRequest,
   CreateSessionResponse,
+  SessionExportEnvelope,
   SessionListResponse,
   SessionResponse,
   SessionStateResponse
@@ -16,6 +17,8 @@ import chess.application.session.model.SessionIds.SessionId
 import chess.application.session.service.{
   PersistentSessionError,
   PersistentSessionService,
+  SessionSnapshotTransferError,
+  SessionSnapshotTransferService,
   SessionError
 }
 import org.http4s.*
@@ -37,7 +40,8 @@ import org.http4s.dsl.io.*
   */
 class Http4sSessionRoutes(
     gameService: GameServiceApi,
-    persistentSessionService: PersistentSessionService
+    persistentSessionService: PersistentSessionService,
+    snapshotTransferService: SessionSnapshotTransferService
 ):
 
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
@@ -56,6 +60,12 @@ class Http4sSessionRoutes(
 
     case req @ PUT -> Root / "sessions" / id / "state" =>
       req.bodyText.compile.string.flatMap(handlePutState(id, _))
+
+    case GET -> Root / "sessions" / id / "export" =>
+      handleExport(id)
+
+    case req @ POST -> Root / "sessions" / "import" =>
+      req.bodyText.compile.string.flatMap(handleImport)
 
     case POST -> Root / "sessions" / id / "cancel" =>
       handleCancel(id)
@@ -149,6 +159,49 @@ class Http4sSessionRoutes(
       case Right(saved) =>
         jsonResponse(Status.Ok, SessionStateResponse.toJson(SessionMapper.toSessionStateResponse(saved)))
 
+  private def handleExport(idStr: String): IO[Response[IO]] =
+    parseUUID(idStr) match
+      case Left(msg) =>
+        jsonError(Status.BadRequest, "BAD_REQUEST", msg)
+      case Right(uuid) =>
+        snapshotTransferService.exportSnapshot(SessionId(uuid)) match
+          case Left(err) =>
+            val (status, code, message) = snapshotErrToHttpErr(err)
+            jsonError(status, code, message)
+          case Right(envelope) =>
+            jsonResponse(
+              Status.Ok,
+              SessionExportEnvelope.toJson(SessionMapper.toSessionExportEnvelope(envelope))
+            )
+
+  private def handleImport(body: String): IO[Response[IO]] =
+    type HttpErr = (Status, String, String)
+
+    val result =
+      for
+        dto <- SessionExportEnvelope
+          .fromJson(body)
+          .left
+          .map(msg => (Status.BadRequest, "BAD_REQUEST", msg))
+        envelope <- SessionMapper
+          .toSessionSnapshotEnvelope(dto)
+          .left
+          .map(msg => (Status.BadRequest, "BAD_REQUEST", msg))
+        imported <- snapshotTransferService
+          .importSnapshot(envelope)
+          .left
+          .map(snapshotErrToHttpErr)
+      yield imported
+
+    result match
+      case Left((status, code, message)) =>
+        jsonError(status, code, message)
+      case Right(imported) =>
+        jsonResponse(
+          Status.Created,
+          SessionStateResponse.toJson(SessionMapper.toSessionStateResponse(imported))
+        )
+
   private def handleCancel(idStr: String): IO[Response[IO]] =
     parseUUID(idStr) match
       case Left(msg) =>
@@ -191,4 +244,17 @@ class Http4sSessionRoutes(
       case PersistentSessionError.AggregateInconsistent(message) =>
         (Status.InternalServerError, "INTERNAL_ERROR", message)
       case PersistentSessionError.StorageFailure(message) =>
+        (Status.InternalServerError, "INTERNAL_ERROR", message)
+
+  private def snapshotErrToHttpErr(
+      err: SessionSnapshotTransferError
+  ): (Status, String, String) =
+    err match
+      case SessionSnapshotTransferError.BadInput(message) =>
+        (Status.BadRequest, "BAD_REQUEST", message)
+      case SessionSnapshotTransferError.NotFound(message) =>
+        (Status.NotFound, "SESSION_NOT_FOUND", message)
+      case SessionSnapshotTransferError.Conflict(message) =>
+        (Status.Conflict, "CONFLICT", message)
+      case SessionSnapshotTransferError.StorageFailure(message) =>
         (Status.InternalServerError, "INTERNAL_ERROR", message)

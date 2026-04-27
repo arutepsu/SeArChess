@@ -2,9 +2,15 @@ package chess.adapter.http4s
 
 import cats.effect.IO
 import cats.syntax.semigroupk.*
-import chess.adapter.http4s.route.{Http4sArchiveRoutes, Http4sGameRoutes, Http4sSessionRoutes}
+import chess.adapter.http4s.route.{
+  Http4sArchiveRoutes,
+  Http4sGameRoutes,
+  Http4sNotationRoutes,
+  Http4sSessionRoutes
+}
 import chess.application.GameServiceApi
-import chess.application.session.service.PersistentSessionService
+import chess.application.port.repository.{GameRepository, SessionGameStore}
+import chess.application.session.service.{PersistentSessionService, SessionSnapshotTransferService}
 import org.http4s.HttpApp
 
 /** REST adapter surface for the chess API.
@@ -24,12 +30,16 @@ import org.http4s.HttpApp
   */
 class Http4sApp(
     gameService: GameServiceApi,
-    persistentSessionService: PersistentSessionService
+    persistentSessionService: PersistentSessionService,
+    snapshotTransferService: SessionSnapshotTransferService,
+    gameRepository: GameRepository,
+    sessionGameStore: SessionGameStore
 ):
 
   private val combinedRoutes =
-    Http4sSessionRoutes(gameService, persistentSessionService).routes <+>
+    Http4sSessionRoutes(gameService, persistentSessionService, snapshotTransferService).routes <+>
       Http4sGameRoutes(gameService).routes <+>
+      Http4sNotationRoutes(gameRepository, sessionGameStore).routes <+>
       Http4sArchiveRoutes(gameService).routes
 
   /** Combined [[HttpApp]] for all REST routes.

@@ -23,6 +23,7 @@ import chess.application.session.model.{GameSession, SessionMode, SideController
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import chess.application.session.service.{
   PersistentSessionService,
+  SessionSnapshotTransferService,
   SessionGameCommandService,
   SessionLifecycleService
 }
@@ -86,7 +87,7 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val svc = SessionGameCommandService(sessionLifecycleService, store, collector)
     val gameService = DefaultGameService(svc, sessionLifecycleService, gameRepo, collector)
     val gameRoutes = Http4sGameRoutes(gameService).routes.orNotFound
-    val sessRoutes = Http4sSessionRoutes(gameService, persistentSessionService).routes.orNotFound
+    val sessRoutes = sessionRoutes(gameService, persistentSessionService, store)
     TestFixture(gameRoutes, sessRoutes, gameRepo, svc, collector)
 
   /** Convenience alias kept for existing tests. */
@@ -96,6 +97,17 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
 
   private def run(routes: HttpApp[IO], req: Request[IO]): Response[IO] =
     routes.run(req).unsafeRunSync()
+
+  private def sessionRoutes(
+      gameService: DefaultGameService,
+      persistentSessionService: PersistentSessionService,
+      store: SessionGameStore
+  ): HttpApp[IO] =
+    Http4sSessionRoutes(
+      gameService,
+      persistentSessionService,
+      SessionSnapshotTransferService(persistentSessionService, store)
+    ).routes.orNotFound
 
   private def bodyJson(resp: Response[IO]): ujson.Value =
     ujson.read(resp.bodyText.compile.string.unsafeRunSync())
@@ -152,7 +164,7 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val gameRoutes = Http4sGameRoutes(gameService).routes.orNotFound
     val persistentSessionService =
       PersistentSessionService(sessionRepo, gameRepo, store, sessionLifecycleService)
-    val sessRoutes = Http4sSessionRoutes(gameService, persistentSessionService).routes.orNotFound
+    val sessRoutes = sessionRoutes(gameService, persistentSessionService, store)
 
     val createReq =
       Request[IO](Method.POST, uri"/sessions").withBodyStream(jsonBody("""{"mode":"AIVsAI"}"""))
@@ -179,7 +191,7 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val gameRoutes = Http4sGameRoutes(gameService).routes.orNotFound
     val persistentSessionService =
       PersistentSessionService(sessionRepo, gameRepo, store, sessionLifecycleService)
-    val sessRoutes = Http4sSessionRoutes(gameService, persistentSessionService).routes.orNotFound
+    val sessRoutes = sessionRoutes(gameService, persistentSessionService, store)
 
     val createReq =
       Request[IO](Method.POST, uri"/sessions").withBodyStream(jsonBody("""{"mode":"AIVsAI"}"""))
@@ -652,7 +664,7 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val normalService = DefaultGameService(normalSvc, sessionLifecycleService, gameRepo, _ => ())
     val persistentSessionService =
       PersistentSessionService(sessionRepo, gameRepo, normalStore, sessionLifecycleService)
-    val sessRoutes = Http4sSessionRoutes(normalService, persistentSessionService).routes.orNotFound
+    val sessRoutes = sessionRoutes(normalService, persistentSessionService, normalStore)
     val gameId = createSession(sessRoutes)
 
     // Rebuild with a store that fails on every save.
@@ -681,7 +693,7 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
       val persistentSessionService =
         PersistentSessionService(sessionRepo, gameRepo, normalStore, sessionLifecycleService)
       val sessRoutes =
-        Http4sSessionRoutes(normalService, persistentSessionService).routes.orNotFound
+        sessionRoutes(normalService, persistentSessionService, normalStore)
       val gameId = createSession(sessRoutes)
 
       // Replace session repo with one that always fails on loadByGameId.
@@ -861,7 +873,7 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val gameRoutes = Http4sGameRoutes(gameService).routes.orNotFound
     val persistentSessionService =
       PersistentSessionService(sessionRepo, gameRepo, store, sessionLifecycleService)
-    val sessRoutes = Http4sSessionRoutes(gameService, persistentSessionService).routes.orNotFound
+    val sessRoutes = sessionRoutes(gameService, persistentSessionService, store)
 
     val createReq = Request[IO](Method.POST, uri"/sessions")
       .withBodyStream(jsonBody("""{"mode":"HumanVsAI"}"""))
@@ -906,7 +918,7 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val gameRoutes = Http4sGameRoutes(gameService).routes.orNotFound
     val persistentSessionService =
       PersistentSessionService(sessionRepo, gameRepo, store, sessionLifecycleService)
-    val sessRoutes = Http4sSessionRoutes(gameService, persistentSessionService).routes.orNotFound
+    val sessRoutes = sessionRoutes(gameService, persistentSessionService, store)
 
     // Create a HumanVsHuman session — neither side is AI-controlled.
     val createReq = Request[IO](Method.POST, uri"/sessions").withBodyStream(jsonBody("{}"))

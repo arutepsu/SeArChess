@@ -7,10 +7,13 @@ export type SessionLifecycle =
   | "AwaitingPromotion"
   | "Finished"
   | "Cancelled";
+
 export type InboundController = "HumanLocal" | "HumanRemote";
 export type OutboundController = "HumanLocal" | "HumanRemote" | "AI";
+
 export type PieceType = "King" | "Queen" | "Rook" | "Bishop" | "Knight" | "Pawn";
 export type PromotionPiece = "Queen" | "Rook" | "Bishop" | "Knight";
+export type NotationFormat = "FEN" | "PGN";
 
 export interface MoveHistoryEntryDto {
   from: string;
@@ -44,6 +47,19 @@ export interface CreateGameRequest {
   mode?: SessionMode;
   whiteController?: InboundController;
   blackController?: InboundController;
+}
+
+export interface ImportNotationRequest {
+  format: NotationFormat;
+  notation: string;
+  mode?: SessionMode;
+  whiteController?: InboundController;
+  blackController?: InboundController;
+}
+
+export interface NotationTextResponse {
+  format: NotationFormat;
+  notation: string;
 }
 
 export interface SubmitMoveRequest {
@@ -88,6 +104,13 @@ export interface SessionStateResponse {
   enPassant: EnPassantDto | null;
 }
 
+export interface SessionExportEnvelope {
+  schema: "searchess.session-export";
+  version: 1;
+  exportedAt: string;
+  snapshot: SessionStateResponse;
+}
+
 export interface SessionListResponse {
   sessions: SessionResponse[];
 }
@@ -100,6 +123,11 @@ export interface CreateGameResponse {
 export interface CommandGameResponse {
   game: GameSnapshot;
   sessionLifecycle: SessionLifecycle;
+}
+
+export interface GameNotationResponse {
+  fen: string;
+  pgn: string;
 }
 
 export interface HealthResponse {

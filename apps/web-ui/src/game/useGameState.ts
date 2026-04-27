@@ -1,10 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { BoardMatrix, GameState, PlayableGameMode, PlayerColor } from "../api/types";
-import type { CreateGameRequest, GameSnapshot, PromotionPiece } from "../api/backendTypes";
+import type {
+  BoardMatrix,
+  GameState,
+  PlayableGameMode,
+  PlayerColor
+} from "../api/types";
+import type {
+  CreateGameRequest,
+  GameNotationResponse,
+  GameSnapshot,
+  ImportNotationRequest,
+  PromotionPiece,
+  SessionExportEnvelope
+} from "../api/backendTypes";
 import {
   createGame,
+  exportFen,
+  exportPgn,
   getGameState,
+  getGameNotation,
   getStatus,
+  importNotation,
+  importSession,
   loadSessionState,
   requestAiMove,
   resignGame,
@@ -28,7 +45,11 @@ const promotionChoices: Record<string, string> = {
 };
 
 function isTerminal(game: GameState): boolean {
-  return game.status === "checkmate" || game.status === "draw" || game.status === "resigned";
+  return (
+    game.status === "checkmate" ||
+    game.status === "draw" ||
+    game.status === "resigned"
+  );
 }
 
 function isClosedLifecycle(session: SessionContext | null): boolean {
@@ -36,12 +57,22 @@ function isClosedLifecycle(session: SessionContext | null): boolean {
 }
 
 function promotionChoiceFromUser(): PromotionPiece | undefined {
-  const raw = window.prompt("Promote pawn to Queen, Rook, Bishop, or Knight", "Queen");
+  const raw = window.prompt(
+    "Promote pawn to Queen, Rook, Bishop, or Knight",
+    "Queen"
+  );
+
   if (raw === null) return undefined;
-  return promotionChoices[raw.trim().toLowerCase()] as PromotionPiece | undefined;
+
+  return promotionChoices[
+    raw.trim().toLowerCase()
+  ] as PromotionPiece | undefined;
 }
 
-function controllerFor(session: SessionContext | null, color: PlayerColor): string | undefined {
+function controllerFor(
+  session: SessionContext | null,
+  color: PlayerColor
+): string | undefined {
   return color === "white" ? session?.whiteController : session?.blackController;
 }
 
@@ -67,24 +98,26 @@ export type UseGameStateReturn = {
   message: string | undefined;
   animationPlan: BoardAnimation | null;
   gameMode: PlayableGameMode;
+  notation: GameNotationResponse | undefined;
   sessionLifecycle: SessionContext["lifecycle"] | undefined;
 
   // ── Actions ───────────────────────────────────────────────────────────────
-  /** Initial load: get/create game and set game state. Re-throws on error so
-   *  the caller (App) can update its connection state. */
   loadGame: () => Promise<void>;
-  /** Fetch the latest GameSnapshot and commit it through the canonical mapper. */
   refreshFromServer: () => Promise<void>;
   handleSelect: (square: string) => Promise<void>;
   setGameMode: (mode: PlayableGameMode) => void;
   handleNewGame: () => Promise<void>;
+  handleImportNotation: (
+    format: "FEN" | "PGN",
+    notation: string
+  ) => Promise<void>;
+  handleExportNotation: (format: "FEN" | "PGN") => Promise<string>;
+  handleImportSession: (envelope: SessionExportEnvelope) => Promise<void>;
   handleResumeSession: (sessionId: string) => Promise<void>;
   handleResign: () => Promise<void>;
   handleAnimationFinished: (id: number) => void;
 
   // ── Transitional setters ──────────────────────────────────────────────────
-  // Exposed only for the WS message handler in App until Stage 6 (useWsSync)
-  // consolidates WS-driven side-effects into its own hook.
   setMessage: (msg: string | undefined) => void;
   setBusy: (isBusy: boolean) => void;
 };
@@ -97,36 +130,32 @@ export function useGameState(): UseGameStateReturn {
   const { session, setSession, getGameId } = useSession();
 
   const [game, setGame] = useState<GameState | undefined>(undefined);
-  const [selectedSquare, setSelectedSquare] = useState<string | undefined>(undefined);
+  const [selectedSquare, setSelectedSquare] = useState<string | undefined>(
+    undefined
+  );
   const [legalMoves, setLegalMoves] = useState<string[]>([]);
   const [busy, setBusyState] = useState(false);
   const [message, setMessageState] = useState<string | undefined>(undefined);
-  const [animationPlan, setAnimationPlan] = useState<BoardAnimation | null>(null);
-  const [gameMode, setGameMode] = useState<PlayableGameMode>("HumanVsHuman");
+  const [animationPlan, setAnimationPlan] = useState<BoardAnimation | null>(
+    null
+  );
+  const [gameMode, setGameMode] =
+    useState<PlayableGameMode>("HumanVsHuman");
+  const [notation, setNotation] = useState<GameNotationResponse | undefined>(
+    undefined
+  );
 
-  // boardRef holds the board that was rendered most recently.
-  // Async callbacks (refreshFromServer, submit move, AI move) read this ref so they
-  // always plan animation against the board that was on screen when the
-  // operation started, not a stale closure capture.
   const boardRef = useRef<BoardMatrix | null>(null);
   const animationCounter = useRef(0);
   const refreshPromiseRef = useRef<Promise<void> | null>(null);
   const refreshQueuedRef = useRef(false);
+  const notationRequestId = useRef(0);
 
-  // Stale-response guard.
-  // Every async operation that writes game state bumps this counter before
-  // awaiting and checks it after.  If the value changed while awaiting, a
-  // newer operation started → discard this result.
-  // setBusy(false) in finally blocks always runs regardless of the guard
-  // so the busy flag can never get permanently stuck.
   const generation = useRef(0);
 
-  // Keep boardRef current so in-flight async closures read the right board.
   useEffect(() => {
     boardRef.current = game?.board ?? null;
   }, [game?.board]);
-
-  // ── Stable transitional setters for App's WS handler ─────────────────────
 
   const setMessage = useCallback((msg: string | undefined) => {
     setMessageState(msg);
@@ -165,62 +194,98 @@ export function useGameState(): UseGameStateReturn {
     []
   );
 
-  // ── Async operations ──────────────────────────────────────────────────────
+  const refreshNotation = useCallback(
+    async (gameId: string, thisGen: number): Promise<void> => {
+      const requestId = ++notationRequestId.current;
+
+      try {
+        const response = await getGameNotation(gameId);
+
+        if (thisGen !== generation.current) return;
+        if (requestId !== notationRequestId.current) return;
+
+        setNotation(response);
+      } catch {
+        if (thisGen !== generation.current) return;
+        if (requestId !== notationRequestId.current) return;
+
+        setNotation(undefined);
+      }
+    },
+    []
+  );
 
   const loadGame = useCallback(async (): Promise<void> => {
     const thisGen = ++generation.current;
+
     try {
       await getStatus();
+
       const existingGameId = getGameId();
+
       if (!existingGameId) {
         if (thisGen !== generation.current) return;
+
         setGame(undefined);
         setAnimationPlan(null);
         setLegalMoves([]);
         setSelectedSquare(undefined);
+        setNotation(undefined);
         setMessageState("Start a new game to play.");
+
         return;
       }
 
       let hydratedSnapshot: GameSnapshot;
+
       try {
         hydratedSnapshot = await getGameState(existingGameId);
       } catch (error) {
         if (thisGen !== generation.current) return;
+
         if (isStaleHydrationError(error)) {
           setSession(null);
           setGame(undefined);
           setAnimationPlan(null);
           setLegalMoves([]);
           setSelectedSquare(undefined);
+          setNotation(undefined);
           setMessageState("Previous game was not found. Start a new game to play.");
+
           return;
         }
+
         setMessageState(
           error instanceof Error
             ? `Could not restore previous game. ${error.message}`
             : "Could not restore previous game."
         );
+
         throw error;
       }
 
       if (thisGen !== generation.current) return;
+
       commitGameSnapshot(hydratedSnapshot);
+      void refreshNotation(existingGameId, thisGen);
       setMessageState(undefined);
     } catch (error) {
       if (thisGen !== generation.current) return;
+
       setGame(undefined);
       setAnimationPlan(null);
       setLegalMoves([]);
       setSelectedSquare(undefined);
+      setNotation(undefined);
       setMessageState(
         error instanceof Error
           ? `Could not restore previous game. ${error.message}`
           : "Could not restore previous game."
       );
-      throw error; // re-throw so App can update its connection state
+
+      throw error;
     }
-  }, [getGameId, setSession]);
+  }, [commitGameSnapshot, getGameId, refreshNotation, setSession]);
 
   const runRefreshFromServer = useCallback(async (): Promise<void> => {
     do {
@@ -229,18 +294,22 @@ export function useGameState(): UseGameStateReturn {
       const thisGen = ++generation.current;
       const previousBoard = boardRef.current;
       const gameId = getGameId();
+
       if (!gameId) return;
-      // Throws on error - caller (App WS handler) is responsible for the
-      // error message and busy state in that path.
+
       const snapshot = await getGameState(gameId);
+
       if (thisGen !== generation.current) continue;
+
       commitGameSnapshot(snapshot, { previousBoard });
+      void refreshNotation(gameId, thisGen);
       setMessageState(undefined);
     } while (refreshQueuedRef.current);
-  }, [commitGameSnapshot, getGameId]);
+  }, [commitGameSnapshot, getGameId, refreshNotation]);
 
   const refreshFromServer = useCallback(async (): Promise<void> => {
     const inFlight = refreshPromiseRef.current;
+
     if (inFlight) {
       refreshQueuedRef.current = true;
       return inFlight;
@@ -248,6 +317,7 @@ export function useGameState(): UseGameStateReturn {
 
     const refreshPromise = runRefreshFromServer();
     refreshPromiseRef.current = refreshPromise;
+
     try {
       await refreshPromise;
     } finally {
@@ -268,28 +338,42 @@ export function useGameState(): UseGameStateReturn {
 
       setMessageState(`AI is thinking for ${currentGame.activeColor}...`);
       setBusyState(true);
+
       const previousBoard = currentGame.board;
+
       try {
         const response = await requestAiMove(gameId);
+
         if (thisGen !== generation.current) return;
+
         commitGameSnapshot(response.game, { previousBoard });
+        void refreshNotation(gameId, thisGen);
+
         if (sessionSnapshot) {
-          setSession({ ...sessionSnapshot, lifecycle: response.sessionLifecycle });
+          setSession({
+            ...sessionSnapshot,
+            lifecycle: response.sessionLifecycle
+          });
         }
+
         setMessageState(undefined);
       } catch (error) {
         if (thisGen !== generation.current) return;
+
         setMessageState(
-          error instanceof Error ? `AI move failed. ${error.message}` : "AI move failed."
+          error instanceof Error
+            ? `AI move failed. ${error.message}`
+            : "AI move failed."
         );
       }
     },
-    [commitGameSnapshot, setSession]
+    [commitGameSnapshot, refreshNotation, setSession]
   );
 
   const handleSelect = useCallback(
     async (square: string): Promise<void> => {
       if (!game || busy) return;
+
       const normalizedSquare = square.toLowerCase();
 
       if (isClosedLifecycle(session)) {
@@ -300,6 +384,7 @@ export function useGameState(): UseGameStateReturn {
             ? "This session was cancelled. Start a new game to keep playing."
             : "This game is finished. Start a new game to keep playing."
         );
+
         return;
       }
 
@@ -307,26 +392,28 @@ export function useGameState(): UseGameStateReturn {
         setSelectedSquare(undefined);
         setLegalMoves([]);
         setMessageState("This game is finished. Start a new game to keep playing.");
+
         return;
       }
 
-      // Deselect: user clicked the already-selected square
       if (selectedSquare === normalizedSquare) {
-        // Bump generation to cancel any in-flight selection for this square.
         ++generation.current;
         setSelectedSquare(undefined);
         setLegalMoves([]);
+
         return;
       }
 
       const gameId = getGameId();
+
       if (!gameId) return;
 
-      // First click: select a piece using legal targets from backend state.
       if (!selectedSquare) {
         const thisGen = ++generation.current;
         const moves = game.legalTargetsByFrom[normalizedSquare] ?? [];
+
         if (thisGen !== generation.current) return;
+
         if (moves.length === 0) {
           setSelectedSquare(undefined);
           setLegalMoves([]);
@@ -336,66 +423,108 @@ export function useGameState(): UseGameStateReturn {
           setLegalMoves(moves);
           setMessageState(undefined);
         }
+
         return;
       }
 
-      // Second click: submit the move if the target is legal
       if (!legalMoves.includes(normalizedSquare)) {
         const alternateMoves = game.legalTargetsByFrom[normalizedSquare] ?? [];
+
         if (alternateMoves.length > 0) {
           ++generation.current;
           setSelectedSquare(normalizedSquare);
           setLegalMoves(alternateMoves);
           setMessageState(undefined);
+
           return;
         }
+
         setMessageState("Select a legal target square.");
+
         return;
       }
 
-      const prevBoard = game.board; // snapshot before any await
+      const prevBoard = game.board;
       const thisGen = ++generation.current;
+
       setSelectedSquare(undefined);
       setLegalMoves([]);
       setBusyState(true);
+
       try {
-        const response = await submitMove(gameId, { from: selectedSquare, to: normalizedSquare });
+        const response = await submitMove(gameId, {
+          from: selectedSquare,
+          to: normalizedSquare
+        });
+
         if (thisGen !== generation.current) return;
-        const nextGame = commitGameSnapshot(response.game, { previousBoard: prevBoard });
+
+        const nextGame = commitGameSnapshot(response.game, {
+          previousBoard: prevBoard
+        });
+
+        void refreshNotation(gameId, thisGen);
+
         if (session) {
-          setSession({ ...session, lifecycle: response.sessionLifecycle });
+          setSession({
+            ...session,
+            lifecycle: response.sessionLifecycle
+          });
         }
+
         setMessageState(undefined);
         await applyAiMoveIfNeeded(gameId, session, nextGame, thisGen);
       } catch (error) {
         if (thisGen !== generation.current) return;
+
         if (error instanceof Error && error.message.startsWith("PROMOTION_REQUIRED:")) {
           const promotion = promotionChoiceFromUser();
+
           if (!promotion) {
-            setMessageState("Promotion cancelled. Choose a promotion piece to complete that move.");
+            setMessageState(
+              "Promotion cancelled. Choose a promotion piece to complete that move."
+            );
+
             return;
           }
+
           try {
             const response = await submitMove(gameId, {
               from: selectedSquare,
               to: normalizedSquare,
               promotion
             });
+
             if (thisGen !== generation.current) return;
-            const nextGame = commitGameSnapshot(response.game, { previousBoard: prevBoard });
+
+            const nextGame = commitGameSnapshot(response.game, {
+              previousBoard: prevBoard
+            });
+
+            void refreshNotation(gameId, thisGen);
+
             if (session) {
-              setSession({ ...session, lifecycle: response.sessionLifecycle });
+              setSession({
+                ...session,
+                lifecycle: response.sessionLifecycle
+              });
             }
+
             setMessageState(undefined);
             await applyAiMoveIfNeeded(gameId, session, nextGame, thisGen);
           } catch (retryError) {
             if (thisGen !== generation.current) return;
+
             setMessageState(
-              retryError instanceof Error ? retryError.message : "Promotion rejected by service."
+              retryError instanceof Error
+                ? retryError.message
+                : "Promotion rejected by service."
             );
           }
+
           return;
         }
+
         setMessageState(
           error instanceof Error ? error.message : "Move rejected by service."
         );
@@ -403,56 +532,182 @@ export function useGameState(): UseGameStateReturn {
         setBusyState(false);
       }
     },
-    [applyAiMoveIfNeeded, busy, commitGameSnapshot, game, getGameId, legalMoves, selectedSquare, session, setSession]
+    [
+      applyAiMoveIfNeeded,
+      busy,
+      commitGameSnapshot,
+      game,
+      getGameId,
+      legalMoves,
+      refreshNotation,
+      selectedSquare,
+      session,
+      setSession
+    ]
   );
 
   const handleNewGame = useCallback(async (): Promise<void> => {
     const thisGen = ++generation.current;
     const request: CreateGameRequest = { mode: gameMode };
+
     setBusyState(true);
     setMessageState("Creating game...");
+
     try {
       const response = await createGame(request);
+
       if (thisGen !== generation.current) return;
+
       setSession(response.session);
       commitGameSnapshot(response.game);
+      void refreshNotation(response.game.gameId, thisGen);
       setMessageState(undefined);
-      // Clock reset is NOT called here: App watches game?.id and calls
-      // resetClocks reactively via a useEffect, which is equivalent.
     } catch (error) {
       if (thisGen !== generation.current) return;
+
       setMessageState(
         error instanceof Error ? error.message : "Failed to start game."
       );
     } finally {
       setBusyState(false);
     }
-  }, [commitGameSnapshot, gameMode, setSession]);
+  }, [commitGameSnapshot, gameMode, refreshNotation, setSession]);
 
-  const handleResumeSession = useCallback(async (sessionId: string): Promise<void> => {
-    const thisGen = ++generation.current;
-    setBusyState(true);
-    setMessageState("Loading session...");
-    try {
-      const state = await loadSessionState(sessionId);
-      if (thisGen !== generation.current) return;
-      setSession(state.session);
-      commitGameSnapshot(state.game);
-      setMessageState(undefined);
-    } catch (error) {
-      if (thisGen !== generation.current) return;
-      setMessageState(
-        error instanceof Error ? error.message : "Failed to load session."
-      );
-    } finally {
-      setBusyState(false);
-    }
-  }, [commitGameSnapshot, setSession]);
+  const handleImportNotation = useCallback(
+    async (format: "FEN" | "PGN", notation: string): Promise<void> => {
+      const trimmed = notation.trim();
+
+      if (!trimmed) {
+        setMessageState("Notation is empty.");
+        return;
+      }
+
+      const thisGen = ++generation.current;
+      const request: ImportNotationRequest = {
+        format,
+        notation: trimmed,
+        mode: gameMode
+      };
+
+      setBusyState(true);
+      setMessageState(`Importing ${format}...`);
+
+      try {
+        const response = await importNotation(request);
+
+        if (thisGen !== generation.current) return;
+
+        setSession(response.session);
+        commitGameSnapshot(response.game);
+        void refreshNotation(response.game.gameId, thisGen);
+        setMessageState(undefined);
+      } catch (error) {
+        if (thisGen !== generation.current) return;
+
+        setMessageState(error instanceof Error ? error.message : "Import failed.");
+      } finally {
+        setBusyState(false);
+      }
+    },
+    [commitGameSnapshot, gameMode, refreshNotation, setSession]
+  );
+
+  const handleExportNotation = useCallback(
+    async (format: "FEN" | "PGN"): Promise<string> => {
+      const gameId = getGameId();
+
+      if (!gameId) {
+        setMessageState("Start or resume a game before exporting notation.");
+        throw new Error("Start or resume a game before exporting notation.");
+      }
+
+      setBusyState(true);
+      setMessageState(`Exporting ${format} notation...`);
+
+      try {
+        const response =
+          format === "FEN" ? await exportFen(gameId) : await exportPgn(gameId);
+
+        setNotation((current) => ({
+          fen: format === "FEN" ? response.notation : current?.fen ?? "",
+          pgn: format === "PGN" ? response.notation : current?.pgn ?? ""
+        }));
+        setMessageState(`${format} notation exported.`);
+        return response.notation;
+      } catch (error) {
+        setMessageState(
+          error instanceof Error ? error.message : `${format} export failed.`
+        );
+        throw error;
+      } finally {
+        setBusyState(false);
+      }
+    },
+    [getGameId]
+  );
+
+  const handleResumeSession = useCallback(
+    async (sessionId: string): Promise<void> => {
+      const thisGen = ++generation.current;
+
+      setBusyState(true);
+      setMessageState("Loading session...");
+
+      try {
+        const state = await loadSessionState(sessionId);
+
+        if (thisGen !== generation.current) return;
+
+        setSession(state.session);
+        commitGameSnapshot(state.game);
+        void refreshNotation(state.game.gameId, thisGen);
+        setMessageState(undefined);
+      } catch (error) {
+        if (thisGen !== generation.current) return;
+
+        setMessageState(
+          error instanceof Error ? error.message : "Failed to load session."
+        );
+      } finally {
+        setBusyState(false);
+      }
+    },
+    [commitGameSnapshot, refreshNotation, setSession]
+  );
+
+  const handleImportSession = useCallback(
+    async (envelope: SessionExportEnvelope): Promise<void> => {
+      const thisGen = ++generation.current;
+
+      setBusyState(true);
+      setMessageState("Importing session...");
+
+      try {
+        const state = await importSession(envelope);
+
+        if (thisGen !== generation.current) return;
+
+        setSession(state.session);
+        commitGameSnapshot(state.game);
+        void refreshNotation(state.game.gameId, thisGen);
+        setMessageState("Session imported.");
+      } catch (error) {
+        if (thisGen !== generation.current) return;
+
+        setMessageState(error instanceof Error ? error.message : "Session import failed.");
+        throw error;
+      } finally {
+        setBusyState(false);
+      }
+    },
+    [commitGameSnapshot, refreshNotation, setSession]
+  );
 
   const handleResign = useCallback(async (): Promise<void> => {
     if (!game || busy || isTerminal(game) || isClosedLifecycle(session)) return;
 
     const gameId = getGameId();
+
     if (!gameId) return;
 
     if (controllerFor(session, game.activeColor) === "AI") {
@@ -461,29 +716,47 @@ export function useGameState(): UseGameStateReturn {
     }
 
     const resigningSide = game.activeColor === "white" ? "White" : "Black";
+
     if (!window.confirm(`${resigningSide} resigns?`)) return;
 
     const thisGen = ++generation.current;
     const previousBoard = game.board;
+
     setBusyState(true);
     setMessageState(`${resigningSide} is resigning...`);
+
     try {
       const response = await resignGame(gameId, { side: resigningSide });
+
       if (thisGen !== generation.current) return;
+
       commitGameSnapshot(response.game, { previousBoard });
+      void refreshNotation(gameId, thisGen);
+
       if (session) {
-        setSession({ ...session, lifecycle: response.sessionLifecycle });
+        setSession({
+          ...session,
+          lifecycle: response.sessionLifecycle
+        });
       }
+
       setMessageState(undefined);
     } catch (error) {
       if (thisGen !== generation.current) return;
-      setMessageState(
-        error instanceof Error ? error.message : "Resign failed."
-      );
+
+      setMessageState(error instanceof Error ? error.message : "Resign failed.");
     } finally {
       setBusyState(false);
     }
-  }, [busy, commitGameSnapshot, game, getGameId, session, setSession]);
+  }, [
+    busy,
+    commitGameSnapshot,
+    game,
+    getGameId,
+    refreshNotation,
+    session,
+    setSession
+  ]);
 
   const handleAnimationFinished = useCallback((id: number): void => {
     setAnimationPlan((current) => (current?.id === id ? null : current));
@@ -497,12 +770,16 @@ export function useGameState(): UseGameStateReturn {
     message,
     animationPlan,
     gameMode,
+    notation,
     sessionLifecycle: session?.lifecycle,
     loadGame,
     refreshFromServer,
     handleSelect,
     setGameMode,
     handleNewGame,
+    handleImportNotation,
+    handleExportNotation,
+    handleImportSession,
     handleResumeSession,
     handleResign,
     handleAnimationFinished,

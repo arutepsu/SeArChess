@@ -5,11 +5,12 @@ import chess.adapter.rest.contract.dto.{
   CreateSessionResponse,
   EnPassantDto,
   GameResponse,
+  SessionExportEnvelope,
   SessionResponse,
   SessionStateResponse
 }
 import chess.application.query.game.GameView
-import chess.application.session.service.PersistentSessionAggregate
+import chess.application.session.service.{PersistentSessionAggregate, SessionSnapshotEnvelope}
 import chess.application.query.session.SessionView
 import chess.application.session.model.{GameSession, SessionLifecycle, SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
@@ -158,6 +159,19 @@ object SessionMapper:
       state = view.toGameState
     )
 
+  def toSessionSnapshotEnvelope(
+      dto: SessionExportEnvelope
+  ): Either[String, SessionSnapshotEnvelope] =
+    for
+      exportedAt <- parseInstant("exportedAt", dto.exportedAt)
+      aggregate <- toPersistentSessionAggregate(dto.snapshot)
+    yield SessionSnapshotEnvelope(
+      schema = dto.schema,
+      version = dto.version,
+      exportedAt = exportedAt,
+      snapshot = aggregate
+    )
+
   // ── outbound mapping ──────────────────────────────────────────────────────
 
   /** Map a [[GameSession]] to its transport representation. */
@@ -209,6 +223,14 @@ object SessionMapper:
           pawnColor = ep.pawnColor.toString
         )
       )
+    )
+
+  def toSessionExportEnvelope(envelope: SessionSnapshotEnvelope): SessionExportEnvelope =
+    SessionExportEnvelope(
+      schema = envelope.schema,
+      version = envelope.version,
+      exportedAt = envelope.exportedAt.toString,
+      snapshot = toSessionStateResponse(envelope.snapshot)
     )
 
   // ── private helpers ───────────────────────────────────────────────────────

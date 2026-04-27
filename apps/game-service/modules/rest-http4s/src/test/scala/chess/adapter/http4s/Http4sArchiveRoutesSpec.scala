@@ -12,6 +12,7 @@ import chess.application.event.AppEvent
 import chess.application.port.event.EventPublisher
 import chess.application.session.service.{
   PersistentSessionService,
+  SessionSnapshotTransferService,
   SessionGameCommandService,
   SessionLifecycleService
 }
@@ -34,7 +35,10 @@ class Http4sArchiveRoutesSpec extends AnyFlatSpec with Matchers:
       PersistentSessionService(sessionRepo, gameRepo, store, sessionLifecycleService)
     Http4sApp(
       DefaultGameService(commands, sessionLifecycleService, gameRepo, events),
-      persistentSessionService
+      persistentSessionService,
+      SessionSnapshotTransferService(persistentSessionService, store),
+      gameRepo,
+      store
     ).httpApp
 
   private def run(app: HttpApp[IO], req: Request[IO]): Response[IO] =

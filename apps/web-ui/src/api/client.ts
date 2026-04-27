@@ -3,9 +3,13 @@ import type {
   CreateGameRequest,
   CreateGameResponse,
   ErrorResponse,
+  GameNotationResponse,
   GameSnapshot,
   HealthResponse,
+  ImportNotationRequest,
+  NotationTextResponse,
   ResignRequest,
+  SessionExportEnvelope,
   SessionListResponse,
   SessionStateResponse,
   SubmitMoveRequest
@@ -50,10 +54,44 @@ export async function getGameState(gameId: string): Promise<GameSnapshot> {
   return fetchJson<GameSnapshot>(`/api/games/${gameId}`);
 }
 
+export async function getGameNotation(
+  gameId: string
+): Promise<GameNotationResponse> {
+  const [fen, pgn] = await Promise.all([exportFen(gameId), exportPgn(gameId)]);
+
+  return {
+    fen: fen.notation,
+    pgn: pgn.notation
+  };
+}
+
+export async function exportFen(gameId: string): Promise<NotationTextResponse> {
+  return fetchJson<NotationTextResponse>(`/api/games/${gameId}/notation/fen`);
+}
+
+export async function exportPgn(gameId: string): Promise<NotationTextResponse> {
+  return fetchJson<NotationTextResponse>(`/api/games/${gameId}/notation/pgn`);
+}
+
 export async function createGame(
   payload: CreateGameRequest
 ): Promise<CreateGameResponse> {
   return fetchJson<CreateGameResponse>("/api/sessions", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function importGameFromNotation(
+  payload: ImportNotationRequest
+): Promise<CreateGameResponse> {
+  return importNotation(payload);
+}
+
+export async function importNotation(
+  payload: ImportNotationRequest
+): Promise<CreateGameResponse> {
+  return fetchJson<CreateGameResponse>("/api/sessions/import-notation", {
     method: "POST",
     body: JSON.stringify(payload)
   });
@@ -95,6 +133,21 @@ export async function loadSessionState(
   sessionId: string
 ): Promise<SessionStateResponse> {
   return fetchJson<SessionStateResponse>(`/api/sessions/${sessionId}/state`);
+}
+
+export async function exportSession(
+  sessionId: string
+): Promise<SessionExportEnvelope> {
+  return fetchJson<SessionExportEnvelope>(`/api/sessions/${sessionId}/export`);
+}
+
+export async function importSession(
+  envelope: SessionExportEnvelope
+): Promise<SessionStateResponse> {
+  return fetchJson<SessionStateResponse>("/api/sessions/import", {
+    method: "POST",
+    body: JSON.stringify(envelope)
+  });
 }
 
 export async function saveSessionState(

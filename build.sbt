@@ -216,7 +216,7 @@ lazy val adapterRestHttp4s = project
   // gameCore is required by the HTTP adapter's internal mapping layer; the
   // public adapter-rest-contract module remains wire-only.
   // adapterPersistence is only needed for test fixtures (InMemoryGameRepository etc.)
-  .dependsOn(adapterRestContract, gameCore, adapterPersistence % Test)
+  .dependsOn(adapterRestContract, gameCore, notation, adapterPersistence % Test)
 
 // Module: adapter-websocket
 

@@ -10,6 +10,7 @@ import ChessBoard from "./components/ChessBoard.tsx";
 import ControlPanel from "./components/ControlPanel.tsx";
 import MoveList from "./components/MoveList.tsx";
 import ResumeGamePanel from "./components/ResumeGamePanel.tsx";
+import SessionTransferPanel from "./components/SessionTransferPanel.tsx";
 import StatusBanner from "./components/StatusBanner.tsx";
 import "./App.css";
 
@@ -51,39 +52,57 @@ export default function App() {
     message,
     animationPlan,
     gameMode,
+    notation,
     sessionLifecycle,
     loadGame,
     refreshFromServer,
     handleSelect,
     setGameMode,
     handleNewGame,
+    handleImportNotation,
+    handleExportNotation,
+    handleImportSession,
     handleResumeSession,
     handleResign,
     handleAnimationFinished,
     setMessage,
-    setBusy,
+    setBusy
   } = useGameState();
+
   const { session, setSession, getSessionId } = useSession();
 
   const [connection, setConnection] = useState<ConnectionState>("loading");
-  const [liveConnection, setLiveConnection] = useState<LiveConnectionState>("idle");
+  const [liveConnection, setLiveConnection] =
+    useState<LiveConnectionState>("idle");
   const [whiteClockMs, setWhiteClockMs] = useState(baseClockMs);
   const [blackClockMs, setBlackClockMs] = useState(baseClockMs);
-  const lastTickMs = useRef<number | null>(null);
-  const wsClientRef = useRef<WsClient | null>(null);
   const [backgroundId, setBackgroundId] = useState(backgrounds[0].id);
   const [spriteCatalog, setSpriteCatalog] = useState<SpriteCatalog | null>(null);
+
+  const lastTickMs = useRef<number | null>(null);
+  const wsClientRef = useRef<WsClient | null>(null);
 
   const clockRunning = useMemo(() => {
     const status = game?.status;
     return status === "active" || status === "check";
   }, [game?.status]);
-  const sessionClosed = sessionLifecycle === "Finished" || sessionLifecycle === "Cancelled";
-  const activeController = game?.activeColor === "white"
-    ? session?.whiteController
-    : session?.blackController;
+
+  const sessionClosed =
+    sessionLifecycle === "Finished" || sessionLifecycle === "Cancelled";
+
+  const activeController =
+    game?.activeColor === "white"
+      ? session?.whiteController
+      : session?.blackController;
+
   const boardInteractionDisabled = busy || sessionClosed || !clockRunning;
-  const canResign = Boolean(game) && !busy && !sessionClosed && clockRunning && activeController !== "AI";
+
+  const canResign =
+    Boolean(game) &&
+    !busy &&
+    !sessionClosed &&
+    clockRunning &&
+    activeController !== "AI";
 
   const resetClocks = useCallback(() => {
     setWhiteClockMs(baseClockMs);
@@ -91,15 +110,14 @@ export default function App() {
     lastTickMs.current = performance.now();
   }, []);
 
-  // Initial load: hook handles game state; App wraps with connection state.
   useEffect(() => {
     setConnection("loading");
+
     loadGame()
       .then(() => setConnection("connected"))
       .catch(() => setConnection("offline"));
   }, [loadGame]);
 
-  // Reset clocks whenever a new game begins (new game.id).
   useEffect(() => {
     if (game?.id) {
       resetClocks();
@@ -118,21 +136,30 @@ export default function App() {
     let active = true;
     setLiveConnection("connecting");
 
-    const refreshGameSnapshotAfterHint = async (event: WsEvent): Promise<void> => {
+    const refreshGameSnapshotAfterHint = async (
+      event: WsEvent
+    ): Promise<void> => {
       try {
         await refreshFromServer();
         setBusy(false);
-        if (event.eventType === "SessionLifecycleChanged" && session?.sessionId === event.sessionId) {
+
+        if (
+          event.eventType === "SessionLifecycleChanged" &&
+          session?.sessionId === event.sessionId
+        ) {
           setSession({ ...session, lifecycle: event.to });
         }
+
         if (event.eventType === "SessionCancelled") {
           if (session?.sessionId === event.sessionId) {
             setSession({ ...session, lifecycle: "Cancelled" });
           }
+
           setMessage("This session was cancelled.");
         }
       } catch (error) {
         if (!active) return;
+
         setLiveConnection("disconnected");
         setMessage(
           error instanceof Error
@@ -157,9 +184,6 @@ export default function App() {
       onMessage: (event) => {
         if (!active) return;
 
-        // WebSocket messages are scoped live hints, not authoritative game
-        // state. Any event that can affect board/turn/status is followed by
-        // GET /api/games/{gameId}, then committed through GameSnapshot mapping.
         if (isGameStateRefreshHint(event)) {
           void refreshGameSnapshotAfterHint(event);
           return;
@@ -170,14 +194,17 @@ export default function App() {
             setBusy(true);
             setMessage(`AI is thinking for ${event.currentPlayer}...`);
             return;
+
           case "AITurnFailed":
             setBusy(false);
             setMessage(`AI move failed. ${event.reason}`);
             return;
+
           case "MoveRejected":
             setBusy(false);
             setMessage(`Move rejected. ${event.reason}`);
             return;
+
           case "SessionCreated":
             return;
         }
@@ -189,11 +216,20 @@ export default function App() {
     return () => {
       active = false;
       client.close();
+
       if (wsClientRef.current === client) {
         wsClientRef.current = null;
       }
     };
-  }, [game?.id, getSessionId, refreshFromServer, session, setBusy, setMessage, setSession]);
+  }, [
+    game?.id,
+    getSessionId,
+    refreshFromServer,
+    session,
+    setBusy,
+    setMessage,
+    setSession
+  ]);
 
   const clockStateRef = useRef({
     running: false,
@@ -209,51 +245,84 @@ export default function App() {
 
   useEffect(() => {
     lastTickMs.current = performance.now();
+
     const intervalId = window.setInterval(() => {
       const now = performance.now();
       const last = lastTickMs.current ?? now;
       lastTickMs.current = now;
+
       const { running, activeColor } = clockStateRef.current;
+
       if (!running) return;
+
       const delta = Math.max(0, now - last);
+
       if (activeColor === "white") {
-        setWhiteClockMs((v) => Math.max(0, v - delta));
+        setWhiteClockMs((value) => Math.max(0, value - delta));
       } else {
-        setBlackClockMs((v) => Math.max(0, v - delta));
+        setBlackClockMs((value) => Math.max(0, value - delta));
       }
     }, 250);
+
     return () => window.clearInterval(intervalId);
   }, []);
 
   useEffect(() => {
     const match = backgrounds.find((item) => item.id === backgroundId);
     const nextUrl = match?.url ?? backgrounds[0].url;
-    document.documentElement.style.setProperty("--app-background", `url("${nextUrl}")`);
+
+    document.documentElement.style.setProperty(
+      "--app-background",
+      `url("${nextUrl}")`
+    );
   }, [backgroundId]);
 
   useEffect(() => {
     let active = true;
+
     loadSpriteCatalog()
-      .then((catalog) => { if (active) setSpriteCatalog(catalog); })
-      .catch(() => { if (active) setSpriteCatalog(null); });
-    return () => { active = false; };
+      .then((catalog) => {
+        if (active) setSpriteCatalog(catalog);
+      })
+      .catch(() => {
+        if (active) setSpriteCatalog(null);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const spriteInfoFor = useCallback(
     (piece: PieceCode): { url: string; frameCount: number } | null => {
       if (!spriteCatalog) return null;
+
       const color = piece.startsWith("w") ? "white" : "black";
       const letter = piece[1];
+
       const nameMap: Record<string, string> = {
-        K: "king", Q: "queen", R: "rook", B: "bishop", N: "knight", P: "pawn"
+        K: "king",
+        Q: "queen",
+        R: "rook",
+        B: "bishop",
+        N: "knight",
+        P: "pawn"
       };
+
       const name = nameMap[letter] ?? "pawn";
       const key = `classic/${color}_${name}_idle`;
       const sheet = spriteCatalog.spriteSheets[key];
+
       if (!sheet) return null;
+
       const clipSpec = spriteCatalog.clipSpecs[sheet.clipSpec];
+
       if (!clipSpec) return null;
-      return { url: `/${sheet.path}`, frameCount: clipSpec.frameCount };
+
+      return {
+        url: `/${sheet.path}`,
+        frameCount: clipSpec.frameCount
+      };
     },
     [spriteCatalog]
   );
@@ -269,11 +338,31 @@ export default function App() {
         </div>
       ) : isSakuraBackground ? (
         <div className="sakura-layer" aria-hidden="true">
-          <img className="sakura-leaf sakura-1" src="/assets/backgrounds/sakuraleaf1.png" alt="" />
-          <img className="sakura-leaf sakura-2" src="/assets/backgrounds/sakuraleaf.png" alt="" />
-          <img className="sakura-leaf sakura-3" src="/assets/backgrounds/sakuraleaf1.png" alt="" />
-          <img className="sakura-leaf sakura-4" src="/assets/backgrounds/sakuraleaf.png" alt="" />
-          <img className="sakura-leaf sakura-5" src="/assets/backgrounds/sakuraleaf.png" alt="" />
+          <img
+            className="sakura-leaf sakura-1"
+            src="/assets/backgrounds/sakuraleaf1.png"
+            alt=""
+          />
+          <img
+            className="sakura-leaf sakura-2"
+            src="/assets/backgrounds/sakuraleaf.png"
+            alt=""
+          />
+          <img
+            className="sakura-leaf sakura-3"
+            src="/assets/backgrounds/sakuraleaf1.png"
+            alt=""
+          />
+          <img
+            className="sakura-leaf sakura-4"
+            src="/assets/backgrounds/sakuraleaf.png"
+            alt=""
+          />
+          <img
+            className="sakura-leaf sakura-5"
+            src="/assets/backgrounds/sakuraleaf.png"
+            alt=""
+          />
         </div>
       ) : (
         <div className="leaf-layer" aria-hidden="true">
@@ -285,12 +374,14 @@ export default function App() {
           <span className="leaf leaf-6"></span>
         </div>
       )}
+
       <StatusBanner
         game={game}
         connection={connection}
         liveConnection={liveConnection}
         message={message}
       />
+
       <main className="layout">
         {game ? (
           <ChessBoard
@@ -308,6 +399,7 @@ export default function App() {
             <div className="loading">Waiting for game data...</div>
           </section>
         )}
+
         <aside className="side">
           <ControlPanel
             game={game}
@@ -318,21 +410,29 @@ export default function App() {
             clockRunning={clockRunning}
             gameMode={gameMode}
             canResign={canResign}
+            fen={notation?.fen}
+            pgn={notation?.pgn}
+            onImportNotation={handleImportNotation}
+            onExportNotation={handleExportNotation}
             onGameModeChange={setGameMode}
             onNewGame={handleNewGame}
             onResign={handleResign}
           />
+
           <section className="panel background-panel">
             <header>
               <h2>Background</h2>
               <p>Pick the arena for your next battle.</p>
             </header>
+
             <div className="background-grid">
               {backgrounds.map((item) => (
                 <button
                   key={item.id}
                   type="button"
-                  className={`background-option${backgroundId === item.id ? " is-active" : ""}`}
+                  className={`background-option${
+                    backgroundId === item.id ? " is-active" : ""
+                  }`}
                   onClick={() => setBackgroundId(item.id)}
                 >
                   <span style={{ backgroundImage: `url("${item.url}")` }} />
@@ -341,13 +441,23 @@ export default function App() {
               ))}
             </div>
           </section>
+
           <ResumeGamePanel busy={busy} onResume={handleResumeSession} />
+
+          <SessionTransferPanel
+            busy={busy}
+            sessionId={session?.sessionId ?? null}
+            onImportSession={handleImportSession}
+          />
+
           <MoveList moves={game?.moves ?? []} />
+
           <section className="panel capture-panel">
             <header>
               <h2>Captured</h2>
               <p>Pieces claimed during the match.</p>
             </header>
+
             <div className="captured">
               {!game || game.captured.length === 0 ? (
                 <span>None yet.</span>
@@ -355,6 +465,7 @@ export default function App() {
                 game.captured.map((piece, index) => {
                   const sprite = spriteInfoFor(piece);
                   const frameCount = sprite?.frameCount ?? 1;
+
                   const style = sprite
                     ? {
                         backgroundImage: `url(${sprite.url})`,
@@ -362,10 +473,13 @@ export default function App() {
                         backgroundPosition: "0% 50%"
                       }
                     : undefined;
+
                   return (
                     <span
                       key={`${piece}-${index}`}
-                      className={`captured-piece${piece.startsWith("b") ? " is-black" : ""}${sprite ? " has-sprite" : ""}`}
+                      className={`captured-piece${
+                        piece.startsWith("b") ? " is-black" : ""
+                      }${sprite ? " has-sprite" : ""}`}
                       style={style}
                       aria-label={piece}
                     >

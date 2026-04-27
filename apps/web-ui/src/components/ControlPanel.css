@@ -42,7 +42,8 @@
 }
 
 .control-panel .clock.is-active {
-  box-shadow: 0 0 0 1px rgba(255, 206, 116, 0.55), 0 12px 22px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 1px rgba(255, 206, 116, 0.55),
+              0 12px 22px rgba(0, 0, 0, 0.35);
 }
 
 .control-panel .clock-time {
@@ -64,12 +65,116 @@
   font-size: 1rem;
 }
 
+/* --- Notation display --- */
+.control-panel .notation {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.control-panel .notation-note {
+  margin: -4px 0 0;
+  font-size: 0.75rem;
+  opacity: 0.66;
+}
+
+.control-panel .notation-text {
+  margin: 6px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 0.75rem;
+  line-height: 1.2;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.control-panel .notation-output {
+  display: grid;
+  gap: 8px;
+}
+
+.control-panel .notation-output textarea {
+  width: 100%;
+  border: 1px solid rgba(255, 206, 116, 0.2);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f4efe6;
+  font: inherit;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  resize: vertical;
+}
+
+.control-panel .notation-output-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.control-panel .notation-error,
+.control-panel .notation-success {
+  margin: 0;
+  font-size: 0.76rem;
+}
+
+.control-panel .notation-error {
+  color: #ff9d9d;
+}
+
+.control-panel .notation-success {
+  color: #baf0c3;
+}
+
+/* --- Import notation --- */
+.control-panel .import-notation {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.control-panel .import-notation textarea {
+  width: 100%;
+  margin-top: 6px;
+  border: 1px solid rgba(255, 206, 116, 0.2);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f4efe6;
+  font: inherit;
+  resize: vertical;
+}
+
+.control-panel .import-notation input[type="file"] {
+  width: 100%;
+  margin-top: 8px;
+  font-size: 0.78rem;
+  color: #f4efe6;
+}
+
+.control-panel .import-notation textarea:disabled {
+  opacity: 0.6;
+}
+
+.control-panel .notation button,
+.control-panel .import-notation button {
+  width: 100%;
+}
+
+.control-panel .notation > div > button,
+.control-panel .import-notation > div > button {
+  margin-top: 8px;
+}
+
+/* --- Actions --- */
 .control-panel .actions {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 10px;
 }
 
+/* --- Mode select --- */
 .control-panel .mode-select {
   display: grid;
   gap: 6px;
@@ -89,6 +194,7 @@
   opacity: 0.6;
 }
 
+/* --- Buttons --- */
 .control-panel button {
   border: none;
   border-radius: 14px;
