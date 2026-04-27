@@ -16,7 +16,7 @@ import chess.application.session.service.GameSessionCommands
   *
   * ===Local mode===
   * No session infrastructure is provided. Moves go through the pure domain path
-  * ([[chess.application.ChessService]]), with no persistence or event publication. Intended for
+  * ([[chess.application.GameStateCommandService]]), with no persistence or event publication. Intended for
   * standalone demo or testing scenarios.
   *
   * ===Shutdown policy===
@@ -57,7 +57,7 @@ object TuiRunner:
 
   /** Start the TUI in local (non-persistent) mode.
     *
-    * Moves go through the pure domain path ([[chess.application.ChessService]]) with no persistence
+    * Moves go through the pure domain path ([[chess.application.GameStateCommandService]]) with no persistence
     * or event publication. Intended for standalone demo use or contexts where no session
     * infrastructure is available.
     */

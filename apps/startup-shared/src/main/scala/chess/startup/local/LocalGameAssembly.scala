@@ -5,11 +5,17 @@ import chess.application.GameServiceApi
 import chess.application.event.AppEvent
 import chess.application.port.event.{EventPublisher, NoOpTerminalEventJsonSerializer}
 import chess.application.port.repository.GameRepository
-import chess.application.session.service.{GameSessionCommands, SessionGameService, SessionService}
+import chess.application.session.service.{
+  GameSessionCommands,
+  PersistentSessionService,
+  SessionGameCommandService,
+  SessionLifecycleService
+}
 
 final case class LocalAppContext(
     commands: GameSessionCommands,
-    sessionService: SessionService,
+    sessionLifecycleService: SessionLifecycleService,
+    persistentSessionService: PersistentSessionService,
     gameRepository: GameRepository,
     gameService: GameServiceApi
 )
@@ -21,16 +27,28 @@ object LocalGameAssembly:
     val persistence = LocalPersistenceAssembly.assemble(config)
     val publisher = SilentEventPublisher
     val serializer = NoOpTerminalEventJsonSerializer
-    val sessionService = SessionService(persistence.sessionRepository, publisher, serializer)
-    val commands = SessionGameService(sessionService, persistence.store, publisher, serializer)
+    val sessionLifecycleService = SessionLifecycleService(persistence.sessionRepository, publisher, serializer)
+    val commands = SessionGameCommandService(sessionLifecycleService, persistence.store, publisher, serializer)
+    val persistentSessionService = PersistentSessionService(
+      persistence.sessionRepository,
+      persistence.gameRepository,
+      persistence.store,
+      sessionLifecycleService
+    )
     val gameService = DefaultGameService(
       commands = commands,
-      sessionService = sessionService,
+      sessionLifecycleService = sessionLifecycleService,
       gameRepository = persistence.gameRepository,
       publisher = publisher,
       aiService = None
     )
-    LocalAppContext(commands, sessionService, persistence.gameRepository, gameService)
+    LocalAppContext(
+      commands,
+      sessionLifecycleService,
+      persistentSessionService,
+      persistence.gameRepository,
+      gameService
+    )
 
   private object SilentEventPublisher extends EventPublisher:
     def publish(event: AppEvent): Unit = ()

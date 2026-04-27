@@ -6,6 +6,8 @@ import type {
   GameSnapshot,
   HealthResponse,
   ResignRequest,
+  SessionListResponse,
+  SessionStateResponse,
   SubmitMoveRequest
 } from "./backendTypes";
 
@@ -82,5 +84,25 @@ export async function resignGame(
   return fetchJson<CommandGameResponse>(`/api/games/${gameId}/resign`, {
     method: "POST",
     body: JSON.stringify(payload)
+  });
+}
+
+export async function listSessions(): Promise<SessionListResponse> {
+  return fetchJson<SessionListResponse>("/api/sessions");
+}
+
+export async function loadSessionState(
+  sessionId: string
+): Promise<SessionStateResponse> {
+  return fetchJson<SessionStateResponse>(`/api/sessions/${sessionId}/state`);
+}
+
+export async function saveSessionState(
+  sessionId: string,
+  state: SessionStateResponse
+): Promise<SessionStateResponse> {
+  return fetchJson<SessionStateResponse>(`/api/sessions/${sessionId}/state`, {
+    method: "PUT",
+    body: JSON.stringify(state)
   });
 }

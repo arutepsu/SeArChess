@@ -1,6 +1,6 @@
 package chess.adapter.textui
 
-import chess.application.{ApplicationError, ChessService}
+import chess.application.{ApplicationError, GameStateCommandService}
 import chess.domain.error.DomainError
 import chess.domain.model.{Color, DrawReason, GameStatus, Position}
 import org.scalatest.EitherValues
@@ -9,7 +9,7 @@ import org.scalatest.matchers.should.Matchers
 
 class ConsoleRendererSpec extends AnyFlatSpec with Matchers with EitherValues:
 
-  private val newGame = ChessService.createNewGame()
+  private val newGame = GameStateCommandService.createNewGame()
   private def pos(alg: String): Position = Position.fromAlgebraic(alg).value
 
   // ── Board rendering ────────────────────────────────────────────────────────

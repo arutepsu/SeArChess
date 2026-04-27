@@ -34,7 +34,7 @@ import org.http4s.dsl.io.*
   * All operations are routed through [[GameServiceApi]] — the single Game Service boundary. This
   * class has one dependency instead of the previous three
   * ([[chess.application.session.service.GameSessionCommands]],
-  * [[chess.application.session.service.SessionService]], and
+  * [[chess.application.session.service.SessionLifecycleService]], and
   * [[chess.application.port.repository.GameRepository]]).
   *
   * AI capability policy: `/games/{gameId}/ai-move` is always mounted. Runtimes without an AI client

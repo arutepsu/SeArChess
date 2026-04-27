@@ -9,7 +9,12 @@ import chess.application.port.event.{
   TerminalEventJsonSerializer
 }
 import chess.application.port.repository.GameRepository
-import chess.application.session.service.{GameSessionCommands, SessionGameService, SessionService}
+import chess.application.session.service.{
+  GameSessionCommands,
+  PersistentSessionService,
+  SessionGameCommandService,
+  SessionLifecycleService
+}
 
 final case class CoreEventBindings(
     publisher: EventPublisher,
@@ -18,7 +23,8 @@ final case class CoreEventBindings(
 
 final case class AppContext(
     commands: GameSessionCommands,
-    sessionService: SessionService,
+    sessionLifecycleService: SessionLifecycleService,
+    persistentSessionService: PersistentSessionService,
     gameRepository: GameRepository,
     gameService: GameServiceApi
 )
@@ -27,22 +33,35 @@ final case class AppContext(
 object CoreAssembly:
 
   def build(persistence: PersistenceWiring, events: CoreEventBindings): AppContext =
-    val sessionService =
-      SessionService(persistence.sessionRepository, events.publisher, events.terminalSerializer)
-    val commands = SessionGameService(
-      sessionService,
+    val sessionLifecycleService =
+      SessionLifecycleService(persistence.sessionRepository, events.publisher, events.terminalSerializer)
+    val commands = SessionGameCommandService(
+      sessionLifecycleService,
       persistence.store,
       events.publisher,
       events.terminalSerializer
     )
+    val persistentSessionService = PersistentSessionService(
+      persistence.sessionRepository,
+      persistence.gameRepository,
+      persistence.store,
+      sessionLifecycleService
+    )
     val gameService = DefaultGameService(
       commands = commands,
-      sessionService = sessionService,
+      sessionLifecycleService = sessionLifecycleService,
       gameRepository = persistence.gameRepository,
       publisher = events.publisher,
       aiService = None
     )
-    AppContext(commands, sessionService, persistence.gameRepository, gameService)
+    AppContext(
+      commands,
+      sessionLifecycleService,
+      persistentSessionService,
+      persistence.gameRepository,
+      gameService
+    )
 
   object SilentEventPublisher extends EventPublisher:
     def publish(event: AppEvent): Unit = ()
+

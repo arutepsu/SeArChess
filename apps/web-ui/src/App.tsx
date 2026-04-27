@@ -9,6 +9,7 @@ import { useSession } from "./session/SessionProvider";
 import ChessBoard from "./components/ChessBoard.tsx";
 import ControlPanel from "./components/ControlPanel.tsx";
 import MoveList from "./components/MoveList.tsx";
+import ResumeGamePanel from "./components/ResumeGamePanel.tsx";
 import StatusBanner from "./components/StatusBanner.tsx";
 import "./App.css";
 
@@ -56,6 +57,7 @@ export default function App() {
     handleSelect,
     setGameMode,
     handleNewGame,
+    handleResumeSession,
     handleResign,
     handleAnimationFinished,
     setMessage,
@@ -339,6 +341,7 @@ export default function App() {
               ))}
             </div>
           </section>
+          <ResumeGamePanel busy={busy} onResume={handleResumeSession} />
           <MoveList moves={game?.moves ?? []} />
           <section className="panel capture-panel">
             <header>

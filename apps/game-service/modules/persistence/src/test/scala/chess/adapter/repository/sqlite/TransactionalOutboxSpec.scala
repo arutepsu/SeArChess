@@ -1,7 +1,7 @@
 package chess.adapter.repository.sqlite
 
 import chess.adapter.event.{AppEventSerializer, SqliteHistoryEventOutbox}
-import chess.application.ChessService
+import chess.application.GameStateCommandService
 import chess.application.event.AppEvent
 import chess.application.session.model.{GameSession, SessionLifecycle, SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
@@ -50,10 +50,10 @@ class TransactionalOutboxSpec extends AnyFlatSpec with Matchers with EitherValue
     )
 
   private def checkmateState =
-    ChessService.createNewGame().copy(status = GameStatus.Checkmate(Color.White))
+    GameStateCommandService.createNewGame().copy(status = GameStatus.Checkmate(Color.White))
 
   private def resignedState =
-    ChessService.createNewGame().copy(status = GameStatus.Resigned(Color.Black))
+    GameStateCommandService.createNewGame().copy(status = GameStatus.Resigned(Color.Black))
 
   private def gameFinishedPayload(sid: SessionId, gid: GameId): String =
     AppEventSerializer

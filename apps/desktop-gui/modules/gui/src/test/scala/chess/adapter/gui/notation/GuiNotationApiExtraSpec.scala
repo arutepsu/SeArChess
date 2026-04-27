@@ -17,7 +17,7 @@ class GuiNotationApiExtraSpec extends AnyFlatSpec with Matchers {
       ExportFailure.SerializationError("field", "fail")
     )
   })
-  val dummyState = chess.application.ChessService.createNewGame()
+  val dummyState = chess.application.GameStateCommandService.createNewGame()
 
   "GuiNotationApi" should "handle parse failure as invalid input" in {
     val result = api.importFen("bad")

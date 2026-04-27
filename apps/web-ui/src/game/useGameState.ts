@@ -5,6 +5,7 @@ import {
   createGame,
   getGameState,
   getStatus,
+  loadSessionState,
   requestAiMove,
   resignGame,
   submitMove
@@ -77,6 +78,7 @@ export type UseGameStateReturn = {
   handleSelect: (square: string) => Promise<void>;
   setGameMode: (mode: PlayableGameMode) => void;
   handleNewGame: () => Promise<void>;
+  handleResumeSession: (sessionId: string) => Promise<void>;
   handleResign: () => Promise<void>;
   handleAnimationFinished: (id: number) => void;
 
@@ -427,6 +429,26 @@ export function useGameState(): UseGameStateReturn {
     }
   }, [commitGameSnapshot, gameMode, setSession]);
 
+  const handleResumeSession = useCallback(async (sessionId: string): Promise<void> => {
+    const thisGen = ++generation.current;
+    setBusyState(true);
+    setMessageState("Loading session...");
+    try {
+      const state = await loadSessionState(sessionId);
+      if (thisGen !== generation.current) return;
+      setSession(state.session);
+      commitGameSnapshot(state.game);
+      setMessageState(undefined);
+    } catch (error) {
+      if (thisGen !== generation.current) return;
+      setMessageState(
+        error instanceof Error ? error.message : "Failed to load session."
+      );
+    } finally {
+      setBusyState(false);
+    }
+  }, [commitGameSnapshot, setSession]);
+
   const handleResign = useCallback(async (): Promise<void> => {
     if (!game || busy || isTerminal(game) || isClosedLifecycle(session)) return;
 
@@ -481,6 +503,7 @@ export function useGameState(): UseGameStateReturn {
     handleSelect,
     setGameMode,
     handleNewGame,
+    handleResumeSession,
     handleResign,
     handleAnimationFinished,
     setMessage,

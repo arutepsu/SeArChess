@@ -44,7 +44,7 @@ Move execution is split into four sequential responsibilities: validation (is th
 
 ## Application Layer
 
-`ChessService` orchestrates game workflows by advancing an immutable `GameState` snapshot — the authoritative record of the current board, active color, castling rights, and en passant state — in response to `ChessCommand` inputs. It delegates all rule logic to the domain pipeline and assembles results; no domain decisions are made here.
+`GameStateCommandService` orchestrates game workflows by advancing an immutable `GameState` snapshot — the authoritative record of the current board, active color, castling rights, and en passant state — in response to `ChessCommand` inputs. It delegates all rule logic to the domain pipeline and assembles results; no domain decisions are made here.
 
 ![Application Layer](docs/diagrams/ApplicationLayer.png)
 
@@ -52,7 +52,7 @@ Move execution is split into four sequential responsibilities: validation (is th
 
 ## Promotion Workflow
 
-When a pawn reaches the back rank, `MoveApplier` returns a `MoveResult.PromotionRequired` rather than `Applied`. `ChessService` records this as a `PendingPromotion` in `GameState` and suspends normal move processing until the player supplies a piece type. This two-step interaction keeps promotion as a first-class domain event rather than an edge case patched into the move loop.
+When a pawn reaches the back rank, `MoveApplier` returns a `MoveResult.PromotionRequired` rather than `Applied`. `GameStateCommandService` records this as a `PendingPromotion` in `GameState` and suspends normal move processing until the player supplies a piece type. This two-step interaction keeps promotion as a first-class domain event rather than an edge case patched into the move loop.
 
 ![Promotion Workflow](docs/diagrams/PromotionWorkflow.png)
 
@@ -68,7 +68,7 @@ Dependencies flow strictly inward: the `adapter` layer depends on `application`,
 
 ## Test Strategy
 
-Tests mirror the production package structure, with each test class covering exactly one production object or service. This alignment means components can be tested independently, with domain rule logic verified through minimal board setups and `ChessService` verified end-to-end through command sequences. The 100% statement and branch coverage gate is enforced on every build via `sbt report`.
+Tests mirror the production package structure, with each test class covering exactly one production object or service. This alignment means components can be tested independently, with domain rule logic verified through minimal board setups and `GameStateCommandService` verified end-to-end through command sequences. The 100% statement and branch coverage gate is enforced on every build via `sbt report`.
 
 ![Test Strategy](docs/diagrams/TestStrategy.png)
 
@@ -76,6 +76,6 @@ Tests mirror the production package structure, with each test class covering exa
 
 ## Future Extension
 
-The architecture supports incremental extension without restructuring the domain. Export formats (JSON, PGN, FEN), HTTP transports (http4s, fs2), persistence backends (MongoDB, PostgreSQL), and web UIs all plug in at the adapter layer. The same `ChessService` interface can evolve toward microservices or streaming architectures as requirements grow.
+The architecture supports incremental extension without restructuring the domain. Export formats (JSON, PGN, FEN), HTTP transports (http4s, fs2), persistence backends (MongoDB, PostgreSQL), and web UIs all plug in at the adapter layer. The same `GameStateCommandService` interface can evolve toward microservices or streaming architectures as requirements grow.
 
 ![Future Extension](docs/diagrams/FutureExtension.png)

@@ -10,7 +10,11 @@ import chess.adapter.repository.{
 import chess.application.DefaultGameService
 import chess.application.event.AppEvent
 import chess.application.port.event.EventPublisher
-import chess.application.session.service.{SessionGameService, SessionService}
+import chess.application.session.service.{
+  PersistentSessionService,
+  SessionGameCommandService,
+  SessionLifecycleService
+}
 import org.http4s.*
 import org.http4s.implicits.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -24,9 +28,14 @@ class Http4sArchiveRoutesSpec extends AnyFlatSpec with Matchers:
     val sessionRepo = InMemorySessionRepository()
     val gameRepo = InMemoryGameRepository()
     val store = InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionService = SessionService(sessionRepo, events)
-    val commands = SessionGameService(sessionService, store, events)
-    Http4sApp(DefaultGameService(commands, sessionService, gameRepo, events)).httpApp
+    val sessionLifecycleService = SessionLifecycleService(sessionRepo, events)
+    val commands = SessionGameCommandService(sessionLifecycleService, store, events)
+    val persistentSessionService =
+      PersistentSessionService(sessionRepo, gameRepo, store, sessionLifecycleService)
+    Http4sApp(
+      DefaultGameService(commands, sessionLifecycleService, gameRepo, events),
+      persistentSessionService
+    ).httpApp
 
   private def run(app: HttpApp[IO], req: Request[IO]): Response[IO] =
     app.run(req).unsafeRunSync()
@@ -68,3 +77,4 @@ class Http4sArchiveRoutesSpec extends AnyFlatSpec with Matchers:
     resp.status shouldBe Status.Conflict
     bodyJson(resp)("code").str shouldBe "ARCHIVE_NOT_READY"
   }
+

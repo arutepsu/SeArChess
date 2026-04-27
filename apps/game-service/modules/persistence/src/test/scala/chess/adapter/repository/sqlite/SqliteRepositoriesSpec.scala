@@ -1,6 +1,6 @@
 package chess.adapter.repository.sqlite
 
-import chess.application.ChessService
+import chess.application.GameStateCommandService
 import chess.application.port.repository.RepositoryError
 import chess.application.session.model.{GameSession, SessionLifecycle, SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
@@ -32,7 +32,7 @@ class SqliteRepositoriesSpec extends AnyFlatSpec with Matchers with EitherValues
     ds.withConnection(SqliteSchema.createTables)
     ds
 
-  private def freshState: GameState = ChessService.createNewGame()
+  private def freshState: GameState = GameStateCommandService.createNewGame()
 
   private def freshSession(gameId: GameId): GameSession =
     GameSession.create(

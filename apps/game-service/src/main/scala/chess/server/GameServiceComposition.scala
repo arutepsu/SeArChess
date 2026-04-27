@@ -50,7 +50,7 @@ object GameServiceComposition:
     baseCtx.copy(gameService =
       DefaultGameService(
         commands = baseCtx.commands,
-        sessionService = baseCtx.sessionService,
+        sessionLifecycleService = baseCtx.sessionLifecycleService,
         gameRepository = baseCtx.gameRepository,
         publisher = events.publisher,
         aiService = aiService

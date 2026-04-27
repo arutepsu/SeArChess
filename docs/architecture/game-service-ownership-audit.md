@@ -47,7 +47,7 @@ not all physically under `apps/game-service`:
 - `apps/game-service`: `ServerMain`, `ServerWiring`, `ServerRuntime`,
   `HealthRoutes`, `CorsMiddleware`, Game Service `EventAssembly`.
 - `apps/game-service/modules/core`: `GameServiceApi`, `DefaultGameService`,
-  `SessionGameService`, `SessionService`, session lifecycle policies, AI turn
+  `SessionGameCommandService`, `SessionLifecycleService`, session lifecycle policies, AI turn
   orchestration, active game/session query models.
 - `apps/game-service/modules/persistence`: active game/session repositories and combined
   store, including SQLite.

@@ -19,7 +19,7 @@ object ServerWiring:
     val (ctx, events) = GameServiceComposition.assemble(config)
 
     val publicGameplayApi: HttpApp[IO] =
-      Http4sApp(ctx.gameService).httpApp
+      Http4sApp(ctx.gameService, ctx.persistentSessionService).httpApp
 
     val internalOpsRoutes =
       HealthRoutes.routes <+> HistoryOutboxOpsRoutes(events.historyOutbox).routes
