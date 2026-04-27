@@ -14,9 +14,9 @@ import chess.application.session.model.{SessionLifecycle, SessionMode, SideContr
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import chess.application.session.service.{
   SessionError,
-  SessionGameService,
+  SessionGameCommandService,
   SessionMoveError,
-  SessionService
+  SessionLifecycleService
 }
 import chess.domain.model.{Color, GameStatus, Move, Position}
 import chess.domain.state.{GameState, GameStateFactory}
@@ -34,7 +34,7 @@ import org.scalatest.matchers.should.Matchers
   *   - [[DefaultGameService.submitMove]] — loads session+state; publishes MoveRejected on domain
   *     rejection
   *   - [[DefaultGameService.resignGame]] — loads session+state; delegates to commands.resignGame
-  *   - [[DefaultGameService.cancelSession]] — delegates to sessionService.cancelSession
+  *   - [[DefaultGameService.cancelSession]] — delegates to SessionLifecycleService.cancelSession
   *   - [[DefaultGameService.triggerAIMove]] — NotAITurn when aiService=None; delegates when Some
   *   - Query delegation: getSession, getSessionByGameId, getGame, listActiveSessions
   */
@@ -54,11 +54,11 @@ class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
     val sessionRepo = new InMemorySessionRepository
     val gameRepo = new InMemoryGameRepository
     val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionService = new SessionService(sessionRepo, collector)
-    val commands = new SessionGameService(sessionService, store, collector)
+    val sessionLifecycleService = new SessionLifecycleService(sessionRepo, collector)
+    val commands = new SessionGameCommandService(sessionLifecycleService, store, collector)
     val svc = DefaultGameService(
       commands = commands,
-      sessionService = sessionService,
+      sessionLifecycleService = sessionLifecycleService,
       gameRepository = gameRepo,
       publisher = collector,
       aiService = aiService
@@ -230,12 +230,12 @@ class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
     val sessionRepo = new InMemorySessionRepository
     val gameRepo = new InMemoryGameRepository
     val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionService = new SessionService(sessionRepo, _ => ())
-    val commands = new SessionGameService(sessionService, store, collector)
+    val sessionLifecycleService = new SessionLifecycleService(sessionRepo, _ => ())
+    val commands = new SessionGameCommandService(sessionLifecycleService, store, collector)
     val alwaysLegal: AiMoveSuggestionClient =
       _ => Right(AIResponse(Move(Position.from(4, 1).value, Position.from(4, 3).value)))
     val ai = AITurnService(alwaysLegal, commands, collector)
-    val svcWithAI = DefaultGameService(commands, sessionService, gameRepo, collector, Some(ai))
+    val svcWithAI = DefaultGameService(commands, sessionLifecycleService, gameRepo, collector, Some(ai))
     svcWithAI.triggerAIMove(SessionId.random()).left.value shouldBe
       a[AITurnError.SessionLookupFailed]
   }
@@ -253,12 +253,12 @@ class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
     val sessionRepo = new InMemorySessionRepository
     val gameRepo = new InMemoryGameRepository
     val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionService = new SessionService(sessionRepo, _ => ())
-    val commands = new SessionGameService(sessionService, store, collector)
+    val sessionLifecycleService = new SessionLifecycleService(sessionRepo, _ => ())
+    val commands = new SessionGameCommandService(sessionLifecycleService, store, collector)
     val alwaysLegal: AiMoveSuggestionClient =
       _ => Right(AIResponse(Move(Position.from(4, 1).value, Position.from(4, 3).value)))
     val ai = AITurnService(alwaysLegal, commands, collector)
-    val svcWithAI = DefaultGameService(commands, sessionService, gameRepo, collector, Some(ai))
+    val svcWithAI = DefaultGameService(commands, sessionLifecycleService, gameRepo, collector, Some(ai))
     svcWithAI.triggerAIMoveByGameId(GameId.random()).left.value shouldBe
       a[AITurnError.SessionLookupFailed]
   }

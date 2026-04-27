@@ -12,7 +12,7 @@ import {
   getGameState,
   getGameNotation,
   getStatus,
-  importGameFromNotation,
+  loadSessionState,
   requestAiMove,
   resignGame,
   submitMove
@@ -86,7 +86,7 @@ export type UseGameStateReturn = {
   handleSelect: (square: string) => Promise<void>;
   setGameMode: (mode: PlayableGameMode) => void;
   handleNewGame: () => Promise<void>;
-  handleImportNotation: (format: "FEN" | "PGN", notation: string) => Promise<void>;
+  handleResumeSession: (sessionId: string) => Promise<void>;
   handleResign: () => Promise<void>;
   handleAnimationFinished: (id: number) => void;
 
@@ -460,42 +460,27 @@ export function useGameState(): UseGameStateReturn {
     } finally {
       setBusyState(false);
     }
-  }, [commitGameSnapshot, gameMode, refreshNotation, setSession]);
+  }, [commitGameSnapshot, gameMode, setSession]);
 
-  const handleImportNotation = useCallback(
-    async (format: "FEN" | "PGN", notation: string): Promise<void> => {
-      const trimmed = notation.trim();
-      if (!trimmed) {
-        setMessageState("Notation is empty.");
-        return;
-      }
-
-      const thisGen = ++generation.current;
-      const request: ImportNotationRequest = {
-        format,
-        notation: trimmed,
-        mode: gameMode
-      };
-      setBusyState(true);
-      setMessageState(`Importing ${format}...`);
-      try {
-        const response = await importGameFromNotation(request);
-        if (thisGen !== generation.current) return;
-        setSession(response.session);
-        commitGameSnapshot(response.game);
-        void refreshNotation(response.game.gameId, thisGen);
-        setMessageState(undefined);
-      } catch (error) {
-        if (thisGen !== generation.current) return;
-        setMessageState(
-          error instanceof Error ? error.message : "Import failed."
-        );
-      } finally {
-        setBusyState(false);
-      }
-    },
-    [commitGameSnapshot, gameMode, refreshNotation, setSession]
-  );
+  const handleResumeSession = useCallback(async (sessionId: string): Promise<void> => {
+    const thisGen = ++generation.current;
+    setBusyState(true);
+    setMessageState("Loading session...");
+    try {
+      const state = await loadSessionState(sessionId);
+      if (thisGen !== generation.current) return;
+      setSession(state.session);
+      commitGameSnapshot(state.game);
+      setMessageState(undefined);
+    } catch (error) {
+      if (thisGen !== generation.current) return;
+      setMessageState(
+        error instanceof Error ? error.message : "Failed to load session."
+      );
+    } finally {
+      setBusyState(false);
+    }
+  }, [commitGameSnapshot, setSession]);
 
   const handleResign = useCallback(async (): Promise<void> => {
     if (!game || busy || isTerminal(game) || isClosedLifecycle(session)) return;
@@ -553,7 +538,7 @@ export function useGameState(): UseGameStateReturn {
     handleSelect,
     setGameMode,
     handleNewGame,
-    handleImportNotation,
+    handleResumeSession,
     handleResign,
     handleAnimationFinished,
     setMessage,

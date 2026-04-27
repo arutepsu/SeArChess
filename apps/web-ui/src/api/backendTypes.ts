@@ -77,6 +77,30 @@ export interface SessionResponse {
   updatedAt: string;
 }
 
+export interface CastlingRightsDto {
+  whiteKingSide: boolean;
+  whiteQueenSide: boolean;
+  blackKingSide: boolean;
+  blackQueenSide: boolean;
+}
+
+export interface EnPassantDto {
+  targetSquare: string;
+  capturablePawnSquare: string;
+  pawnColor: Color;
+}
+
+export interface SessionStateResponse {
+  session: SessionResponse;
+  game: GameSnapshot;
+  castlingRights: CastlingRightsDto;
+  enPassant: EnPassantDto | null;
+}
+
+export interface SessionListResponse {
+  sessions: SessionResponse[];
+}
+
 export interface CreateGameResponse {
   session: SessionResponse;
   game: GameSnapshot;

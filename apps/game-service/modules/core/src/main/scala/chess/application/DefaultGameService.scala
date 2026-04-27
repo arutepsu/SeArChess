@@ -13,7 +13,7 @@ import chess.application.session.service.{
   GameSessionCommands,
   SessionError,
   SessionMoveError,
-  SessionService
+  SessionLifecycleService
 }
 import chess.domain.model.{Color, Move}
 import chess.domain.rules.GameStateRules
@@ -24,13 +24,13 @@ import java.time.Instant
   *
   * Thin orchestration facade: delegates every command and query to the appropriate existing
   * application service. Business logic and event policy stay inside
-  * [[chess.application.session.service.SessionGameService]] and
-  * [[chess.application.session.service.SessionService]]; this class only routes calls and maps
+  * [[chess.application.session.service.SessionGameCommandService]] and
+  * [[chess.application.session.service.SessionLifecycleService]]; this class only routes calls and maps
   * errors for the transport boundary.
   *
   * ===Dependency map===
   *   - [[commands]] — authoritative write boundary for moves and new games
-  *   - [[sessionService]] — session queries, lifecycle writes, cancel, list
+  *   - [[sessionLifecycleService]] — session queries, lifecycle writes, cancel, list
   *   - [[gameRepository]] — read-only game state access
   *   - [[publisher]] — audit event publication (see [[submitMove]] for scope)
   *   - [[aiService]] — optional AI move orchestration; [[AITurnError.NotConfigured]] is returned
@@ -45,7 +45,7 @@ import java.time.Instant
   *
   * @param commands
   *   session command boundary (newGame, submitMove, resignGame)
-  * @param sessionService
+  * @param sessionLifecycleService
   *   session lifecycle, queries, cancel, list
   * @param gameRepository
   *   read-only game state port
@@ -56,7 +56,7 @@ import java.time.Instant
   */
 class DefaultGameService(
     commands: GameSessionCommands,
-    sessionService: SessionService,
+    sessionLifecycleService: SessionLifecycleService,
     gameRepository: GameRepository,
     publisher: EventPublisher,
     aiService: Option[AITurnService] = None
@@ -86,7 +86,7 @@ class DefaultGameService(
     * [[AppEvent.MoveRejected]] is an '''interaction/audit event''', not a state- transition event:
     * it records that a move was attempted and rejected, but the game state does not change. It is
     * published here — at the facade level — because
-    * [[chess.application.session.service.SessionGameService]] only sees successful paths and cannot
+    * [[chess.application.session.service.SessionGameCommandService]] only sees successful paths and cannot
     * observe rejections. The facade is the only place that holds both the session identity (needed
     * for the event) and the domain rejection error.
     *
@@ -102,7 +102,7 @@ class DefaultGameService(
   ): Either[SessionMoveError, (GameState, GameSession)] =
     // Load session and state up-front so we have the sessionId available for
     // MoveRejected publication even when the move itself is rejected.
-    val sessionResult = sessionService.getSessionByGameId(gameId)
+    val sessionResult = sessionLifecycleService.getSessionByGameId(gameId)
     val stateResult = gameRepository.load(gameId)
 
     val result =
@@ -129,7 +129,7 @@ class DefaultGameService(
       now: Instant = Instant.now()
   ): Either[SessionError, (GameState, GameSession)] =
     for
-      session <- sessionService.getSession(sessionId)
+      session <- sessionLifecycleService.getSession(sessionId)
       state <- gameRepository.load(session.gameId).left.map(SessionError.PersistenceFailed(_))
       result <- commands.resignGame(session, state, resigningSide, now)
     yield result
@@ -148,7 +148,7 @@ class DefaultGameService(
       sessionId: SessionId,
       now: Instant = Instant.now()
   ): Either[SessionError, GameSession] =
-    sessionService.cancelSession(sessionId, now)
+    sessionLifecycleService.cancelSession(sessionId, now)
 
   def triggerAIMove(
       sessionId: SessionId,
@@ -158,7 +158,7 @@ class DefaultGameService(
       case None => Left(AITurnError.NotConfigured)
       case Some(ai) =>
         for
-          session <- sessionService
+          session <- sessionLifecycleService
             .getSession(sessionId)
             .left
             .map(AITurnError.SessionLookupFailed(_))
@@ -184,7 +184,7 @@ class DefaultGameService(
       case None => Left(AITurnError.NotConfigured)
       case Some(ai) =>
         for
-          session <- sessionService
+          session <- sessionLifecycleService
             .getSessionByGameId(gameId)
             .left
             .map(AITurnError.SessionLookupFailed(_))
@@ -195,10 +195,10 @@ class DefaultGameService(
   // ── Queries ─────────────────────────────────────────────────────────────────
 
   def getSession(id: SessionId): Either[SessionError, SessionView] =
-    sessionService.getSession(id).map(SessionView.fromSession)
+    sessionLifecycleService.getSession(id).map(SessionView.fromSession)
 
   def getSessionByGameId(id: GameId): Either[SessionError, SessionView] =
-    sessionService.getSessionByGameId(id).map(SessionView.fromSession)
+    sessionLifecycleService.getSessionByGameId(id).map(SessionView.fromSession)
 
   def getGame(id: GameId): Either[RepositoryError, GameView] =
     gameRepository.load(id).map(GameView.fromState(id, _))
@@ -213,11 +213,11 @@ class DefaultGameService(
     }
 
   def listActiveSessions(): Either[SessionError, List[SessionView]] =
-    sessionService.listActiveSessions().map(_.map(SessionView.fromSession))
+    sessionLifecycleService.listActiveSessions().map(_.map(SessionView.fromSession))
 
   def getArchiveSnapshot(id: GameId): Either[ArchiveError, GameArchiveSnapshot] =
     for
-      session <- sessionService.getSessionByGameId(id).left.map {
+      session <- sessionLifecycleService.getSessionByGameId(id).left.map {
         case SessionError.GameSessionNotFound(_) => ArchiveError.GameNotFound(id)
         case e                                   => ArchiveError.StorageFailure(e.toString)
       }
@@ -229,6 +229,7 @@ class DefaultGameService(
       )
       state <- gameRepository.load(id).left.map {
         case RepositoryError.NotFound(_)         => ArchiveError.GameNotFound(id)
+        case RepositoryError.Conflict(msg)       => ArchiveError.StorageFailure(msg)
         case RepositoryError.StorageFailure(msg) => ArchiveError.StorageFailure(msg)
       }
     yield GameArchiveSnapshot(

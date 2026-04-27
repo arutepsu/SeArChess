@@ -1,6 +1,6 @@
 package chess.adapter.textui
 
-import chess.application.{ApplicationError, ChessService, GameStateObservable}
+import chess.application.{ApplicationError, GameStateCommandService, GameStateObservable}
 import chess.application.ChessCommand.MakeMove
 import chess.application.session.model.{DesktopSessionContext, SideController}
 import chess.application.session.service.{GameSessionCommands, SessionMoveError}
@@ -14,7 +14,7 @@ import scala.annotation.tailrec
   * Operates in two distinct modes:
   *
   * ===Local mode (default)===
-  * No session parameters supplied. Moves go through [[ChessService]] directly (pure domain path).
+  * No session parameters supplied. Moves go through [[GameStateCommandService]] directly (pure domain path).
   * No persistence, no event publication. Intended for standalone demo use, testing without
   * infrastructure, and the existing convenience constructors in the companion object.
   *
@@ -114,10 +114,10 @@ final class TextUI(
                 game.updateState(fresh)
               case Left(_) =>
                 // Best-effort: update notification bridge even if session creation failed.
-                game.updateState(ChessService.createNewGame())
+                game.updateState(GameStateCommandService.createNewGame())
           case _ =>
             // Local mode: pure domain reset, no persistence.
-            game.updateState(ChessService.createNewGame())
+            game.updateState(GameStateCommandService.createNewGame())
         console.printLine("New game started.")
         loop(pendingMove = None)
 
@@ -159,7 +159,7 @@ final class TextUI(
               case _ =>
                 // ── Local mode ──────────────────────────────────────────────
                 // Pure domain path: no persistence, no events.
-                ChessService.handleCommand(state, MakeMove(Move(from, to))) match
+                GameStateCommandService.handleCommand(state, MakeMove(Move(from, to))) match
                   case Left(ApplicationError.DomainFailure(DomainError.MissingPromotionChoice)) =>
                     console.printLine(ConsoleRenderer.renderPromotionRequired())
                     loop(pendingMove = Some(Move(from, to)))
@@ -200,7 +200,7 @@ final class TextUI(
               case _ =>
                 // ── Local mode ──────────────────────────────────────────────
                 // $COVERAGE-OFF$ promotion with q/r/b/n on a valid board cannot fail
-                ChessService.handleCommand(
+                GameStateCommandService.handleCommand(
                   state,
                   MakeMove(Move(pm.from, pm.to, Some(pieceType)))
                 ) match
@@ -240,7 +240,7 @@ final class TextUI(
   * Used only by the [[TextUI]] convenience constructors. Not a shared infrastructure concern —
   * session-aware callers supply their own instance from the composition root.
   */
-private class LocalObservableGame(initial: GameState = ChessService.createNewGame())
+private class LocalObservableGame(initial: GameState = GameStateCommandService.createNewGame())
     extends GameStateObservable:
   import scala.collection.mutable
   private var s = initial

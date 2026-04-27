@@ -30,7 +30,7 @@ object GuiWiring:
     val ctx = LocalGameAssembly.build(config)
 
     // ── GUI-local session ────────────────────────────────────────────────────
-    val session = ctx.sessionService
+    val session = ctx.sessionLifecycleService
       .createSession(
         GameId.random(),
         SessionMode.HumanVsHuman,
@@ -45,5 +45,5 @@ object GuiWiring:
 
     // ── GUI preparation ──────────────────────────────────────────────────────
     ChessApp.prepareWith(game)
-    ChessApp.prepareSessionGame(ctx.commands, ctx.sessionService, sessionContext)
+    ChessApp.prepareSessionGame(ctx.commands, ctx.sessionLifecycleService, sessionContext)
     // No post-start hook — GUI runs standalone without TUI

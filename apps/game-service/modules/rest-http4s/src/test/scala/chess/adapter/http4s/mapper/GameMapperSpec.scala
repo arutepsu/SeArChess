@@ -1,6 +1,6 @@
 package chess.adapter.http4s.mapper
 
-import chess.application.ChessService
+import chess.application.GameStateCommandService
 import chess.application.query.game.GameView
 import chess.application.session.model.SessionIds.GameId
 import chess.domain.model.{Color, DrawReason, GameStatus}
@@ -10,7 +10,7 @@ import org.scalatest.OptionValues
 
 class GameMapperSpec extends AnyFlatSpec with Matchers with OptionValues:
 
-  private val initialState = ChessService.createNewGame()
+  private val initialState = GameStateCommandService.createNewGame()
   private val fixedGameId = GameId(
     java.util.UUID.fromString("00000000-0000-0000-0000-000000000001")
   )

@@ -4,7 +4,7 @@ package chess.adapter.gui
 import chess.adapter.gui.scene.ChessScene
 import chess.application.GameStateObservable
 import chess.application.session.model.DesktopSessionContext
-import chess.application.session.service.{GameSessionCommands, SessionService}
+import chess.application.session.service.{GameSessionCommands, SessionLifecycleService}
 import scalafx.application.JFXApp3
 import scalafx.application.JFXApp3.PrimaryStage
 
@@ -16,7 +16,7 @@ import scalafx.application.JFXApp3.PrimaryStage
   *
   * ===Required setup sequence===
   *   1. [[prepareWith]] — supply the shared [[GameStateObservable]] 2. [[prepareSessionGame]] —
-  *      supply the [[GameSessionCommands]], [[SessionService]], and [[DesktopSessionContext]] 3.
+  *      supply the [[GameSessionCommands]], [[sessionLifecycleService]], and [[DesktopSessionContext]] 3.
   *      [[prepareAfterStart]] — register optional post-start hook (e.g. TUI startup) 4. [[main]] —
   *      launch the JavaFX toolkit
   *
@@ -29,7 +29,7 @@ object ChessApp extends JFXApp3:
 
   private var providedGame: Option[GameStateObservable] = None
   private var providedCommands: Option[GameSessionCommands] = None
-  private var providedSessionService: Option[SessionService] = None
+  private var providedSessionService: Option[SessionLifecycleService] = None
   private var providedContext: Option[DesktopSessionContext] = None
   private var afterStart: () => Unit = () => ()
 
@@ -39,17 +39,17 @@ object ChessApp extends JFXApp3:
 
   /** Supply the shared session dependencies before launching.
     *
-    * The [[GameSessionCommands]], [[SessionService]], and [[DesktopSessionContext]] must be the
+    * The [[GameSessionCommands]], [[sessionLifecycleService]], and [[DesktopSessionContext]] must be the
     * same instances provided to [[chess.adapter.textui.TuiRunner]] so that GUI and TUI share one
     * authoritative game identity. Called by [[chess.Main]].
     */
   def prepareSessionGame(
       commands: GameSessionCommands,
-      sessionService: SessionService,
+      sessionLifecycleService: SessionLifecycleService,
       context: DesktopSessionContext
   ): Unit =
     providedCommands = Some(commands)
-    providedSessionService = Some(sessionService)
+    providedSessionService = Some(sessionLifecycleService)
     providedContext = Some(context)
 
   /** Register a callback to invoke after [[start()]] has finished setting up the primary stage. The
@@ -66,7 +66,7 @@ object ChessApp extends JFXApp3:
     val commands = providedCommands.getOrElse(
       throw IllegalStateException("[ChessApp] prepareSessionGame must be called before main")
     )
-    val sessionService = providedSessionService.getOrElse(
+    val sessionLifecycleService = providedSessionService.getOrElse(
       throw IllegalStateException("[ChessApp] prepareSessionGame must be called before main")
     )
     val context = providedContext.getOrElse(
@@ -78,7 +78,7 @@ object ChessApp extends JFXApp3:
     providedSessionService = None
     providedContext = None
 
-    val sceneController = new ChessScene(game, commands, sessionService, context)
+    val sceneController = new ChessScene(game, commands, sessionLifecycleService, context)
 
     stage = new PrimaryStage:
       title = "Searchess"

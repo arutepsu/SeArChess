@@ -26,14 +26,14 @@ import java.time.Instant
   *     [[chess.application.event.AppEvent.GameFinished]], and
   *     [[chess.application.event.AppEvent.SessionLifecycleChanged]]
   *
-  * Adapters that depend on this interface — rather than on [[SessionGameService]] directly — can be
+  * Adapters that depend on this interface — rather than on [[SessionGameCommandService]] directly — can be
   * re-pointed to a remote implementation without changing their own logic.
   *
   * ===What this interface does NOT cover===
-  *   - read / query access to session or game state (use [[SessionService]] or a dedicated query
+  *   - read / query access to session or game state (use [[SessionLifecycleService]] or a dedicated query
   *     service)
   *   - session-only lifecycle writes that do not involve a [[GameState]] update (e.g.
-  *     [[SessionService.preparePromotion]], [[SessionService.updateLifecycle]])
+  *     [[SessionLifecycleService.preparePromotion]], [[SessionLifecycleService.updateLifecycle]])
   *   - AI turn orchestration (that is a separate application concern in
   *     [[chess.application.ai.service.AITurnService]])
   */

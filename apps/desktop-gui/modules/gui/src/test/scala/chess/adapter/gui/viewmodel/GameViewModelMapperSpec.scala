@@ -1,6 +1,6 @@
 package chess.adapter.gui.viewmodel
 
-import chess.application.ChessService
+import chess.application.GameStateCommandService
 import chess.domain.model.{Board, Color, DrawReason, GameStatus, Piece, PieceType, Position}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -10,7 +10,7 @@ class GameViewModelMapperSpec extends AnyFlatSpec with Matchers:
   private def algPos(alg: String): Position =
     Position.fromAlgebraic(alg).getOrElse(throw AssertionError(s"Bad algebraic: $alg"))
 
-  private val freshState = ChessService.createNewGame()
+  private val freshState = GameStateCommandService.createNewGame()
 
   // ── build ─────────────────────────────────────────────────────────────────
 

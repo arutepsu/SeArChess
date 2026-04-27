@@ -9,10 +9,21 @@ import chess.adapter.repository.{
   InMemorySessionRepository
 }
 import chess.application.DefaultGameService
-import chess.application.session.service.{SessionGameService, SessionService}
+import chess.application.port.repository.RepositoryError
+import chess.application.session.model.{SessionMode, SideController}
+import chess.application.session.model.SessionIds.GameId
+import chess.application.session.service.{
+  PersistentSessionAggregate,
+  PersistentSessionError,
+  PersistentSessionService,
+  SessionGameCommandService,
+  SessionLifecycleService
+}
+import chess.domain.state.GameStateFactory
 import org.http4s.*
 import org.http4s.dsl.io.*
 import org.http4s.implicits.*
+import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import java.util.UUID
@@ -28,7 +39,7 @@ import java.util.UUID
   * [[chess.application.GameServiceApi]] implementation), replacing the previous three-dependency
   * split.
   */
-class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers:
+class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   // ── shared fixtures ────────────────────────────────────────────────────────
 
@@ -36,10 +47,12 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers:
     val sessionRepo = InMemorySessionRepository()
     val gameRepo = InMemoryGameRepository()
     val store = InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionService = SessionService(sessionRepo, _ => ())
-    val svc = SessionGameService(sessionService, store, _ => ())
-    val gameService = DefaultGameService(svc, sessionService, gameRepo, _ => ())
-    Http4sSessionRoutes(gameService).routes.orNotFound
+    val sessionLifecycleService = SessionLifecycleService(sessionRepo, _ => ())
+    val persistentSessionService =
+      PersistentSessionService(sessionRepo, gameRepo, store, sessionLifecycleService)
+    val svc = SessionGameCommandService(sessionLifecycleService, store, _ => ())
+    val gameService = DefaultGameService(svc, sessionLifecycleService, gameRepo, _ => ())
+    Http4sSessionRoutes(gameService, persistentSessionService).routes.orNotFound
 
   /** Run a request through the route under test and return the response. */
   private def run(routes: HttpApp[IO], req: Request[IO]): Response[IO] =
@@ -260,6 +273,239 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers:
     bodyJson(resp)("code").str shouldBe "BAD_REQUEST"
   }
 
+  "GET /sessions/{sessionId}/state" should "return 200 with session and game state after creation" in {
+    val routes = makeRoutes()
+    val createReq = Request[IO](Method.POST, uri"/sessions")
+      .withBodyStream(fs2.Stream.emits("{}".getBytes("UTF-8")).covary[IO])
+    val createJson = bodyJson(run(routes, createReq))
+    val sessionId = createJson("session")("sessionId").str
+
+    val getResp =
+      run(routes, Request[IO](Method.GET, Uri.unsafeFromString(s"/sessions/$sessionId/state")))
+    getResp.status shouldBe Status.Ok
+    val json = bodyJson(getResp)
+    json("session")("sessionId").str shouldBe sessionId
+    json("game")("currentPlayer").str shouldBe "White"
+    json("game")("status").str shouldBe "Ongoing"
+  }
+
+  it should "return 404 for an unknown session id" in {
+    val routes = makeRoutes()
+    val unknown = UUID.randomUUID().toString
+    val resp =
+      run(routes, Request[IO](Method.GET, Uri.unsafeFromString(s"/sessions/$unknown/state")))
+    resp.status shouldBe Status.NotFound
+    bodyJson(resp)("code").str shouldBe "SESSION_NOT_FOUND"
+  }
+
+  it should "return 400 for a non-UUID session id" in {
+    val routes = makeRoutes()
+    val resp = run(routes, Request[IO](Method.GET, uri"/sessions/not-a-uuid/state"))
+    resp.status shouldBe Status.BadRequest
+    bodyJson(resp)("code").str shouldBe "BAD_REQUEST"
+  }
+
+  it should "return 500 when the session exists but the game state is missing" in {
+    val sessionRepo = InMemorySessionRepository()
+    val gameRepo = InMemoryGameRepository()
+    val store = InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionLifecycleService = SessionLifecycleService(sessionRepo, _ => ())
+    val persistentSessionService =
+      PersistentSessionService(sessionRepo, gameRepo, store, sessionLifecycleService)
+    val svc = SessionGameCommandService(sessionLifecycleService, store, _ => ())
+    val gameService = DefaultGameService(svc, sessionLifecycleService, gameRepo, _ => ())
+    val routes = Http4sSessionRoutes(gameService, persistentSessionService).routes.orNotFound
+
+    val session = sessionLifecycleService
+      .createSession(
+        gameId = GameId.random(),
+        mode = SessionMode.HumanVsHuman,
+        whiteController = SideController.HumanLocal,
+        blackController = SideController.HumanLocal
+      )
+      .value
+
+    val resp = run(
+      routes,
+      Request[IO](Method.GET, Uri.unsafeFromString(s"/sessions/${session.sessionId.value}/state"))
+    )
+    resp.status shouldBe Status.InternalServerError
+    bodyJson(resp)("code").str shouldBe "INTERNAL_ERROR"
+  }
+
+  "PUT /sessions/{sessionId}/state" should "return 200 with the saved aggregate" in {
+    val routes = makeRoutes()
+    val createReq = Request[IO](Method.POST, uri"/sessions")
+      .withBodyStream(fs2.Stream.emits("{}".getBytes("UTF-8")).covary[IO])
+    val created = bodyJson(run(routes, createReq))
+    val sessionId = created("session")("sessionId").str
+    val stateJson = bodyJson(
+      run(routes, Request[IO](Method.GET, Uri.unsafeFromString(s"/sessions/$sessionId/state")))
+    )
+
+    val putResp = run(
+      routes,
+      Request[IO](Method.PUT, Uri.unsafeFromString(s"/sessions/$sessionId/state"))
+        .withBodyStream(fs2.Stream.emits(stateJson.render().getBytes("UTF-8")).covary[IO])
+    )
+
+    putResp.status shouldBe Status.Ok
+    val json = bodyJson(putResp)
+    json("session")("sessionId").str shouldBe sessionId
+    json("game")("gameId").str shouldBe created("game")("gameId").str
+    json("castlingRights")("whiteKingSide").bool shouldBe true
+  }
+
+  it should "return 400 for a non-UUID path session id" in {
+    val routes = makeRoutes()
+    val body =
+      """{"session":{"sessionId":"00000000-0000-0000-0000-000000000001","gameId":"00000000-0000-0000-0000-000000000002","mode":"HumanVsHuman","lifecycle":"Created","whiteController":"HumanLocal","blackController":"HumanLocal","createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-01T00:00:00Z"},"game":{"gameId":"00000000-0000-0000-0000-000000000002","currentPlayer":"White","status":"Ongoing","inCheck":false,"winner":null,"drawReason":null,"fullmoveNumber":1,"halfmoveClock":0,"board":[],"moveHistory":[],"lastMove":null,"promotionPending":false,"legalTargetsByFrom":{}},"castlingRights":{"whiteKingSide":true,"whiteQueenSide":true,"blackKingSide":true,"blackQueenSide":true},"enPassant":null}"""
+    val resp = run(
+      routes,
+      Request[IO](Method.PUT, uri"/sessions/not-a-uuid/state")
+        .withBodyStream(fs2.Stream.emits(body.getBytes("UTF-8")).covary[IO])
+    )
+    resp.status shouldBe Status.BadRequest
+    bodyJson(resp)("code").str shouldBe "BAD_REQUEST"
+  }
+
+  it should "return 400 for malformed JSON" in {
+    val routes = makeRoutes()
+    val resp = run(
+      routes,
+      Request[IO](Method.PUT, uri"/sessions/not-a-real-id/state")
+        .withBodyStream(fs2.Stream.emits("not json".getBytes("UTF-8")).covary[IO])
+    )
+    resp.status shouldBe Status.BadRequest
+    bodyJson(resp)("code").str shouldBe "BAD_REQUEST"
+  }
+
+  it should "return 400 for a path/body session id mismatch" in {
+    val routes = makeRoutes()
+    val createReq = Request[IO](Method.POST, uri"/sessions")
+      .withBodyStream(fs2.Stream.emits("{}".getBytes("UTF-8")).covary[IO])
+    val created = bodyJson(run(routes, createReq))
+    val sessionId = created("session")("sessionId").str
+    val stateJson = bodyJson(
+      run(routes, Request[IO](Method.GET, Uri.unsafeFromString(s"/sessions/$sessionId/state")))
+    )
+    stateJson("session")("sessionId") = ujson.Str(UUID.randomUUID().toString)
+
+    val resp = run(
+      routes,
+      Request[IO](Method.PUT, Uri.unsafeFromString(s"/sessions/$sessionId/state"))
+        .withBodyStream(fs2.Stream.emits(stateJson.render().getBytes("UTF-8")).covary[IO])
+    )
+    resp.status shouldBe Status.BadRequest
+    bodyJson(resp)("code").str shouldBe "BAD_REQUEST"
+  }
+
+  it should "return 404 when the target session does not exist" in {
+    val routes = makeRoutes()
+    val unknownSessionId = UUID.randomUUID().toString
+    val gameId = UUID.randomUUID().toString
+    val body =
+      s"""{"session":{"sessionId":"$unknownSessionId","gameId":"$gameId","mode":"HumanVsHuman","lifecycle":"Created","whiteController":"HumanLocal","blackController":"HumanLocal","createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-01T00:00:00Z"},"game":{"gameId":"$gameId","currentPlayer":"White","status":"Ongoing","inCheck":false,"winner":null,"drawReason":null,"fullmoveNumber":1,"halfmoveClock":0,"board":[],"moveHistory":[],"lastMove":null,"promotionPending":false,"legalTargetsByFrom":{}},"castlingRights":{"whiteKingSide":true,"whiteQueenSide":true,"blackKingSide":true,"blackQueenSide":true},"enPassant":null}"""
+    val resp = run(
+      routes,
+      Request[IO](Method.PUT, Uri.unsafeFromString(s"/sessions/$unknownSessionId/state"))
+        .withBodyStream(fs2.Stream.emits(body.getBytes("UTF-8")).covary[IO])
+    )
+    resp.status shouldBe Status.NotFound
+    bodyJson(resp)("code").str shouldBe "SESSION_NOT_FOUND"
+  }
+
+  it should "return 409 when PersistentSessionService reports a conflict" in {
+    val sessionRepo = InMemorySessionRepository()
+    val gameRepo = InMemoryGameRepository()
+    val store = InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionLifecycleService = SessionLifecycleService(sessionRepo, _ => ())
+    val realPersistentSessionService =
+      PersistentSessionService(sessionRepo, gameRepo, store, sessionLifecycleService)
+    val conflictingPersistentSessionService = new PersistentSessionService(
+      sessionRepo,
+      gameRepo,
+      store,
+      sessionLifecycleService
+    ):
+      override def saveAggregate(
+          sessionId: chess.application.session.model.SessionIds.SessionId,
+          aggregate: PersistentSessionAggregate
+      ): Either[PersistentSessionError, PersistentSessionAggregate] =
+        Left(PersistentSessionError.Conflict("write conflict"))
+    val svc = SessionGameCommandService(sessionLifecycleService, store, _ => ())
+    val gameService = DefaultGameService(svc, sessionLifecycleService, gameRepo, _ => ())
+    val routes =
+      Http4sSessionRoutes(gameService, conflictingPersistentSessionService).routes.orNotFound
+
+    val created = bodyJson(
+      run(
+        Http4sSessionRoutes(gameService, realPersistentSessionService).routes.orNotFound,
+        Request[IO](Method.POST, uri"/sessions")
+          .withBodyStream(fs2.Stream.emits("{}".getBytes("UTF-8")).covary[IO])
+      )
+    )
+    val sessionId = created("session")("sessionId").str
+    val stateJson = bodyJson(
+      run(
+        Http4sSessionRoutes(gameService, realPersistentSessionService).routes.orNotFound,
+        Request[IO](Method.GET, Uri.unsafeFromString(s"/sessions/$sessionId/state"))
+      )
+    )
+
+    val resp = run(
+      routes,
+      Request[IO](Method.PUT, Uri.unsafeFromString(s"/sessions/$sessionId/state"))
+        .withBodyStream(fs2.Stream.emits(stateJson.render().getBytes("UTF-8")).covary[IO])
+    )
+    resp.status shouldBe Status.Conflict
+    bodyJson(resp)("code").str shouldBe "CONFLICT"
+  }
+
+  it should "return 500 when PersistentSessionService reports storage failure" in {
+    val sessionRepo = InMemorySessionRepository()
+    val gameRepo = InMemoryGameRepository()
+    val store = InMemorySessionGameStore(sessionRepo, gameRepo)
+    val sessionLifecycleService = SessionLifecycleService(sessionRepo, _ => ())
+    val realPersistentSessionService =
+      PersistentSessionService(sessionRepo, gameRepo, store, sessionLifecycleService)
+    val failingPersistentSessionService = new PersistentSessionService(
+      sessionRepo,
+      gameRepo,
+      store,
+      sessionLifecycleService
+    ):
+      override def saveAggregate(
+          sessionId: chess.application.session.model.SessionIds.SessionId,
+          aggregate: PersistentSessionAggregate
+      ): Either[PersistentSessionError, PersistentSessionAggregate] =
+        Left(PersistentSessionError.StorageFailure("disk full"))
+    val svc = SessionGameCommandService(sessionLifecycleService, store, _ => ())
+    val gameService = DefaultGameService(svc, sessionLifecycleService, gameRepo, _ => ())
+    val createRoutes = Http4sSessionRoutes(gameService, realPersistentSessionService).routes.orNotFound
+    val routes = Http4sSessionRoutes(gameService, failingPersistentSessionService).routes.orNotFound
+
+    val created = bodyJson(
+      run(
+        createRoutes,
+        Request[IO](Method.POST, uri"/sessions")
+          .withBodyStream(fs2.Stream.emits("{}".getBytes("UTF-8")).covary[IO])
+      )
+    )
+    val sessionId = created("session")("sessionId").str
+    val stateJson = bodyJson(
+      run(createRoutes, Request[IO](Method.GET, Uri.unsafeFromString(s"/sessions/$sessionId/state")))
+    )
+
+    val resp = run(
+      routes,
+      Request[IO](Method.PUT, Uri.unsafeFromString(s"/sessions/$sessionId/state"))
+        .withBodyStream(fs2.Stream.emits(stateJson.render().getBytes("UTF-8")).covary[IO])
+    )
+    resp.status shouldBe Status.InternalServerError
+    bodyJson(resp)("code").str shouldBe "INTERNAL_ERROR"
+  }
+
   // ── POST /sessions/{id}/cancel ─────────────────────────────────────────────
 
   "POST /sessions/{id}/cancel" should "return 200 with Cancelled lifecycle after cancel" in {
@@ -307,3 +553,4 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers:
     resp.status shouldBe Status.BadRequest
     bodyJson(resp)("code").str shouldBe "BAD_REQUEST"
   }
+
