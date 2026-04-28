@@ -1,55 +1,110 @@
+/* Hauptcontainer für den Move-Log */
 .move-list-panel {
-  background: rgba(20, 21, 27, 0.88);
-  border-radius: 24px;
-  padding: 20px;
-  color: #f4efe6;
-  min-height: 240px;
-}
-
-.move-list-panel header h2 {
-  margin: 0;
-  font-size: 1.1rem;
-  letter-spacing: 0.1rem;
-  text-transform: uppercase;
-}
-
-.move-list-panel header p {
-  margin: 6px 0 16px;
-  font-size: 0.8rem;
-  opacity: 0.6;
-}
-
-.move-list-panel .move-list {
-  display: grid;
-  gap: 12px;
-}
-
-.move-list-panel .move {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 12px;
-  align-items: center;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(43, 24, 28, 0.85);
+  backdrop-filter: blur(12px);
+  border: 2px solid #5a3a3a;
   border-radius: 16px;
+  padding: 20px;
+  color: #f0e6d2;
+  max-width: 300px;
+  display: flex;
+  flex-direction: column;
+  max-height: 400px;
+  /* Begrenzung der Höhe mit Scrollbar */
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.move-list-panel h2 {
+  font-family: 'Georgia', serif;
+  margin: 0;
+  font-size: 1.3rem;
+  color: #e6b347;
+  /* Goldener Akzent */
+}
+
+.move-list-panel p {
+  margin: 4px 0 16px;
+  font-size: 0.85rem;
+  color: #bfa8a8;
+}
+
+/* Die Liste der Züge */
+.move-list {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 8px;
+  /* Platz für Scrollbar */
+}
+
+/* Einzelner Zug-Eintrag */
+.move {
+  display: grid;
+  grid-template-columns: 40px 1fr 80px;
+  align-items: center;
   padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  border-left: 3px solid transparent;
+  transition: all 0.2s ease;
 }
 
-.move-list-panel .ply {
+/* Hervorhebung des letzten Zuges (optional via JS Klasse) */
+.move:last-child {
+  background: rgba(230, 179, 71, 0.1);
+  border-left-color: #e6b347;
+}
+
+.move:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Spalten-Styling */
+.move .ply {
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  color: #e6b347;
+  font-size: 0.9rem;
+}
+
+.move .notation {
   font-weight: 700;
-  color: #ffce74;
+  font-size: 1rem;
+  letter-spacing: 0.5px;
 }
 
-.move-list-panel .notation {
-  font-weight: 600;
-  letter-spacing: 0.05rem;
+.move .coords {
+  font-family: 'Courier New', monospace;
+  font-size: 0.75rem;
+  color: #bfa8a8;
+  text-align: right;
 }
 
-.move-list-panel .coords {
-  font-size: 0.8rem;
-  opacity: 0.7;
-}
-
-.move-list-panel .empty {
-  opacity: 0.6;
+/* Leerer Zustand */
+.move-list .empty {
+  text-align: center;
+  padding: 20px;
+  opacity: 0.5;
   font-style: italic;
+  font-size: 0.9rem;
+}
+
+/* Custom Scrollbar für den Retro-Look */
+.move-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.move-list::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+}
+
+.move-list::-webkit-scrollbar-thumb {
+  background: #5a3a3a;
+  border-radius: 10px;
+}
+
+.move-list::-webkit-scrollbar-thumb:hover {
+  background: #e6b347;
 }
