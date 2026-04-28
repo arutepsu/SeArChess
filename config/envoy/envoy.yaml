@@ -52,12 +52,18 @@ static_resources:
                             cluster: game_service_ws
                         - match:
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 2b1aa125 (real migration ok)
                             path: /admin/migrations
                           route:
                             cluster: game_service_http
                         - match:
+<<<<<<< HEAD
 =======
 >>>>>>> abcc8c8c (envoy + ai service prerp)
+=======
+>>>>>>> 2b1aa125 (real migration ok)
                             prefix: /
                           direct_response:
                             status: 404

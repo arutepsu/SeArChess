@@ -42,7 +42,11 @@ object ConfigLoader:
   private val DefaultAiMode:          String = "remote"
   private val DefaultAiRemoteBaseUrl: String = "http://ai-service:8765"
   private val DefaultAiTimeoutMillis: String = "2000"
+<<<<<<< HEAD
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
+=======
+  private val DefaultMigrationAdminEnabled: String = "false"
+>>>>>>> 2b1aa125 (real migration ok)
 
   def load(): Either[String, AppConfig] =
     loadFrom(key => Option(System.getenv(key)).filter(_.nonEmpty))
@@ -120,6 +124,7 @@ object ConfigLoader:
       ),
       migrationAdminEnabled = migrationAdmin,
       migrationAdminToken = migrationToken
+<<<<<<< HEAD
 =======
       httpHost    <- Right(env("HTTP_HOST").getOrElse(DefaultHttpHost))
       httpPort    <- parsePort("HTTP_PORT", env("HTTP_PORT").getOrElse(DefaultHttpPort))
@@ -153,6 +158,8 @@ object ConfigLoader:
                       defaultEngineId = engineId
                     )
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
+=======
+>>>>>>> 2b1aa125 (real migration ok)
     )
 
   def loadOrExit(): AppConfig =
@@ -218,6 +225,21 @@ object ConfigLoader:
           )
           .map(Some.apply)
       case PersistenceMode.Mongo | PersistenceMode.InMemory | PersistenceMode.SQLite =>
+<<<<<<< HEAD
+=======
+        Right(None)
+
+  private def loadMongoConfigIfNeeded(
+      persistence: PersistenceMode,
+      env: String => Option[String]
+  ): Either[String, Option[MongoConfig]] =
+    persistence match
+      case PersistenceMode.Mongo =>
+        MongoConfigLoader
+          .load(env, contextMessage = Some("Mongo runtime persistence requires SEARCHESS_MONGO_URI."))
+          .map(Some.apply)
+      case PersistenceMode.Postgres | PersistenceMode.InMemory | PersistenceMode.SQLite =>
+>>>>>>> 2b1aa125 (real migration ok)
         Right(None)
 
   private def loadMongoConfigIfNeeded(

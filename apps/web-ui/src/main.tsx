@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App.tsx";
+import PersistenceAdminPage from "./admin/PersistenceAdminPage.tsx";
 import { SessionProvider } from "./session/SessionProvider";
 import keycloak from "./auth/keycloak";
 import "./assets/base.css";
@@ -10,6 +11,7 @@ if (!container) {
   throw new Error("Missing #app root element");
 }
 
+<<<<<<< HEAD
 keycloak
   .init({ onLoad: "login-required", pkceMethod: "S256" })
   .then((authenticated: boolean) => {
@@ -31,3 +33,16 @@ keycloak
     container.textContent =
       "Auth initialization failed. Is Keycloak running on http://localhost:8080?";
   });
+=======
+const root = createRoot(container);
+
+if (window.location.pathname === "/admin/persistence") {
+  root.render(<PersistenceAdminPage onBack={() => { window.location.href = "/"; }} />);
+} else {
+  root.render(
+    <SessionProvider>
+      <App />
+    </SessionProvider>
+  );
+}
+>>>>>>> 2b1aa125 (real migration ok)

@@ -31,8 +31,13 @@ import chess.startup.assembly.{AppContext, CoreAssembly, PersistenceAssembly}
 import chess.adapter.http4s.Http4sApp
 import chess.server.assembly.{AppContext, EventWiring}
 import chess.server.config.{AiConfig, AppConfig}
+<<<<<<< HEAD
 import chess.server.http.{CorsMiddleware, HealthRoutes, HistoryOutboxOpsRoutes}
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
+=======
+import chess.server.http.{CorsMiddleware, HealthRoutes, HistoryOutboxOpsRoutes, MigrationAdminRoutes}
+import chess.server.migration.MigrationCliRunner
+>>>>>>> 2b1aa125 (real migration ok)
 import com.comcast.ip4s.{Host, Port}
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.{HttpApp, Request}
@@ -57,6 +62,7 @@ object ServerWiring:
         domainMetrics
       ).httpApp
 
+<<<<<<< HEAD
     val baseOpsRoutes = HealthRoutes.routes <+> MetricsRoutes.routes(metricsRegistry, domainMetrics) <+> HistoryOutboxOpsRoutes(events.historyOutbox).routes
     val internalOpsRoutes =
       if config.migrationAdminEnabled then
@@ -71,8 +77,17 @@ object ServerWiring:
       Http4sApp(ctx.gameService).httpApp
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
 
+=======
+    val baseOpsRoutes = HealthRoutes.routes <+> HistoryOutboxOpsRoutes(events.historyOutbox).routes
+>>>>>>> 2b1aa125 (real migration ok)
     val internalOpsRoutes =
-      HealthRoutes.routes <+> HistoryOutboxOpsRoutes(events.historyOutbox).routes
+      if config.migrationAdminEnabled then
+        val token = config.migrationAdminToken.getOrElse(
+          throw RuntimeException("migrationAdminToken must be set when migrationAdminEnabled — config validation should prevent this state")
+        )
+        baseOpsRoutes <+> MigrationAdminRoutes(token, MigrationCliRunner.runForReport(_)).routes
+      else
+        baseOpsRoutes
 
     val composedApp: HttpApp[IO] =
       Kleisli { (req: Request[IO]) =>

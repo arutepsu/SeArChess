@@ -17,6 +17,7 @@ import chess.server.config.{
   WebSocketConfig
 }
 import chess.server.persistence.MongoPersistenceRuntime
+<<<<<<< HEAD
 import org.scalatest.Assertions.cancel
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.EitherValues
@@ -24,6 +25,12 @@ import org.scalatest.Outcome
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.testcontainers.DockerClientFactory
+=======
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.EitherValues
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+>>>>>>> 2b1aa125 (real migration ok)
 import org.testcontainers.containers.MongoDBContainer
 import org.testcontainers.utility.DockerImageName
 
@@ -40,6 +47,7 @@ class PersistenceAssemblyMongoRuntimeSpec
     with BeforeAndAfterAll:
 
   private val mongo = GameServiceRuntimeMongoContainer()
+<<<<<<< HEAD
   private var started = false
 
   override protected def withFixture(test: NoArgTest): Outcome =
@@ -57,6 +65,15 @@ class PersistenceAssemblyMongoRuntimeSpec
     if started then
       mongo.stop()
       started = false
+=======
+
+  override protected def beforeAll(): Unit =
+    super.beforeAll()
+    mongo.start()
+
+  override protected def afterAll(): Unit =
+    mongo.stop()
+>>>>>>> 2b1aa125 (real migration ok)
     super.afterAll()
 
   "PersistenceAssembly" should "wire Mongo runtime persistence through initialized collections" in {

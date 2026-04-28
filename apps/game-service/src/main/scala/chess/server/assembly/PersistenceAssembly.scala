@@ -17,6 +17,10 @@ import chess.adapter.repository.postgres.PostgresPersistenceRuntime
 import chess.application.port.repository.{GameRepository, SessionGameStore, SessionRepository}
 import chess.server.config.{AppConfig, MongoConfig, PersistenceMode, PostgresConfig, SqliteConfig}
 import chess.server.persistence.MongoPersistenceRuntime
+<<<<<<< HEAD
+=======
+import slick.jdbc.PostgresProfile.api.Database
+>>>>>>> 2b1aa125 (real migration ok)
 
 final case class PersistenceWiring(
     sessionRepository: SessionRepository,
@@ -93,6 +97,7 @@ object PersistenceAssembly:
     PersistenceWiring(sessionRepo, gameRepo, store)
 
   private def assemblePostgres(cfg: PostgresConfig): PersistenceWiring =
+<<<<<<< HEAD
     PostgresPersistenceRuntime.open(cfg.url, cfg.user, cfg.password, schema = cfg.schema) match
       case Left(error) => throw IllegalArgumentException(s"Postgres persistence initialization failed: $error")
       case Right(runtime) =>
@@ -102,6 +107,24 @@ object PersistenceAssembly:
           runtime.store,
           shutdown = runtime.close
         )
+=======
+    PostgresFlywaySchemaInitializer.migrate(
+      url = cfg.url,
+      user = cfg.user,
+      password = cfg.password
+    )
+    val db =
+      Database.forURL(
+        url = cfg.url,
+        user = cfg.user,
+        password = cfg.password,
+        driver = "org.postgresql.Driver"
+      )
+    val sessionRepo = PostgresSessionRepository(db)
+    val gameRepo = PostgresGameRepository(db)
+    val store = PostgresSessionGameStore(db)
+    PersistenceWiring(sessionRepo, gameRepo, store, shutdown = () => db.close())
+>>>>>>> 2b1aa125 (real migration ok)
 
   private def assembleMongo(cfg: MongoConfig): PersistenceWiring =
     MongoPersistenceRuntime.open(cfg) match
@@ -113,8 +136,11 @@ object PersistenceAssembly:
           runtime.store,
           shutdown = () => runtime.close()
         )
+<<<<<<< HEAD
 =======
     val gameRepo    = SqliteGameRepository(ds)
     val store       = SqliteSessionGameStore(ds, sessionRepo, gameRepo)
     PersistenceWiring(sessionRepo, gameRepo, store)
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
+=======
+>>>>>>> 2b1aa125 (real migration ok)

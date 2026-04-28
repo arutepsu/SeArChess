@@ -143,6 +143,7 @@ export default function Homepage({ hasActiveGame, busy, onStart, onContinueActiv
             Aktuelles Spiel fortsetzen
           </button>
         )}
+
       </section>
 
       <section className="panel bot-control-panel">

@@ -4,8 +4,11 @@ enum PersistenceMode:
 <<<<<<< HEAD
   case Postgres
   case Mongo
+<<<<<<< HEAD
 =======
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
+=======
+>>>>>>> 2b1aa125 (real migration ok)
   case InMemory
   case SQLite
 
@@ -124,6 +127,7 @@ final case class AppConfig(
     ai: AiConfig,
     migrationAdminEnabled: Boolean = false,
     migrationAdminToken: Option[String] = None
+<<<<<<< HEAD
 =======
   http:        HttpConfig,
   webSocket:   WebSocketConfig,
@@ -134,4 +138,6 @@ final case class AppConfig(
   history:     HistoryForwardingConfig,
   ai:          AiConfig
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
+=======
+>>>>>>> 2b1aa125 (real migration ok)
 )

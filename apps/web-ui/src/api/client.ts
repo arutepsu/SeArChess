@@ -31,6 +31,7 @@ import type {
   SubmitMoveRequest
 } from "./backendTypes";
 <<<<<<< HEAD
+<<<<<<< HEAD
 import type { MigrationReport, MigrationRequest } from "./migrationTypes";
 import keycloak from "../auth/keycloak";
 =======
@@ -38,6 +39,9 @@ import { mapGameResponseToGameState } from "./mapper";
 import type { ErrorResponse } from "./backendTypes";
 import type { SessionContext } from "../session/sessionStore";
 >>>>>>> ce08c01e (local microservices)
+=======
+import type { MigrationReport, MigrationRequest } from "./migrationTypes";
+>>>>>>> 2b1aa125 (real migration ok)
 
 const DEFAULT_API_BASE = "http://localhost:10000";
 
@@ -429,6 +433,7 @@ export async function runMigration(
     body: JSON.stringify(request)
   });
 }
+<<<<<<< HEAD
 
 export async function getHeatmapStats(
   gameId: string,
@@ -450,3 +455,5 @@ const mockLegalMoves: Record<string, string[]> = {
   b8: ["a6", "c6"]
 };
 >>>>>>> abcc8c8c (envoy + ai service prerp)
+=======
+>>>>>>> 2b1aa125 (real migration ok)

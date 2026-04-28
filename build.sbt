@@ -431,10 +431,16 @@ lazy val bootstrapServer = project
     run / fork          := true,
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-ember-server" % http4sVersion,
+<<<<<<< HEAD
       "org.http4s" %% "http4s-dsl"          % http4sVersion,
       "org.testcontainers" % "testcontainers" % testcontainersVersion % Test,
       "org.testcontainers" % "postgresql"     % testcontainersVersion % Test,
       "org.testcontainers" % "mongodb"        % testcontainersVersion % Test
+=======
+      "org.http4s" %% "http4s-dsl" % http4sVersion,
+      "org.testcontainers" % "postgresql" % testcontainersVersion % Test,
+      "org.testcontainers" % "mongodb" % testcontainersVersion % Test
+>>>>>>> 2b1aa125 (real migration ok)
     ),
     excludeFromCoverage(
       ".*chess.server.ServerMain.*",

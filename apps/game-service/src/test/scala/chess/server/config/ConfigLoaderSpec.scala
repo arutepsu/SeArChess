@@ -17,8 +17,11 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
     "SEARCHESS_MONGO_URI" -> "mongodb://localhost:27017/searchess"
   )
 
+<<<<<<< HEAD
 =======
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
+=======
+>>>>>>> 2b1aa125 (real migration ok)
   private def load(values: (String, String)*): Either[String, AppConfig] =
     val env = values.toMap
     ConfigLoader.loadFrom(key => env.get(key))
@@ -284,6 +287,7 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
     config.persistence shouldBe PersistenceMode.InMemory
     config.postgres shouldBe None
     config.mongo shouldBe None
+<<<<<<< HEAD
 =======
     load("AI_TIMEOUT_MILLIS" -> "0").left.value should include ("AI_TIMEOUT_MILLIS must be >= 1")
   }
@@ -293,6 +297,8 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
     config.persistence shouldBe PersistenceMode.InMemory
     config.sqlite      shouldBe None
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
+=======
+>>>>>>> 2b1aa125 (real migration ok)
   }
 
   it should "parse sqlite persistence mode and populate SqliteConfig with default path" in {
@@ -302,10 +308,13 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
     config.sqlite.value.path shouldBe "chess.db"
     config.postgres shouldBe None
     config.mongo shouldBe None
+<<<<<<< HEAD
 =======
     config.persistence       shouldBe PersistenceMode.SQLite
     config.sqlite.value.path shouldBe "chess.db"
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
+=======
+>>>>>>> 2b1aa125 (real migration ok)
   }
 
   it should "parse sqlite persistence mode with a custom CHESS_DB_PATH" in {
@@ -362,7 +371,10 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
 
     config.migrationAdminEnabled shouldBe false
     config.migrationAdminToken shouldBe Some("ignored-token")
+<<<<<<< HEAD
 =======
     load("PERSISTENCE_MODE" -> "postgres").left.value should include ("PERSISTENCE_MODE")
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
+=======
+>>>>>>> 2b1aa125 (real migration ok)
   }
