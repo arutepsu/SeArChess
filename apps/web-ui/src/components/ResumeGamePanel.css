@@ -1,11 +1,12 @@
-.resume-panel {
-  display: grid;
-  gap: 12px;
-}
-
-.resume-panel header {
-  display: grid;
-  gap: 4px;
+.panel.resume-panel {
+  background: transparent;
+  /* Entfernt den dunklen Hintergrund */
+  border: none;
+  /* Entfernt eventuelle Rahmen */
+  box-shadow: none;
+  /* Entfernt Schatten */
+  padding: 0;
+  /* Entfernt den inneren Abstand */
 }
 
 .resume-actions {
@@ -68,4 +69,27 @@
 .session-date {
   font-size: 0.75rem;
   opacity: 0.6;
+}
+
+.resume-game-btn {
+  background: #ffce74;
+  color: #14151b;
+  border: none;
+  border-radius: 16px;
+  padding: 18px 24px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(255, 206, 116, 0.2);
+}
+
+.resume-game-btn:hover {
+  background: #ffdf9c;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(255, 206, 116, 0.3);
+}
+
+.resume-game-btn:active {
+  transform: translateY(0);
 }

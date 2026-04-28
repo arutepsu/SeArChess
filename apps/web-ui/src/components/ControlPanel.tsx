@@ -18,6 +18,7 @@ type ControlPanelProps = {
   onGameModeChange: (mode: PlayableGameMode) => void;
   onNewGame: () => void;
   onResign: () => void;
+  onBackToMenu: () => void;
 };
 
 type ExportedNotation = {
@@ -61,20 +62,23 @@ export default function ControlPanel({
   onExportNotation,
   onGameModeChange,
   onNewGame,
-  onResign
+  onResign,
+  onBackToMenu
 }: ControlPanelProps) {
   const whiteActive = activeColor === "white" && clockRunning;
   const blackActive = activeColor === "black" && clockRunning;
 
+  const getProgress = (timeMs?: number) => {
+    const total = 600000; // 10 Minuten als Standard
+    if (!timeMs) return "0%";
+    const percentage = Math.min(100, (timeMs / total) * 100);
+    return `${percentage}%`;
+  };
+
   const [fenDraft, setFenDraft] = useState("");
   const [pgnDraft, setPgnDraft] = useState("");
-  const [exportedNotation, setExportedNotation] =
-    useState<ExportedNotation | null>(null);
-  const [exportingFormat, setExportingFormat] = useState<"FEN" | "PGN" | null>(
-    null
-  );
-  const [exportError, setExportError] = useState<string | null>(null);
   const [exportNotice, setExportNotice] = useState<string | null>(null);
+  const [notationFormat, setNotationFormat] = useState<"FEN" | "PGN">("FEN");
 
   const readNotationFile = async (
     file: File | undefined,
@@ -84,35 +88,21 @@ export default function ControlPanel({
     setter(await file.text());
   };
 
-  const handleExportClick = async (format: "FEN" | "PGN") => {
-    setExportingFormat(format);
-    setExportError(null);
-    setExportNotice(null);
+  const copyNotation = async () => {
+    const textToCopy = notationFormat === "FEN" ? fen : pgn;
+    if (!textToCopy || !navigator.clipboard?.writeText) return;
 
-    try {
-      const text = await onExportNotation(format);
-      setExportedNotation({ format, text });
-    } catch (error) {
-      setExportError(
-        error instanceof Error ? error.message : `${format} export failed.`
-      );
-    } finally {
-      setExportingFormat(null);
-    }
+    await navigator.clipboard.writeText(textToCopy);
+    setExportNotice(`${notationFormat} copied.`);
+    setTimeout(() => setExportNotice(null), 3000);
   };
 
-  const copyExportedNotation = async () => {
-    if (!exportedNotation || !navigator.clipboard?.writeText) return;
+  const downloadNotation = () => {
+    const textToDownload = notationFormat === "FEN" ? fen : pgn;
+    if (!textToDownload || !game) return;
 
-    await navigator.clipboard.writeText(exportedNotation.text);
-    setExportNotice(`${exportedNotation.format} copied.`);
-  };
-
-  const downloadExportedNotation = () => {
-    if (!exportedNotation || !game) return;
-
-    const extension = exportedNotation.format.toLowerCase();
-    const blob = new Blob([exportedNotation.text], {
+    const extension = notationFormat.toLowerCase();
+    const blob = new Blob([textToDownload], {
       type: "text/plain;charset=utf-8"
     });
     const url = window.URL.createObjectURL(blob);
@@ -124,7 +114,8 @@ export default function ControlPanel({
     anchor.click();
     anchor.remove();
     window.URL.revokeObjectURL(url);
-    setExportNotice(`${exportedNotation.format} downloaded.`);
+    setExportNotice(`${notationFormat} downloaded.`);
+    setTimeout(() => setExportNotice(null), 3000);
   };
 
   return (
@@ -135,12 +126,20 @@ export default function ControlPanel({
       </header>
 
       <div className="clocks">
-        <div className={`clock${whiteActive ? " is-active" : ""}`}>
+        {/* WEISS */}
+        <div
+          className={`clock${whiteActive ? " is-active" : ""}`}
+          style={{ "--time-left": getProgress(whiteTimeMs) } as React.CSSProperties}
+        >
           <span className="label">White</span>
           <strong className="clock-time">{formatTime(whiteTimeMs)}</strong>
         </div>
 
-        <div className={`clock${blackActive ? " is-active" : ""}`}>
+        {/* SCHWARZ */}
+        <div
+          className={`clock${blackActive ? " is-active" : ""}`}
+          style={{ "--time-left": getProgress(blackTimeMs) } as React.CSSProperties}
+        >
           <span className="label">Black</span>
           <strong className="clock-time">{formatTime(blackTimeMs)}</strong>
         </div>
@@ -163,146 +162,143 @@ export default function ControlPanel({
         </div>
       </div>
 
+
+      <div className="notation-format-select">
+        <label htmlFor="notation-format-select" className="label" style={{ marginRight: 8 }}>
+          Notation Format
+        </label>
+        <select
+          id="notation-format-select"
+          value={notationFormat}
+          onChange={e => setNotationFormat(e.target.value as "FEN" | "PGN")}
+          disabled={busy}
+        >
+          <option value="FEN">FEN</option>
+          <option value="PGN">PGN</option>
+        </select>
+      </div>
+
       <div className="notation">
-        <span className="label">Notation export</span>
-        <p className="notation-note">
-          FEN and PGN do not preserve session metadata.
-        </p>
-        <div>
-          <span className="label">FEN</span>
-          <pre className="notation-text">{fen ?? "Not available"}</pre>
-          <button
-            type="button"
-            disabled={busy || !game || exportingFormat !== null}
-            onClick={() => void handleExportClick("FEN")}
-          >
-            {exportingFormat === "FEN" ? "Exporting FEN..." : "Export FEN"}
-          </button>
-        </div>
 
-        <div>
-          <span className="label">PGN</span>
-          <pre className="notation-text">{pgn ?? "Not available"}</pre>
-          <button
-            type="button"
-            disabled={busy || !game || exportingFormat !== null}
-            onClick={() => void handleExportClick("PGN")}
-          >
-            {exportingFormat === "PGN" ? "Exporting PGN..." : "Export PGN"}
-          </button>
-        </div>
-
-        <div className="notation-output">
-          <span className="label">
-            {exportedNotation
-              ? `${exportedNotation.format} export`
-              : "Export result"}
-          </span>
-          <textarea
-            readOnly
-            rows={5}
-            value={exportedNotation?.text ?? ""}
-            placeholder="Exported notation will appear here."
-          />
-          {exportError ? <p className="notation-error">{exportError}</p> : null}
-          {exportNotice ? (
-            <p className="notation-success">{exportNotice}</p>
-          ) : null}
-          <div className="notation-output-actions">
-            <button
-              type="button"
-              disabled={!exportedNotation || !navigator.clipboard?.writeText}
-              onClick={() => void copyExportedNotation()}
-            >
-              Copy
-            </button>
-            <button
-              type="button"
-              disabled={!exportedNotation || !game}
-              onClick={downloadExportedNotation}
-            >
-              Download
-            </button>
+        {notationFormat === "FEN" && (
+          <div>
+            <span className="label">FEN</span>
+            <pre className="notation-text">{fen ?? "Not available"}</pre>
+            <div className="notation-output-actions">
+              <button
+                type="button"
+                disabled={!fen || !navigator.clipboard?.writeText}
+                onClick={() => void copyNotation()}
+              >
+                Copy
+              </button>
+              <button
+                type="button"
+                disabled={!fen || !game}
+                onClick={downloadNotation}
+              >
+                Download
+              </button>
+            </div>
           </div>
-        </div>
+        )}
+
+        {notationFormat === "PGN" && (
+          <div>
+            <span className="label">PGN</span>
+            <pre className="notation-text">{pgn ?? "Not available"}</pre>
+            <div className="notation-output-actions">
+              <button
+                type="button"
+                disabled={!pgn || !navigator.clipboard?.writeText}
+                onClick={() => void copyNotation()}
+              >
+                Copy
+              </button>
+              <button
+                type="button"
+                disabled={!pgn || !game}
+                onClick={downloadNotation}
+              >
+                Download
+              </button>
+            </div>
+          </div>
+        )}
+
+        {exportNotice ? (
+          <p className="notation-success">{exportNotice}</p>
+        ) : null}
       </div>
 
       <div className="import-notation">
         <span className="label">Notation import</span>
-        <div>
-          <span className="label">Import FEN</span>
-          <textarea
-            value={fenDraft}
-            onChange={(event) => setFenDraft(event.target.value)}
-            placeholder="Paste FEN here"
-            rows={3}
-            disabled={busy}
-          />
-          <input
-            type="file"
-            accept=".fen,.txt"
-            disabled={busy}
-            onChange={(event) =>
-              void readNotationFile(event.currentTarget.files?.[0], setFenDraft)
-            }
-          />
-          <button
-            type="button"
-            disabled={busy || !fenDraft.trim()}
-            onClick={() => onImportNotation("FEN", fenDraft)}
-          >
-            Import FEN
-          </button>
-        </div>
 
-        <div>
-          <span className="label">Import PGN</span>
-          <textarea
-            value={pgnDraft}
-            onChange={(event) => setPgnDraft(event.target.value)}
-            placeholder="Paste PGN here"
-            rows={3}
-            disabled={busy}
-          />
-          <input
-            type="file"
-            accept=".pgn,.txt"
-            disabled={busy}
-            onChange={(event) =>
-              void readNotationFile(event.currentTarget.files?.[0], setPgnDraft)
-            }
-          />
-          <button
-            type="button"
-            disabled={busy || !pgnDraft.trim()}
-            onClick={() => onImportNotation("PGN", pgnDraft)}
-          >
-            Import PGN
-          </button>
-        </div>
+        {notationFormat === "FEN" && (
+          <div>
+            <span className="label">Import FEN</span>
+            <textarea
+              value={fenDraft}
+              onChange={(event) => setFenDraft(event.target.value)}
+              placeholder="Paste FEN here"
+              rows={3}
+              disabled={busy}
+            />
+            <input
+              type="file"
+              accept=".fen,.txt"
+              disabled={busy}
+              onChange={(event) =>
+                void readNotationFile(event.currentTarget.files?.[0], setFenDraft)
+              }
+            />
+            <button
+              type="button"
+              disabled={busy || !fenDraft.trim()}
+              onClick={() => onImportNotation("FEN", fenDraft)}
+            >
+              Import FEN
+            </button>
+          </div>
+        )}
+
+        {notationFormat === "PGN" && (
+          <div>
+            <span className="label">Import PGN</span>
+            <textarea
+              value={pgnDraft}
+              onChange={(event) => setPgnDraft(event.target.value)}
+              placeholder="Paste PGN here"
+              rows={3}
+              disabled={busy}
+            />
+            <input
+              type="file"
+              accept=".pgn,.txt"
+              disabled={busy}
+              onChange={(event) =>
+                void readNotationFile(event.currentTarget.files?.[0], setPgnDraft)
+              }
+            />
+            <button
+              type="button"
+              disabled={busy || !pgnDraft.trim()}
+              onClick={() => onImportNotation("PGN", pgnDraft)}
+            >
+              Import PGN
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="actions">
-        <label className="mode-select">
-          <span className="label">Mode</span>
-          <select
-            value={gameMode}
-            disabled={busy}
-            onChange={(event) =>
-              onGameModeChange(event.target.value as PlayableGameMode)
-            }
-          >
-            <option value="HumanVsHuman">Human vs Human</option>
-            <option value="HumanVsAI">Human vs AI</option>
-          </select>
-        </label>
-
-        <button type="button" disabled={busy} onClick={onNewGame}>
-          New Game
-        </button>
 
         <button type="button" disabled={!canResign} onClick={onResign}>
           Resign
+        </button>
+
+        <button type="button" disabled={busy} onClick={onBackToMenu}>
+          Back to Menu
         </button>
       </div>
     </section>

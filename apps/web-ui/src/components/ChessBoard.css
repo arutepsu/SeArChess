@@ -3,8 +3,8 @@
   border: 1px solid rgba(181, 136, 99, 0.35);
   padding: 6px;
   width: fit-content;
-  justify-self: start;
-  margin-left: 40px;
+  justify-self: center;
+  margin-left: 0;
   --square-size: 72px;
 }
 

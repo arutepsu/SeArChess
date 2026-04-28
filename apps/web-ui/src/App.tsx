@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Routes, Route, useNavigate } from "react-router-dom";
 import type { PlayerColor, PlayableGameMode } from "./api/types";
 import type { SpriteCatalog } from "./assets/spriteCatalog";
 import { loadSpriteCatalog } from "./assets/spriteCatalog";
@@ -9,9 +10,9 @@ import { useSession } from "./session/SessionProvider";
 import ChessBoard from "./components/ChessBoard.tsx";
 import ControlPanel from "./components/ControlPanel.tsx";
 import MoveList from "./components/MoveList.tsx";
-import ResumeGamePanel from "./components/ResumeGamePanel.tsx";
+//import ResumeGamePanel from "./components/ResumeGamePanel.tsx";
 import SessionTransferPanel from "./components/SessionTransferPanel.tsx";
-import StatusBanner from "./components/StatusBanner.tsx";
+//import StatusBanner from "./components/StatusBanner.tsx";
 import Homepage from "./components/Homepage.tsx";
 import BackgroundEffectsLayer from "./components/BackgroundEffectsLayer.tsx";
 import BackgroundPanel from "./components/BackgroundPanel.tsx";
@@ -74,8 +75,8 @@ export default function App() {
   } = useGameState();
 
   const { session, setSession, getSessionId } = useSession();
+  const navigate = useNavigate();
 
-  const [hasStarted, setHasStarted] = useState(false);
   const [connection, setConnection] = useState<ConnectionState>("loading");
   const [liveConnection, setLiveConnection] =
     useState<LiveConnectionState>("idle");
@@ -131,9 +132,13 @@ export default function App() {
 
   const handleStartGame = async (selectedMode: PlayableGameMode) => {
     setGameMode(selectedMode);
-    setHasStarted(true);
+    navigate("/game");
     await handleNewGame(selectedMode);
   };
+
+  const handleBackToMenu = useCallback(() => {
+    navigate("/");
+  }, [navigate]);
 
   useEffect(() => {
     wsClientRef.current?.close();
@@ -308,16 +313,33 @@ export default function App() {
     <div className="app">
       <BackgroundEffectsLayer backgroundId={backgroundId} />
 
-      {hasStarted ? (
-        <>
-          <StatusBanner
-            game={game}
-            connection={connection}
-            liveConnection={liveConnection}
-            message={message}
+      <Routes>
+        <Route path="/" element={
+          <Homepage
+            hasActiveGame={Boolean(game)}
+            busy={busy}
+            onStart={handleStartGame}
+            onContinueActiveGame={() => navigate("/game")}
+            onResumeSession={async (sessionId) => {
+              await handleResumeSession(sessionId);
+              navigate("/game");
+            }}
           />
-
+        } />
+        <Route path="/game" element={
           <main className="layout">
+            <aside className="side left-side">
+              <BackgroundPanel
+                backgrounds={backgrounds}
+                backgroundId={backgroundId}
+                onChange={setBackgroundId}
+              />
+
+              <MoveList moves={game?.moves ?? []} />
+
+              <CapturedPanel captured={game?.captured ?? []} spriteCatalog={spriteCatalog} />
+            </aside>
+
             {game ? (
               <ChessBoard
                 board={game.board}
@@ -335,7 +357,7 @@ export default function App() {
               </section>
             )}
 
-            <aside className="side">
+            <aside className="side right-side">
               <ControlPanel
                 game={game}
                 busy={busy}
@@ -352,35 +374,13 @@ export default function App() {
                 onGameModeChange={setGameMode}
                 onNewGame={handleNewGame}
                 onResign={handleResign}
+                onBackToMenu={handleBackToMenu}
               />
 
-              <BackgroundPanel
-                backgrounds={backgrounds}
-                backgroundId={backgroundId}
-                onChange={setBackgroundId}
-              />
-
-              <ResumeGamePanel busy={busy} onResume={handleResumeSession} />
-
-              <SessionTransferPanel
-                busy={busy}
-                sessionId={session?.sessionId ?? null}
-                onImportSession={handleImportSession}
-              />
-
-              <MoveList moves={game?.moves ?? []} />
-
-              <CapturedPanel captured={game?.captured ?? []} spriteCatalog={spriteCatalog} />
             </aside>
           </main>
-        </>
-      ) : (
-        <Homepage
-          hasActiveGame={Boolean(game)}
-          onStart={handleStartGame}
-          onResume={() => setHasStarted(true)}
-        />
-      )}
+        } />
+      </Routes>
     </div>
   );
 }

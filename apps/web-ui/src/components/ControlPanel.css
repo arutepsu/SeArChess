@@ -1,21 +1,37 @@
 .control-panel {
-  background: rgba(20, 21, 27, 0.88);
-  border-radius: 24px;
+  /* Hintergrund an Background-Panel anpassen */
+  background: rgba(43, 24, 28, 0.85);
+  backdrop-filter: blur(12px);
+  border: 2px solid #5a3a3a;
+  /* Gleicher Rahmen wie links */
+  border-radius: 16px;
+  /* Einheitlicher Radius */
   padding: 20px;
-  color: #f4efe6;
+  color: #f0e6d2;
+  /* Etwas wärmeres Weiß */
+  width: 280px;
+  /* Leicht breiter für bessere Lesbarkeit */
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
+/* --- Header & Typografie --- */
 .control-panel header h2 {
+  font-family: 'Georgia', serif;
+  /* Serif-Look wie links */
   margin: 0;
-  font-size: 1.1rem;
-  letter-spacing: 0.1rem;
-  text-transform: uppercase;
+  font-size: 1.3rem;
+  letter-spacing: 0.05rem;
+  text-transform: none;
+  /* Weniger "Schreien", mehr Eleganz */
+  color: #e6b347;
+  /* Goldener Akzent für die Titel */
 }
 
 .control-panel header p {
-  margin: 6px 0 16px;
-  font-size: 0.8rem;
-  opacity: 0.6;
+  margin: 4px 0 20px;
+  font-size: 0.85rem;
+  color: #bfa8a8;
+  opacity: 1;
 }
 
 .control-panel .status {
@@ -39,11 +55,38 @@
   padding: 10px 12px;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.04);
+  position: relative;
+  /* Wichtig für die Positionierung des Balkens */
+  overflow: hidden;
+  /* Damit der Balken an den Ecken nicht übersteht */
+}
+
+/* Der visuelle Zeit-Balken */
+.control-panel .clock::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 4px;
+  background: #e6b347;
+  /* Standardfarbe */
+  width: var(--time-left, 100%);
+  /* Diesen Wert müsstest du via JS/Inline-Style steuern (z.B. style="width: 70%") */
+  opacity: 0.6;
+  transition: width 1s linear;
+  /* Geschmeidige Abnahme */
+}
+
+/* Wenn die Uhr aktiv ist, soll der Balken leuchten */
+.control-panel .clock.is-active::after {
+  background: #ffce74;
+  box-shadow: 0 0 10px rgba(255, 206, 116, 0.8);
+  opacity: 1;
 }
 
 .control-panel .clock.is-active {
   box-shadow: 0 0 0 1px rgba(255, 206, 116, 0.55),
-              0 12px 22px rgba(0, 0, 0, 0.35);
+    0 12px 22px rgba(0, 0, 0, 0.35);
 }
 
 .control-panel .clock-time {
@@ -162,8 +205,8 @@
   width: 100%;
 }
 
-.control-panel .notation > div > button,
-.control-panel .import-notation > div > button {
+.control-panel .notation>div>button,
+.control-panel .import-notation>div>button {
   margin-top: 8px;
 }
 
@@ -180,14 +223,21 @@
   gap: 6px;
 }
 
-.control-panel select {
-  min-height: 38px;
-  border: 1px solid rgba(255, 206, 116, 0.35);
-  border-radius: 14px;
-  padding: 8px 10px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #f4efe6;
-  font: inherit;
+.control-panel select,
+.control-panel .notation-output textarea,
+.control-panel .import-notation textarea {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid #5a3a3a;
+  border-radius: 8px;
+  color: #f0e6d2;
+  font-family: 'Courier New', monospace;
+  transition: border-color 0.3s ease;
+}
+
+.control-panel select:focus,
+.control-panel textarea:focus {
+  border-color: #e6b347;
+  outline: none;
 }
 
 .control-panel select:disabled {
@@ -203,12 +253,37 @@
   color: #231710;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  /* Sanfter Übergang für alle Eigenschaften */
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.3s ease,
+    background-color 0.3s ease,
+    color 0.3s ease;
 }
 
 .control-panel button:hover {
+  background: #ffce74;
+  /* Etwas helleres Gold beim Hover */
+  color: #2b181c;
   transform: translateY(-2px);
-  box-shadow: 0 12px 18px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 4px 12px rgba(230, 179, 71, 0.3);
+}
+
+.control-panel .btn-danger {
+  background: #a34e56;
+  color: white;
+}
+
+/* Optional: Klick-Effekt (Active) */
+.control-panel button:active {
+  transform: translateY(0);
+  filter: brightness(0.9);
+}
+
+.control-panel .label {
+  color: #bfa8a8;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.05rem;
 }
 
 .control-panel button:disabled {
