@@ -377,11 +377,6 @@ export default function App() {
                 onBackToMenu={handleBackToMenu}
               />
 
-              <SessionTransferPanel
-                busy={busy}
-                sessionId={session?.sessionId ?? null}
-                onImportSession={handleImportSession}
-              />
             </aside>
           </main>
         } />

@@ -265,23 +265,6 @@ export default function ControlPanel({
       </div>
 
       <div className="actions">
-        <label className="mode-select">
-          <span className="label">Mode</span>
-          <select
-            value={gameMode}
-            disabled={busy}
-            onChange={(event) =>
-              onGameModeChange(event.target.value as PlayableGameMode)
-            }
-          >
-            <option value="HumanVsHuman">Human vs Human</option>
-            <option value="HumanVsAI">Human vs AI</option>
-          </select>
-        </label>
-
-        <button type="button" disabled={busy} onClick={onNewGame}>
-          New Game
-        </button>
 
         <button type="button" disabled={!canResign} onClick={onResign}>
           Resign
