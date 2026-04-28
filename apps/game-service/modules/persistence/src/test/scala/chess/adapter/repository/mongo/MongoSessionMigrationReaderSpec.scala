@@ -31,7 +31,7 @@ class MongoSessionMigrationReaderSpec
     )
     val database = mongoClient.getDatabase(databaseName)
     database.drop()
-    val collection = database.getCollection("sessions")
+    val collection = database.getCollection(MongoCollectionNames.Sessions)
     MongoSessionSchema.initialize(collection).fold(
       error => fail(s"Could not initialize Mongo session collection: $error"),
       _ => ()

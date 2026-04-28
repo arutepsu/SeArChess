@@ -231,7 +231,23 @@ Document shape:
 
 Mongo document and mapper code stay inside the Mongo adapter package.
 
-The collection has unique indexes on `sessionId` and `gameId`. The repository checks current game ownership before replacement, and duplicate-key errors are mapped to `RepositoryError.Conflict`.
+Runtime and migration Mongo persistence use the same collection names:
+
+```text
+sessions
+games
+```
+
+The `sessions` collection has unique indexes on `sessionId` and `gameId`. The
+`games` collection has a unique index on `gameId`. The repository checks current
+game ownership before replacement, and duplicate-key errors are mapped to
+`RepositoryError.Conflict`.
+
+MongoDB is adapter-compatible with the `SessionGameStore` port for successful
+writes, but it is not transaction-equivalent to Postgres. The current
+`MongoSessionGameStore` writes session metadata first and game state second;
+unless Mongo transactions are added later, a failure after the first write can
+leave a partial aggregate requiring reconciliation.
 
 ## Cross-Implementation Rules
 
@@ -258,9 +274,10 @@ These may differ by adapter and should be documented when relevant:
 
 ## Local Database Setup
 
-The repository root includes `docker-compose.persistence.yml` for local/demo
-PostgreSQL and MongoDB instances. It is infrastructure for exercising the real
-adapters; it does not change persistence logic or migration semantics.
+The repository root includes `docker-compose.yml` for the normal local/demo
+stack. It starts Game Service, History Service, AI Service, Envoy, PostgreSQL,
+and MongoDB. It is infrastructure for exercising the real adapters; it does not
+change persistence logic or migration semantics.
 
 Automated integration tests use Testcontainers instead of Docker Compose.
 Docker must be running, but the Compose services do not need to be started.
@@ -268,10 +285,10 @@ Testcontainers creates temporary PostgreSQL and MongoDB containers for the test
 run and disposes them afterward. Docker Compose remains for manual demos,
 migration rehearsals, and the later uni-server deployment path.
 
-Start the databases from the repository root:
+Start the stack from the repository root:
 
 ```powershell
-docker compose -f docker-compose.persistence.yml up -d
+docker compose up -d --build
 ```
 
 Set the required adapter environment variables in the same PowerShell session
@@ -291,12 +308,31 @@ infrastructure startup step, and then constructs the Slick-backed
 `PostgresSessionRepository`, `PostgresGameRepository`, and
 `PostgresSessionGameStore`.
 
+MongoDB can also be selected as the active Game Service runtime backend:
+
+```powershell
+$env:PERSISTENCE_MODE="mongo"
+# or
+$env:PERSISTENCE_MODE="mongodb"
+```
+
+Mongo runtime uses `SEARCHESS_MONGO_URI` and optional
+`SEARCHESS_MONGO_DATABASE`. If the database is not overridden, it is derived
+from the URI path and defaults to `searchess`. Mongo startup initializes adapter
+indexes on `sessions` and `games`; Flyway remains Postgres-only.
+
 For lightweight local runs, Postgres can still be bypassed explicitly:
 
 ```powershell
 $env:PERSISTENCE_MODE="sqlite"
 # or
 $env:PERSISTENCE_MODE="in-memory"
+```
+
+For a SQLite Game Service container, use the explicit override:
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.sqlite.yml up -d --build
 ```
 
 You can also initialize an empty local Postgres database manually with Flyway:
@@ -349,20 +385,21 @@ The environment-gated specs target manually configured external databases. The
 Testcontainers specs target disposable databases and are the automated path for
 CI-style integration coverage.
 
-Stop the local database services while keeping their named volumes:
+Stop the local stack while keeping named volumes:
 
 ```powershell
-docker compose -f docker-compose.persistence.yml down
+docker compose down
 ```
 
-Reset local database data:
+Reset local data:
 
 ```powershell
-docker compose -f docker-compose.persistence.yml down -v
+docker compose down -v
 ```
 
-The local/demo volumes are `searchess_postgres_data` for Postgres and
-`searchess_mongo_data` for Mongo.
+The local/demo volumes are `searchess_postgres_data` for Postgres,
+`searchess_mongo_data` for Mongo, and `history-service-data` for the separate
+History Service SQLite database.
 
 ## How to Run the Tests
 
@@ -418,7 +455,7 @@ Before moving to `GameRepository`, consider:
 - Add the shared contract test pattern to the team report as the main evidence of DB independence.
 - Run the Postgres and Mongo contract specs once with real local services and record the output.
 - Decide whether SQLite session tests should also be migrated to the shared contract or left as legacy coverage.
-- Keep Mongo runtime wiring separate from the current migration adapter path unless the application needs Mongo as an active Game Service backend.
+- Keep Mongo runtime wiring and migration wiring sharing the same config, collection names, and initialization helper.
 
 # GameRepository Slice
 
@@ -864,3 +901,85 @@ Before final evaluation, consider:
 - Run the Postgres and Mongo repository/store contract specs with real local services if the report wants durable-adapter evidence.
 - Keep SQLite-specific persistence tests documented as legacy/local coverage unless the team decides to migrate them to shared contracts later.
 - Add a short report note that `SessionGameStore` coordinates proven repository behavior instead of redefining session or game storage.
+
+# Migration Admin HTTP Route (Phase 5A)
+
+## Purpose
+
+Phase 5A adds a backend HTTP route that invokes the existing cross-database migration workflow
+through a REST endpoint. The migration CLI continues to work unchanged.
+
+## Config Flag
+
+```text
+MIGRATION_ADMIN_ENABLED=false   (default — route not registered)
+MIGRATION_ADMIN_ENABLED=true    (route registered at POST /admin/migrations)
+```
+
+When `false`, the route is not registered at all. No 404 is returned; the path simply falls
+through to the normal 404 handler. When `true`, the route is added to the internal ops surface.
+
+## Route
+
+```text
+POST /admin/migrations
+Content-Type: application/json
+```
+
+Request body:
+
+```json
+{
+  "source": "postgres",
+  "target": "mongo",
+  "mode": "dry-run",
+  "batchSize": 100,
+  "validateAfterExecute": false,
+  "confirmation": null
+}
+```
+
+- `source` / `target`: `postgres` or `mongo`. Must differ.
+- `mode`: `dry-run`, `execute`, or `validate-only`.
+- `batchSize`: optional, default 100, must be positive.
+- `validateAfterExecute`: optional, default false. Only valid with `execute` mode.
+- `confirmation`: required for `execute` mode. Must be the string `"MIGRATE"`.
+
+Response: the existing `MigrationReport` as JSON (same fields as `--format json` CLI output).
+
+## Security
+
+This route is internal/demo tooling only. Disabled by default.
+
+For production use: add authentication, authorization, and audit logging before enabling.
+Do not route this path through Envoy or any public proxy.
+
+## Reuse
+
+The route reuses all existing migration infrastructure without copying logic:
+- `MigrationCliRunner.runForReport` — same factory + service calls as the CLI
+- `MigrationReportFormatter` — same JSON serialization
+- `MigrationExecutionWorkflow` — same validate-after-execute logic
+- `Backend.parse`, `MigrationCommand`, `MigrationMode` — same domain types
+
+The CLI entry point (`PersistenceMigrationMain`) and its behavior are unchanged.
+
+## Testing
+
+Route tests in `chess.server.http.MigrationAdminRoutesSpec` inject a stub migration runner,
+so all validation and JSON-contract tests run without Docker or Testcontainers.
+
+Config tests in `chess.server.config.ConfigLoaderSpec` verify `MIGRATION_ADMIN_ENABLED`
+defaults to `false`.
+
+Run:
+
+```powershell
+sbt "gameService/testOnly chess.server.http.MigrationAdminRoutesSpec"
+sbt "gameService/testOnly chess.server.config.ConfigLoaderSpec"
+```
+
+## Phase 5B (future)
+
+A migration admin UI that calls this route via browser fetch. The official player Web UI
+remains gameplay-focused and is unaffected.

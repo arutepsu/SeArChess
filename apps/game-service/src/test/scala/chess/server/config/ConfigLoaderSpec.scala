@@ -12,6 +12,10 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
     "SEARCHESS_POSTGRES_PASSWORD" -> "searchess"
   )
 
+  private val mongoEnv = Seq(
+    "SEARCHESS_MONGO_URI" -> "mongodb://localhost:27017/searchess"
+  )
+
   private def load(values: (String, String)*): Either[String, AppConfig] =
     val env = values.toMap
     ConfigLoader.loadFrom(key => env.get(key))
@@ -103,6 +107,7 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
     val config = loadDefault().value
     config.persistence shouldBe PersistenceMode.Postgres
     config.sqlite shouldBe None
+    config.mongo shouldBe None
     config.postgres.value.url shouldBe "jdbc:postgresql://localhost:5432/searchess"
     config.postgres.value.user shouldBe "searchess"
     config.postgres.value.password shouldBe "searchess"
@@ -115,7 +120,7 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
     error should include("SEARCHESS_POSTGRES_URL")
     error should include("SEARCHESS_POSTGRES_USER")
     error should include("SEARCHESS_POSTGRES_PASSWORD")
-    error should include("docker compose -f docker-compose.persistence.yml up -d")
+    error should include("docker compose up -d --build")
     error should include("PERSISTENCE_MODE=sqlite")
     error should include("PERSISTENCE_MODE=in-memory")
   }
@@ -140,16 +145,44 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
     config.postgres.value.url should include("jdbc:postgresql")
   }
 
+  it should "parse mongo persistence mode explicitly" in {
+    val config = load((mongoEnv :+ ("PERSISTENCE_MODE" -> "mongo"))*).value
+    config.persistence shouldBe PersistenceMode.Mongo
+    config.postgres shouldBe None
+    config.mongo.value.uri shouldBe "mongodb://localhost:27017/searchess"
+    config.mongo.value.databaseName shouldBe "searchess"
+  }
+
+  it should "parse mongodb persistence mode as an alias" in {
+    val config = load(
+      "PERSISTENCE_MODE" -> "mongodb",
+      "SEARCHESS_MONGO_URI" -> "mongodb://localhost:27017",
+      "SEARCHESS_MONGO_DATABASE" -> "searchess_runtime"
+    ).value
+
+    config.persistence shouldBe PersistenceMode.Mongo
+    config.mongo.value.databaseName shouldBe "searchess_runtime"
+  }
+
+  it should "reject missing Mongo URI when Mongo persistence is selected" in {
+    val error = load("PERSISTENCE_MODE" -> "mongo").left.value
+
+    error should include("SEARCHESS_MONGO_URI")
+    error should include("Mongo runtime persistence requires SEARCHESS_MONGO_URI")
+  }
+
   it should "parse in-memory persistence mode" in {
     val config = load("PERSISTENCE_MODE" -> "in-memory").value
     config.persistence shouldBe PersistenceMode.InMemory
     config.postgres shouldBe None
+    config.mongo shouldBe None
   }
 
   it should "parse inmemory persistence mode as an alias" in {
     val config = load("PERSISTENCE_MODE" -> "inmemory").value
     config.persistence shouldBe PersistenceMode.InMemory
     config.postgres shouldBe None
+    config.mongo shouldBe None
   }
 
   it should "parse sqlite persistence mode and populate SqliteConfig with default path" in {
@@ -157,6 +190,7 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
     config.persistence shouldBe PersistenceMode.SQLite
     config.sqlite.value.path shouldBe "chess.db"
     config.postgres shouldBe None
+    config.mongo shouldBe None
   }
 
   it should "parse sqlite persistence mode with a custom CHESS_DB_PATH" in {
@@ -166,4 +200,50 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
 
   it should "reject unknown persistence mode" in {
     load("PERSISTENCE_MODE" -> "flat-file").left.value should include("PERSISTENCE_MODE")
+  }
+
+  it should "default migration admin to disabled" in {
+    val config = loadDefault().value
+    config.migrationAdminEnabled shouldBe false
+  }
+
+  it should "enable migration admin when MIGRATION_ADMIN_ENABLED=true and token is set" in {
+    val config = loadDefault(
+      "MIGRATION_ADMIN_ENABLED" -> "true",
+      "MIGRATION_ADMIN_TOKEN"   -> "my-secret"
+    ).value
+    config.migrationAdminEnabled shouldBe true
+    config.migrationAdminToken shouldBe Some("my-secret")
+  }
+
+  it should "reject invalid MIGRATION_ADMIN_ENABLED value" in {
+    loadDefault("MIGRATION_ADMIN_ENABLED" -> "maybe").left.value should include(
+      "MIGRATION_ADMIN_ENABLED"
+    )
+  }
+
+  it should "fail startup when MIGRATION_ADMIN_ENABLED=true but MIGRATION_ADMIN_TOKEN is not set" in {
+    val error = loadDefault("MIGRATION_ADMIN_ENABLED" -> "true").left.value
+
+    error should include("MIGRATION_ADMIN_TOKEN")
+    error should include("MIGRATION_ADMIN_ENABLED=true")
+  }
+
+  it should "fail startup when MIGRATION_ADMIN_ENABLED=true and MIGRATION_ADMIN_TOKEN is blank" in {
+    val error = loadDefault(
+      "MIGRATION_ADMIN_ENABLED" -> "true",
+      "MIGRATION_ADMIN_TOKEN"   -> "   "
+    ).left.value
+
+    error should include("MIGRATION_ADMIN_TOKEN")
+  }
+
+  it should "allow MIGRATION_ADMIN_TOKEN to be set even when admin is disabled" in {
+    val config = loadDefault(
+      "MIGRATION_ADMIN_ENABLED" -> "false",
+      "MIGRATION_ADMIN_TOKEN"   -> "ignored-token"
+    ).value
+
+    config.migrationAdminEnabled shouldBe false
+    config.migrationAdminToken shouldBe Some("ignored-token")
   }

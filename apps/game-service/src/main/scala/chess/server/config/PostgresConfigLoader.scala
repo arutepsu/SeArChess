@@ -6,7 +6,7 @@ object PostgresConfigLoader:
     """Postgres is the default game-service persistence backend.
       |Set SEARCHESS_POSTGRES_URL, SEARCHESS_POSTGRES_USER, and SEARCHESS_POSTGRES_PASSWORD,
       |then start local databases with:
-      |  docker compose -f docker-compose.persistence.yml up -d
+      |  docker compose up -d --build
       |For lightweight local runs, set PERSISTENCE_MODE=sqlite or PERSISTENCE_MODE=in-memory.
       |""".stripMargin.trim
 

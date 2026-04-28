@@ -82,6 +82,7 @@ class PersistenceAssemblyPostgresRuntimeSpec
           password = postgres.getPassword
         )
       ),
+      mongo = None,
       eventMode = EventMode.InProcess,
       cors = CorsConfig(enabled = false, allowedOrigin = "*"),
       history = HistoryForwardingConfig(enabled = false, baseUrl = None, timeoutMillis = 2000),

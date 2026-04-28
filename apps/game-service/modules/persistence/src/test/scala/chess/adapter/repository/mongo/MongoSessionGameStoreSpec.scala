@@ -34,8 +34,8 @@ class MongoSessionGameStoreSpec
     val database = mongoClient.getDatabase(databaseName)
     database.drop()
 
-    val sessionCollection = database.getCollection("sessions")
-    val gameCollection = database.getCollection("game_states")
+    val sessionCollection = database.getCollection(MongoCollectionNames.Sessions)
+    val gameCollection = database.getCollection(MongoCollectionNames.Games)
 
     MongoSessionSchema.initialize(sessionCollection).fold(
       error => fail(s"Could not initialize Mongo session collection: $error"),

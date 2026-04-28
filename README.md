@@ -122,22 +122,21 @@ the service-oriented directory layout.
 
 ## Local Persistence Infrastructure
 
-`docker-compose.persistence.yml` provides real PostgreSQL and MongoDB services
-only. Use it for host-run Game Service development, adapter integration tests,
-migration rehearsals, and database smoke tests. It is separate from the main
-application Compose file so database lifecycle and data reset can be managed
-without rebuilding or restarting the full service stack.
+`docker-compose.yml` is the normal local development, persistence demo, and
+uni-server-style stack. It starts Envoy, Game Service, History Service, AI
+Service, PostgreSQL, and MongoDB. The Game Service image is
+persistence-neutral; persistence mode is runtime configuration.
 
-`docker-compose.demo.yml` is the containerized Postgres demo stack. It starts
-Envoy, Game Service, PostgreSQL, MongoDB, and the AI service. The Game Service
-image is persistence-neutral; persistence mode is runtime configuration, and
-the demo stack relies on the application default of Postgres by providing
-`SEARCHESS_POSTGRES_*` without setting `PERSISTENCE_MODE`.
+Game Service uses Postgres by default in Compose through
+`PERSISTENCE_MODE=${PERSISTENCE_MODE:-postgres}` and receives the local
+`SEARCHESS_POSTGRES_*` connection settings. Set `PERSISTENCE_MODE=mongo` or
+`PERSISTENCE_MODE=mongodb` when you want to restart Game Service against
+migrated Mongo data.
 
-The existing `docker-compose.yml` remains the local microservice proof with an
-explicit `PERSISTENCE_MODE=sqlite` override and `/data/searchess.sqlite`.
-SQLite support remains available, but it is now an explicit runtime choice
-rather than a Docker image default.
+SQLite support remains available, but it is opt-in through
+`docker-compose.sqlite.yml`. That override sets `PERSISTENCE_MODE=sqlite`,
+`CHESS_DB_PATH=/data/searchess.sqlite`, and mounts a small `/data` volume for
+the Game Service container.
 
 Automated persistence integration tests use Testcontainers instead. Docker must
 be running, but Docker Compose does not need to be started for those tests.
@@ -152,28 +151,32 @@ The credentials in this file are local/demo credentials only:
 
 Do not reuse these values for production.
 
-Start the persistence services:
+Start the full local/dev/demo stack:
 
 ```powershell
-docker compose -f docker-compose.persistence.yml up -d
+docker compose up -d --build
 ```
 
-Stop the services while keeping data:
+Stop the stack while keeping data:
 
 ```powershell
-docker compose -f docker-compose.persistence.yml down
+docker compose down
 ```
 
-Reset all persisted database data:
+Reset all persisted data:
 
 ```powershell
-docker compose -f docker-compose.persistence.yml down -v
+docker compose down -v
 ```
 
 PostgreSQL stores data in the named Docker volume
 `searchess_postgres_data`, mounted at `/var/lib/postgresql/data`.
 MongoDB stores documents in the named Docker volume
 `searchess_mongo_data`, mounted at `/data/db`.
+History Service stores its separate history database in the
+`history-service-data` volume. Game Service persistence is Postgres or Mongo;
+History Service persistence is intentionally separate and is not migrated in
+the game persistence demo.
 
 Set the local adapter environment variables in PowerShell:
 
@@ -187,8 +190,11 @@ $env:SEARCHESS_MONGO_URI="mongodb://localhost:27017/searchess"
 Postgres is the default Game Service runtime persistence backend when
 `PERSISTENCE_MODE` is omitted. The default runtime requires the
 `SEARCHESS_POSTGRES_*` variables above and runs Flyway automatically before the
-Postgres repositories are constructed. For lightweight local runs without
-Postgres, select a smaller backend explicitly:
+Postgres repositories are constructed. MongoDB can be selected explicitly with
+`PERSISTENCE_MODE=mongo` or `PERSISTENCE_MODE=mongodb`; it uses
+`SEARCHESS_MONGO_URI` and optional `SEARCHESS_MONGO_DATABASE`, initializes
+adapter indexes, and is not Flyway-managed. For lightweight local runs without
+using the Game Service Postgres default, select a smaller backend explicitly:
 
 ```powershell
 $env:PERSISTENCE_MODE="sqlite"
@@ -196,16 +202,18 @@ $env:PERSISTENCE_MODE="sqlite"
 $env:PERSISTENCE_MODE="in-memory"
 ```
 
-Start the containerized Postgres demo stack:
+Run the container stack in SQLite mode:
 
 ```powershell
-docker compose -f docker-compose.demo.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose.sqlite.yml up -d --build
 ```
 
-The demo stack publishes Envoy on `http://127.0.0.1:10000` and direct Game
-Service API access on `http://127.0.0.1:8080`. Because the container receives
-`SEARCHESS_POSTGRES_URL=jdbc:postgresql://postgres:5432/searchess`, runtime
-startup runs Flyway and then persists sessions/game states to Postgres.
+The main stack publishes Envoy on `http://127.0.0.1:10000`. In Postgres mode,
+runtime startup runs Flyway and sessions/game states are persisted to Postgres.
+In Mongo mode, the same stack uses
+`SEARCHESS_MONGO_URI=mongodb://mongo:27017/searchess` and the `sessions` and
+`games` collections. Mongo is not Flyway-managed and is not
+transaction-equivalent to Postgres for combined session/game writes.
 
 The same Compose file can be reused on the uni server later. For commands run
 on the host through VPN, keep using the published localhost ports. For services
@@ -385,16 +393,31 @@ sbt "gameService/runMain chess.server.migration.PersistenceMigrationMain --from 
 sbt "gameService/runMain chess.server.migration.PersistenceMigrationMain --from mongo --to postgres --mode validate-only"
 ```
 
-With the containerized demo stack, a professor-ready API flow is:
+With the main Compose stack, a professor-ready API flow is:
 
 ```powershell
-docker compose -f docker-compose.demo.yml up -d --build
+.\scripts\demo\persistence-migration-demo.ps1
+```
 
-$created = curl.exe -s -X POST http://127.0.0.1:8080/sessions -H "Content-Type: application/json" -d "{\"mode\":\"HumanVsHuman\"}"
-$gameId = ($created | ConvertFrom-Json).game.gameId
-curl.exe -s -X POST "http://127.0.0.1:8080/games/$gameId/moves" -H "Content-Type: application/json" -d "{\"from\":\"e2\",\"to\":\"e4\",\"controller\":\"HumanLocal\"}"
+The script resets Compose volumes by default, starts the stack, creates a real
+game through Envoy, makes `e2 -> e4`, verifies Postgres, runs Postgres -> Mongo
+dry-run and execute with validation, switches Game Service to Mongo, loads the
+same game, and reruns execute to show idempotency. Use `-NoReset`, `-SkipBuild`,
+or `-ReturnToPostgres` when you want to adjust that flow.
 
-docker compose -f docker-compose.demo.yml exec postgres psql -U searchess -d searchess -c "select count(*) as sessions from sessions; select count(*) as game_states from game_states;"
+The same flow can be run manually:
+
+```powershell
+docker compose up -d --build
+
+$createBody = @{ mode = "HumanVsHuman" } | ConvertTo-Json
+$created = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:10000/api/sessions -ContentType "application/json" -Body $createBody
+$gameId = $created.game.gameId
+
+$moveBody = @{ from = "e2"; to = "e4"; controller = "HumanLocal" } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:10000/api/games/$gameId/moves" -ContentType "application/json" -Body $moveBody
+
+docker compose exec postgres psql -U searchess -d searchess -c "select count(*) as sessions from sessions; select count(*) as game_states from game_states;"
 ```
 
 For the Web UI presentation, start the Vite UI separately and let it use its
@@ -421,6 +444,25 @@ sbt "gameService/runMain chess.server.migration.PersistenceMigrationMain --from 
 
 The second execute demonstrates idempotency: equivalent target aggregates are
 skipped rather than overwritten.
+
+To prove the migrated data is usable by the normal runtime, restart only
+Game Service with Mongo selected:
+
+```powershell
+$env:PERSISTENCE_MODE="mongo"
+docker compose up -d --force-recreate game-service
+
+Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:10000/api/games/$gameId"
+Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:10000/api/sessions"
+```
+
+Unset `PERSISTENCE_MODE` before recreating the service again when you want to
+return to the Postgres default:
+
+```powershell
+Remove-Item Env:PERSISTENCE_MODE
+docker compose up -d --force-recreate game-service
+```
 
 Supported arguments:
 

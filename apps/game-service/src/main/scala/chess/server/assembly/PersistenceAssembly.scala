@@ -19,7 +19,8 @@ import chess.adapter.repository.postgres.{
   PostgresSessionRepository
 }
 import chess.application.port.repository.{GameRepository, SessionGameStore, SessionRepository}
-import chess.server.config.{AppConfig, PersistenceMode, PostgresConfig, SqliteConfig}
+import chess.server.config.{AppConfig, MongoConfig, PersistenceMode, PostgresConfig, SqliteConfig}
+import chess.server.persistence.MongoPersistenceRuntime
 import slick.jdbc.PostgresProfile.api.Database
 
 final case class PersistenceWiring(
@@ -39,6 +40,14 @@ object PersistenceAssembly:
           config.postgres.getOrElse(
             throw IllegalArgumentException(
               "Postgres persistence mode selected but postgres config is missing"
+            )
+          )
+        )
+      case PersistenceMode.Mongo =>
+        assembleMongo(
+          config.mongo.getOrElse(
+            throw IllegalArgumentException(
+              "Mongo persistence mode selected but mongo config is missing"
             )
           )
         )
@@ -83,3 +92,14 @@ object PersistenceAssembly:
     val gameRepo = PostgresGameRepository(db)
     val store = PostgresSessionGameStore(db)
     PersistenceWiring(sessionRepo, gameRepo, store, shutdown = () => db.close())
+
+  private def assembleMongo(cfg: MongoConfig): PersistenceWiring =
+    MongoPersistenceRuntime.open(cfg) match
+      case Left(error) => throw IllegalArgumentException(s"Mongo persistence initialization failed: $error")
+      case Right(runtime) =>
+        PersistenceWiring(
+          runtime.sessionRepository,
+          runtime.gameRepository,
+          runtime.store,
+          shutdown = () => runtime.close()
+        )

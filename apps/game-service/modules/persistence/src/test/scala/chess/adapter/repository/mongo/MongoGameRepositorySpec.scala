@@ -28,7 +28,7 @@ class MongoGameRepositorySpec
     )
     val database = mongoClient.getDatabase(databaseName)
     database.drop()
-    val collection = database.getCollection("game_states")
+    val collection = database.getCollection(MongoCollectionNames.Games)
     MongoGameSchema.initialize(collection).fold(
       error => fail(s"Could not initialize Mongo game-state collection: $error"),
       _ => MongoGameRepository(collection)

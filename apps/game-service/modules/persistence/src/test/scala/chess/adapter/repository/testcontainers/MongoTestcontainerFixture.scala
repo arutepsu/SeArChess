@@ -3,6 +3,7 @@ package chess.adapter.repository.testcontainers
 import chess.adapter.repository.mongo.{
   MongoGameRepository,
   MongoGameSchema,
+  MongoCollectionNames,
   MongoSessionGameStore,
   MongoSessionMigrationReader,
   MongoSessionRepository,
@@ -47,8 +48,8 @@ final class MongoTestcontainerFixture:
     val client = MongoClients.create(connectionString)
     val databaseName = s"searchess_tc_${UUID.randomUUID().toString.replace("-", "")}"
     val database = client.getDatabase(databaseName)
-    val sessionCollection = database.getCollection("sessions", classOf[Document])
-    val gameCollection = database.getCollection("game_states", classOf[Document])
+    val sessionCollection = database.getCollection(MongoCollectionNames.Sessions, classOf[Document])
+    val gameCollection = database.getCollection(MongoCollectionNames.Games, classOf[Document])
 
     MongoSessionSchema.initialize(sessionCollection).fold(
       error => sys.error(error.toString),

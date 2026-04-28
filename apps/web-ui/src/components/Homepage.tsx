@@ -53,6 +53,7 @@ export default function Homepage({ hasActiveGame, onStart, onResume }: HomepageP
             Aktuelles Spiel fortsetzen
           </button>
         )}
+
       </section>
     </div>
   );

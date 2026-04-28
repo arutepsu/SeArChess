@@ -1,0 +1,10 @@
+services:
+  game-service:
+    environment:
+      PERSISTENCE_MODE: sqlite
+      CHESS_DB_PATH: /data/searchess.sqlite
+    volumes:
+      - game-service-data:/data
+
+volumes:
+  game-service-data:

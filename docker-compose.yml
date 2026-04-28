@@ -13,6 +13,15 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+      history-service:
+        condition: service_healthy
     expose:
       - "8080"
       - "9090"
@@ -23,8 +32,11 @@ services:
       CORS_ALLOWED_ORIGIN: http://localhost:5173
       WS_ENABLED: "true"
       WS_PORT: 9090
-      PERSISTENCE_MODE: sqlite
-      CHESS_DB_PATH: /data/searchess.sqlite
+      PERSISTENCE_MODE: ${PERSISTENCE_MODE:-postgres}
+      SEARCHESS_POSTGRES_URL: jdbc:postgresql://postgres:5432/searchess
+      SEARCHESS_POSTGRES_USER: searchess
+      SEARCHESS_POSTGRES_PASSWORD: searchess
+      SEARCHESS_MONGO_URI: mongodb://mongo:27017/searchess
       EVENT_MODE: in-process
       HISTORY_FORWARDING_ENABLED: "true"
       HISTORY_SERVICE_BASE_URL: http://history-service:8081
@@ -33,22 +45,15 @@ services:
       AI_REMOTE_BASE_URL: http://ai-service:8765
       AI_TIMEOUT_MILLIS: 2000
       AI_REMOTE_TEST_MODE: ${AI_REMOTE_TEST_MODE:-}
-    volumes:
-      - game-service-data:/data
+      MIGRATION_ADMIN_ENABLED: ${MIGRATION_ADMIN_ENABLED:-false}
+      MIGRATION_ADMIN_TOKEN: ${MIGRATION_ADMIN_TOKEN:-}
     healthcheck:
-      test:
-        [
-          "CMD",
-          "curl",
-          "-fsS",
-          "http://127.0.0.1:8080/health"
-        ]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
       interval: 5s
       timeout: 3s
       retries: 12
 
   history-service:
-    # Internal downstream Game -> History ingestion/archive service. Not required for Game health.
     build:
       context: .
       dockerfile: Dockerfile.history
@@ -64,19 +69,12 @@ services:
     volumes:
       - history-service-data:/history-data
     healthcheck:
-      test:
-        [
-          "CMD",
-          "curl",
-          "-fsS",
-          "http://127.0.0.1:8081/health"
-        ]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8081/health"]
       interval: 5s
       timeout: 3s
       retries: 12
 
   ai-service:
-    # Internal Game -> AI dependency. Not published on the host edge.
     build:
       context: .
       dockerfile: Dockerfile.ai
@@ -87,17 +85,42 @@ services:
       AI_HTTP_PORT: 8765
       AI_ENGINE_ID: random-legal
     healthcheck:
-      test:
-        [
-          "CMD",
-          "curl",
-          "-fsS",
-          "http://127.0.0.1:8765/health"
-        ]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8765/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: searchess
+      POSTGRES_USER: searchess
+      POSTGRES_PASSWORD: searchess
+    ports:
+      - "5432:5432"
+    volumes:
+      - searchess_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U searchess -d searchess"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  mongo:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - searchess_mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 5s
       timeout: 3s
       retries: 12
 
 volumes:
-  game-service-data:
   history-service-data:
+  searchess_postgres_data:
+    name: searchess_postgres_data
+  searchess_mongo_data:
+    name: searchess_mongo_data

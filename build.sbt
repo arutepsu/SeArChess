@@ -348,7 +348,8 @@ lazy val gameService = project
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-ember-server" % http4sVersion,
       "org.http4s" %% "http4s-dsl" % http4sVersion,
-      "org.testcontainers" % "postgresql" % testcontainersVersion % Test
+      "org.testcontainers" % "postgresql" % testcontainersVersion % Test,
+      "org.testcontainers" % "mongodb" % testcontainersVersion % Test
     ),
     excludeFromCoverage(
       ".*chess.server.ServerMain.*",

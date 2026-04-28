@@ -3,6 +3,7 @@ package chess.application.migration
 import chess.adapter.repository.mongo.{
   MongoGameRepository,
   MongoGameSchema,
+  MongoCollectionNames,
   MongoSessionGameStore,
   MongoSessionMigrationReader,
   MongoSessionRepository,
@@ -369,8 +370,8 @@ class CrossDatabaseMigrationIntegrationSpec
   private def freshMongoRuntime(client: MongoClient): MongoRuntime =
     val database = client.getDatabase(mongoDatabaseName)
     database.drop()
-    val sessionCollection = database.getCollection("sessions")
-    val gameCollection = database.getCollection("games")
+    val sessionCollection = database.getCollection(MongoCollectionNames.Sessions)
+    val gameCollection = database.getCollection(MongoCollectionNames.Games)
     MongoSessionSchema.initialize(sessionCollection).fold(error => fail(error.toString), identity)
     MongoGameSchema.initialize(gameCollection).fold(error => fail(error.toString), identity)
     val sessionRepository = MongoSessionRepository(sessionCollection)

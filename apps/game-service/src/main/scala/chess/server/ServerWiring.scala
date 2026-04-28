@@ -7,7 +7,8 @@ import cats.syntax.semigroupk.*
 import chess.adapter.http4s.Http4sApp
 import chess.server.assembly.{AppContext, EventWiring}
 import chess.server.config.{AiConfig, AppConfig}
-import chess.server.http.{CorsMiddleware, HealthRoutes, HistoryOutboxOpsRoutes}
+import chess.server.http.{CorsMiddleware, HealthRoutes, HistoryOutboxOpsRoutes, MigrationAdminRoutes}
+import chess.server.migration.MigrationCliRunner
 import com.comcast.ip4s.{Host, Port}
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.{HttpApp, Request}
@@ -27,8 +28,15 @@ object ServerWiring:
         ctx.sessionGameStore
       ).httpApp
 
+    val baseOpsRoutes = HealthRoutes.routes <+> HistoryOutboxOpsRoutes(events.historyOutbox).routes
     val internalOpsRoutes =
-      HealthRoutes.routes <+> HistoryOutboxOpsRoutes(events.historyOutbox).routes
+      if config.migrationAdminEnabled then
+        val token = config.migrationAdminToken.getOrElse(
+          throw RuntimeException("migrationAdminToken must be set when migrationAdminEnabled — config validation should prevent this state")
+        )
+        baseOpsRoutes <+> MigrationAdminRoutes(token, MigrationCliRunner.runForReport(_)).routes
+      else
+        baseOpsRoutes
 
     val composedApp: HttpApp[IO] =
       Kleisli { (req: Request[IO]) =>
