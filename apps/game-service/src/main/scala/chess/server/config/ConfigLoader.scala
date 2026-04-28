@@ -9,7 +9,7 @@ object ConfigLoader:
   private val DefaultHttpPort: String = "8080"
   private val DefaultWsEnabled: String = "true"
   private val DefaultWsPort: String = "9090"
-  private val DefaultPersistence: String = "in-memory"
+  private val DefaultPersistence: String = "postgres"
   private val DefaultSqlitePath: String = "chess.db"
   private val DefaultEventMode: String = "in-process"
   private val DefaultCorsEnabled: String = "false"
@@ -19,6 +19,7 @@ object ConfigLoader:
   private val DefaultAiMode: String = "remote"
   private val DefaultAiRemoteBaseUrl: String = "http://ai-service:8765"
   private val DefaultAiTimeoutMillis: String = "2000"
+  private val DefaultMigrationAdminEnabled: String = "false"
 
   def load(): Either[String, AppConfig] =
     loadFrom(key => Option(System.getenv(key)).filter(_.nonEmpty))
@@ -31,6 +32,8 @@ object ConfigLoader:
       wsPort <- parsePort("WS_PORT", env("WS_PORT").getOrElse(DefaultWsPort))
       persistence <- parsePersistenceMode(env("PERSISTENCE_MODE").getOrElse(DefaultPersistence))
       sqlitePath = env("CHESS_DB_PATH").getOrElse(DefaultSqlitePath)
+      postgres <- loadPostgresConfigIfNeeded(persistence, env)
+      mongo <- loadMongoConfigIfNeeded(persistence, env)
       eventMode <- parseEventMode(env("EVENT_MODE").getOrElse(DefaultEventMode))
       corsEnabled <- parseBool("CORS_ENABLED", env("CORS_ENABLED").getOrElse(DefaultCorsEnabled))
       corsOrigin = env("CORS_ALLOWED_ORIGIN").getOrElse(DefaultCorsAllowOrigin)
@@ -57,12 +60,19 @@ object ConfigLoader:
       )
       remote <- parseRemoteAiConfig(aiMode, remoteUrl, env("AI_REMOTE_TEST_MODE"))
       engineId = env("AI_DEFAULT_ENGINE_ID")
+      migrationAdmin <- parseBool(
+        "MIGRATION_ADMIN_ENABLED",
+        env("MIGRATION_ADMIN_ENABLED").getOrElse(DefaultMigrationAdminEnabled)
+      )
+      migrationToken <- parseMigrationAdminToken(migrationAdmin, env("MIGRATION_ADMIN_TOKEN"))
     yield AppConfig(
       http = HttpConfig(httpHost, httpPort),
       webSocket = WebSocketConfig(wsEnabled, wsPort),
       persistence = persistence,
       sqlite =
         if persistence == PersistenceMode.SQLite then Some(SqliteConfig(sqlitePath)) else None,
+      postgres = postgres,
+      mongo = mongo,
       eventMode = eventMode,
       cors = CorsConfig(corsEnabled, corsOrigin),
       history = history,
@@ -71,7 +81,9 @@ object ConfigLoader:
         remote = remote,
         timeoutMillis = aiTimeout,
         defaultEngineId = engineId
-      )
+      ),
+      migrationAdminEnabled = migrationAdmin,
+      migrationAdminToken = migrationToken
     )
 
   def loadOrExit(): AppConfig =
@@ -103,9 +115,42 @@ object ConfigLoader:
 
   private def parsePersistenceMode(value: String): Either[String, PersistenceMode] =
     value.toLowerCase match
+      case "postgres" | "postgresql" => Right(PersistenceMode.Postgres)
+      case "mongo" | "mongodb"       => Right(PersistenceMode.Mongo)
       case "in-memory" | "inmemory" => Right(PersistenceMode.InMemory)
       case "sqlite"                 => Right(PersistenceMode.SQLite)
-      case _ => Left(s"PERSISTENCE_MODE must be 'in-memory' or 'sqlite', got: '$value'")
+      case _ =>
+        Left(
+          s"PERSISTENCE_MODE must be 'postgres', 'mongo', 'sqlite', or 'in-memory', got: '$value'"
+        )
+
+  private def loadPostgresConfigIfNeeded(
+      persistence: PersistenceMode,
+      env: String => Option[String]
+  ): Either[String, Option[PostgresConfig]] =
+    persistence match
+      case PersistenceMode.Postgres =>
+        PostgresConfigLoader
+          .load(
+            env,
+            requireCredentials = true,
+            contextMessage = Some(PostgresConfigLoader.MissingDefaultPostgresMessage)
+          )
+          .map(Some.apply)
+      case PersistenceMode.Mongo | PersistenceMode.InMemory | PersistenceMode.SQLite =>
+        Right(None)
+
+  private def loadMongoConfigIfNeeded(
+      persistence: PersistenceMode,
+      env: String => Option[String]
+  ): Either[String, Option[MongoConfig]] =
+    persistence match
+      case PersistenceMode.Mongo =>
+        MongoConfigLoader
+          .load(env, contextMessage = Some("Mongo runtime persistence requires SEARCHESS_MONGO_URI."))
+          .map(Some.apply)
+      case PersistenceMode.Postgres | PersistenceMode.InMemory | PersistenceMode.SQLite =>
+        Right(None)
 
   private def parseEventMode(value: String): Either[String, EventMode] =
     value.toLowerCase match
@@ -141,6 +186,22 @@ object ConfigLoader:
             .map(url => RemoteAiConfig(url.trim, normalisedTestMode))
             .filter(_.baseUrl.nonEmpty)
         )
+
+  private def parseMigrationAdminToken(
+      enabled: Boolean,
+      rawToken: Option[String]
+  ): Either[String, Option[String]] =
+    val token = rawToken.map(_.trim).filter(_.nonEmpty)
+    if enabled then
+      token match
+        case Some(t) => Right(Some(t))
+        case None =>
+          Left(
+            "MIGRATION_ADMIN_TOKEN is required when MIGRATION_ADMIN_ENABLED=true. " +
+              "Set a non-empty token to protect the admin migration route."
+          )
+    else
+      Right(token)
 
   private def parseHistoryForwardingConfig(
       enabled: Boolean,

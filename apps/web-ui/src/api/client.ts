@@ -14,6 +14,7 @@ import type {
   SessionStateResponse,
   SubmitMoveRequest
 } from "./backendTypes";
+import type { MigrationReport, MigrationRequest } from "./migrationTypes";
 
 const DEFAULT_API_BASE = "http://localhost:10000";
 
@@ -157,5 +158,20 @@ export async function saveSessionState(
   return fetchJson<SessionStateResponse>(`/api/sessions/${sessionId}/state`, {
     method: "PUT",
     body: JSON.stringify(state)
+  });
+}
+
+export async function runMigration(
+  request: MigrationRequest,
+  adminToken?: string
+): Promise<MigrationReport> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (adminToken) {
+    headers["X-Admin-Token"] = adminToken;
+  }
+  return fetchJson<MigrationReport>("/admin/migrations", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(request)
   });
 }

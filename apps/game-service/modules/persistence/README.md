@@ -185,6 +185,19 @@ sessions
 
 Slick table, row, schema, and mapper code stay inside the Postgres adapter package.
 
+Flyway owns runtime PostgreSQL schema creation and evolution. The initial
+schema migration is:
+
+```text
+src/main/resources/db/migration/postgres/V1__create_session_persistence.sql
+```
+
+It creates the `sessions` and `game_states` tables, the unique `game_id`
+ownership constraint on `sessions`, and the lifecycle lookup index used by
+active-session listing. Slick still owns repository queries and row mapping; it
+does not own runtime schema lifecycle. The existing Slick schema helpers remain
+available for isolated tests that recreate temporary schemas.
+
 `game_id` has a unique constraint. The repository also checks current ownership before upsert so normal duplicate ownership returns `RepositoryError.Conflict`. The unique constraint is still needed as a database-level safety net.
 
 ### MongoDB
@@ -218,7 +231,23 @@ Document shape:
 
 Mongo document and mapper code stay inside the Mongo adapter package.
 
-The collection has unique indexes on `sessionId` and `gameId`. The repository checks current game ownership before replacement, and duplicate-key errors are mapped to `RepositoryError.Conflict`.
+Runtime and migration Mongo persistence use the same collection names:
+
+```text
+sessions
+games
+```
+
+The `sessions` collection has unique indexes on `sessionId` and `gameId`. The
+`games` collection has a unique index on `gameId`. The repository checks current
+game ownership before replacement, and duplicate-key errors are mapped to
+`RepositoryError.Conflict`.
+
+MongoDB is adapter-compatible with the `SessionGameStore` port for successful
+writes, but it is not transaction-equivalent to Postgres. The current
+`MongoSessionGameStore` writes session metadata first and game state second;
+unless Mongo transactions are added later, a failure after the first write can
+leave a partial aggregate requiring reconciliation.
 
 ## Cross-Implementation Rules
 
@@ -242,6 +271,135 @@ These may differ by adapter and should be documented when relevant:
 - physical schema/index names.
 - timestamp storage representation, as long as the repository preserves the `Instant` values used by the contract tests.
 - test setup strategy.
+
+## Local Database Setup
+
+The repository root includes `docker-compose.yml` for the normal local/demo
+stack. It starts Game Service, History Service, AI Service, Envoy, PostgreSQL,
+and MongoDB. It is infrastructure for exercising the real adapters; it does not
+change persistence logic or migration semantics.
+
+Automated integration tests use Testcontainers instead of Docker Compose.
+Docker must be running, but the Compose services do not need to be started.
+Testcontainers creates temporary PostgreSQL and MongoDB containers for the test
+run and disposes them afterward. Docker Compose remains for manual demos,
+migration rehearsals, and the later uni-server deployment path.
+
+Start the stack from the repository root:
+
+```powershell
+docker compose up -d --build
+```
+
+Set the required adapter environment variables in the same PowerShell session
+used to run tests or migration commands:
+
+```powershell
+$env:SEARCHESS_POSTGRES_URL="jdbc:postgresql://localhost:5432/searchess"
+$env:SEARCHESS_POSTGRES_USER="searchess"
+$env:SEARCHESS_POSTGRES_PASSWORD="searchess"
+$env:SEARCHESS_MONGO_URI="mongodb://localhost:27017/searchess"
+```
+
+Postgres is the default Game Service runtime persistence backend when
+`PERSISTENCE_MODE` is not set. Runtime startup requires the three
+`SEARCHESS_POSTGRES_*` variables above, runs Flyway as an explicit
+infrastructure startup step, and then constructs the Slick-backed
+`PostgresSessionRepository`, `PostgresGameRepository`, and
+`PostgresSessionGameStore`.
+
+MongoDB can also be selected as the active Game Service runtime backend:
+
+```powershell
+$env:PERSISTENCE_MODE="mongo"
+# or
+$env:PERSISTENCE_MODE="mongodb"
+```
+
+Mongo runtime uses `SEARCHESS_MONGO_URI` and optional
+`SEARCHESS_MONGO_DATABASE`. If the database is not overridden, it is derived
+from the URI path and defaults to `searchess`. Mongo startup initializes adapter
+indexes on `sessions` and `games`; Flyway remains Postgres-only.
+
+For lightweight local runs, Postgres can still be bypassed explicitly:
+
+```powershell
+$env:PERSISTENCE_MODE="sqlite"
+# or
+$env:PERSISTENCE_MODE="in-memory"
+```
+
+For a SQLite Game Service container, use the explicit override:
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.sqlite.yml up -d --build
+```
+
+You can also initialize an empty local Postgres database manually with Flyway:
+
+```powershell
+sbt "gameService/runMain chess.server.migration.PostgresSchemaMigrationMain"
+```
+
+The cross-database migration CLI also invokes Flyway before constructing
+Postgres repositories when Postgres is the source or target. MongoDB collection
+and index setup is not managed by Flyway.
+
+Run all persistence adapter tests:
+
+```powershell
+sbt "adapterPersistence/test"
+```
+
+Run the disposable-container integration specs:
+
+```powershell
+sbt "adapterPersistence/testOnly *TestcontainerSpec"
+```
+
+The Testcontainers Postgres fixture runs `PostgresFlywaySchemaInitializer`
+before constructing repositories. The Testcontainers Mongo fixture initializes
+Mongo collections and indexes through the Mongo adapter schema helpers; Flyway
+is Postgres-only.
+
+Run only the real PostgreSQL/Mongo-backed migration integration specs:
+
+```powershell
+sbt "adapterPersistence/testOnly chess.application.migration.CrossDatabaseMigrationIntegrationSpec"
+```
+
+Run targeted real-adapter contract specs:
+
+```powershell
+sbt "adapterPersistence/testOnly chess.adapter.repository.postgres.PostgresSessionGameStoreSpec"
+sbt "adapterPersistence/testOnly chess.adapter.repository.mongo.MongoSessionGameStoreSpec"
+```
+
+If these environment variables are missing, or if the databases are not
+running, the environment-gated Postgres/Mongo integration tests may cancel
+instead of failing the normal in-memory test run. The Postgres specs create
+temporary schemas and drop them afterward; the Mongo specs create temporary
+databases and drop them afterward.
+
+The environment-gated specs target manually configured external databases. The
+Testcontainers specs target disposable databases and are the automated path for
+CI-style integration coverage.
+
+Stop the local stack while keeping named volumes:
+
+```powershell
+docker compose down
+```
+
+Reset local data:
+
+```powershell
+docker compose down -v
+```
+
+The local/demo volumes are `searchess_postgres_data` for Postgres,
+`searchess_mongo_data` for Mongo, and `history-service-data` for the separate
+History Service SQLite database.
 
 ## How to Run the Tests
 
@@ -297,7 +455,7 @@ Before moving to `GameRepository`, consider:
 - Add the shared contract test pattern to the team report as the main evidence of DB independence.
 - Run the Postgres and Mongo contract specs once with real local services and record the output.
 - Decide whether SQLite session tests should also be migrated to the shared contract or left as legacy coverage.
-- Add runtime wiring for Postgres/Mongo only when the application is ready to select those modes; the repository adapters themselves are already isolated.
+- Keep Mongo runtime wiring and migration wiring sharing the same config, collection names, and initialization helper.
 
 # GameRepository Slice
 
@@ -636,6 +794,23 @@ The implementation:
 
 This gives the durable adapter real database transaction behavior while keeping Slick and row types inside the Postgres adapter package.
 
+### MongoDB
+
+`MongoSessionGameStore` coordinates the existing Mongo repositories:
+- `MongoSessionRepository`
+- `MongoGameRepository`
+
+The application still depends only on `SessionGameStore`, not on Mongo driver
+types. On a successful `Right(())`, both the session and game state are visible
+through the normal repositories, and duplicate `GameId` ownership is surfaced as
+`RepositoryError.Conflict`.
+
+Mongo is adapter-compatible with the `SessionGameStore` port, but it is not
+guarantee-equivalent to the PostgreSQL implementation. The current Mongo store
+writes session metadata first and game state second. Unless Mongo transactions
+are added later, a failure between those writes may leave a partial aggregate
+that needs reconciliation.
+
 ## Cross-Implementation Rules
 
 All implementations must:
@@ -647,16 +822,26 @@ All implementations must:
 - avoid read APIs on `SessionGameStore`.
 - keep database-specific transaction, row, document, or driver types out of application/core.
 
-## Stronger PostgreSQL Guarantees
+## Consistency Guarantees
 
-PostgreSQL/Slick provides stronger guarantees than the in-memory implementation:
+PostgreSQL and MongoDB are interchangeable at the application API boundary, but
+not identical at the consistency-guarantee boundary.
+
+PostgreSQL/Slick provides the strongest current coordinated-write guarantee:
 - a real database transaction commits the session and game-state rows together.
 - if the transaction fails, neither write is committed.
 - unique `GameId` ownership can be protected by relational constraints and conflict mapping.
 - data is durable across process restarts.
 - the temporary-schema contract spec can verify the adapter against a real Postgres instance.
 
-In-memory remains valuable for tests and local development, but its guarantees are process-local and non-durable.
+MongoDB provides the same successful-write contract in the normal case:
+- successful writes make both records visible through the repository ports.
+- session-side ownership conflicts are mapped to `RepositoryError.Conflict`.
+- the adapter remains replaceable behind `SessionGameStore`.
+
+MongoDB does not currently provide rollback-atomic behavior across the two
+collections. In-memory remains valuable for tests and local development, but its
+guarantees are process-local and non-durable.
 
 ## How to Run the Tests
 
@@ -684,7 +869,16 @@ sbt "adapterPersistence/testOnly chess.adapter.repository.postgres.PostgresSessi
 
 The Postgres spec creates a temporary schema for the suite and drops it afterward. The configured user must be allowed to create and drop schemas.
 
-If `SEARCHESS_POSTGRES_URL` is not configured, the Postgres contract tests cancel cleanly instead of failing the normal test run.
+Run the MongoDB `SessionGameStore` contract:
+
+```powershell
+$env:SEARCHESS_MONGO_URI="mongodb://localhost:27017"
+
+sbt "adapterPersistence/testOnly chess.adapter.repository.mongo.MongoSessionGameStoreSpec"
+```
+
+If the database environment variable is not configured, the Postgres and Mongo
+contract tests cancel cleanly instead of failing the normal test run.
 
 ## Why This Architecture Matters
 
@@ -693,22 +887,99 @@ This slice completes the core persistence story:
 - `GameRepository` owns current authoritative game state.
 - `SessionGameStore` owns coordinated writes when both must change together.
 
-The application can express its consistency requirement directly without depending on database transactions. Each adapter is responsible for satisfying the same behavior contract using its own storage technology.
+The application can express its consistency requirement directly without
+depending on database APIs. Each adapter is responsible for satisfying the same
+application-facing behavior with its own storage technology, while documenting
+where its operational guarantees differ.
 
 This keeps the architecture small enough for a student team while still demonstrating clean ports, adapter-local database code, reusable contract tests, and meaningful consistency boundaries.
-
-## Is Mongo SessionGameStore Worth It?
-
-Mongo `SessionGameStore` is a reasonable stretch goal, but it is not necessary for the mandatory baseline.
-
-Implement it only if the team has time after documenting and verifying the current slices. It would be useful to demonstrate the same coordinating port over a document database, especially if Mongo is part of the final evaluation story. However, it may require extra care around Mongo sessions/transactions, replica-set requirements, and local setup complexity.
-
-Recommendation: keep Mongo `SessionGameStore` as optional stretch work. The completed in-memory and PostgreSQL/Slick implementations already prove the architecture and the transactional durable path.
 
 ## Small Cleanup Suggestions
 
 Before final evaluation, consider:
 - Run the Postgres `SessionGameStore` contract once with a real local Postgres instance and record the result.
-- Run the Postgres and Mongo repository contract specs with real local services if the report wants durable-adapter evidence.
+- Run the Postgres and Mongo repository/store contract specs with real local services if the report wants durable-adapter evidence.
 - Keep SQLite-specific persistence tests documented as legacy/local coverage unless the team decides to migrate them to shared contracts later.
 - Add a short report note that `SessionGameStore` coordinates proven repository behavior instead of redefining session or game storage.
+
+# Migration Admin HTTP Route (Phase 5A)
+
+## Purpose
+
+Phase 5A adds a backend HTTP route that invokes the existing cross-database migration workflow
+through a REST endpoint. The migration CLI continues to work unchanged.
+
+## Config Flag
+
+```text
+MIGRATION_ADMIN_ENABLED=false   (default — route not registered)
+MIGRATION_ADMIN_ENABLED=true    (route registered at POST /admin/migrations)
+```
+
+When `false`, the route is not registered at all. No 404 is returned; the path simply falls
+through to the normal 404 handler. When `true`, the route is added to the internal ops surface.
+
+## Route
+
+```text
+POST /admin/migrations
+Content-Type: application/json
+```
+
+Request body:
+
+```json
+{
+  "source": "postgres",
+  "target": "mongo",
+  "mode": "dry-run",
+  "batchSize": 100,
+  "validateAfterExecute": false,
+  "confirmation": null
+}
+```
+
+- `source` / `target`: `postgres` or `mongo`. Must differ.
+- `mode`: `dry-run`, `execute`, or `validate-only`.
+- `batchSize`: optional, default 100, must be positive.
+- `validateAfterExecute`: optional, default false. Only valid with `execute` mode.
+- `confirmation`: required for `execute` mode. Must be the string `"MIGRATE"`.
+
+Response: the existing `MigrationReport` as JSON (same fields as `--format json` CLI output).
+
+## Security
+
+This route is internal/demo tooling only. Disabled by default.
+
+For production use: add authentication, authorization, and audit logging before enabling.
+Do not route this path through Envoy or any public proxy.
+
+## Reuse
+
+The route reuses all existing migration infrastructure without copying logic:
+- `MigrationCliRunner.runForReport` — same factory + service calls as the CLI
+- `MigrationReportFormatter` — same JSON serialization
+- `MigrationExecutionWorkflow` — same validate-after-execute logic
+- `Backend.parse`, `MigrationCommand`, `MigrationMode` — same domain types
+
+The CLI entry point (`PersistenceMigrationMain`) and its behavior are unchanged.
+
+## Testing
+
+Route tests in `chess.server.http.MigrationAdminRoutesSpec` inject a stub migration runner,
+so all validation and JSON-contract tests run without Docker or Testcontainers.
+
+Config tests in `chess.server.config.ConfigLoaderSpec` verify `MIGRATION_ADMIN_ENABLED`
+defaults to `false`.
+
+Run:
+
+```powershell
+sbt "gameService/testOnly chess.server.http.MigrationAdminRoutesSpec"
+sbt "gameService/testOnly chess.server.config.ConfigLoaderSpec"
+```
+
+## Phase 5B (future)
+
+A migration admin UI that calls this route via browser fetch. The official player Web UI
+remains gameplay-focused and is unaffected.

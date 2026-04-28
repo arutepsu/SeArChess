@@ -56,7 +56,7 @@ export default function Homepage({ hasActiveGame, busy, onStart, onContinueActiv
             Aktuelles Spiel fortsetzen
           </button>
         )}
-        <ResumeGamePanel busy={busy} onResume={onResumeSession} />
+
       </section>
 
 

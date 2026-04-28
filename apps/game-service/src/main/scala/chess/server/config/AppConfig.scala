@@ -1,10 +1,24 @@
 package chess.server.config
 
 enum PersistenceMode:
+  case Postgres
+  case Mongo
   case InMemory
   case SQLite
 
 final case class SqliteConfig(path: String)
+
+final case class PostgresConfig(
+    url: String,
+    user: String,
+    password: String
+)
+
+final case class MongoConfig(
+    uri: String,
+    database: String
+):
+  def databaseName: String = database
 
 final case class CorsConfig(enabled: Boolean, allowedOrigin: String)
 
@@ -62,8 +76,12 @@ final case class AppConfig(
     webSocket: WebSocketConfig,
     persistence: PersistenceMode,
     sqlite: Option[SqliteConfig],
+    postgres: Option[PostgresConfig],
+    mongo: Option[MongoConfig],
     eventMode: EventMode,
     cors: CorsConfig,
     history: HistoryForwardingConfig,
-    ai: AiConfig
+    ai: AiConfig,
+    migrationAdminEnabled: Boolean = false,
+    migrationAdminToken: Option[String] = None
 )
