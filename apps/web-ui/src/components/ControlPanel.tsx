@@ -147,8 +147,20 @@ export default function ControlPanel({
         </div>
       </div>
 
-      <div className="notation-format-select">
 
+      <div className="notation-format-select">
+        <label htmlFor="notation-format-select" className="label" style={{ marginRight: 8 }}>
+          Notation Format
+        </label>
+        <select
+          id="notation-format-select"
+          value={notationFormat}
+          onChange={e => setNotationFormat(e.target.value as "FEN" | "PGN")}
+          disabled={busy}
+        >
+          <option value="FEN">FEN</option>
+          <option value="PGN">PGN</option>
+        </select>
       </div>
 
       <div className="notation">
