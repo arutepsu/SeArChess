@@ -68,12 +68,6 @@ export default function ControlPanel({
 
   const [fenDraft, setFenDraft] = useState("");
   const [pgnDraft, setPgnDraft] = useState("");
-  const [exportedNotation, setExportedNotation] =
-    useState<ExportedNotation | null>(null);
-  const [exportingFormat, setExportingFormat] = useState<"FEN" | "PGN" | null>(
-    null
-  );
-  const [exportError, setExportError] = useState<string | null>(null);
   const [exportNotice, setExportNotice] = useState<string | null>(null);
   const [notationFormat, setNotationFormat] = useState<"FEN" | "PGN">("FEN");
 
@@ -85,35 +79,21 @@ export default function ControlPanel({
     setter(await file.text());
   };
 
-  const handleExportClick = async (format: "FEN" | "PGN") => {
-    setExportingFormat(format);
-    setExportError(null);
-    setExportNotice(null);
+  const copyNotation = async () => {
+    const textToCopy = notationFormat === "FEN" ? fen : pgn;
+    if (!textToCopy || !navigator.clipboard?.writeText) return;
 
-    try {
-      const text = await onExportNotation(format);
-      setExportedNotation({ format, text });
-    } catch (error) {
-      setExportError(
-        error instanceof Error ? error.message : `${format} export failed.`
-      );
-    } finally {
-      setExportingFormat(null);
-    }
+    await navigator.clipboard.writeText(textToCopy);
+    setExportNotice(`${notationFormat} copied.`);
+    setTimeout(() => setExportNotice(null), 3000);
   };
 
-  const copyExportedNotation = async () => {
-    if (!exportedNotation || !navigator.clipboard?.writeText) return;
+  const downloadNotation = () => {
+    const textToDownload = notationFormat === "FEN" ? fen : pgn;
+    if (!textToDownload || !game) return;
 
-    await navigator.clipboard.writeText(exportedNotation.text);
-    setExportNotice(`${exportedNotation.format} copied.`);
-  };
-
-  const downloadExportedNotation = () => {
-    if (!exportedNotation || !game) return;
-
-    const extension = exportedNotation.format.toLowerCase();
-    const blob = new Blob([exportedNotation.text], {
+    const extension = notationFormat.toLowerCase();
+    const blob = new Blob([textToDownload], {
       type: "text/plain;charset=utf-8"
     });
     const url = window.URL.createObjectURL(blob);
@@ -125,7 +105,8 @@ export default function ControlPanel({
     anchor.click();
     anchor.remove();
     window.URL.revokeObjectURL(url);
-    setExportNotice(`${exportedNotation.format} downloaded.`);
+    setExportNotice(`${notationFormat} downloaded.`);
+    setTimeout(() => setExportNotice(null), 3000);
   };
 
   return (
@@ -185,13 +166,22 @@ export default function ControlPanel({
           <div>
             <span className="label">FEN</span>
             <pre className="notation-text">{fen ?? "Not available"}</pre>
-            <button
-              type="button"
-              disabled={busy || !game || exportingFormat !== null}
-              onClick={() => void handleExportClick("FEN")}
-            >
-              {exportingFormat === "FEN" ? "Exporting FEN..." : "Export FEN"}
-            </button>
+            <div className="notation-output-actions">
+              <button
+                type="button"
+                disabled={!fen || !navigator.clipboard?.writeText}
+                onClick={() => void copyNotation()}
+              >
+                Copy
+              </button>
+              <button
+                type="button"
+                disabled={!fen || !game}
+                onClick={downloadNotation}
+              >
+                Download
+              </button>
+            </div>
           </div>
         )}
 
@@ -199,49 +189,28 @@ export default function ControlPanel({
           <div>
             <span className="label">PGN</span>
             <pre className="notation-text">{pgn ?? "Not available"}</pre>
-            <button
-              type="button"
-              disabled={busy || !game || exportingFormat !== null}
-              onClick={() => void handleExportClick("PGN")}
-            >
-              {exportingFormat === "PGN" ? "Exporting PGN..." : "Export PGN"}
-            </button>
+            <div className="notation-output-actions">
+              <button
+                type="button"
+                disabled={!pgn || !navigator.clipboard?.writeText}
+                onClick={() => void copyNotation()}
+              >
+                Copy
+              </button>
+              <button
+                type="button"
+                disabled={!pgn || !game}
+                onClick={downloadNotation}
+              >
+                Download
+              </button>
+            </div>
           </div>
         )}
 
-        <div className="notation-output">
-          <span className="label">
-            {exportedNotation
-              ? `${exportedNotation.format} export`
-              : "Export result"}
-          </span>
-          <textarea
-            readOnly
-            rows={5}
-            value={exportedNotation?.text ?? ""}
-            placeholder="Exported notation will appear here."
-          />
-          {exportError ? <p className="notation-error">{exportError}</p> : null}
-          {exportNotice ? (
-            <p className="notation-success">{exportNotice}</p>
-          ) : null}
-          <div className="notation-output-actions">
-            <button
-              type="button"
-              disabled={!exportedNotation || !navigator.clipboard?.writeText}
-              onClick={() => void copyExportedNotation()}
-            >
-              Copy
-            </button>
-            <button
-              type="button"
-              disabled={!exportedNotation || !game}
-              onClick={downloadExportedNotation}
-            >
-              Download
-            </button>
-          </div>
-        </div>
+        {exportNotice ? (
+          <p className="notation-success">{exportNotice}</p>
+        ) : null}
       </div>
 
       <div className="import-notation">
