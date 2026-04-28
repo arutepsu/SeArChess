@@ -68,6 +68,13 @@ export default function ControlPanel({
   const whiteActive = activeColor === "white" && clockRunning;
   const blackActive = activeColor === "black" && clockRunning;
 
+  const getProgress = (timeMs?: number) => {
+    const total = 600000; // 10 Minuten als Standard
+    if (!timeMs) return "0%";
+    const percentage = Math.min(100, (timeMs / total) * 100);
+    return `${percentage}%`;
+  };
+
   const [fenDraft, setFenDraft] = useState("");
   const [pgnDraft, setPgnDraft] = useState("");
   const [exportNotice, setExportNotice] = useState<string | null>(null);
@@ -119,12 +126,20 @@ export default function ControlPanel({
       </header>
 
       <div className="clocks">
-        <div className={`clock${whiteActive ? " is-active" : ""}`}>
+        {/* WEISS */}
+        <div
+          className={`clock${whiteActive ? " is-active" : ""}`}
+          style={{ "--time-left": getProgress(whiteTimeMs) } as React.CSSProperties}
+        >
           <span className="label">White</span>
           <strong className="clock-time">{formatTime(whiteTimeMs)}</strong>
         </div>
 
-        <div className={`clock${blackActive ? " is-active" : ""}`}>
+        {/* SCHWARZ */}
+        <div
+          className={`clock${blackActive ? " is-active" : ""}`}
+          style={{ "--time-left": getProgress(blackTimeMs) } as React.CSSProperties}
+        >
           <span className="label">Black</span>
           <strong className="clock-time">{formatTime(blackTimeMs)}</strong>
         </div>

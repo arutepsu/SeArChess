@@ -40,6 +40,33 @@
   padding: 10px 12px;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.04);
+  position: relative;
+  /* Wichtig für die Positionierung des Balkens */
+  overflow: hidden;
+  /* Damit der Balken an den Ecken nicht übersteht */
+}
+
+/* Der visuelle Zeit-Balken */
+.control-panel .clock::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 4px;
+  background: #ffce74;
+  /* Standardfarbe */
+  width: var(--time-left, 100%);
+  /* Diesen Wert müsstest du via JS/Inline-Style steuern (z.B. style="width: 70%") */
+  opacity: 0.6;
+  transition: width 1s linear;
+  /* Geschmeidige Abnahme */
+}
+
+/* Wenn die Uhr aktiv ist, soll der Balken leuchten */
+.control-panel .clock.is-active::after {
+  background: #ffce74;
+  box-shadow: 0 0 10px rgba(255, 206, 116, 0.8);
+  opacity: 1;
 }
 
 .control-panel .clock.is-active {
@@ -204,12 +231,31 @@
   color: #231710;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  /* Sanfter Übergang für alle Eigenschaften */
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.3s ease,
+    background-color 0.3s ease,
+    color 0.3s ease;
 }
 
 .control-panel button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 18px rgba(0, 0, 0, 0.35);
+  /* Farbwechsel zu einem satten Orange-Rot */
+  background: #ff7b39;
+  color: #fff;
+  /* Text auf Weiß für besseren Kontrast auf Orange */
+
+  /* Der "Feuer-Glow" Effekt */
+  box-shadow:
+    0 0 15px rgba(255, 123, 57, 0.6),
+    0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* Optional: Klick-Effekt (Active) */
+.control-panel button:active {
+  transform: translateY(0);
+  filter: brightness(0.9);
 }
 
 .control-panel button:disabled {
