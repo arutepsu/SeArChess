@@ -11,7 +11,7 @@ import ControlPanel from "./components/ControlPanel.tsx";
 import MoveList from "./components/MoveList.tsx";
 import ResumeGamePanel from "./components/ResumeGamePanel.tsx";
 import SessionTransferPanel from "./components/SessionTransferPanel.tsx";
-import StatusBanner from "./components/StatusBanner.tsx";
+//import StatusBanner from "./components/StatusBanner.tsx";
 import Homepage from "./components/Homepage.tsx";
 import BackgroundEffectsLayer from "./components/BackgroundEffectsLayer.tsx";
 import BackgroundPanel from "./components/BackgroundPanel.tsx";
@@ -310,14 +310,19 @@ export default function App() {
 
       {hasStarted ? (
         <>
-          <StatusBanner
-            game={game}
-            connection={connection}
-            liveConnection={liveConnection}
-            message={message}
-          />
-
           <main className="layout">
+            <aside className="side left-side">
+              <BackgroundPanel
+                backgrounds={backgrounds}
+                backgroundId={backgroundId}
+                onChange={setBackgroundId}
+              />
+
+              <MoveList moves={game?.moves ?? []} />
+
+              <CapturedPanel captured={game?.captured ?? []} spriteCatalog={spriteCatalog} />
+            </aside>
+
             {game ? (
               <ChessBoard
                 board={game.board}
@@ -335,7 +340,7 @@ export default function App() {
               </section>
             )}
 
-            <aside className="side">
+            <aside className="side right-side">
               <ControlPanel
                 game={game}
                 busy={busy}
@@ -354,11 +359,7 @@ export default function App() {
                 onResign={handleResign}
               />
 
-              <BackgroundPanel
-                backgrounds={backgrounds}
-                backgroundId={backgroundId}
-                onChange={setBackgroundId}
-              />
+
 
               <ResumeGamePanel busy={busy} onResume={handleResumeSession} />
 
@@ -367,10 +368,6 @@ export default function App() {
                 sessionId={session?.sessionId ?? null}
                 onImportSession={handleImportSession}
               />
-
-              <MoveList moves={game?.moves ?? []} />
-
-              <CapturedPanel captured={game?.captured ?? []} spriteCatalog={spriteCatalog} />
             </aside>
           </main>
         </>

@@ -75,6 +75,7 @@ export default function ControlPanel({
   );
   const [exportError, setExportError] = useState<string | null>(null);
   const [exportNotice, setExportNotice] = useState<string | null>(null);
+  const [notationFormat, setNotationFormat] = useState<"FEN" | "PGN">("FEN");
 
   const readNotationFile = async (
     file: File | undefined,
@@ -163,34 +164,50 @@ export default function ControlPanel({
         </div>
       </div>
 
+      <div className="notation-format-select">
+        <label className="mode-select">
+          <span className="label">Notation Format</span>
+          <select
+            value={notationFormat}
+            onChange={(e) => setNotationFormat(e.target.value as "FEN" | "PGN")}
+            disabled={busy}
+          >
+            <option value="FEN">FEN</option>
+            <option value="PGN">PGN</option>
+          </select>
+        </label>
+      </div>
+
       <div className="notation">
         <span className="label">Notation export</span>
-        <p className="notation-note">
-          FEN and PGN do not preserve session metadata.
-        </p>
-        <div>
-          <span className="label">FEN</span>
-          <pre className="notation-text">{fen ?? "Not available"}</pre>
-          <button
-            type="button"
-            disabled={busy || !game || exportingFormat !== null}
-            onClick={() => void handleExportClick("FEN")}
-          >
-            {exportingFormat === "FEN" ? "Exporting FEN..." : "Export FEN"}
-          </button>
-        </div>
 
-        <div>
-          <span className="label">PGN</span>
-          <pre className="notation-text">{pgn ?? "Not available"}</pre>
-          <button
-            type="button"
-            disabled={busy || !game || exportingFormat !== null}
-            onClick={() => void handleExportClick("PGN")}
-          >
-            {exportingFormat === "PGN" ? "Exporting PGN..." : "Export PGN"}
-          </button>
-        </div>
+        {notationFormat === "FEN" && (
+          <div>
+            <span className="label">FEN</span>
+            <pre className="notation-text">{fen ?? "Not available"}</pre>
+            <button
+              type="button"
+              disabled={busy || !game || exportingFormat !== null}
+              onClick={() => void handleExportClick("FEN")}
+            >
+              {exportingFormat === "FEN" ? "Exporting FEN..." : "Export FEN"}
+            </button>
+          </div>
+        )}
+
+        {notationFormat === "PGN" && (
+          <div>
+            <span className="label">PGN</span>
+            <pre className="notation-text">{pgn ?? "Not available"}</pre>
+            <button
+              type="button"
+              disabled={busy || !game || exportingFormat !== null}
+              onClick={() => void handleExportClick("PGN")}
+            >
+              {exportingFormat === "PGN" ? "Exporting PGN..." : "Export PGN"}
+            </button>
+          </div>
+        )}
 
         <div className="notation-output">
           <span className="label">
@@ -229,57 +246,62 @@ export default function ControlPanel({
 
       <div className="import-notation">
         <span className="label">Notation import</span>
-        <div>
-          <span className="label">Import FEN</span>
-          <textarea
-            value={fenDraft}
-            onChange={(event) => setFenDraft(event.target.value)}
-            placeholder="Paste FEN here"
-            rows={3}
-            disabled={busy}
-          />
-          <input
-            type="file"
-            accept=".fen,.txt"
-            disabled={busy}
-            onChange={(event) =>
-              void readNotationFile(event.currentTarget.files?.[0], setFenDraft)
-            }
-          />
-          <button
-            type="button"
-            disabled={busy || !fenDraft.trim()}
-            onClick={() => onImportNotation("FEN", fenDraft)}
-          >
-            Import FEN
-          </button>
-        </div>
+        
+        {notationFormat === "FEN" && (
+          <div>
+            <span className="label">Import FEN</span>
+            <textarea
+              value={fenDraft}
+              onChange={(event) => setFenDraft(event.target.value)}
+              placeholder="Paste FEN here"
+              rows={3}
+              disabled={busy}
+            />
+            <input
+              type="file"
+              accept=".fen,.txt"
+              disabled={busy}
+              onChange={(event) =>
+                void readNotationFile(event.currentTarget.files?.[0], setFenDraft)
+              }
+            />
+            <button
+              type="button"
+              disabled={busy || !fenDraft.trim()}
+              onClick={() => onImportNotation("FEN", fenDraft)}
+            >
+              Import FEN
+            </button>
+          </div>
+        )}
 
-        <div>
-          <span className="label">Import PGN</span>
-          <textarea
-            value={pgnDraft}
-            onChange={(event) => setPgnDraft(event.target.value)}
-            placeholder="Paste PGN here"
-            rows={3}
-            disabled={busy}
-          />
-          <input
-            type="file"
-            accept=".pgn,.txt"
-            disabled={busy}
-            onChange={(event) =>
-              void readNotationFile(event.currentTarget.files?.[0], setPgnDraft)
-            }
-          />
-          <button
-            type="button"
-            disabled={busy || !pgnDraft.trim()}
-            onClick={() => onImportNotation("PGN", pgnDraft)}
-          >
-            Import PGN
-          </button>
-        </div>
+        {notationFormat === "PGN" && (
+          <div>
+            <span className="label">Import PGN</span>
+            <textarea
+              value={pgnDraft}
+              onChange={(event) => setPgnDraft(event.target.value)}
+              placeholder="Paste PGN here"
+              rows={3}
+              disabled={busy}
+            />
+            <input
+              type="file"
+              accept=".pgn,.txt"
+              disabled={busy}
+              onChange={(event) =>
+                void readNotationFile(event.currentTarget.files?.[0], setPgnDraft)
+              }
+            />
+            <button
+              type="button"
+              disabled={busy || !pgnDraft.trim()}
+              onClick={() => onImportNotation("PGN", pgnDraft)}
+            >
+              Import PGN
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="actions">
