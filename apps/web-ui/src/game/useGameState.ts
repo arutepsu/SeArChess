@@ -25,6 +25,7 @@ import {
   loadSessionState,
   requestAiMove,
   resignGame,
+  saveSessionState,
   submitMove
 } from "../api/client";
 import { mapGameSnapshotToGameState } from "../api/mapper";
@@ -114,6 +115,7 @@ export type UseGameStateReturn = {
   handleExportNotation: (format: "FEN" | "PGN") => Promise<string>;
   handleImportSession: (envelope: SessionExportEnvelope) => Promise<void>;
   handleResumeSession: (sessionId: string) => Promise<void>;
+  handleSaveSession: () => Promise<void>;
   handleResign: () => Promise<void>;
   handleAnimationFinished: (id: number) => void;
 
@@ -127,7 +129,7 @@ export type UseGameStateReturn = {
 // ---------------------------------------------------------------------------
 
 export function useGameState(): UseGameStateReturn {
-  const { session, setSession, getGameId } = useSession();
+  const { session, setSession, getSessionId, getGameId } = useSession();
 
   const [game, setGame] = useState<GameState | undefined>(undefined);
   const [selectedSquare, setSelectedSquare] = useState<string | undefined>(
@@ -668,6 +670,7 @@ export function useGameState(): UseGameStateReturn {
         setMessageState(
           error instanceof Error ? error.message : "Failed to load session."
         );
+        throw error;
       } finally {
         setBusyState(false);
       }
@@ -702,6 +705,44 @@ export function useGameState(): UseGameStateReturn {
     },
     [commitGameSnapshot, refreshNotation, setSession]
   );
+
+  const handleSaveSession = useCallback(async (): Promise<void> => {
+    const sessionId = getSessionId();
+
+    if (!sessionId) {
+      const message = "Start or resume a game before saving a session.";
+      setMessageState(message);
+      throw new Error(message);
+    }
+
+    const thisGen = ++generation.current;
+
+    setBusyState(true);
+    setMessageState("Saving session...");
+
+    try {
+      const currentState = await loadSessionState(sessionId);
+      const savedState = await saveSessionState(sessionId, currentState);
+
+      if (thisGen !== generation.current) return;
+
+      setSession(savedState.session);
+      commitGameSnapshot(savedState.game);
+      void refreshNotation(savedState.game.gameId, thisGen);
+      setMessageState("Session saved successfully.");
+    } catch (error) {
+      if (thisGen !== generation.current) return;
+
+      setMessageState(
+        error instanceof Error ? error.message : "Session save failed."
+      );
+      throw error;
+    } finally {
+      if (thisGen === generation.current) {
+        setBusyState(false);
+      }
+    }
+  }, [commitGameSnapshot, getSessionId, refreshNotation, setSession]);
 
   const handleResign = useCallback(async (): Promise<void> => {
     if (!game || busy || isTerminal(game) || isClosedLifecycle(session)) return;
@@ -781,6 +822,7 @@ export function useGameState(): UseGameStateReturn {
     handleExportNotation,
     handleImportSession,
     handleResumeSession,
+    handleSaveSession,
     handleResign,
     handleAnimationFinished,
     setMessage,

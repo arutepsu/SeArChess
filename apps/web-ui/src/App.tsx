@@ -68,6 +68,7 @@ export default function App() {
     handleExportNotation,
     handleImportSession,
     handleResumeSession,
+    handleSaveSession,
     handleResign,
     handleAnimationFinished,
     setMessage,
@@ -367,12 +368,15 @@ export default function App() {
                 clockRunning={clockRunning}
                 gameMode={gameMode}
                 canResign={canResign}
+                sessionId={session?.sessionId}
+                gameId={game?.id ?? session?.gameId}
                 fen={notation?.fen}
                 pgn={notation?.pgn}
                 onImportNotation={handleImportNotation}
                 onExportNotation={handleExportNotation}
                 onGameModeChange={setGameMode}
                 onNewGame={handleNewGame}
+                onSaveSession={handleSaveSession}
                 onResign={handleResign}
                 onBackToMenu={handleBackToMenu}
               />

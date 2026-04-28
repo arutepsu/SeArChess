@@ -59,6 +59,7 @@ export default function Homepage({ hasActiveGame, busy, onStart, onContinueActiv
 
       </section>
 
+      <ResumeGamePanel busy={busy} onResume={onResumeSession} />
 
     </div>
   );

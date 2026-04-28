@@ -11,12 +11,15 @@ type ControlPanelProps = {
   clockRunning?: boolean;
   gameMode: PlayableGameMode;
   canResign: boolean;
+  sessionId?: string;
+  gameId?: string;
   fen?: string;
   pgn?: string;
   onImportNotation: (format: "FEN" | "PGN", notation: string) => void;
   onExportNotation: (format: "FEN" | "PGN") => Promise<string>;
   onGameModeChange: (mode: PlayableGameMode) => void;
   onNewGame: () => void;
+  onSaveSession: () => Promise<void>;
   onResign: () => void;
   onBackToMenu: () => void;
 };
@@ -56,12 +59,15 @@ export default function ControlPanel({
   clockRunning,
   gameMode,
   canResign,
+  sessionId,
+  gameId,
   fen,
   pgn,
   onImportNotation,
   onExportNotation,
   onGameModeChange,
   onNewGame,
+  onSaveSession,
   onResign,
   onBackToMenu
 }: ControlPanelProps) {
@@ -78,6 +84,8 @@ export default function ControlPanel({
   const [fenDraft, setFenDraft] = useState("");
   const [pgnDraft, setPgnDraft] = useState("");
   const [exportNotice, setExportNotice] = useState<string | null>(null);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [notationFormat, setNotationFormat] = useState<"FEN" | "PGN">("FEN");
 
   const readNotationFile = async (
@@ -116,6 +124,21 @@ export default function ControlPanel({
     window.URL.revokeObjectURL(url);
     setExportNotice(`${notationFormat} downloaded.`);
     setTimeout(() => setExportNotice(null), 3000);
+  };
+
+  const saveSession = async () => {
+    setSaveNotice(null);
+    setSaveError(null);
+
+    try {
+      await onSaveSession();
+      setSaveNotice("Session saved successfully.");
+      setTimeout(() => setSaveNotice(null), 5000);
+    } catch (error) {
+      setSaveError(
+        error instanceof Error ? error.message : "Session save failed."
+      );
+    }
   };
 
   return (
@@ -160,6 +183,42 @@ export default function ControlPanel({
           <span className="label">Half move</span>
           <strong>{game?.halfMoveClock ?? 0}</strong>
         </div>
+      </div>
+
+      <div className="session-save">
+        <span className="label">Session persistence</span>
+
+        <dl className="session-identifiers">
+          <div>
+            <dt>Game ID</dt>
+            <dd title={gameId}>{gameId ?? "Not available"}</dd>
+          </div>
+          <div>
+            <dt>Session ID</dt>
+            <dd title={sessionId}>{sessionId ?? "Not available"}</dd>
+          </div>
+        </dl>
+
+        <button
+          type="button"
+          disabled={busy || !sessionId || !game}
+          onClick={() => void saveSession()}
+        >
+          Save Session
+        </button>
+
+        <p className="session-save-note">
+          Moves are persisted automatically; this confirms the current session
+          through the save endpoint.
+        </p>
+
+        {saveNotice ? (
+          <p className="session-save-success">{saveNotice}</p>
+        ) : null}
+
+        {saveError ? (
+          <p className="session-save-error">{saveError}</p>
+        ) : null}
       </div>
 
 

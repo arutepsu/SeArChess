@@ -108,6 +108,65 @@
   font-size: 1rem;
 }
 
+.control-panel .session-save {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid rgba(255, 206, 116, 0.22);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.control-panel .session-identifiers {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.control-panel .session-identifiers div {
+  display: grid;
+  gap: 4px;
+}
+
+.control-panel .session-identifiers dt {
+  color: #bfa8a8;
+  font-family: 'Courier New', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.05rem;
+  text-transform: uppercase;
+}
+
+.control-panel .session-identifiers dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #f4efe6;
+  font-family: 'Courier New', monospace;
+  font-size: 0.72rem;
+  line-height: 1.25;
+}
+
+.control-panel .session-save-note,
+.control-panel .session-save-success,
+.control-panel .session-save-error {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.control-panel .session-save-note {
+  color: #d6c6b2;
+  opacity: 0.82;
+}
+
+.control-panel .session-save-success {
+  color: #baf0c3;
+}
+
+.control-panel .session-save-error {
+  color: #ff9d9d;
+}
+
 /* --- Notation display --- */
 .control-panel .notation {
   display: grid;
