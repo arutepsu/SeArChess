@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Routes, Route, useNavigate } from "react-router-dom";
 import type { PlayerColor, PlayableGameMode } from "./api/types";
 import type { SpriteCatalog } from "./assets/spriteCatalog";
 import { loadSpriteCatalog } from "./assets/spriteCatalog";
@@ -74,8 +75,8 @@ export default function App() {
   } = useGameState();
 
   const { session, setSession, getSessionId } = useSession();
+  const navigate = useNavigate();
 
-  const [hasStarted, setHasStarted] = useState(false);
   const [connection, setConnection] = useState<ConnectionState>("loading");
   const [liveConnection, setLiveConnection] =
     useState<LiveConnectionState>("idle");
@@ -131,9 +132,13 @@ export default function App() {
 
   const handleStartGame = async (selectedMode: PlayableGameMode) => {
     setGameMode(selectedMode);
-    setHasStarted(true);
+    navigate("/game");
     await handleNewGame(selectedMode);
   };
+
+  const handleBackToMenu = useCallback(() => {
+    navigate("/");
+  }, [navigate]);
 
   useEffect(() => {
     wsClientRef.current?.close();
@@ -308,8 +313,20 @@ export default function App() {
     <div className="app">
       <BackgroundEffectsLayer backgroundId={backgroundId} />
 
-      {hasStarted ? (
-        <>
+      <Routes>
+        <Route path="/" element={
+          <Homepage
+            hasActiveGame={Boolean(game)}
+            busy={busy}
+            onStart={handleStartGame}
+            onContinueActiveGame={() => navigate("/game")}
+            onResumeSession={async (sessionId) => {
+              await handleResumeSession(sessionId);
+              navigate("/game");
+            }}
+          />
+        } />
+        <Route path="/game" element={
           <main className="layout">
             <aside className="side left-side">
               <BackgroundPanel
@@ -357,6 +374,7 @@ export default function App() {
                 onGameModeChange={setGameMode}
                 onNewGame={handleNewGame}
                 onResign={handleResign}
+                onBackToMenu={handleBackToMenu}
               />
 
               <SessionTransferPanel
@@ -366,19 +384,8 @@ export default function App() {
               />
             </aside>
           </main>
-        </>
-      ) : (
-        <Homepage
-          hasActiveGame={Boolean(game)}
-          busy={busy}
-          onStart={handleStartGame}
-          onContinueActiveGame={() => setHasStarted(true)}
-          onResumeSession={async (sessionId) => {
-            await handleResumeSession(sessionId);
-            setHasStarted(true);
-          }}
-        />
-      )}
+        } />
+      </Routes>
     </div>
   );
 }

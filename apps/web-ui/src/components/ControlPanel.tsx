@@ -18,6 +18,7 @@ type ControlPanelProps = {
   onGameModeChange: (mode: PlayableGameMode) => void;
   onNewGame: () => void;
   onResign: () => void;
+  onBackToMenu: () => void;
 };
 
 type ExportedNotation = {
@@ -61,7 +62,8 @@ export default function ControlPanel({
   onExportNotation,
   onGameModeChange,
   onNewGame,
-  onResign
+  onResign,
+  onBackToMenu
 }: ControlPanelProps) {
   const whiteActive = activeColor === "white" && clockRunning;
   const blackActive = activeColor === "black" && clockRunning;
@@ -263,6 +265,19 @@ export default function ControlPanel({
       </div>
 
       <div className="actions">
+        <label className="mode-select">
+          <span className="label">Mode</span>
+          <select
+            value={gameMode}
+            disabled={busy}
+            onChange={(event) =>
+              onGameModeChange(event.target.value as PlayableGameMode)
+            }
+          >
+            <option value="HumanVsHuman">Human vs Human</option>
+            <option value="HumanVsAI">Human vs AI</option>
+          </select>
+        </label>
 
         <button type="button" disabled={busy} onClick={onNewGame}>
           New Game
@@ -270,6 +285,10 @@ export default function ControlPanel({
 
         <button type="button" disabled={!canResign} onClick={onResign}>
           Resign
+        </button>
+
+        <button type="button" disabled={busy} onClick={onBackToMenu}>
+          Back to Menu
         </button>
       </div>
     </section>
