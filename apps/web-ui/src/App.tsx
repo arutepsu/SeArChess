@@ -9,7 +9,7 @@ import { useSession } from "./session/SessionProvider";
 import ChessBoard from "./components/ChessBoard.tsx";
 import ControlPanel from "./components/ControlPanel.tsx";
 import MoveList from "./components/MoveList.tsx";
-import ResumeGamePanel from "./components/ResumeGamePanel.tsx";
+//import ResumeGamePanel from "./components/ResumeGamePanel.tsx";
 import SessionTransferPanel from "./components/SessionTransferPanel.tsx";
 //import StatusBanner from "./components/StatusBanner.tsx";
 import Homepage from "./components/Homepage.tsx";
@@ -358,10 +358,6 @@ export default function App() {
                 onNewGame={handleNewGame}
                 onResign={handleResign}
               />
-
-
-
-              <ResumeGamePanel busy={busy} onResume={handleResumeSession} />
 
               <SessionTransferPanel
                 busy={busy}

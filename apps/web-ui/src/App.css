@@ -17,6 +17,14 @@
   padding-top: 20px;
 }
 
+.layout> :nth-child(2) {
+  position: sticky;
+  top: 25px;
+  /* Abstand zum oberen Bildschirmrand beim Scrollen */
+  height: fit-content;
+  /* Wichtig, damit das Element nicht die volle Grid-Höhe einnimmt */
+}
+
 .side {
   display: grid;
   gap: 16px;
