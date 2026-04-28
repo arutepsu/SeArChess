@@ -1,3 +1,5 @@
+import "./BackgroundPanel.css";
+
 export type BackgroundOption = {
     id: string;
     label: string;
