@@ -26,10 +26,11 @@ class MongoSessionMigrationReader(collection: MongoCollection[Document]) extends
       for
         lastSeenSessionId <- decodeCursor(cursor)
         documents <- loadDocuments(lastSeenSessionId, batchSize)
-        sessions <- sequence(documents.map(MongoSessionMapper.toSession))
+        pageDocuments = documents.take(batchSize)
+        sessions <- sequence(pageDocuments.map(MongoSessionMapper.toSession))
       yield
         val nextCursor =
-          if documents.size < batchSize then None
+          if documents.size <= batchSize then None
           else sessions.lastOption.map(session =>
             SessionMigrationCursor(session.sessionId.value.toString)
           )
@@ -48,7 +49,7 @@ class MongoSessionMigrationReader(collection: MongoCollection[Document]) extends
     val documents = collection
       .find(query)
       .sort(Sorts.ascending("sessionId"))
-      .limit(batchSize)
+      .limit(batchSize + 1)
       .iterator()
       .asScala
       .toList

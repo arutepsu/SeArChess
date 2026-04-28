@@ -636,6 +636,23 @@ The implementation:
 
 This gives the durable adapter real database transaction behavior while keeping Slick and row types inside the Postgres adapter package.
 
+### MongoDB
+
+`MongoSessionGameStore` coordinates the existing Mongo repositories:
+- `MongoSessionRepository`
+- `MongoGameRepository`
+
+The application still depends only on `SessionGameStore`, not on Mongo driver
+types. On a successful `Right(())`, both the session and game state are visible
+through the normal repositories, and duplicate `GameId` ownership is surfaced as
+`RepositoryError.Conflict`.
+
+Mongo is adapter-compatible with the `SessionGameStore` port, but it is not
+guarantee-equivalent to the PostgreSQL implementation. The current Mongo store
+writes session metadata first and game state second. Unless Mongo transactions
+are added later, a failure between those writes may leave a partial aggregate
+that needs reconciliation.
+
 ## Cross-Implementation Rules
 
 All implementations must:
@@ -647,16 +664,26 @@ All implementations must:
 - avoid read APIs on `SessionGameStore`.
 - keep database-specific transaction, row, document, or driver types out of application/core.
 
-## Stronger PostgreSQL Guarantees
+## Consistency Guarantees
 
-PostgreSQL/Slick provides stronger guarantees than the in-memory implementation:
+PostgreSQL and MongoDB are interchangeable at the application API boundary, but
+not identical at the consistency-guarantee boundary.
+
+PostgreSQL/Slick provides the strongest current coordinated-write guarantee:
 - a real database transaction commits the session and game-state rows together.
 - if the transaction fails, neither write is committed.
 - unique `GameId` ownership can be protected by relational constraints and conflict mapping.
 - data is durable across process restarts.
 - the temporary-schema contract spec can verify the adapter against a real Postgres instance.
 
-In-memory remains valuable for tests and local development, but its guarantees are process-local and non-durable.
+MongoDB provides the same successful-write contract in the normal case:
+- successful writes make both records visible through the repository ports.
+- session-side ownership conflicts are mapped to `RepositoryError.Conflict`.
+- the adapter remains replaceable behind `SessionGameStore`.
+
+MongoDB does not currently provide rollback-atomic behavior across the two
+collections. In-memory remains valuable for tests and local development, but its
+guarantees are process-local and non-durable.
 
 ## How to Run the Tests
 
@@ -684,7 +711,16 @@ sbt "adapterPersistence/testOnly chess.adapter.repository.postgres.PostgresSessi
 
 The Postgres spec creates a temporary schema for the suite and drops it afterward. The configured user must be allowed to create and drop schemas.
 
-If `SEARCHESS_POSTGRES_URL` is not configured, the Postgres contract tests cancel cleanly instead of failing the normal test run.
+Run the MongoDB `SessionGameStore` contract:
+
+```powershell
+$env:SEARCHESS_MONGO_URI="mongodb://localhost:27017"
+
+sbt "adapterPersistence/testOnly chess.adapter.repository.mongo.MongoSessionGameStoreSpec"
+```
+
+If the database environment variable is not configured, the Postgres and Mongo
+contract tests cancel cleanly instead of failing the normal test run.
 
 ## Why This Architecture Matters
 
@@ -693,22 +729,17 @@ This slice completes the core persistence story:
 - `GameRepository` owns current authoritative game state.
 - `SessionGameStore` owns coordinated writes when both must change together.
 
-The application can express its consistency requirement directly without depending on database transactions. Each adapter is responsible for satisfying the same behavior contract using its own storage technology.
+The application can express its consistency requirement directly without
+depending on database APIs. Each adapter is responsible for satisfying the same
+application-facing behavior with its own storage technology, while documenting
+where its operational guarantees differ.
 
 This keeps the architecture small enough for a student team while still demonstrating clean ports, adapter-local database code, reusable contract tests, and meaningful consistency boundaries.
-
-## Is Mongo SessionGameStore Worth It?
-
-Mongo `SessionGameStore` is a reasonable stretch goal, but it is not necessary for the mandatory baseline.
-
-Implement it only if the team has time after documenting and verifying the current slices. It would be useful to demonstrate the same coordinating port over a document database, especially if Mongo is part of the final evaluation story. However, it may require extra care around Mongo sessions/transactions, replica-set requirements, and local setup complexity.
-
-Recommendation: keep Mongo `SessionGameStore` as optional stretch work. The completed in-memory and PostgreSQL/Slick implementations already prove the architecture and the transactional durable path.
 
 ## Small Cleanup Suggestions
 
 Before final evaluation, consider:
 - Run the Postgres `SessionGameStore` contract once with a real local Postgres instance and record the result.
-- Run the Postgres and Mongo repository contract specs with real local services if the report wants durable-adapter evidence.
+- Run the Postgres and Mongo repository/store contract specs with real local services if the report wants durable-adapter evidence.
 - Keep SQLite-specific persistence tests documented as legacy/local coverage unless the team decides to migrate them to shared contracts later.
 - Add a short report note that `SessionGameStore` coordinates proven repository behavior instead of redefining session or game storage.

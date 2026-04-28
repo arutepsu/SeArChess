@@ -165,6 +165,15 @@ At a high level:
 This means the same application-level migration logic can run across different
 backends while staying DB-independent.
 
+PostgreSQL and MongoDB are interchangeable at the application API boundary, not
+identical at the consistency-guarantee boundary. The application depends on
+`SessionGameStore`, not on a concrete database. PostgreSQL satisfies that port
+with a real transaction around session and game-state writes. MongoDB satisfies
+the same successful-write contract in the normal case, but the current adapter
+uses sequential best-effort writes unless Mongo transactions are added later.
+Mongo is therefore adapter-compatible, but not guarantee-equivalent to
+Postgres.
+
 ### Migration Flow
 
 1. Enumerate source `GameSession` records through `SessionMigrationReader`.
@@ -279,6 +288,12 @@ The migration feature is tested in layers:
 Database-backed tests are environment-gated and use isolated temporary schemas
 or temporary Mongo databases.
 
+Mongo reader pagination has focused regression coverage for exact batch
+boundaries. The Mongo migration reader fetches `batchSize + 1` records
+internally, returns at most `batchSize`, and uses the extra record only to decide
+whether a real next cursor exists. This avoids false next cursors when the
+source count is exactly divisible by the batch size.
+
 ### Guarantees and Limitations
 
 Guarantees:
@@ -289,7 +304,7 @@ Guarantees:
 - target writes go through `SessionGameStore`
 - Postgres target writes use real transaction semantics
 - Mongo target writes still go through the same `SessionGameStore` boundary, but the current Mongo
-  implementation is best-effort rather than a full rollback-capable transaction
+  implementation is adapter-compatible rather than guarantee-equivalent to Postgres
 
 Limitations:
 
@@ -300,23 +315,17 @@ Limitations:
   aggregate and require reconciliation
 - Postgres currently provides the stronger coordinated-write guarantee because
   `PostgresSessionGameStore` uses a real database transaction
+- `Execute` does not automatically run a full validation pass; run `ValidateOnly`
+  after `Execute` when you want explicit source/target confirmation
+
+### Recommended Workflow
+
+For operational use, run `DryRun`, then `Execute`, then `ValidateOnly`. The
+final validation pass is explicit today; it can become automatic later if the
+project needs that behavior.
 
 ### Future Extension: Admin API / Microservice
 
 The current design is intentionally suitable for later exposure as an admin API
 or dedicated migration service. The migration orchestration already lives behind
 application ports; the CLI is only a thin operational shell around it.
-## Coordinated Write Guarantees
-
-Persistence migration consistently writes through the `SessionGameStore` boundary rather than
-copying session and game data independently.
-
-- `PostgresSessionGameStore` uses a real database transaction for coordinated writes.
-- `MongoSessionGameStore` is currently best-effort: it writes session and game state sequentially
-  and returns success only after both writes complete, but it does not provide rollback-atomic
-  semantics if the second write fails after the first succeeds.
-
-This is a known limitation and is documented explicitly rather than hidden behind a common
-abstraction. The migration architecture remains the same: coordinated target writes still go
-through `SessionGameStore`, and future hardening can replace the Mongo implementation with a
-transactional one where deployment support exists.
