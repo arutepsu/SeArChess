@@ -1,14 +1,17 @@
 import { useState } from "react";
 import type { PlayableGameMode } from "../api/types";
+import ResumeGamePanel from "./ResumeGamePanel.tsx";
 import "./Homepage.css";
 
 interface HomepageProps {
   hasActiveGame: boolean;
+  busy: boolean;
   onStart: (mode: PlayableGameMode) => void;
-  onResume: () => void;
+  onContinueActiveGame: () => void;
+  onResumeSession: (sessionId: string) => Promise<void>;
 }
 
-export default function Homepage({ hasActiveGame, onStart, onResume }: HomepageProps) {
+export default function Homepage({ hasActiveGame, busy, onStart, onContinueActiveGame, onResumeSession }: HomepageProps) {
   const [mode, setMode] = useState<PlayableGameMode>("HumanVsHuman");
 
   return (
@@ -48,12 +51,15 @@ export default function Homepage({ hasActiveGame, onStart, onResume }: HomepageP
           <button
             className="resume-btn"
             type="button"
-            onClick={onResume}
+            onClick={onContinueActiveGame}
           >
             Aktuelles Spiel fortsetzen
           </button>
         )}
+        <ResumeGamePanel busy={busy} onResume={onResumeSession} />
       </section>
+
+
     </div>
   );
 }

@@ -370,8 +370,13 @@ export default function App() {
       ) : (
         <Homepage
           hasActiveGame={Boolean(game)}
+          busy={busy}
           onStart={handleStartGame}
-          onResume={() => setHasStarted(true)}
+          onContinueActiveGame={() => setHasStarted(true)}
+          onResumeSession={async (sessionId) => {
+            await handleResumeSession(sessionId);
+            setHasStarted(true);
+          }}
         />
       )}
     </div>

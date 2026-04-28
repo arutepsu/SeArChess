@@ -13,9 +13,9 @@ const RESUMABLE_LIFECYCLES = new Set(["Created", "Active", "AwaitingPromotion"])
 function formatMode(mode: string): string {
   switch (mode) {
     case "HumanVsHuman": return "Human vs Human";
-    case "HumanVsAI":    return "Human vs AI";
-    case "AIVsAI":       return "AI vs AI";
-    default:             return mode;
+    case "HumanVsAI": return "Human vs AI";
+    case "AIVsAI": return "AI vs AI";
+    default: return mode;
   }
 }
 
@@ -58,12 +58,8 @@ export default function ResumeGamePanel({ busy, onResume }: Props) {
 
   return (
     <section className="panel resume-panel" aria-label="Resume Game">
-      <header>
-        <h2>Resume Game</h2>
-        <p>Continue a previous session.</p>
-      </header>
       <div className="resume-actions">
-        <button
+        <button className="resume-game-btn"
           type="button"
           disabled={busy || loading}
           onClick={() => void handleLoad()}

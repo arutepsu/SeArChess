@@ -146,21 +146,10 @@ export default function ControlPanel({
       </div>
 
       <div className="notation-format-select">
-        <label className="mode-select">
-          <span className="label">Notation Format</span>
-          <select
-            value={notationFormat}
-            onChange={(e) => setNotationFormat(e.target.value as "FEN" | "PGN")}
-            disabled={busy}
-          >
-            <option value="FEN">FEN</option>
-            <option value="PGN">PGN</option>
-          </select>
-        </label>
+
       </div>
 
       <div className="notation">
-        <span className="label">Notation export</span>
 
         {notationFormat === "FEN" && (
           <div>
@@ -215,7 +204,7 @@ export default function ControlPanel({
 
       <div className="import-notation">
         <span className="label">Notation import</span>
-        
+
         {notationFormat === "FEN" && (
           <div>
             <span className="label">Import FEN</span>
@@ -274,19 +263,6 @@ export default function ControlPanel({
       </div>
 
       <div className="actions">
-        <label className="mode-select">
-          <span className="label">Mode</span>
-          <select
-            value={gameMode}
-            disabled={busy}
-            onChange={(event) =>
-              onGameModeChange(event.target.value as PlayableGameMode)
-            }
-          >
-            <option value="HumanVsHuman">Human vs Human</option>
-            <option value="HumanVsAI">Human vs AI</option>
-          </select>
-        </label>
 
         <button type="button" disabled={busy} onClick={onNewGame}>
           New Game
