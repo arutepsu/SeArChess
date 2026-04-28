@@ -32,11 +32,25 @@ class PersistenceMigrationServiceSpec
 
     val report = service.run(fixture.source, fixture.target, MigrationMode.DryRun, batchSize = 10)
 
+    report.sourceAdapterName shouldBe "source-in-memory"
+    report.targetAdapterName shouldBe "target-in-memory"
+    report.mode shouldBe MigrationMode.DryRun
+    report.startedAt shouldBe fixedNow
+    report.finishedAt shouldBe fixedNow
+    report.duration shouldBe java.time.Duration.ZERO
+    report.batchSize shouldBe 10
+    report.scannedCount shouldBe 1
     report.itemResults shouldBe List(
       MigrationItemResult.WouldMigrate(fixture.sourceSession.sessionId, fixture.sourceSession.gameId)
     )
     report.wouldMigrateCount shouldBe 1
     report.migratedCount shouldBe 0
+    report.skippedEquivalentCount shouldBe 0
+    report.conflictCount shouldBe 0
+    report.failedCount shouldBe 0
+    report.validationRan shouldBe false
+    report.validationResult shouldBe None
+    report.finalStatus shouldBe MigrationFinalStatus.Success
   }
 
   it should "not write anything in DryRun" in {
@@ -77,6 +91,9 @@ class PersistenceMigrationServiceSpec
         batchSize = 10
       )
     differentReport.itemResults.head shouldBe a[MigrationItemResult.Conflict]
+    differentReport.conflictCount shouldBe 1
+    differentReport.failedCount shouldBe 0
+    differentReport.finalStatus shouldBe MigrationFinalStatus.CompletedWithConflicts
 
     val partialFixture = freshFixture()
     partialFixture.targetSessionRepository.save(partialFixture.sourceSession).value
@@ -84,6 +101,7 @@ class PersistenceMigrationServiceSpec
     val partialReport =
       service.run(partialFixture.source, partialFixture.target, MigrationMode.DryRun, batchSize = 10)
     partialReport.itemResults.head shouldBe a[MigrationItemResult.Conflict]
+    partialReport.finalStatus shouldBe MigrationFinalStatus.CompletedWithConflicts
   }
 
   it should "migrate a missing aggregate in Execute" in {
@@ -94,6 +112,14 @@ class PersistenceMigrationServiceSpec
     report.itemResults shouldBe List(
       MigrationItemResult.Migrated(fixture.sourceSession.sessionId, fixture.sourceSession.gameId)
     )
+    report.scannedCount shouldBe 1
+    report.migratedCount shouldBe 1
+    report.skippedEquivalentCount shouldBe 0
+    report.conflictCount shouldBe 0
+    report.failedCount shouldBe 0
+    report.validationRan shouldBe false
+    report.validationResult shouldBe None
+    report.finalStatus shouldBe MigrationFinalStatus.Success
     fixture.targetSessionRepository.load(fixture.sourceSession.sessionId).value shouldBe
       fixture.sourceSession
     fixture.targetGameRepository.load(fixture.sourceSession.gameId).value shouldBe fixture.sourceState
@@ -144,6 +170,13 @@ class PersistenceMigrationServiceSpec
         fixture.sourceSession.gameId
       )
     )
+    report.scannedCount shouldBe 1
+    report.validatedEquivalentCount shouldBe 1
+    report.validationMismatchCount shouldBe 0
+    report.failedCount shouldBe 0
+    report.validationRan shouldBe true
+    report.validationResult shouldBe Some(MigrationValidationResult.Passed)
+    report.finalStatus shouldBe MigrationFinalStatus.Success
   }
 
   it should "report mismatch in ValidateOnly for missing different and partial target data" in {
@@ -151,6 +184,9 @@ class PersistenceMigrationServiceSpec
     val missingReport =
       service.run(missingFixture.source, missingFixture.target, MigrationMode.ValidateOnly, 10)
     missingReport.itemResults.head shouldBe a[MigrationItemResult.ValidationMismatch]
+    missingReport.validationMismatchCount shouldBe 1
+    missingReport.validationResult shouldBe Some(MigrationValidationResult.Failed)
+    missingReport.finalStatus shouldBe MigrationFinalStatus.CompletedWithConflicts
 
     val differentFixture = freshFixture()
     differentFixture.targetStore
@@ -159,12 +195,16 @@ class PersistenceMigrationServiceSpec
     val differentReport =
       service.run(differentFixture.source, differentFixture.target, MigrationMode.ValidateOnly, 10)
     differentReport.itemResults.head shouldBe a[MigrationItemResult.ValidationMismatch]
+    differentReport.validationResult shouldBe Some(MigrationValidationResult.Failed)
+    differentReport.finalStatus shouldBe MigrationFinalStatus.CompletedWithConflicts
 
     val partialFixture = freshFixture()
     partialFixture.targetGameRepository.save(partialFixture.sourceSession.gameId, partialFixture.sourceState).value
     val partialReport =
       service.run(partialFixture.source, partialFixture.target, MigrationMode.ValidateOnly, 10)
     partialReport.itemResults.head shouldBe a[MigrationItemResult.ValidationMismatch]
+    partialReport.validationResult shouldBe Some(MigrationValidationResult.Failed)
+    partialReport.finalStatus shouldBe MigrationFinalStatus.CompletedWithConflicts
   }
 
   it should "report SourceGameStateMissing when source game state is absent" in {
@@ -206,6 +246,8 @@ class PersistenceMigrationServiceSpec
     val report = service.run(fixture.source, target, MigrationMode.Execute, batchSize = 10)
 
     report.itemResults.head shouldBe a[MigrationItemResult.TargetWriteFailed]
+    report.failedCount shouldBe 1
+    report.finalStatus shouldBe MigrationFinalStatus.Failed
     fixture.targetSessionRepository.load(fixture.sourceSession.sessionId).left.value shouldBe
       RepositoryError.NotFound(fixture.sourceSession.sessionId.value.toString)
   }
@@ -228,6 +270,8 @@ class PersistenceMigrationServiceSpec
 
     report.itemResults shouldBe Nil
     report.fatalFailure shouldBe Some(MigrationRunFailure.ReaderFailure("reader boom"))
+    report.failedCount shouldBe 1
+    report.finalStatus shouldBe MigrationFinalStatus.Failed
   }
 
   it should "derive summary counters from itemResults" in {

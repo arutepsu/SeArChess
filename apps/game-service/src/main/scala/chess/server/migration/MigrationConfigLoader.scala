@@ -1,13 +1,11 @@
 package chess.server.migration
 
+import chess.server.config.PostgresConfigLoader
+
 import java.net.URI
 
 object MigrationConfigLoader:
-  final case class PostgresConfig(
-      url: String,
-      user: String,
-      password: String
-  )
+  type PostgresConfig = chess.server.config.PostgresConfig
 
   final case class MongoConfig(
       uri: String,
@@ -18,13 +16,7 @@ object MigrationConfigLoader:
   def loadPostgresConfig(
       env: String => Option[String] = key => Option(System.getenv(key))
   ): Either[String, PostgresConfig] =
-    required(env, "SEARCHESS_POSTGRES_URL").map { url =>
-      PostgresConfig(
-        url = url,
-        user = env("SEARCHESS_POSTGRES_USER").filter(_.nonEmpty).getOrElse("postgres"),
-        password = env("SEARCHESS_POSTGRES_PASSWORD").filter(_.nonEmpty).getOrElse("postgres")
-      )
-    }
+    PostgresConfigLoader.load(env)
 
   def loadMongoConfig(
       env: String => Option[String] = key => Option(System.getenv(key))

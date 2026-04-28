@@ -29,5 +29,6 @@ final case class MigrationCommand(
     target: Backend,
     mode: MigrationMode,
     batchSize: Int,
-    reportFormat: ReportFormat = ReportFormat.Text
+    reportFormat: ReportFormat = ReportFormat.Text,
+    validateAfterExecute: Boolean = false
 )

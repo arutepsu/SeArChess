@@ -120,6 +120,127 @@ The project intentionally keeps this step structural only: no runtime behavior,
 contracts, routes, persistence semantics, or delivery semantics are changed by
 the service-oriented directory layout.
 
+## Local Persistence Infrastructure
+
+`docker-compose.persistence.yml` provides real PostgreSQL and MongoDB services
+only. Use it for host-run Game Service development, adapter integration tests,
+migration rehearsals, and database smoke tests. It is separate from the main
+application Compose file so database lifecycle and data reset can be managed
+without rebuilding or restarting the full service stack.
+
+`docker-compose.demo.yml` is the containerized Postgres demo stack. It starts
+Envoy, Game Service, PostgreSQL, MongoDB, and the AI service. The Game Service
+image is persistence-neutral; persistence mode is runtime configuration, and
+the demo stack relies on the application default of Postgres by providing
+`SEARCHESS_POSTGRES_*` without setting `PERSISTENCE_MODE`.
+
+The existing `docker-compose.yml` remains the local microservice proof with an
+explicit `PERSISTENCE_MODE=sqlite` override and `/data/searchess.sqlite`.
+SQLite support remains available, but it is now an explicit runtime choice
+rather than a Docker image default.
+
+Automated persistence integration tests use Testcontainers instead. Docker must
+be running, but Docker Compose does not need to be started for those tests.
+Testcontainers creates disposable PostgreSQL and MongoDB containers for the test
+process and removes them afterward. Compose remains for manual demos and the
+uni-server path.
+
+The credentials in this file are local/demo credentials only:
+
+- database/user/password: `searchess` for PostgreSQL
+- unauthenticated local MongoDB on the Compose network/localhost
+
+Do not reuse these values for production.
+
+Start the persistence services:
+
+```powershell
+docker compose -f docker-compose.persistence.yml up -d
+```
+
+Stop the services while keeping data:
+
+```powershell
+docker compose -f docker-compose.persistence.yml down
+```
+
+Reset all persisted database data:
+
+```powershell
+docker compose -f docker-compose.persistence.yml down -v
+```
+
+PostgreSQL stores data in the named Docker volume
+`searchess_postgres_data`, mounted at `/var/lib/postgresql/data`.
+MongoDB stores documents in the named Docker volume
+`searchess_mongo_data`, mounted at `/data/db`.
+
+Set the local adapter environment variables in PowerShell:
+
+```powershell
+$env:SEARCHESS_POSTGRES_URL="jdbc:postgresql://localhost:5432/searchess"
+$env:SEARCHESS_POSTGRES_USER="searchess"
+$env:SEARCHESS_POSTGRES_PASSWORD="searchess"
+$env:SEARCHESS_MONGO_URI="mongodb://localhost:27017/searchess"
+```
+
+Postgres is the default Game Service runtime persistence backend when
+`PERSISTENCE_MODE` is omitted. The default runtime requires the
+`SEARCHESS_POSTGRES_*` variables above and runs Flyway automatically before the
+Postgres repositories are constructed. For lightweight local runs without
+Postgres, select a smaller backend explicitly:
+
+```powershell
+$env:PERSISTENCE_MODE="sqlite"
+# or
+$env:PERSISTENCE_MODE="in-memory"
+```
+
+Start the containerized Postgres demo stack:
+
+```powershell
+docker compose -f docker-compose.demo.yml up -d --build
+```
+
+The demo stack publishes Envoy on `http://127.0.0.1:10000` and direct Game
+Service API access on `http://127.0.0.1:8080`. Because the container receives
+`SEARCHESS_POSTGRES_URL=jdbc:postgresql://postgres:5432/searchess`, runtime
+startup runs Flyway and then persists sessions/game states to Postgres.
+
+The same Compose file can be reused on the uni server later. For commands run
+on the host through VPN, keep using the published localhost ports. For services
+running inside the same Docker Compose network, use Docker service names:
+
+```text
+jdbc:postgresql://postgres:5432/searchess
+mongodb://mongo:27017/searchess
+```
+
+Do not hardcode university hostnames or put real secrets in this repository.
+
+### PostgreSQL Schema Migration
+
+PostgreSQL schema lifecycle is managed by Flyway. Slick remains the database
+access and table-mapping layer used by the repositories; it should not create
+runtime Postgres tables as a hidden side effect. MongoDB is document storage and
+is not managed by Flyway.
+
+Run the Postgres schema migration explicitly after the persistence containers
+are up and the `SEARCHESS_POSTGRES_*` environment variables are set:
+
+```powershell
+sbt "gameService/runMain chess.server.migration.PostgresSchemaMigrationMain"
+```
+
+The migration CLI also runs this Flyway step before it accesses Postgres as a
+source or target, so an empty local/demo Postgres database can be prepared
+before a migration dry run. The initial Flyway script lives at
+`apps/game-service/modules/persistence/src/main/resources/db/migration/postgres/V1__create_session_persistence.sql`.
+
+Normal Game Service startup also runs the same Flyway initializer when the
+active runtime backend is Postgres. Repository constructors remain mapping and
+query wiring only; schema evolution is an explicit infrastructure startup step.
+
 ## Persistence Migration
 
 ### Why it exists
@@ -183,6 +304,12 @@ Postgres.
    `GameRepository`.
 4. In `Execute`, write missing aggregates through `SessionGameStore`.
 5. Return a `MigrationReport` summarizing the run.
+
+The report is deterministic and intended for audit/readout use. It includes
+source and target store names, mode, start/finish timestamps, duration, batch
+size, scanned/migrated/skipped/conflict/failure counts, validation result for
+`ValidateOnly`, and a final status of `Success`, `CompletedWithConflicts`, or
+`Failed`.
 
 ### Modes
 
@@ -248,9 +375,52 @@ sbt "gameService/runMain chess.server.migration.PersistenceMigrationMain --from 
 sbt "gameService/runMain chess.server.migration.PersistenceMigrationMain --from postgres --to mongo --mode execute --batch-size 200"
 ```
 
+Execute and immediately validate if execution succeeds:
+
+```powershell
+sbt "gameService/runMain chess.server.migration.PersistenceMigrationMain --from postgres --to mongo --mode execute --batch-size 200 --validate-after-execute"
+```
+
 ```powershell
 sbt "gameService/runMain chess.server.migration.PersistenceMigrationMain --from mongo --to postgres --mode validate-only"
 ```
+
+With the containerized demo stack, a professor-ready API flow is:
+
+```powershell
+docker compose -f docker-compose.demo.yml up -d --build
+
+$created = curl.exe -s -X POST http://127.0.0.1:8080/sessions -H "Content-Type: application/json" -d "{\"mode\":\"HumanVsHuman\"}"
+$gameId = ($created | ConvertFrom-Json).game.gameId
+curl.exe -s -X POST "http://127.0.0.1:8080/games/$gameId/moves" -H "Content-Type: application/json" -d "{\"from\":\"e2\",\"to\":\"e4\",\"controller\":\"HumanLocal\"}"
+
+docker compose -f docker-compose.demo.yml exec postgres psql -U searchess -d searchess -c "select count(*) as sessions from sessions; select count(*) as game_states from game_states;"
+```
+
+For the Web UI presentation, start the Vite UI separately and let it use its
+default Envoy base URL:
+
+```powershell
+cd apps/web-ui
+npm run dev
+```
+
+Then run migration commands from the host against the demo databases:
+
+```powershell
+$env:SEARCHESS_POSTGRES_URL="jdbc:postgresql://localhost:5432/searchess"
+$env:SEARCHESS_POSTGRES_USER="searchess"
+$env:SEARCHESS_POSTGRES_PASSWORD="searchess"
+$env:SEARCHESS_MONGO_URI="mongodb://localhost:27017/searchess"
+
+sbt "gameService/runMain chess.server.migration.PersistenceMigrationMain --from postgres --to mongo --mode dry-run"
+sbt "gameService/runMain chess.server.migration.PersistenceMigrationMain --from postgres --to mongo --mode execute --validate-after-execute"
+sbt "gameService/runMain chess.server.migration.PersistenceMigrationMain --from postgres --to mongo --mode validate-only"
+sbt "gameService/runMain chess.server.migration.PersistenceMigrationMain --from postgres --to mongo --mode execute --validate-after-execute"
+```
+
+The second execute demonstrates idempotency: equivalent target aggregates are
+skipped rather than overwritten.
 
 Supported arguments:
 
@@ -258,6 +428,28 @@ Supported arguments:
 - `--to postgres|mongo`
 - `--mode dry-run|execute|validate-only`
 - `--batch-size N`
+- `--format text|json`
+- `--validate-after-execute` with `--mode execute`
+
+The CLI prints a concise migration report at the end of each run. Text output
+is the default for operator readability; JSON output is available for simple
+archiving or scripting with `--format json`.
+
+Example text report:
+
+```text
+Migration report
+Status: Success
+Source store: postgres
+Target store: mongo
+Mode: Execute
+Scanned: 42
+Migrated: 42
+Skipped equivalent: 0
+Conflicts: 0
+Failed: 0
+Validation result: not applicable
+```
 
 ### Environment Variables
 
@@ -287,6 +479,13 @@ The migration feature is tested in layers:
 
 Database-backed tests are environment-gated and use isolated temporary schemas
 or temporary Mongo databases.
+
+The persistence module also includes Testcontainers-backed specs that do not
+require `SEARCHESS_POSTGRES_*` or `SEARCHESS_MONGO_URI`. They start temporary
+PostgreSQL and MongoDB containers automatically when Docker is available. The
+Postgres Testcontainers fixture initializes schema with Flyway before
+repositories are used; Mongo Testcontainers setup initializes adapter indexes
+only and is not Flyway-managed.
 
 Mongo reader pagination has focused regression coverage for exact batch
 boundaries. The Mongo migration reader fetches `batchSize + 1` records
@@ -320,9 +519,10 @@ Limitations:
 
 ### Recommended Workflow
 
-For operational use, run `DryRun`, then `Execute`, then `ValidateOnly`. The
-final validation pass is explicit today; it can become automatic later if the
-project needs that behavior.
+For operational use, either run `DryRun`, then `Execute`, then `ValidateOnly`,
+or run `DryRun` followed by `Execute --validate-after-execute`. The inline
+validation pass only runs after a successful execute report; failed execution
+reports are returned without running validation.
 
 ### Future Extension: Admin API / Microservice
 

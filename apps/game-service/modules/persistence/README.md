@@ -185,6 +185,19 @@ sessions
 
 Slick table, row, schema, and mapper code stay inside the Postgres adapter package.
 
+Flyway owns runtime PostgreSQL schema creation and evolution. The initial
+schema migration is:
+
+```text
+src/main/resources/db/migration/postgres/V1__create_session_persistence.sql
+```
+
+It creates the `sessions` and `game_states` tables, the unique `game_id`
+ownership constraint on `sessions`, and the lifecycle lookup index used by
+active-session listing. Slick still owns repository queries and row mapping; it
+does not own runtime schema lifecycle. The existing Slick schema helpers remain
+available for isolated tests that recreate temporary schemas.
+
 `game_id` has a unique constraint. The repository also checks current ownership before upsert so normal duplicate ownership returns `RepositoryError.Conflict`. The unique constraint is still needed as a database-level safety net.
 
 ### MongoDB
@@ -243,6 +256,114 @@ These may differ by adapter and should be documented when relevant:
 - timestamp storage representation, as long as the repository preserves the `Instant` values used by the contract tests.
 - test setup strategy.
 
+## Local Database Setup
+
+The repository root includes `docker-compose.persistence.yml` for local/demo
+PostgreSQL and MongoDB instances. It is infrastructure for exercising the real
+adapters; it does not change persistence logic or migration semantics.
+
+Automated integration tests use Testcontainers instead of Docker Compose.
+Docker must be running, but the Compose services do not need to be started.
+Testcontainers creates temporary PostgreSQL and MongoDB containers for the test
+run and disposes them afterward. Docker Compose remains for manual demos,
+migration rehearsals, and the later uni-server deployment path.
+
+Start the databases from the repository root:
+
+```powershell
+docker compose -f docker-compose.persistence.yml up -d
+```
+
+Set the required adapter environment variables in the same PowerShell session
+used to run tests or migration commands:
+
+```powershell
+$env:SEARCHESS_POSTGRES_URL="jdbc:postgresql://localhost:5432/searchess"
+$env:SEARCHESS_POSTGRES_USER="searchess"
+$env:SEARCHESS_POSTGRES_PASSWORD="searchess"
+$env:SEARCHESS_MONGO_URI="mongodb://localhost:27017/searchess"
+```
+
+Postgres is the default Game Service runtime persistence backend when
+`PERSISTENCE_MODE` is not set. Runtime startup requires the three
+`SEARCHESS_POSTGRES_*` variables above, runs Flyway as an explicit
+infrastructure startup step, and then constructs the Slick-backed
+`PostgresSessionRepository`, `PostgresGameRepository`, and
+`PostgresSessionGameStore`.
+
+For lightweight local runs, Postgres can still be bypassed explicitly:
+
+```powershell
+$env:PERSISTENCE_MODE="sqlite"
+# or
+$env:PERSISTENCE_MODE="in-memory"
+```
+
+You can also initialize an empty local Postgres database manually with Flyway:
+
+```powershell
+sbt "gameService/runMain chess.server.migration.PostgresSchemaMigrationMain"
+```
+
+The cross-database migration CLI also invokes Flyway before constructing
+Postgres repositories when Postgres is the source or target. MongoDB collection
+and index setup is not managed by Flyway.
+
+Run all persistence adapter tests:
+
+```powershell
+sbt "adapterPersistence/test"
+```
+
+Run the disposable-container integration specs:
+
+```powershell
+sbt "adapterPersistence/testOnly *TestcontainerSpec"
+```
+
+The Testcontainers Postgres fixture runs `PostgresFlywaySchemaInitializer`
+before constructing repositories. The Testcontainers Mongo fixture initializes
+Mongo collections and indexes through the Mongo adapter schema helpers; Flyway
+is Postgres-only.
+
+Run only the real PostgreSQL/Mongo-backed migration integration specs:
+
+```powershell
+sbt "adapterPersistence/testOnly chess.application.migration.CrossDatabaseMigrationIntegrationSpec"
+```
+
+Run targeted real-adapter contract specs:
+
+```powershell
+sbt "adapterPersistence/testOnly chess.adapter.repository.postgres.PostgresSessionGameStoreSpec"
+sbt "adapterPersistence/testOnly chess.adapter.repository.mongo.MongoSessionGameStoreSpec"
+```
+
+If these environment variables are missing, or if the databases are not
+running, the environment-gated Postgres/Mongo integration tests may cancel
+instead of failing the normal in-memory test run. The Postgres specs create
+temporary schemas and drop them afterward; the Mongo specs create temporary
+databases and drop them afterward.
+
+The environment-gated specs target manually configured external databases. The
+Testcontainers specs target disposable databases and are the automated path for
+CI-style integration coverage.
+
+Stop the local database services while keeping their named volumes:
+
+```powershell
+docker compose -f docker-compose.persistence.yml down
+```
+
+Reset local database data:
+
+```powershell
+docker compose -f docker-compose.persistence.yml down -v
+```
+
+The local/demo volumes are `searchess_postgres_data` for Postgres and
+`searchess_mongo_data` for Mongo.
+
 ## How to Run the Tests
 
 Run the full persistence module tests:
@@ -297,7 +418,7 @@ Before moving to `GameRepository`, consider:
 - Add the shared contract test pattern to the team report as the main evidence of DB independence.
 - Run the Postgres and Mongo contract specs once with real local services and record the output.
 - Decide whether SQLite session tests should also be migrated to the shared contract or left as legacy coverage.
-- Add runtime wiring for Postgres/Mongo only when the application is ready to select those modes; the repository adapters themselves are already isolated.
+- Keep Mongo runtime wiring separate from the current migration adapter path unless the application needs Mongo as an active Game Service backend.
 
 # GameRepository Slice
 

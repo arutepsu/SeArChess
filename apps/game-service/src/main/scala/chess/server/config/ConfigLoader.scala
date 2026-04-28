@@ -9,7 +9,7 @@ object ConfigLoader:
   private val DefaultHttpPort: String = "8080"
   private val DefaultWsEnabled: String = "true"
   private val DefaultWsPort: String = "9090"
-  private val DefaultPersistence: String = "in-memory"
+  private val DefaultPersistence: String = "postgres"
   private val DefaultSqlitePath: String = "chess.db"
   private val DefaultEventMode: String = "in-process"
   private val DefaultCorsEnabled: String = "false"
@@ -31,6 +31,7 @@ object ConfigLoader:
       wsPort <- parsePort("WS_PORT", env("WS_PORT").getOrElse(DefaultWsPort))
       persistence <- parsePersistenceMode(env("PERSISTENCE_MODE").getOrElse(DefaultPersistence))
       sqlitePath = env("CHESS_DB_PATH").getOrElse(DefaultSqlitePath)
+      postgres <- loadPostgresConfigIfNeeded(persistence, env)
       eventMode <- parseEventMode(env("EVENT_MODE").getOrElse(DefaultEventMode))
       corsEnabled <- parseBool("CORS_ENABLED", env("CORS_ENABLED").getOrElse(DefaultCorsEnabled))
       corsOrigin = env("CORS_ALLOWED_ORIGIN").getOrElse(DefaultCorsAllowOrigin)
@@ -63,6 +64,7 @@ object ConfigLoader:
       persistence = persistence,
       sqlite =
         if persistence == PersistenceMode.SQLite then Some(SqliteConfig(sqlitePath)) else None,
+      postgres = postgres,
       eventMode = eventMode,
       cors = CorsConfig(corsEnabled, corsOrigin),
       history = history,
@@ -103,9 +105,29 @@ object ConfigLoader:
 
   private def parsePersistenceMode(value: String): Either[String, PersistenceMode] =
     value.toLowerCase match
+      case "postgres" | "postgresql" => Right(PersistenceMode.Postgres)
       case "in-memory" | "inmemory" => Right(PersistenceMode.InMemory)
       case "sqlite"                 => Right(PersistenceMode.SQLite)
-      case _ => Left(s"PERSISTENCE_MODE must be 'in-memory' or 'sqlite', got: '$value'")
+      case _ =>
+        Left(
+          s"PERSISTENCE_MODE must be 'postgres', 'sqlite', or 'in-memory', got: '$value'"
+        )
+
+  private def loadPostgresConfigIfNeeded(
+      persistence: PersistenceMode,
+      env: String => Option[String]
+  ): Either[String, Option[PostgresConfig]] =
+    persistence match
+      case PersistenceMode.Postgres =>
+        PostgresConfigLoader
+          .load(
+            env,
+            requireCredentials = true,
+            contextMessage = Some(PostgresConfigLoader.MissingDefaultPostgresMessage)
+          )
+          .map(Some.apply)
+      case PersistenceMode.InMemory | PersistenceMode.SQLite =>
+        Right(None)
 
   private def parseEventMode(value: String): Either[String, EventMode] =
     value.toLowerCase match

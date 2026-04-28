@@ -59,7 +59,7 @@ object ServerWiring:
         .allocated
         .unsafeRunSync()
 
-    (ctx, ServerRuntime(events.wsServer, shutdownHttp, IO(events.shutdown())))
+    (ctx, ServerRuntime(events.wsServer, shutdownHttp, IO { events.shutdown(); ctx.shutdownPersistence() }))
 
   private[server] def withServerAi(baseCtx: AppContext, events: EventWiring): AppContext =
     GameServiceComposition.withAi(baseCtx, events)

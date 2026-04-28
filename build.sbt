@@ -7,6 +7,7 @@ val scala3Version    = "3.8.2"
 val scalaFxVersion   = "21.0.0-R32"
 val javaFxVersion    = "21.0.1"
 val http4sVersion    = "0.23.29"
+val testcontainersVersion = "1.21.4"
 
 lazy val osClassifier: String = System.getProperty("os.name") match {
   case n if n.startsWith("Windows") => "win"
@@ -128,7 +129,11 @@ lazy val adapterPersistence = project
       "org.xerial"   % "sqlite-jdbc"  % "3.46.1.3",
       "com.typesafe.slick" %% "slick" % "3.6.1",
       "org.postgresql" % "postgresql" % "42.7.7",
-      "org.mongodb" % "mongodb-driver-sync" % "5.2.1"
+      "org.flywaydb" % "flyway-core" % "12.3.0",
+      "org.flywaydb" % "flyway-database-postgresql" % "12.3.0",
+      "org.mongodb" % "mongodb-driver-sync" % "5.2.1",
+      "org.testcontainers" % "postgresql" % testcontainersVersion % Test,
+      "org.testcontainers" % "mongodb" % testcontainersVersion % Test
     )
   )
   // Event modules are only needed for test fixtures and transactional outbox specs.
@@ -342,7 +347,8 @@ lazy val gameService = project
     run / fork          := true,
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-ember-server" % http4sVersion,
-      "org.http4s" %% "http4s-dsl" % http4sVersion
+      "org.http4s" %% "http4s-dsl" % http4sVersion,
+      "org.testcontainers" % "postgresql" % testcontainersVersion % Test
     ),
     excludeFromCoverage(
       ".*chess.server.ServerMain.*",

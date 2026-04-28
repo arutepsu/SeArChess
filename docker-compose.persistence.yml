@@ -1,0 +1,36 @@
+name: searchess-persistence
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: searchess
+      POSTGRES_USER: searchess
+      POSTGRES_PASSWORD: searchess
+    ports:
+      - "5432:5432"
+    volumes:
+      - searchess_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U searchess -d searchess"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  mongo:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - searchess_mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  searchess_postgres_data:
+    name: searchess_postgres_data
+  searchess_mongo_data:
+    name: searchess_mongo_data

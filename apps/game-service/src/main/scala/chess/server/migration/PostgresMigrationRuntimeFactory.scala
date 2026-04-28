@@ -11,28 +11,34 @@ object PostgresMigrationRuntimeFactory:
   )(
       use: MigrationRuntimeFactory.BackendRuntime => A
   ): Either[String, A] =
-    val db =
-      Database.forURL(
+    try
+      PostgresFlywaySchemaInitializer.migrate(
         url = config.url,
         user = config.user,
-        password = config.password,
-        driver = "org.postgresql.Driver"
+        password = config.password
       )
 
-    try
-      PostgresSessionGameSchema.createIfNotExists(db)
-      Right(
-        use(
-          MigrationRuntimeFactory.BackendRuntime(
-            PostgresSessionMigrationReader(db),
-            PostgresSessionRepository(db),
-            PostgresGameRepository(db),
-            PostgresSessionGameStore(db)
+      val db =
+        Database.forURL(
+          url = config.url,
+          user = config.user,
+          password = config.password,
+          driver = "org.postgresql.Driver"
+        )
+
+      try
+        Right(
+          use(
+            MigrationRuntimeFactory.BackendRuntime(
+              PostgresSessionMigrationReader(db),
+              PostgresSessionRepository(db),
+              PostgresGameRepository(db),
+              PostgresSessionGameStore(db)
+            )
           )
         )
-      )
+      finally db.close()
     catch case NonFatal(error) => Left(safeMessage(error))
-    finally db.close()
 
   private def safeMessage(error: Throwable): String =
     Option(error.getMessage)

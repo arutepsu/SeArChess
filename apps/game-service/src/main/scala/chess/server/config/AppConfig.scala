@@ -1,10 +1,17 @@
 package chess.server.config
 
 enum PersistenceMode:
+  case Postgres
   case InMemory
   case SQLite
 
 final case class SqliteConfig(path: String)
+
+final case class PostgresConfig(
+    url: String,
+    user: String,
+    password: String
+)
 
 final case class CorsConfig(enabled: Boolean, allowedOrigin: String)
 
@@ -62,6 +69,7 @@ final case class AppConfig(
     webSocket: WebSocketConfig,
     persistence: PersistenceMode,
     sqlite: Option[SqliteConfig],
+    postgres: Option[PostgresConfig],
     eventMode: EventMode,
     cors: CorsConfig,
     history: HistoryForwardingConfig,

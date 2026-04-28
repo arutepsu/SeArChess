@@ -64,6 +64,7 @@ final class PersistenceMigrationService(
       targetAdapterName = target.name,
       startedAt = startedAt,
       finishedAt = clock(),
+      batchSize = batchSize,
       batchCount = batchCount,
       itemResults = itemResults.toList,
       fatalFailure = fatalFailure

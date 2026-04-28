@@ -3,6 +3,7 @@ package chess.application.migration
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 
 import java.time.Instant
+import java.time.Duration
 import java.util.UUID
 
 final case class MigrationRunId(value: String) extends AnyVal
@@ -40,6 +41,15 @@ enum MigrationRunFailure:
   case ReaderFailure(message: String)
   case InvalidBatch(message: String)
 
+enum MigrationFinalStatus:
+  case Success
+  case CompletedWithConflicts
+  case Failed
+
+enum MigrationValidationResult:
+  case Passed
+  case Failed
+
 enum MigrationItemResult:
   case WouldMigrate(sessionId: SessionId, gameId: GameId)
   case Migrated(sessionId: SessionId, gameId: GameId)
@@ -64,6 +74,7 @@ final case class MigrationReport(
                                   targetAdapterName: String,
                                   startedAt: Instant,
                                   finishedAt: Instant,
+                                  batchSize: Int,
                                   batchCount: Int,
                                   sourceSessionCount: Int,
                                   sourceGameLoadCount: Int,
@@ -76,6 +87,7 @@ final case class MigrationReport(
                                   writeFailureCount: Int,
                                   readerFailureCount: Int,
                                   storageFailureCount: Int,
+                                  validationRan: Boolean,
                                   itemResults: List[MigrationItemResult],
                                   fatalFailure: Option[MigrationRunFailure]
                                 ):
@@ -87,15 +99,63 @@ final case class MigrationReport(
 
   def readFailureCount: Int =
     storageFailureCount
+
+  def scannedCount: Int =
+    sourceSessionCount
+
+  def failedCount: Int =
+    sourceDataMissingCount + writeFailureCount + readerFailureCount + storageFailureCount +
+      fatalFailure.count:
+        case MigrationRunFailure.InvalidBatch(_) => true
+        case _                                   => false
+
+  def duration: Duration =
+    Duration.between(startedAt, finishedAt)
+
+  def validationResult: Option[MigrationValidationResult] =
+    mode match
+      case MigrationMode.ValidateOnly =>
+        if validationMismatchCount == 0 && failedCount == 0 then
+          Some(MigrationValidationResult.Passed)
+        else
+          Some(MigrationValidationResult.Failed)
+      case MigrationMode.Execute if validationRan =>
+        if validationMismatchCount == 0 && failedCount == 0 then
+          Some(MigrationValidationResult.Passed)
+        else
+          Some(MigrationValidationResult.Failed)
+      case MigrationMode.DryRun | MigrationMode.Execute =>
+        None
+
+  def finalStatus: MigrationFinalStatus =
+    if failedCount > 0 then
+      MigrationFinalStatus.Failed
+    else if conflictCount > 0 || validationMismatchCount > 0 then
+      MigrationFinalStatus.CompletedWithConflicts
+    else
+      MigrationFinalStatus.Success
+
+  def withValidationReport(validationReport: MigrationReport): MigrationReport =
+    copy(
+      finishedAt = validationReport.finishedAt,
+      validatedEquivalentCount = validationReport.validatedEquivalentCount,
+      validationMismatchCount = validationReport.validationMismatchCount,
+      sourceDataMissingCount = sourceDataMissingCount + validationReport.sourceDataMissingCount,
+      readerFailureCount = readerFailureCount + validationReport.readerFailureCount,
+      storageFailureCount = storageFailureCount + validationReport.storageFailureCount,
+      validationRan = true,
+      fatalFailure = fatalFailure.orElse(validationReport.fatalFailure)
+    )
 object MigrationReport:
 
   def fromItems(
                  mode: MigrationMode,
-                 conflictPolicy: MigrationConflictPolicy,
+                 conflictPolicy: MigrationConflictPolicy = MigrationConflictPolicy.SkipEquivalentElseConflict,
                  sourceAdapterName: String,
                  targetAdapterName: String,
                  startedAt: Instant,
                  finishedAt: Instant,
+                 batchSize: Int,
                  batchCount: Int,
                  itemResults: List[MigrationItemResult],
                  fatalFailure: Option[MigrationRunFailure],
@@ -109,6 +169,7 @@ object MigrationReport:
       targetAdapterName = targetAdapterName,
       startedAt = startedAt,
       finishedAt = finishedAt,
+      batchSize = batchSize,
       batchCount = batchCount,
       sourceSessionCount = itemResults.size,
       sourceGameLoadCount = itemResults.size,
@@ -148,6 +209,7 @@ object MigrationReport:
         case MigrationItemResult.ReadFailed(_, _, _, _) => true
         case _                                          => false
       },
+      validationRan = mode == MigrationMode.ValidateOnly,
       itemResults = itemResults,
       fatalFailure = fatalFailure
     )

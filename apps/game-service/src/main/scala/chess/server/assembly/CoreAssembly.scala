@@ -29,7 +29,8 @@ final case class AppContext(
     snapshotTransferService: SessionSnapshotTransferService,
     sessionGameStore: SessionGameStore,
     gameRepository: GameRepository,
-    gameService: GameServiceApi
+    gameService: GameServiceApi,
+    shutdownPersistence: () => Unit = () => ()
 )
 
 /** Wires Game Service application services from service-owned infrastructure. */
@@ -66,7 +67,8 @@ object CoreAssembly:
       snapshotTransferService,
       persistence.store,
       persistence.gameRepository,
-      gameService
+      gameService,
+      persistence.shutdown
     )
 
   object SilentEventPublisher extends EventPublisher:

@@ -15,19 +15,22 @@ object MigrationCliParser:
       target = None,
       mode = None,
       batchSize = DefaultBatchSize,
-      reportFormat = ReportFormat.Text
+      reportFormat = ReportFormat.Text,
+      validateAfterExecute = false
     ).flatMap { parsed =>
       for
         from <- parsed.source.toRight(missing("--from"))
         to <- parsed.target.toRight(missing("--to"))
         migrationMode <- parsed.mode.toRight(missing("--mode"))
         _ <- Either.cond(from != to, (), "Source and target backends must differ")
+        _ <- validateValidateAfterExecute(migrationMode, parsed.validateAfterExecute)
       yield MigrationCommand(
         source = from,
         target = to,
         mode = migrationMode,
         batchSize = parsed.batchSize,
-        reportFormat = parsed.reportFormat
+        reportFormat = parsed.reportFormat,
+        validateAfterExecute = parsed.validateAfterExecute
       )
     }
 
@@ -38,6 +41,7 @@ object MigrationCliParser:
       |  --mode dry-run|execute|validate-only
       |  [--batch-size N]
       |  [--format text|json]
+      |  [--validate-after-execute]
       |""".stripMargin
 
   private final case class Parsed(
@@ -45,7 +49,8 @@ object MigrationCliParser:
       target: Option[Backend],
       mode: Option[MigrationMode],
       batchSize: Int,
-      reportFormat: ReportFormat
+      reportFormat: ReportFormat,
+      validateAfterExecute: Boolean
   )
 
   private def loop(
@@ -54,31 +59,34 @@ object MigrationCliParser:
       target: Option[Backend],
       mode: Option[MigrationMode],
       batchSize: Int,
-      reportFormat: ReportFormat
+      reportFormat: ReportFormat,
+      validateAfterExecute: Boolean
   ): Either[String, Parsed] =
     args match
       case Nil =>
-        Right(Parsed(source, target, mode, batchSize, reportFormat))
+        Right(Parsed(source, target, mode, batchSize, reportFormat, validateAfterExecute))
       case "--from" :: value :: rest =>
         Backend.parse(value).flatMap(parsed =>
-          loop(rest, Some(parsed), target, mode, batchSize, reportFormat)
+          loop(rest, Some(parsed), target, mode, batchSize, reportFormat, validateAfterExecute)
         )
       case "--to" :: value :: rest =>
         Backend.parse(value).flatMap(parsed =>
-          loop(rest, source, Some(parsed), mode, batchSize, reportFormat)
+          loop(rest, source, Some(parsed), mode, batchSize, reportFormat, validateAfterExecute)
         )
       case "--mode" :: value :: rest =>
         parseMode(value).flatMap(parsed =>
-          loop(rest, source, target, Some(parsed), batchSize, reportFormat)
+          loop(rest, source, target, Some(parsed), batchSize, reportFormat, validateAfterExecute)
         )
       case "--batch-size" :: value :: rest =>
         parseBatchSize(value).flatMap(parsed =>
-          loop(rest, source, target, mode, parsed, reportFormat)
+          loop(rest, source, target, mode, parsed, reportFormat, validateAfterExecute)
         )
       case "--format" :: value :: rest =>
         ReportFormat.parse(value).flatMap(parsed =>
-          loop(rest, source, target, mode, batchSize, parsed)
+          loop(rest, source, target, mode, batchSize, parsed, validateAfterExecute)
         )
+      case "--validate-after-execute" :: rest =>
+        loop(rest, source, target, mode, batchSize, reportFormat, validateAfterExecute = true)
       case option :: Nil if option.startsWith("--") =>
         Left(s"Missing value for $option")
       case option :: _ if option.startsWith("--") =>
@@ -97,6 +105,20 @@ object MigrationCliParser:
     value.toIntOption match
       case Some(parsed) if parsed > 0 => Right(parsed)
       case _                          => Left("Batch size must be a positive integer")
+
+  private def validateValidateAfterExecute(
+      mode: MigrationMode,
+      validateAfterExecute: Boolean
+  ): Either[String, Unit] =
+    mode match
+      case MigrationMode.Execute =>
+        Right(())
+      case MigrationMode.DryRun if validateAfterExecute =>
+        Left("--validate-after-execute can only be used with --mode execute")
+      case MigrationMode.ValidateOnly if validateAfterExecute =>
+        Left("--validate-after-execute is invalid with --mode validate-only")
+      case MigrationMode.DryRun | MigrationMode.ValidateOnly =>
+        Right(())
 
   private def missing(option: String): String =
     s"Missing required option: $option"
