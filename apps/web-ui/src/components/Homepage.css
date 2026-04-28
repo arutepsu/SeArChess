@@ -1,0 +1,123 @@
+.homepage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.homepage-panel {
+  display: grid;
+  gap: 32px;
+  width: 100%;
+  max-width: 480px;
+  text-align: center;
+  padding: 48px 36px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  animation: fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.homepage-title {
+  font-size: 3rem;
+  font-weight: 800;
+  margin: 0 0 8px;
+  letter-spacing: 0.05em;
+  background: linear-gradient(135deg, #f4efe6, #d4cfc6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.homepage-subtitle {
+  font-size: 1.1rem;
+  color: rgba(244, 239, 230, 0.7);
+  margin: 0;
+}
+
+.mode-selection {
+  display: grid;
+  gap: 16px;
+}
+
+.mode-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 24px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f4efe6;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mode-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.mode-btn.is-active {
+  border-color: rgba(255, 206, 116, 0.8);
+  box-shadow: 0 0 0 1px rgba(255, 206, 116, 0.4);
+  background: rgba(255, 206, 116, 0.1);
+  color: #ffce74;
+}
+
+.start-btn {
+  background: #ffce74;
+  color: #14151b;
+  border: none;
+  border-radius: 16px;
+  padding: 18px 24px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(255, 206, 116, 0.2);
+  margin-top: 8px;
+}
+
+.start-btn:hover {
+  background: #ffdf9c;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(255, 206, 116, 0.3);
+}
+
+.start-btn:active {
+  transform: translateY(0);
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.resume-btn {
+  background: transparent;
+  color: rgba(244, 239, 230, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  padding: 14px 24px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 8px;
+}
+
+.resume-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #f4efe6;
+}

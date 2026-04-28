@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { PieceCode, PlayerColor } from "./api/types";
+import type { PlayerColor, PlayableGameMode } from "./api/types";
 import type { SpriteCatalog } from "./assets/spriteCatalog";
 import { loadSpriteCatalog } from "./assets/spriteCatalog";
 import { connectWebSocket, type WsClient } from "./api/ws";
@@ -12,6 +12,10 @@ import MoveList from "./components/MoveList.tsx";
 import ResumeGamePanel from "./components/ResumeGamePanel.tsx";
 import SessionTransferPanel from "./components/SessionTransferPanel.tsx";
 import StatusBanner from "./components/StatusBanner.tsx";
+import Homepage from "./components/Homepage.tsx";
+import BackgroundEffectsLayer from "./components/BackgroundEffectsLayer.tsx";
+import BackgroundPanel from "./components/BackgroundPanel.tsx";
+import CapturedPanel from "./components/CapturedPanel.tsx";
 import "./App.css";
 
 type ConnectionState = "connected" | "offline" | "loading";
@@ -71,6 +75,7 @@ export default function App() {
 
   const { session, setSession, getSessionId } = useSession();
 
+  const [hasStarted, setHasStarted] = useState(false);
   const [connection, setConnection] = useState<ConnectionState>("loading");
   const [liveConnection, setLiveConnection] =
     useState<LiveConnectionState>("idle");
@@ -123,6 +128,12 @@ export default function App() {
       resetClocks();
     }
   }, [game?.id, resetClocks]);
+
+  const handleStartGame = async (selectedMode: PlayableGameMode) => {
+    setGameMode(selectedMode);
+    setHasStarted(true);
+    await handleNewGame(selectedMode);
+  };
 
   useEffect(() => {
     wsClientRef.current?.close();
@@ -293,205 +304,83 @@ export default function App() {
     };
   }, []);
 
-  const spriteInfoFor = useCallback(
-    (piece: PieceCode): { url: string; frameCount: number } | null => {
-      if (!spriteCatalog) return null;
-
-      const color = piece.startsWith("w") ? "white" : "black";
-      const letter = piece[1];
-
-      const nameMap: Record<string, string> = {
-        K: "king",
-        Q: "queen",
-        R: "rook",
-        B: "bishop",
-        N: "knight",
-        P: "pawn"
-      };
-
-      const name = nameMap[letter] ?? "pawn";
-      const key = `classic/${color}_${name}_idle`;
-      const sheet = spriteCatalog.spriteSheets[key];
-
-      if (!sheet) return null;
-
-      const clipSpec = spriteCatalog.clipSpecs[sheet.clipSpec];
-
-      if (!clipSpec) return null;
-
-      return {
-        url: `/${sheet.path}`,
-        frameCount: clipSpec.frameCount
-      };
-    },
-    [spriteCatalog]
-  );
-
-  const isRainBackground = backgroundId === "river";
-  const isSakuraBackground = backgroundId === "sakura-grove";
-
   return (
     <div className="app">
-      {isRainBackground ? (
-        <div className="rain-layer" aria-hidden="true">
-          <img className="rain-gif" src="/assets/backgrounds/rain.gif" alt="" />
-        </div>
-      ) : isSakuraBackground ? (
-        <div className="sakura-layer" aria-hidden="true">
-          <img
-            className="sakura-leaf sakura-1"
-            src="/assets/backgrounds/sakuraleaf1.png"
-            alt=""
-          />
-          <img
-            className="sakura-leaf sakura-2"
-            src="/assets/backgrounds/sakuraleaf.png"
-            alt=""
-          />
-          <img
-            className="sakura-leaf sakura-3"
-            src="/assets/backgrounds/sakuraleaf1.png"
-            alt=""
-          />
-          <img
-            className="sakura-leaf sakura-4"
-            src="/assets/backgrounds/sakuraleaf.png"
-            alt=""
-          />
-          <img
-            className="sakura-leaf sakura-5"
-            src="/assets/backgrounds/sakuraleaf.png"
-            alt=""
-          />
-        </div>
-      ) : (
-        <div className="leaf-layer" aria-hidden="true">
-          <span className="leaf leaf-1"></span>
-          <span className="leaf leaf-2"></span>
-          <span className="leaf leaf-3"></span>
-          <span className="leaf leaf-4"></span>
-          <span className="leaf leaf-5"></span>
-          <span className="leaf leaf-6"></span>
-        </div>
-      )}
+      <BackgroundEffectsLayer backgroundId={backgroundId} />
 
-      <StatusBanner
-        game={game}
-        connection={connection}
-        liveConnection={liveConnection}
-        message={message}
-      />
-
-      <main className="layout">
-        {game ? (
-          <ChessBoard
-            board={game.board}
-            selectedSquare={selectedSquare}
-            legalMoves={legalMoves}
-            animation={animationPlan}
-            idleAnimation={true}
-            disabled={boardInteractionDisabled}
-            onSelect={handleSelect}
-            onAnimationFinished={handleAnimationFinished}
-          />
-        ) : (
-          <section className="board-shell placeholder">
-            <div className="loading">Waiting for game data...</div>
-          </section>
-        )}
-
-        <aside className="side">
-          <ControlPanel
+      {hasStarted ? (
+        <>
+          <StatusBanner
             game={game}
-            busy={busy}
-            whiteTimeMs={whiteClockMs}
-            blackTimeMs={blackClockMs}
-            activeColor={game?.activeColor}
-            clockRunning={clockRunning}
-            gameMode={gameMode}
-            canResign={canResign}
-            fen={notation?.fen}
-            pgn={notation?.pgn}
-            onImportNotation={handleImportNotation}
-            onExportNotation={handleExportNotation}
-            onGameModeChange={setGameMode}
-            onNewGame={handleNewGame}
-            onResign={handleResign}
+            connection={connection}
+            liveConnection={liveConnection}
+            message={message}
           />
 
-          <section className="panel background-panel">
-            <header>
-              <h2>Background</h2>
-              <p>Pick the arena for your next battle.</p>
-            </header>
+          <main className="layout">
+            {game ? (
+              <ChessBoard
+                board={game.board}
+                selectedSquare={selectedSquare}
+                legalMoves={legalMoves}
+                animation={animationPlan}
+                idleAnimation={true}
+                disabled={boardInteractionDisabled}
+                onSelect={handleSelect}
+                onAnimationFinished={handleAnimationFinished}
+              />
+            ) : (
+              <section className="board-shell placeholder">
+                <div className="loading">Waiting for game data...</div>
+              </section>
+            )}
 
-            <div className="background-grid">
-              {backgrounds.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={`background-option${
-                    backgroundId === item.id ? " is-active" : ""
-                  }`}
-                  onClick={() => setBackgroundId(item.id)}
-                >
-                  <span style={{ backgroundImage: `url("${item.url}")` }} />
-                  <small>{item.label}</small>
-                </button>
-              ))}
-            </div>
-          </section>
+            <aside className="side">
+              <ControlPanel
+                game={game}
+                busy={busy}
+                whiteTimeMs={whiteClockMs}
+                blackTimeMs={blackClockMs}
+                activeColor={game?.activeColor}
+                clockRunning={clockRunning}
+                gameMode={gameMode}
+                canResign={canResign}
+                fen={notation?.fen}
+                pgn={notation?.pgn}
+                onImportNotation={handleImportNotation}
+                onExportNotation={handleExportNotation}
+                onGameModeChange={setGameMode}
+                onNewGame={handleNewGame}
+                onResign={handleResign}
+              />
 
-          <ResumeGamePanel busy={busy} onResume={handleResumeSession} />
+              <BackgroundPanel
+                backgrounds={backgrounds}
+                backgroundId={backgroundId}
+                onChange={setBackgroundId}
+              />
 
-          <SessionTransferPanel
-            busy={busy}
-            sessionId={session?.sessionId ?? null}
-            onImportSession={handleImportSession}
-          />
+              <ResumeGamePanel busy={busy} onResume={handleResumeSession} />
 
-          <MoveList moves={game?.moves ?? []} />
+              <SessionTransferPanel
+                busy={busy}
+                sessionId={session?.sessionId ?? null}
+                onImportSession={handleImportSession}
+              />
 
-          <section className="panel capture-panel">
-            <header>
-              <h2>Captured</h2>
-              <p>Pieces claimed during the match.</p>
-            </header>
+              <MoveList moves={game?.moves ?? []} />
 
-            <div className="captured">
-              {!game || game.captured.length === 0 ? (
-                <span>None yet.</span>
-              ) : (
-                game.captured.map((piece, index) => {
-                  const sprite = spriteInfoFor(piece);
-                  const frameCount = sprite?.frameCount ?? 1;
-
-                  const style = sprite
-                    ? {
-                        backgroundImage: `url(${sprite.url})`,
-                        backgroundSize: `${frameCount * 100}% 100%`,
-                        backgroundPosition: "0% 50%"
-                      }
-                    : undefined;
-
-                  return (
-                    <span
-                      key={`${piece}-${index}`}
-                      className={`captured-piece${
-                        piece.startsWith("b") ? " is-black" : ""
-                      }${sprite ? " has-sprite" : ""}`}
-                      style={style}
-                      aria-label={piece}
-                    >
-                      {sprite ? "" : piece}
-                    </span>
-                  );
-                })
-              )}
-            </div>
-          </section>
-        </aside>
-      </main>
+              <CapturedPanel captured={game?.captured ?? []} spriteCatalog={spriteCatalog} />
+            </aside>
+          </main>
+        </>
+      ) : (
+        <Homepage
+          hasActiveGame={Boolean(game)}
+          onStart={handleStartGame}
+          onResume={() => setHasStarted(true)}
+        />
+      )}
     </div>
   );
 }

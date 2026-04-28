@@ -106,7 +106,7 @@ export type UseGameStateReturn = {
   refreshFromServer: () => Promise<void>;
   handleSelect: (square: string) => Promise<void>;
   setGameMode: (mode: PlayableGameMode) => void;
-  handleNewGame: () => Promise<void>;
+  handleNewGame: (overrideMode?: PlayableGameMode) => Promise<void>;
   handleImportNotation: (
     format: "FEN" | "PGN",
     notation: string
@@ -546,9 +546,9 @@ export function useGameState(): UseGameStateReturn {
     ]
   );
 
-  const handleNewGame = useCallback(async (): Promise<void> => {
+  const handleNewGame = useCallback(async (overrideMode?: PlayableGameMode): Promise<void> => {
     const thisGen = ++generation.current;
-    const request: CreateGameRequest = { mode: gameMode };
+    const request: CreateGameRequest = { mode: overrideMode ?? gameMode };
 
     setBusyState(true);
     setMessageState("Creating game...");
