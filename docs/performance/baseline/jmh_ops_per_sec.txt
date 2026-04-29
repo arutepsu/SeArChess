@@ -1,0 +1,150 @@
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::arrayBaseOffset has been called by net.openhft.hashing.UnsafeAccess (file:/C:/Users/selun/.sbt/boot/scala-2.12.21/org.scala-sbt/sbt/1.12.6/zero-allocation-hashing-0.16.jar)
+WARNING: Please consider reporting this to the maintainers of class net.openhft.hashing.UnsafeAccess
+WARNING: sun.misc.Unsafe::arrayBaseOffset will be removed in a future release
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::load has been called by com.sun.jna.Native in an unnamed module (file:/C:/Users/selun/.sbt/boot/scala-2.12.21/org.scala-sbt/sbt/1.12.6/jna-5.12.0.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+[info] welcome to sbt 1.12.6 (Oracle Corporation Java 26)
+[info] loading global plugins from C:\Users\selun\.sbt\1.0\plugins
+[info] loading settings for project searchess-build from plugins.sbt...
+[info] loading project definition from C:\SeArChess\project
+[info] loading settings for project root from build.sbt...
+[info] resolving key references (25684 settings) ...
+[info] set current project to SeArChess (in build file:/C:/SeArChess/)
+[warn] there are 7 keys that are not used by any other settings/tasks:
+[warn]  
+[warn] * aiService / run / mainClass
+[warn]   +- C:\SeArChess\build.sbt:418
+[warn] * benchmarks / wartremoverErrors
+[warn]   +- C:\SeArChess\build.sbt:33
+[warn] * benchmarks / wartremoverWarnings
+[warn]   +- C:\SeArChess\build.sbt:41
+[warn] * desktopGui / run / mainClass
+[warn]   +- C:\SeArChess\build.sbt:310
+[warn] * gameService / run / mainClass
+[warn]   +- C:\SeArChess\build.sbt:346
+[warn] * historyService / run / mainClass
+[warn]   +- C:\SeArChess\build.sbt:394
+[warn] * tuiCli / run / mainClass
+[warn]   +- C:\SeArChess\build.sbt:327
+[warn]  
+[warn] note: a setting might still be used by a command; to exclude a key from this `lintUnused` check
+[warn] either append it to `Global / excludeLintKeys` or call .withRank(KeyRanks.Invisible) on the key
+[info] compiling 1 Scala source to C:\SeArChess\modules\benchmarks\target\scala-3.8.2\classes ...
+[info] done compiling
+[info] running (fork) org.openjdk.jmh.generators.bytecode.JmhBytecodeGenerator C:\SeArChess\modules\benchmarks\target\scala-3.8.2\classes C:\SeArChess\modules\benchmarks\target\scala-3.8.2\src_managed\jmh C:\SeArChess\modules\benchmarks\target\scala-3.8.2\resource_managed\jmh default
+[info] Processing 1 classes from C:\SeArChess\modules\benchmarks\target\scala-3.8.2\classes with "reflection" generator
+[info] Writing out Java source to C:\SeArChess\modules\benchmarks\target\scala-3.8.2\src_managed\jmh and resources to C:\SeArChess\modules\benchmarks\target\scala-3.8.2\resource_managed\jmh
+[info] compiling 7 Java sources to C:\SeArChess\modules\benchmarks\target\scala-3.8.2\classes ...
+[info] done compiling
+[info] running (fork) org.openjdk.jmh.Main .* -i 5 -wi 3 -f 1
+[error] WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+[error] WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/C:/SeArChess/target/bg-jobs/sbt_294edd16/target/133c54a4/1296d6b9/jmh-core-1.37.jar)
+[error] WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+[error] WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[info] # JMH version: 1.37
+[info] # VM version: JDK 26, OpenJDK 64-Bit Server VM, 26+35-2893
+[info] # VM invoker: C:\CodeTools\jdk-26\bin\java.exe
+[info] # VM options: <none>
+[info] # Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+[info] # Warmup: 3 iterations, 1 s each
+[info] # Measurement: 5 iterations, 1 s each
+[info] # Timeout: 10 min per iteration
+[info] # Threads: 1 thread, will synchronize iterations
+[info] # Benchmark mode: Throughput, ops/time
+[info] # Benchmark: chess.rules.LegalMoveGeneratorBenchmark.benchmarkLegalMovesFromE2Pawn
+[info] # Run progress: 0,00% complete, ETA 00:00:24
+[info] # Fork: 1 of 1
+[info] WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/C:/SeArChess/target/bg-jobs/sbt_294edd16/target/133c54a4/1296d6b9/jmh-core-1.37.jar)
+[info] WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[info] # Warmup Iteration   1: 82693,034 ops/s
+[info] # Warmup Iteration   2: 157448,615 ops/s
+[info] # Warmup Iteration   3: 124603,780 ops/s
+[info] Iteration   1: 126078,117 ops/s
+[info] Iteration   2: 146361,422 ops/s
+[info] Iteration   3: 153754,009 ops/s
+[info] Iteration   4: 203390,830 ops/s
+[info] Iteration   5: 194427,884 ops/s
+[info] Result "chess.rules.LegalMoveGeneratorBenchmark.benchmarkLegalMovesFromE2Pawn":
+[info]   164802,452 ±(99.9%) 126668,671 ops/s [Average]
+[info]   (min, avg, max) = (126078,117, 164802,452, 203390,830), stdev = 32895,452
+[info]   CI (99.9%): [38133,782, 291471,123] (assumes normal distribution)
+[info] # JMH version: 1.37
+[info] # VM version: JDK 26, OpenJDK 64-Bit Server VM, 26+35-2893
+[info] # VM invoker: C:\CodeTools\jdk-26\bin\java.exe
+[info] # VM options: <none>
+[info] # Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+[info] # Warmup: 3 iterations, 1 s each
+[info] # Measurement: 5 iterations, 1 s each
+[info] # Timeout: 10 min per iteration
+[info] # Threads: 1 thread, will synchronize iterations
+[info] # Benchmark mode: Throughput, ops/time
+[info] # Benchmark: chess.rules.LegalMoveGeneratorBenchmark.benchmarkLegalMovesFromG1Knight
+[info] # Run progress: 33,33% complete, ETA 00:00:18
+[info] # Fork: 1 of 1
+[info] WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/C:/SeArChess/target/bg-jobs/sbt_294edd16/target/133c54a4/1296d6b9/jmh-core-1.37.jar)
+[info] WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[info] # Warmup Iteration   1: 96113,997 ops/s
+[info] # Warmup Iteration   2: 153665,780 ops/s
+[info] # Warmup Iteration   3: 111182,525 ops/s
+[info] Iteration   1: 113569,008 ops/s
+[info] Iteration   2: 103360,508 ops/s
+[info] Iteration   3: 112495,096 ops/s
+[info] Iteration   4: 152477,789 ops/s
+[info] Iteration   5: 143566,148 ops/s
+[info] Result "chess.rules.LegalMoveGeneratorBenchmark.benchmarkLegalMovesFromG1Knight":
+[info]   125093,710 ±(99.9%) 82922,942 ops/s [Average]
+[info]   (min, avg, max) = (103360,508, 125093,710, 152477,789), stdev = 21534,825
+[info]   CI (99.9%): [42170,768, 208016,651] (assumes normal distribution)
+[info] # JMH version: 1.37
+[info] # VM version: JDK 26, OpenJDK 64-Bit Server VM, 26+35-2893
+[info] # VM invoker: C:\CodeTools\jdk-26\bin\java.exe
+[info] # VM options: <none>
+[info] # Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+[info] # Warmup: 3 iterations, 1 s each
+[info] # Measurement: 5 iterations, 1 s each
+[info] # Timeout: 10 min per iteration
+[info] # Threads: 1 thread, will synchronize iterations
+[info] # Benchmark mode: Throughput, ops/time
+[info] # Benchmark: chess.rules.LegalMoveGeneratorBenchmark.benchmarkLegalTargetsFromE2Pawn
+[info] # Run progress: 66,67% complete, ETA 00:00:08
+[info] # Fork: 1 of 1
+[info] WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/C:/SeArChess/target/bg-jobs/sbt_294edd16/target/133c54a4/1296d6b9/jmh-core-1.37.jar)
+[info] WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[info] # Warmup Iteration   1: 71899,851 ops/s
+[info] # Warmup Iteration   2: 142588,698 ops/s
+[info] # Warmup Iteration   3: 145999,579 ops/s
+[info] Iteration   1: 155368,501 ops/s
+[info] Iteration   2: 182253,008 ops/s
+[info] Iteration   3: 155272,616 ops/s
+[info] Iteration   4: 148234,368 ops/s
+[info] Iteration   5: 206876,184 ops/s
+[info] Result "chess.rules.LegalMoveGeneratorBenchmark.benchmarkLegalTargetsFromE2Pawn":
+[info]   169600,935 ±(99.9%) 94594,113 ops/s [Average]
+[info]   (min, avg, max) = (148234,368, 169600,935, 206876,184), stdev = 24565,791
+[info]   CI (99.9%): [75006,823, 264195,048] (assumes normal distribution)
+[info] # Run complete. Total time: 00:00:26
+[info] REMEMBER: The numbers below are just data. To gain reusable insights, you need to follow up on
+[info] why the numbers are the way they are. Use profilers (see -prof, -lprof), design factorial
+[info] experiments, perform baseline and negative tests that provide experimental control, make sure
+[info] the benchmarking environment is safe on JVM/OS/HW level, ask for reviews from the domain experts.
+[info] Do not assume the numbers tell you what you want them to tell.
+[info] NOTE: Current JVM experimentally supports Compiler Blackholes, and they are in use. Please exercise
+[info] extra caution when trusting the results, look into the generated code to check the benchmark still
+[info] works, and factor in a small probability of new VM bugs. Additionally, while comparisons between
+[info] different JVMs are already problematic, the performance difference caused by different Blackhole
+[info] modes can be very significant. Please make sure you use the consistent Blackhole mode for comparisons.
+[info] Benchmark                                                     Mode  Cnt       Score        Error  Units
+[info] LegalMoveGeneratorBenchmark.benchmarkLegalMovesFromE2Pawn    thrpt    5  164802,452 ± 126668,671  ops/s
+[info] LegalMoveGeneratorBenchmark.benchmarkLegalMovesFromG1Knight  thrpt    5  125093,710 ±  82922,942  ops/s
+[info] LegalMoveGeneratorBenchmark.benchmarkLegalTargetsFromE2Pawn  thrpt    5  169600,935 ±  94594,113  ops/s
+[success] Total time: 44 s, completed 29.04.2026, 23:48:43

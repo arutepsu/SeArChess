@@ -428,6 +428,30 @@ lazy val aiService = project
   )
   .dependsOn(aiContract, observability)
 
+// Module: load-tests
+lazy val loadTests = project
+  .in(file("modules/load-tests"))
+  .enablePlugins(GatlingPlugin)
+  .disablePlugins(wartremover.WartRemover)
+  .settings(
+    scalaVersion := "2.13.12",
+    libraryDependencies ++= Seq(
+      "io.gatling.highcharts" % "gatling-charts-highcharts" % "3.11.3" % "test",
+      "io.gatling"            % "gatling-test-framework"    % "3.11.3" % "test"
+    )
+  )
+
+// Module: benchmarks
+lazy val benchmarks = project
+  .in(file("modules/benchmarks"))
+  .dependsOn(domain)
+  .enablePlugins(JmhPlugin)
+  .disablePlugins(wartremover.WartRemover)
+  .settings(
+    commonSettings,
+    name := "sear-chess-benchmarks"
+  )
+
 // ── Aliases ───────────────────────────────────────────────────────────────────
 //
 // Full-project workflow:
@@ -550,5 +574,5 @@ lazy val root = project
     adapterPersistence, migration, adapterAi, adapterEvent, gameEventContract, gameHistoryDelivery,
     adapterRestContract, adapterRestHttp4s,
     adapterWebsocket, adapterGui, adapterTui,
-    startupShared, gameService, historyService, aiService, desktopGui, tuiCli
+    startupShared, gameService, historyService, aiService, desktopGui, tuiCli, loadTests, benchmarks
   )
