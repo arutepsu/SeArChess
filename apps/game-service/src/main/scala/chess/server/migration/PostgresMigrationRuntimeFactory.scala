@@ -1,7 +1,6 @@
 package chess.server.migration
 
-import chess.adapter.repository.postgres.*
-import slick.jdbc.PostgresProfile.api.Database
+import chess.adapter.repository.postgres.PostgresPersistenceRuntime
 
 import scala.util.control.NonFatal
 
@@ -11,34 +10,21 @@ object PostgresMigrationRuntimeFactory:
   )(
       use: MigrationRuntimeFactory.BackendRuntime => A
   ): Either[String, A] =
-    try
-      PostgresFlywaySchemaInitializer.migrate(
-        url = config.url,
-        user = config.user,
-        password = config.password
-      )
-
-      val db =
-        Database.forURL(
-          url = config.url,
-          user = config.user,
-          password = config.password,
-          driver = "org.postgresql.Driver"
-        )
-
+    PostgresPersistenceRuntime.open(config.url, config.user, config.password).flatMap { runtime =>
       try
         Right(
           use(
             MigrationRuntimeFactory.BackendRuntime(
-              PostgresSessionMigrationReader(db),
-              PostgresSessionRepository(db),
-              PostgresGameRepository(db),
-              PostgresSessionGameStore(db)
+              runtime.reader,
+              runtime.sessionRepository,
+              runtime.gameRepository,
+              runtime.store
             )
           )
         )
-      finally db.close()
-    catch case NonFatal(error) => Left(safeMessage(error))
+      catch case NonFatal(error) => Left(safeMessage(error))
+      finally runtime.close()
+    }
 
   private def safeMessage(error: Throwable): String =
     Option(error.getMessage)
