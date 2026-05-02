@@ -43,6 +43,20 @@ Nach Implementierung von `movePiece()`, `moveTwoPieces()` und `moveAndRemove()`:
 | 10 | **69.88 req/s** | **62.34 ms** | **0.00 %** |
 | 50 | **180.11 req/s** | **244.57 ms** | **0.00 %** |
 
+## Gatling Ergebnisse — Production Build
+
+Gatling wurde gegen den Production-Build auf `http://127.0.0.1:5174/game` ausgeführt.
+
+| Kennzahl | Wert |
+| :--- | :---: |
+| **Users** | 50 |
+| **Requests** | 50 |
+| **Failures** | 0 |
+| **Mean Response Time** | 8 ms |
+| **p95 Response Time** | 15 ms |
+| **Max Response Time** | 19 ms |
+| **Assertions** | p99 < 500 ms, Failures < 1% |
+
 ## Kurzbefunde
 
 - Der Hot-Path-Refactor hat die JMH-Allocation gegenüber dem vorherigen Stand deutlich reduziert: von grob **11.7 KB/op bis 12.0 KB/op** auf nun etwa **7.0 KB/op bis 7.3 KB/op**.

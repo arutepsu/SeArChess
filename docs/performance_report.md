@@ -12,6 +12,20 @@ Basierend auf den erweiterten Tests (k6 Stress- und Skalierbarkeitstests) sowie 
 > [!NOTE]
 > Die k6 Lasttests wurden um die Skripte `stress_test.js` und `scalability_test.js` erweitert. JMH wurde mit dem `-prof gc` Flag zur Analyse der Speicherallokation ausgeführt.
 
+### Gatling Load Test (Production Build)
+
+Gatling wurde zusätzlich gegen den Production-Build auf `http://127.0.0.1:5174/game` ausgeführt.
+
+| Kennzahl | Wert |
+| :--- | :---: |
+| **Users** | 50 |
+| **Requests** | 50 |
+| **Failures** | 0 |
+| **Mean Response Time** | 8 ms |
+| **p95 Response Time** | 15 ms |
+| **Max Response Time** | 19 ms |
+| **Assertions** | p99 < 500 ms, Failures < 1% |
+
 ---
 
 ## Verbesserungen nach Refactoring (Status: Optimiert)
