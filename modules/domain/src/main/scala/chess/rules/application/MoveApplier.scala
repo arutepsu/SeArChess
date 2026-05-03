@@ -71,7 +71,7 @@ object MoveApplier:
       case Some(piece) =>
         for
           _ <- MoveValidator.validate(board, piece, move)
-          newBoard = board.remove(move.from).place(move.to, piece)
+          newBoard = board.movePiece(move.from, move.to, piece)
           _ <- Either.cond(
             !CheckValidator.isKingInCheck(newBoard, piece.color),
             (),

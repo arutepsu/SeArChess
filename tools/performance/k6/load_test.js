@@ -8,14 +8,16 @@ let sessionId;
 let gameId;
 
 export const options = {
-  stages: [
-    { duration: '10s', target: 50 },
-    { duration: '30s', target: 50 },
-    { duration: '10s', target: 0 },
-  ],
+  scenarios: {
+    load: {
+      executor: 'constant-vus',
+      vus: 50,
+      duration: '1m',
+    },
+  },
   thresholds: {
-    http_req_duration: ['p(95)<1000'],
-    http_req_failed: ['rate<0.05'],
+    http_req_duration: ['p(95)<500'],
+    http_req_failed: ['rate<0.01'],
   },
 };
 
@@ -72,7 +74,7 @@ export default function () {
   });
 
   if (!ensureSession()) {
-    sleep(0.3);
+    sleep(0.1);
     return;
   }
 
@@ -100,5 +102,5 @@ export default function () {
     'legal moves body is valid JSON': (r) => bodyIsNotEmpty(r) && isJson(r.body),
   });
 
-  sleep(0.3);
+  sleep(0.1);
 }
