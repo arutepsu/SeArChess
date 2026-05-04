@@ -139,3 +139,22 @@ export interface ErrorResponse {
   code: string;
   message: string;
 }
+
+// Heatmap statistics types
+export interface HeatmapSquareStats {
+  square: string;
+  captureCount: number;
+  occupancyCount: number;
+  normalizedCaptureScore: number;
+  normalizedOccupancyScore: number;
+}
+
+export interface HeatmapResponse {
+  playerColor: Color;
+  periodLabel: string;
+  gamesAnalyzed: number;
+  statistics: HeatmapSquareStats[];
+  maxCaptureCount: number;
+  maxOccupancyCount: number;
+}
+

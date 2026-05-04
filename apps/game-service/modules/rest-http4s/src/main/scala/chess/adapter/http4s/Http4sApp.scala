@@ -6,7 +6,8 @@ import chess.adapter.http4s.route.{
   Http4sArchiveRoutes,
   Http4sGameRoutes,
   Http4sNotationRoutes,
-  Http4sSessionRoutes
+  Http4sSessionRoutes,
+  Http4sStatsRoutes
 }
 import chess.application.GameServiceApi
 import chess.application.port.repository.{GameRepository, SessionGameStore}
@@ -40,7 +41,8 @@ class Http4sApp(
     Http4sSessionRoutes(gameService, persistentSessionService, snapshotTransferService).routes <+>
       Http4sGameRoutes(gameService).routes <+>
       Http4sNotationRoutes(gameRepository, sessionGameStore).routes <+>
-      Http4sArchiveRoutes(gameService).routes
+      Http4sArchiveRoutes(gameService).routes <+>
+      Http4sStatsRoutes(gameService).routes
 
   /** Combined [[HttpApp]] for all REST routes.
     *

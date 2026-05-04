@@ -1,0 +1,65 @@
+.analysis-page {
+    display: grid;
+    place-items: start center;
+    padding: 24px;
+}
+
+.analysis-shell {
+    width: min(1500px, calc(100vw - 48px));
+}
+
+.analysis-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.analysis-header h1 {
+    margin: 0 0 8px;
+}
+
+.analysis-header p {
+    margin: 0;
+    opacity: 0.85;
+}
+
+.analysis-header button {
+    border: none;
+    border-radius: 999px;
+    padding: 10px 16px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #f4efe6;
+    cursor: pointer;
+}
+
+.analysis-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+}
+
+.analysis-grid>* {
+    min-width: 0;
+}
+
+@media (max-width: 1200px) {
+    .analysis-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 900px) {
+    .analysis-page {
+        padding: 16px;
+    }
+
+    .analysis-shell {
+        width: min(100vw - 32px, 1500px);
+    }
+
+    .analysis-header {
+        flex-direction: column;
+    }
+}

@@ -5,6 +5,7 @@ import type {
   ErrorResponse,
   GameNotationResponse,
   GameSnapshot,
+  HeatmapResponse,
   HealthResponse,
   ImportNotationRequest,
   NotationTextResponse,
@@ -174,4 +175,13 @@ export async function runMigration(
     headers,
     body: JSON.stringify(request)
   });
+}
+
+export async function getHeatmapStats(
+  gameId: string,
+  player: "White" | "Black"
+): Promise<HeatmapResponse> {
+  return fetchJson<HeatmapResponse>(
+    `/api/stats/heatmap?sessionId=${encodeURIComponent(gameId)}&player=${encodeURIComponent(player)}`
+  );
 }

@@ -9,6 +9,7 @@ import { useGameState } from "./game/useGameState";
 import { useSession } from "./session/SessionProvider";
 import ChessBoard from "./components/ChessBoard.tsx";
 import ControlPanel from "./components/ControlPanel.tsx";
+import GameAnalysisView from "./components/GameAnalysisView.tsx";
 import MoveList from "./components/MoveList.tsx";
 //import ResumeGamePanel from "./components/ResumeGamePanel.tsx";
 import SessionTransferPanel from "./components/SessionTransferPanel.tsx";
@@ -379,11 +380,16 @@ export default function App() {
                 onSaveSession={handleSaveSession}
                 onResign={handleResign}
                 onBackToMenu={handleBackToMenu}
+                onOpenHeatmap={() => navigate("/analysis")}
               />
 
             </aside>
           </main>
         } />
+        <Route
+          path="/analysis"
+          element={<GameAnalysisView gameId={game?.id ?? session?.gameId ?? null} />}
+        />
       </Routes>
     </div>
   );
