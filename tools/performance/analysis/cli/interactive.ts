@@ -4,6 +4,11 @@ import { runK6ReportAsync, type K6Phase, type K6ReportProgressEvent, type K6Test
 import { runK6SuiteAsync, type K6SuiteProgressEvent, type RunK6SuiteOptions } from '../application/runK6Suite';
 import { createInteractiveRunOutDir } from './artifacts/interactiveRunArtifacts';
 import { loadPerformanceConfig, resolvePerformanceOutputDir, type PerformanceCliConfig } from './config';
+import {
+  AI_REVIEW_DISABLED_MESSAGE,
+  generateAIReviewForRun,
+  selectAIReviewMarkdown,
+} from './reports/aiReviewArtifacts';
 import { findRunHistory, type RunHistoryItem } from './reports/runHistory';
 import { buildWorkbenchSettingsView } from './settings/settingsView';
 import { inputPrompt, selectPrompt } from './ui/prompts';
@@ -31,7 +36,7 @@ import {
 type WorkbenchArea = 'k6' | 'gatling' | 'jmh' | 'reports' | 'settings' | 'doctor' | 'exit';
 type K6WorkbenchAction = 'baseline' | 'load' | 'spike' | 'stress' | 'suite' | 'back';
 type ReportsAction = 'browse-runs' | 'latest-suite-report' | 'back';
-type RunDetailAction = 'preview' | 'paths' | 'back';
+type RunDetailAction = 'preview' | 'paths' | 'generate-ai' | 'preview-ai' | 'back';
 
 type InteractiveK6CommonOptions = Pick<RunK6SuiteOptions, 'baseUrl' | 'cpu' | 'memory' | 'phase' | 'out'>;
 interface InteractiveK6RunOptions extends InteractiveK6CommonOptions {
@@ -314,7 +319,7 @@ async function promptCommonK6Options(config: PerformanceCliConfig, tool: string,
   };
 }
 
-async function browseRunDetailFlow(item: RunHistoryItem): Promise<number> {
+async function browseRunDetailFlow(item: RunHistoryItem, config: PerformanceCliConfig): Promise<number> {
   while (true) {
     process.stdout.write(`\n${renderRunHistoryDetails(item)}\n`);
 
@@ -323,6 +328,8 @@ async function browseRunDetailFlow(item: RunHistoryItem): Promise<number> {
       choices: [
         { name: 'Preview Markdown report', value: 'preview' },
         { name: 'Show artifact paths', value: 'paths' },
+        { name: 'Generate AI review', value: 'generate-ai' },
+        { name: 'Preview AI review', value: 'preview-ai' },
         { name: 'Back', value: 'back' },
       ],
     });
@@ -340,6 +347,41 @@ async function browseRunDetailFlow(item: RunHistoryItem): Promise<number> {
         content = readFileSync(reportPath, 'utf-8');
       } catch {
         process.stdout.write(`${theme.muted(`Could not read report: ${reportPath}`)}\n`);
+        continue;
+      }
+      process.stdout.write(`\n${renderMarkdownPreview(reportPath, content)}\n`);
+      continue;
+    }
+
+    if (action === 'generate-ai') {
+      try {
+        const result = await generateAIReviewForRun(item, config);
+        const label = result.bundle.kind === 'suite' ? 'AI suite review generated.' : 'AI review generated.';
+        process.stdout.write(`${theme.success(label)}\n`);
+        process.stdout.write(`${theme.muted(`JSON: ${result.paths.jsonPath}`)}\n`);
+        process.stdout.write(`${theme.muted(`Markdown: ${result.paths.markdownPath}`)}\n`);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (message === AI_REVIEW_DISABLED_MESSAGE) {
+          process.stdout.write(`${theme.muted(message)}\n`);
+        } else {
+          process.stdout.write(`${theme.warning(message)}\n`);
+        }
+      }
+      continue;
+    }
+
+    if (action === 'preview-ai') {
+      const reportPath = selectAIReviewMarkdown(item);
+      if (!reportPath) {
+        process.stdout.write(`${theme.muted('No AI review found for this run. Generate one first.')}\n`);
+        continue;
+      }
+      let content: string;
+      try {
+        content = readFileSync(reportPath, 'utf-8');
+      } catch {
+        process.stdout.write(`${theme.muted(`Could not read AI review: ${reportPath}`)}\n`);
         continue;
       }
       process.stdout.write(`\n${renderMarkdownPreview(reportPath, content)}\n`);
@@ -369,7 +411,7 @@ async function browseRecentRunsFlow(config: PerformanceCliConfig): Promise<numbe
   });
 
   if (selected === 'back') return 0;
-  return browseRunDetailFlow(selected);
+  return browseRunDetailFlow(selected, config);
 }
 
 export async function runReportsWorkbenchFlow(config: PerformanceCliConfig): Promise<number> {

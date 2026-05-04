@@ -355,6 +355,9 @@ export function renderSettingsView(settings: WorkbenchSettingsView): string {
     `  ${p('Default phase:')}${settings.defaultPhase ?? missing}`,
     `  ${p('CPU usage:')}${settings.cpuUsagePercent ?? missing}`,
     `  ${p('Memory usage:')}${settings.memoryUsagePercent ?? missing}`,
+    `  ${p('AI enabled:')}${settings.aiEnabled ?? false}`,
+    `  ${p('AI provider:')}${settings.aiProvider ?? 'stub'}`,
+    `  ${p('AI auto review:')}${settings.aiAutoReview ?? false}`,
     `  ${p('Current directory:')}${settings.cwd}`,
     '',
     'Edit file:',
@@ -367,7 +370,12 @@ export function renderSettingsView(settings: WorkbenchSettingsView): string {
     '  "outputRoot": "docs/performance",',
     '  "defaultPhase": "baseline",',
     '  "cpuUsagePercent": 72,',
-    '  "memoryUsagePercent": 61',
+    '  "memoryUsagePercent": 61,',
+    '  "ai": {',
+    '    "enabled": false,',
+    '    "provider": "stub",',
+    '    "autoReview": false',
+    '  }',
     '}',
   ].join('\n');
 }

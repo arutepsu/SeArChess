@@ -17,3 +17,11 @@ export async function reviewComparison(
 ): Promise<AIReview> {
   return runAIReview({ mode: 'comparison', comparisonReport: report, context }, provider);
 }
+
+export async function reviewReportSuite(
+  reports: PerformanceReport[],
+  provider: AIReviewProvider,
+  context?: AIReviewRequest['context'],
+): Promise<AIReview> {
+  return runAIReview({ mode: 'report-suite', performanceReports: reports, context }, provider);
+}

@@ -13,6 +13,9 @@ export interface WorkbenchSettingsView {
   defaultPhase?: 'baseline' | 'optimized';
   cpuUsagePercent?: number;
   memoryUsagePercent?: number;
+  aiEnabled?: boolean;
+  aiProvider?: 'stub';
+  aiAutoReview?: boolean;
   cwd: string;
 }
 
@@ -32,6 +35,9 @@ export function buildWorkbenchSettingsView(startDir = process.cwd()): WorkbenchS
     defaultPhase: config.defaultPhase,
     cpuUsagePercent: config.cpuUsagePercent,
     memoryUsagePercent: config.memoryUsagePercent,
+    aiEnabled: config.ai?.enabled,
+    aiProvider: config.ai?.provider,
+    aiAutoReview: config.ai?.autoReview,
     cwd: process.cwd(),
   };
 }

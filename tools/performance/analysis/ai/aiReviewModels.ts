@@ -1,8 +1,9 @@
 import type { PerformanceReport, PerformanceComparisonReport } from '../domain/models';
 
 export interface AIReviewRequest {
-  mode: 'single-run' | 'comparison';
+  mode: 'single-run' | 'comparison' | 'report-suite';
   performanceReport?: PerformanceReport;
+  performanceReports?: PerformanceReport[];
   comparisonReport?: PerformanceComparisonReport;
   context?: {
     systemName?: string;

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -21,7 +21,15 @@ import {
   createInteractiveRunOutDir,
   createRunId,
 } from './cli/artifacts/interactiveRunArtifacts';
+import { loadPerformanceConfig } from './cli/config';
 import { runPerfCli } from './cli/perf';
+import {
+  AI_REVIEW_DISABLED_MESSAGE,
+  buildAIReviewArtifactPaths,
+  buildReviewableRunBundle,
+  generateAIReviewForRun,
+  selectAIReviewMarkdown,
+} from './cli/reports/aiReviewArtifacts';
 import { findRunHistory } from './cli/reports/runHistory';
 import { renderTable } from './cli/ui/table';
 import {
@@ -118,6 +126,24 @@ test('interactive default resolution uses default on empty answer and explicit a
   assert.equal(resolveAnswer('', 'baseline'), 'baseline');
   assert.equal(resolveAnswer('  ', 'baseline'), 'baseline');
   assert.equal(resolveAnswer('optimized', 'baseline'), 'optimized');
+});
+
+test('loadPerformanceConfig accepts AI settings', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'perf-ai-config-'));
+  writeFileSync(join(dir, 'performance.config.json'), JSON.stringify({
+    ai: {
+      enabled: true,
+      provider: 'stub',
+      autoReview: false,
+    },
+  }));
+
+  const config = loadPerformanceConfig(dir);
+  assert.deepEqual(config.ai, {
+    enabled: true,
+    provider: 'stub',
+    autoReview: false,
+  });
 });
 
 test('interactive k6 option helpers use log output mode', () => {
@@ -360,12 +386,15 @@ function createHistoryRun(
   outputRoot: string,
   phase: 'baseline' | 'optimized',
   runId: string,
-  files: { reports?: string[]; logs?: string[] },
+  files: { reports?: string[]; logs?: string[]; jsonReports?: Record<string, unknown> },
 ): string {
   const runPath = join(outputRoot, phase, 'runs', runId);
   mkdirSync(runPath, { recursive: true });
   for (const report of files.reports ?? []) {
     writeFileSync(join(runPath, report), '# report\n');
+  }
+  for (const [name, value] of Object.entries(files.jsonReports ?? {})) {
+    writeFileSync(join(runPath, name), JSON.stringify(value, null, 2) + '\n');
   }
   if (files.logs && files.logs.length > 0) {
     const logsDir = join(runPath, 'logs');
@@ -515,6 +544,171 @@ test('selectPreferredMarkdownReport returns undefined when no reports exist', ()
   assert.equal(selectPreferredMarkdownReport(item), undefined);
 });
 
+test('buildReviewableRunBundle detects k6-single run', () => {
+  const outputRoot = mkdtempSync(join(tmpdir(), 'perf-bundle-single-'));
+  createHistoryRun(outputRoot, 'baseline', '20260504T153658-k6-load-aabbcc', {
+    reports: ['k6_load_report.md'],
+    jsonReports: {
+      'k6_load_report.json': samplePerformanceReport(),
+    },
+  });
+  const [item] = findRunHistory(outputRoot);
+  const bundle = buildReviewableRunBundle(item);
+
+  assert.equal(bundle.tool, 'k6');
+  assert.equal(bundle.kind, 'single');
+  assert.equal(bundle.reportJsonPaths.length, 1);
+  assert.ok(bundle.reportJsonPaths[0].endsWith('k6_load_report.json'));
+  assert.equal(bundle.reportMarkdownPaths.length, 1);
+});
+
+test('buildReviewableRunBundle detects k6-suite run', () => {
+  const outputRoot = mkdtempSync(join(tmpdir(), 'perf-bundle-suite-'));
+  createHistoryRun(outputRoot, 'baseline', '20260504T153658-k6-suite-aabbcc', {
+    reports: ['k6_suite_report.md', 'k6_baseline_report.md', 'k6_load_report.md', 'k6_spike_report.md', 'k6_stress_report.md'],
+    jsonReports: {
+      'k6_baseline_report.json': samplePerformanceReport(),
+      'k6_load_report.json': samplePerformanceReport(),
+      'k6_spike_report.json': samplePerformanceReport(),
+      'k6_stress_report.json': samplePerformanceReport(),
+    },
+  });
+  const [item] = findRunHistory(outputRoot);
+  const bundle = buildReviewableRunBundle(item);
+
+  assert.equal(bundle.tool, 'k6');
+  assert.equal(bundle.kind, 'suite');
+  assert.ok(bundle.suiteMarkdownPath?.endsWith('k6_suite_report.md'));
+});
+
+test('k6-suite review bundle includes all deterministic k6 report JSON files', () => {
+  const outputRoot = mkdtempSync(join(tmpdir(), 'perf-bundle-suite-all-'));
+  createHistoryRun(outputRoot, 'baseline', '20260504T153658-k6-suite-aabbcc', {
+    reports: ['k6_suite_report.md'],
+    jsonReports: {
+      'k6_baseline_report.json': samplePerformanceReport(),
+      'k6_load_report.json': samplePerformanceReport(),
+      'k6_spike_report.json': samplePerformanceReport(),
+      'k6_stress_report.json': samplePerformanceReport(),
+    },
+  });
+  const [item] = findRunHistory(outputRoot);
+  const names = buildReviewableRunBundle(item).reportJsonPaths.map((path) => path.replace(/\\/g, '/'));
+
+  assert.equal(names.length, 4);
+  assert.ok(names.some((path) => path.endsWith('k6_baseline_report.json')));
+  assert.ok(names.some((path) => path.endsWith('k6_load_report.json')));
+  assert.ok(names.some((path) => path.endsWith('k6_spike_report.json')));
+  assert.ok(names.some((path) => path.endsWith('k6_stress_report.json')));
+});
+
+test('selectAIReviewMarkdown prefers ai_review.md when present', () => {
+  const outputRoot = mkdtempSync(join(tmpdir(), 'perf-ai-preview-'));
+  const runPath = createHistoryRun(outputRoot, 'baseline', '20260504T153658-k6-load-aabbcc', {
+    reports: ['k6_load_report.md'],
+  });
+  writeFileSync(join(runPath, 'ai_review.md'), '# AI Review\n');
+  const [item] = findRunHistory(outputRoot);
+
+  assert.ok(selectAIReviewMarkdown(item)?.endsWith('ai_review.md'));
+});
+
+test('selectAIReviewMarkdown prefers suite AI review for k6-suite runs', () => {
+  const outputRoot = mkdtempSync(join(tmpdir(), 'perf-ai-preview-suite-'));
+  const runPath = createHistoryRun(outputRoot, 'baseline', '20260504T153658-k6-suite-aabbcc', {
+    reports: ['k6_suite_report.md'],
+  });
+  writeFileSync(join(runPath, 'ai_review.md'), '# Single AI Review\n');
+  writeFileSync(join(runPath, 'ai_suite_review.md'), '# Suite AI Review\n');
+  const [item] = findRunHistory(outputRoot);
+
+  assert.ok(selectAIReviewMarkdown(item)?.endsWith('ai_suite_review.md'));
+});
+
+test('disabled AI blocks review generation', async () => {
+  const outputRoot = mkdtempSync(join(tmpdir(), 'perf-ai-disabled-'));
+  createHistoryRun(outputRoot, 'baseline', '20260504T153658-k6-load-aabbcc', {
+    jsonReports: {
+      'k6_load_report.json': samplePerformanceReport(),
+    },
+  });
+  const [item] = findRunHistory(outputRoot);
+
+  await assert.rejects(
+    () => generateAIReviewForRun(item, {}),
+    new RegExp(AI_REVIEW_DISABLED_MESSAGE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+  );
+});
+
+test('stub AI generation writes AI review artifacts', async () => {
+  const outputRoot = mkdtempSync(join(tmpdir(), 'perf-ai-generation-'));
+  const runPath = createHistoryRun(outputRoot, 'baseline', '20260504T153658-k6-load-aabbcc', {
+    reports: ['k6_load_report.md'],
+    jsonReports: {
+      'k6_load_report.json': samplePerformanceReport(),
+    },
+  });
+  const [item] = findRunHistory(outputRoot);
+  const result = await generateAIReviewForRun(item, {
+    ai: {
+      enabled: true,
+      provider: 'stub',
+    },
+  });
+  const paths = buildAIReviewArtifactPaths(runPath);
+
+  assert.equal(result.paths.jsonPath, paths.jsonPath);
+  assert.equal(result.paths.markdownPath, paths.markdownPath);
+  assert.ok(existsSync(paths.jsonPath));
+  assert.ok(existsSync(paths.markdownPath));
+  assert.ok(readFileSync(paths.markdownPath, 'utf-8').includes('## AI Review'));
+});
+
+test('stub AI generation writes suite AI review artifacts', async () => {
+  const outputRoot = mkdtempSync(join(tmpdir(), 'perf-ai-suite-generation-'));
+  const runPath = createHistoryRun(outputRoot, 'baseline', '20260504T153658-k6-suite-aabbcc', {
+    reports: ['k6_suite_report.md'],
+    jsonReports: {
+      'k6_baseline_report.json': samplePerformanceReport(),
+      'k6_load_report.json': samplePerformanceReport(),
+      'k6_spike_report.json': samplePerformanceReport(),
+      'k6_stress_report.json': samplePerformanceReport(),
+    },
+  });
+  const [item] = findRunHistory(outputRoot);
+  const result = await generateAIReviewForRun(item, {
+    ai: {
+      enabled: true,
+      provider: 'stub',
+    },
+  });
+  const paths = buildAIReviewArtifactPaths(runPath, 'suite');
+
+  assert.equal(result.bundle.kind, 'suite');
+  assert.equal(result.bundle.reportJsonPaths.length, 4);
+  assert.equal(result.paths.jsonPath, paths.jsonPath);
+  assert.equal(result.paths.markdownPath, paths.markdownPath);
+  assert.ok(existsSync(paths.jsonPath));
+  assert.ok(existsSync(paths.markdownPath));
+  assert.ok(readFileSync(paths.markdownPath, 'utf-8').includes('# AI Suite Review'));
+});
+
+test('malformed deterministic report JSON fails clearly during AI generation', async () => {
+  const outputRoot = mkdtempSync(join(tmpdir(), 'perf-ai-malformed-'));
+  createHistoryRun(outputRoot, 'baseline', '20260504T153658-k6-load-aabbcc', {
+    reports: ['k6_load_report.md'],
+    jsonReports: {
+      'k6_load_report.json': { not: 'a valid performance report' },
+    },
+  });
+  const [item] = findRunHistory(outputRoot);
+
+  await assert.rejects(
+    () => generateAIReviewForRun(item, { ai: { enabled: true, provider: 'stub' } }),
+    /Invalid deterministic report/,
+  );
+});
+
 test('renderMarkdownPreview includes file path and content', () => {
   const content = '# Report\n\nSome content here.';
   const output = renderMarkdownPreview('/path/to/k6_load_report.md', content);
@@ -651,6 +845,9 @@ test('renderSettingsView includes configured values and resolved paths', () => {
     defaultPhase: 'baseline',
     cpuUsagePercent: 72,
     memoryUsagePercent: 61,
+    aiEnabled: true,
+    aiProvider: 'stub',
+    aiAutoReview: false,
     cwd: 'C:\\Users\\test',
   });
 
@@ -669,6 +866,12 @@ test('renderSettingsView includes configured values and resolved paths', () => {
   assert.ok(output.includes('72'));
   assert.ok(output.includes('Memory usage:'));
   assert.ok(output.includes('61'));
+  assert.ok(output.includes('AI enabled:'));
+  assert.ok(output.includes('true'));
+  assert.ok(output.includes('AI provider:'));
+  assert.ok(output.includes('stub'));
+  assert.ok(output.includes('AI auto review:'));
+  assert.ok(output.includes('false'));
   assert.ok(output.includes('Current directory:'));
   assert.ok(output.includes('C:\\Users\\test'));
   assert.ok(output.includes('Edit file:'));
@@ -693,6 +896,9 @@ test('renderSettingsView handles missing config values gracefully', () => {
   assert.ok(output.includes('Default phase:     not configured'));
   assert.ok(output.includes('CPU usage:         not configured'));
   assert.ok(output.includes('Memory usage:      not configured'));
+  assert.ok(output.includes('AI enabled:        false'));
+  assert.ok(output.includes('AI provider:       stub'));
+  assert.ok(output.includes('AI auto review:    false'));
   assert.ok(output.includes('Artifact root:'));
   assert.ok(output.includes('Current directory:'));
   assert.ok(output.includes('Edit file:'));

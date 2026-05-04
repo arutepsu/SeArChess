@@ -28,6 +28,26 @@ const singleReport: PerformanceReport = {
   notes:        [],
 };
 
+const suiteLoadReport: PerformanceReport = {
+  metadata:     { test_type: 'load', scenario_name: 'k6-load-baseline', timestamp: '2026-05-04T00:00:00Z' },
+  summary:      { p95_latency: 120, error_rate: 0, throughput: 500 },
+  observations: ['load workload remained stable'],
+  bottleneck:   { type: 'UNKNOWN', confidence: 'LOW' },
+  evidence:     ['p95 latency stayed below threshold'],
+  suggestions:  ['No immediate optimization action is required'],
+  notes:        [],
+};
+
+const suiteStressReport: PerformanceReport = {
+  metadata:     { test_type: 'stress', scenario_name: 'k6-stress-baseline', timestamp: '2026-05-04T00:03:00Z' },
+  summary:      { p95_latency: 1200, error_rate: 0.01, throughput: 780 },
+  observations: ['stress workload increased latency'],
+  bottleneck:   { type: 'SCALABILITY', confidence: 'MEDIUM' },
+  evidence:     ['p95 latency increased under high concurrency'],
+  suggestions:  ['Investigate scaling limits under stress workload'],
+  notes:        [],
+};
+
 const comparisonReport: PerformanceComparisonReport = {
   baseline_summary:  { p95_latency: 600, error_rate: 0.05, throughput: 400 },
   optimized_summary: { p95_latency: 400, error_rate: 0.02, throughput: 500 },
@@ -99,6 +119,67 @@ test('prompt builder includes optional context when provided', () => {
   const prompt = buildPrompt(request);
   assert.ok(prompt.includes('search-api'));
   assert.ok(prompt.includes('cold start excluded'));
+});
+
+test('prompt builder for report-suite includes data from multiple reports', () => {
+  const request: AIReviewRequest = {
+    mode: 'report-suite',
+    performanceReports: [suiteLoadReport, suiteStressReport],
+  };
+  const prompt = buildPrompt(request);
+
+  assert.ok(prompt.includes('DETERMINISTIC REPORT SUITE'));
+  assert.ok(prompt.includes('REPORT 1'));
+  assert.ok(prompt.includes('REPORT 2'));
+  assert.ok(prompt.includes('120ms'));
+  assert.ok(prompt.includes('1200ms'));
+  assert.ok(prompt.includes('500 req/s'));
+  assert.ok(prompt.includes('780 req/s'));
+});
+
+test('prompt builder for report-suite includes scenario names and test types', () => {
+  const prompt = buildPrompt({
+    mode: 'report-suite',
+    performanceReports: [suiteLoadReport, suiteStressReport],
+  });
+
+  assert.ok(prompt.includes('k6-load-baseline'));
+  assert.ok(prompt.includes('Test type: load'));
+  assert.ok(prompt.includes('k6-stress-baseline'));
+  assert.ok(prompt.includes('Test type: stress'));
+});
+
+test('prompt builder for report-suite includes bottleneck classifications from all reports', () => {
+  const prompt = buildPrompt({
+    mode: 'report-suite',
+    performanceReports: [suiteLoadReport, suiteStressReport],
+  });
+
+  assert.ok(prompt.includes('Bottleneck type: UNKNOWN'));
+  assert.ok(prompt.includes('Bottleneck type: SCALABILITY'));
+  assert.ok(prompt.includes('Do not override deterministic bottleneck classifications for any included report.'));
+  assert.ok(prompt.includes('strongest pressure'));
+});
+
+test('prompt builder for report-suite does not fall back to comparison rendering', () => {
+  const prompt = buildPrompt({
+    mode: 'report-suite',
+    performanceReports: [suiteLoadReport, suiteStressReport],
+  });
+
+  assert.ok(!prompt.includes('DETERMINISTIC COMPARISON'));
+  assert.ok(!prompt.includes('Verdict:'));
+  assert.ok(prompt.includes('DETERMINISTIC REPORT SUITE'));
+});
+
+test('prompt builder for empty report-suite includes diagnostic section', () => {
+  const prompt = buildPrompt({
+    mode: 'report-suite',
+    performanceReports: [],
+  });
+
+  assert.ok(prompt.includes('DETERMINISTIC REPORT SUITE'));
+  assert.ok(prompt.includes('No deterministic performance reports were provided'));
 });
 
 // ---------------------------------------------------------------------------
