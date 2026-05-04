@@ -17,6 +17,8 @@ export interface EnvironmentCheckResult {
   optimizedRunsDirExists: boolean;
   k6Available: boolean;
   k6Version?: string;
+  prometheusConfigExists?: boolean;
+  grafanaDirExists?: boolean;
 }
 
 export function isCommandAvailable(command: string): boolean {
@@ -40,6 +42,18 @@ export function getCommandVersion(command: string, args: string[] = ['version'])
   return out.split('\n')[0];
 }
 
+export function resolveObservabilityPaths(startDir = process.cwd()): {
+  prometheusConfigPath: string;
+  grafanaDirPath: string;
+} {
+  const repoRoot = performanceConfigRoot(startDir);
+  const obsRoot = join(repoRoot, 'tools', 'performance', 'observability');
+  return {
+    prometheusConfigPath: join(obsRoot, 'prometheus', 'prometheus.yml'),
+    grafanaDirPath: join(obsRoot, 'grafana'),
+  };
+}
+
 export function runEnvironmentCheck(): EnvironmentCheckResult {
   const configRoot = performanceConfigRoot();
   const configFilePath = join(configRoot, 'performance.config.json');
@@ -54,6 +68,8 @@ export function runEnvironmentCheck(): EnvironmentCheckResult {
   const k6Version = getCommandVersion('k6', ['version']);
   const k6Available = k6Version !== undefined;
 
+  const { prometheusConfigPath, grafanaDirPath } = resolveObservabilityPaths();
+
   return {
     nodeVersion: process.version,
     platform: process.platform,
@@ -67,5 +83,7 @@ export function runEnvironmentCheck(): EnvironmentCheckResult {
     optimizedRunsDirExists: existsSync(optimizedRunsDir),
     k6Available,
     k6Version,
+    prometheusConfigExists: existsSync(prometheusConfigPath),
+    grafanaDirExists: existsSync(grafanaDirPath),
   };
 }

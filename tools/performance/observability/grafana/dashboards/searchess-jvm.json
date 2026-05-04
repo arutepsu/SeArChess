@@ -1,0 +1,158 @@
+{
+  "title": "Searchess JVM",
+  "uid": "searchess-jvm",
+  "description": "JVM metrics for the Searchess game service scraped via /metrics (Prometheus text format).",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-30m", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "tags": ["searchess", "jvm"],
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "annotations": { "list": [] },
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "JVM Heap Memory",
+      "description": "Heap used / committed / max. Source: jvm_memory_heap_*_bytes",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prom" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": { "lineWidth": 1, "fillOpacity": 8 }
+        },
+        "overrides": []
+      },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prom" },
+          "expr": "jvm_memory_heap_used_bytes{job=\"searchess-game-service\"}",
+          "refId": "A",
+          "legendFormat": "Used"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prom" },
+          "expr": "jvm_memory_heap_committed_bytes{job=\"searchess-game-service\"}",
+          "refId": "B",
+          "legendFormat": "Committed"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prom" },
+          "expr": "jvm_memory_heap_max_bytes{job=\"searchess-game-service\"}",
+          "refId": "C",
+          "legendFormat": "Max"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "JVM Thread Count",
+      "description": "Live thread count. Source: jvm_threads_current",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prom" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "lineWidth": 1, "fillOpacity": 8 }
+        },
+        "overrides": []
+      },
+      "options": { "tooltip": { "mode": "single" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prom" },
+          "expr": "jvm_threads_current{job=\"searchess-game-service\"}",
+          "refId": "A",
+          "legendFormat": "Threads"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "GC Collection Rate (per minute)",
+      "description": "Rate of GC collections per minute. Source: rate(jvm_gc_collection_count_total[1m])",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prom" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "lineWidth": 1, "fillOpacity": 8 }
+        },
+        "overrides": []
+      },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prom" },
+          "expr": "rate(jvm_gc_collection_count_total{job=\"searchess-game-service\"}[1m])",
+          "refId": "A",
+          "legendFormat": "{{gc}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "GC Time Rate (seconds per minute)",
+      "description": "Rate of GC pause time per minute. Source: rate(jvm_gc_collection_seconds_total[1m])",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prom" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "lineWidth": 1, "fillOpacity": 8 }
+        },
+        "overrides": []
+      },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prom" },
+          "expr": "rate(jvm_gc_collection_seconds_total{job=\"searchess-game-service\"}[1m])",
+          "refId": "A",
+          "legendFormat": "{{gc}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Process Uptime",
+      "description": "Seconds since the JVM started. Source: process_uptime_seconds",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prom" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "value" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prom" },
+          "expr": "process_uptime_seconds{job=\"searchess-game-service\"}",
+          "refId": "A",
+          "legendFormat": "Uptime"
+        }
+      ]
+    }
+  ]
+}

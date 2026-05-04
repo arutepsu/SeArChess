@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "scripts": {
     "build": "tsc",
-    "test": "tsc && node --test dist/analysis.test.js dist/cli/cli.test.js dist/ai.test.js dist/markdown.test.js dist/pipeline.test.js dist/normalization.test.js dist/run-k6.test.js dist/perf.test.js dist/application/artifacts/artifacts.test.js",
+    "test": "tsc && node --test dist/analysis.test.js dist/cli/cli.test.js dist/ai.test.js dist/markdown.test.js dist/pipeline.test.js dist/normalization.test.js dist/run-k6.test.js dist/perf.test.js dist/application/artifacts/artifacts.test.js dist/cli/doctor/environmentCheck.test.js",
     "analyze": "node dist/cli/analyze.js",
     "compare": "node dist/cli/compare.js",
     "review": "node dist/cli/review.js",

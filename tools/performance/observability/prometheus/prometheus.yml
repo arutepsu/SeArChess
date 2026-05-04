@@ -1,0 +1,32 @@
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+
+# ─── Scrape Configurations ────────────────────────────────────────────────────
+#
+# Targets assume the game service is running locally (not in Docker).
+# For Docker Compose usage see docker-compose.observability.yml and the notes
+# in docs/performance_workbench.md.
+
+scrape_configs:
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'searchess-game-service'
+    metrics_path: /metrics
+    static_configs:
+      # Local dev (sbt run / java -jar):
+      - targets: ['host.docker.internal:8080']
+      # Docker Compose (all services in same network): replace with game-service:8080
+      # Linux host (no Docker Desktop):                replace with 172.17.0.1:8080
+
+  # Envoy admin is bound to 127.0.0.1:9901 inside the container and is not
+  # reachable from Prometheus when running externally.  Enable this target only
+  # if you publish or proxy the Envoy admin port:
+  #
+  # - job_name: 'envoy'
+  #   metrics_path: /stats/prometheus
+  #   static_configs:
+  #     - targets: ['localhost:9901']

@@ -336,6 +336,15 @@ export function renderEnvironmentCheck(result: EnvironmentCheckResult): string {
     lines.push(`  ${p('Version:')}${result.k6Version}`);
   }
 
+  if (result.prometheusConfigExists !== undefined || result.grafanaDirExists !== undefined) {
+    lines.push(
+      '',
+      'Observability',
+      `  ${p('Prometheus:')}${result.prometheusConfigExists ? `found ${okMark}` : `not found ${warnMark}`}`,
+      `  ${p('Grafana:')}${result.grafanaDirExists ? `found ${okMark}` : `not found ${warnMark}`}`,
+    );
+  }
+
   return lines.join('\n');
 }
 

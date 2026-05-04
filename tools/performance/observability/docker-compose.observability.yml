@@ -1,0 +1,57 @@
+# Observability stack: Prometheus + Grafana
+#
+# Usage (game service running locally via sbt / java -jar):
+#
+#   cd tools/performance/observability
+#   docker compose -f docker-compose.observability.yml up -d
+#
+#   Prometheus: http://localhost:9090
+#   Grafana:    http://localhost:3000  (admin / admin)
+#
+# Prometheus is configured to scrape host.docker.internal:8080/metrics.
+# On Linux without Docker Desktop the extra_hosts entry maps
+# host.docker.internal to the host via host-gateway.
+#
+# For a fully containerised deployment (everything in docker-compose.yml):
+#   - Change the prometheus target from host.docker.internal:8080 to game-service:8080
+#   - Attach both compose projects to the same Docker network, or
+#     merge this file with docker-compose.yml as an override.
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: searchess-prometheus
+    ports:
+      - "9090:9090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: searchess-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+  grafana_data:
