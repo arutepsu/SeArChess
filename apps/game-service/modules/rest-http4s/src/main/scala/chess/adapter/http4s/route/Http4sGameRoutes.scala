@@ -6,6 +6,8 @@ import chess.adapter.http4s.route.Http4sRouteSupport.*
 import chess.adapter.rest.contract.dto.{
   GameResponse,
   LegalMovesResponse,
+  MoveHistoryEntry,
+  ReplayFrameResponse,
   ResignRequest,
   SessionResponse,
   SubmitMoveRequest,
@@ -13,6 +15,7 @@ import chess.adapter.rest.contract.dto.{
 }
 import chess.application.ApplicationError
 import chess.application.GameServiceApi
+import chess.application.ReplayError
 import chess.application.ai.service.AITurnError
 import chess.application.port.ai.AIError
 import chess.application.port.repository.RepositoryError
@@ -52,6 +55,9 @@ class Http4sGameRoutes(gameService: GameServiceApi):
 
     case GET -> Root / "games" / id / "legal-moves" =>
       handleGetLegalMoves(id)
+
+    case req @ GET -> Root / "games" / id / "replay" =>
+      handleGetReplayFrame(id, req)
 
     case req @ POST -> Root / "games" / id / "moves" =>
       req.bodyText.compile.string.flatMap(handleSubmitMove(id, _))
@@ -93,6 +99,43 @@ class Http4sGameRoutes(gameService: GameServiceApi):
               Status.Ok,
               LegalMovesResponse.toJson(GameMapper.toLegalMovesResponse(view))
             )
+
+  private def handleGetReplayFrame(gameIdStr: String, req: Request[IO]): IO[Response[IO]] =
+    type HttpErr = (Status, String, String)
+
+    val result: Either[HttpErr, ReplayFrameResponse] =
+      for
+        uuid <- parseUUID(gameIdStr).left.map(m => (Status.BadRequest, "BAD_REQUEST", m))
+        gameId = GameId(uuid)
+        ply <- req.uri.query.params
+          .get("ply")
+          .toRight((Status.BadRequest, "BAD_REQUEST", "Missing required query parameter: ply"))
+          .flatMap(parsePly)
+        replayView <- gameService.getReplayFrame(gameId, ply).left.map(replayErrToHttpErr)
+        currentView <- gameService.getGame(gameId).left.map {
+          case RepositoryError.NotFound(_) =>
+            (Status.NotFound, "GAME_NOT_FOUND", s"Game not found: $gameIdStr")
+          case RepositoryError.StorageFailure(msg) =>
+            (Status.InternalServerError, "INTERNAL_ERROR", msg)
+          case RepositoryError.Conflict(msg) =>
+            (Status.InternalServerError, "INTERNAL_ERROR", msg)
+        }
+      yield ReplayFrameResponse(
+        game = GameMapper.toGameResponse(replayView),
+        ply = ply,
+        totalPlies = currentView.moveHistory.length,
+        rawMoves = currentView.moveHistory.map { move =>
+          MoveHistoryEntry(
+            from = move.from.toString,
+            to = move.to.toString,
+            promotion = move.promotion.map(_.toString)
+          )
+        }
+      )
+
+    result match
+      case Right(resp) => jsonResponse(Status.Ok, ReplayFrameResponse.toJson(resp))
+      case Left((status, code, message)) => jsonError(status, code, message)
 
   /** Submit a move through the game service boundary.
     *
@@ -263,6 +306,26 @@ class Http4sGameRoutes(gameService: GameServiceApi):
         )
       case AITurnError.MoveFailed(cause) =>
         (Status.UnprocessableEntity, "AI_MOVE_REJECTED", s"AI move rejected: $cause")
+
+  private def replayErrToHttpErr(err: ReplayError): (Status, String, String) = err match
+    case ReplayError.GameNotFound(id) =>
+      (Status.NotFound, "GAME_NOT_FOUND", s"Game not found: ${id.value}")
+    case ReplayError.InvalidPly(requested, totalPlies) =>
+      (
+        Status.BadRequest,
+        "INVALID_PLY",
+        s"Requested ply $requested is out of range. Allowed range is 0 to $totalPlies"
+      )
+    case ReplayError.ReconstructionFailed(message) =>
+      (Status.InternalServerError, "REPLAY_RECONSTRUCTION_FAILED", message)
+
+  private def parsePly(value: String): Either[(Status, String, String), Int] =
+    value.toIntOption match
+      case Some(v) if v >= 0 => Right(v)
+      case _ =>
+        Left(
+          (Status.BadRequest, "BAD_REQUEST", "Query parameter 'ply' must be a non-negative integer")
+        )
 
   private def resignErrToHttpErr(err: SessionError): (Status, String, String) = err match
     case SessionError.InvalidLifecycleTransition(_) =>

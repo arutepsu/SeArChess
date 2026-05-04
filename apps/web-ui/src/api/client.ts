@@ -4,6 +4,7 @@ import type {
   CreateGameResponse,
   ErrorResponse,
   GameNotationResponse,
+  ReplayFrameResponse,
   GameSnapshot,
   HeatmapResponse,
   HealthResponse,
@@ -54,6 +55,15 @@ export async function getStatus(): Promise<HealthResponse> {
 
 export async function getGameState(gameId: string): Promise<GameSnapshot> {
   return fetchJson<GameSnapshot>(`/api/games/${gameId}`);
+}
+
+export async function getReplayFrame(
+  gameId: string,
+  ply: number
+): Promise<ReplayFrameResponse> {
+  return fetchJson<ReplayFrameResponse>(
+    `/api/games/${gameId}/replay?ply=${encodeURIComponent(ply.toString())}`
+  );
 }
 
 export async function getGameNotation(

@@ -158,3 +158,10 @@ export interface HeatmapResponse {
   maxOccupancyCount: number;
 }
 
+export interface ReplayFrameResponse {
+  game: GameSnapshot;
+  ply: number;
+  totalPlies: number;
+  rawMoves: MoveHistoryEntryDto[];
+}
+

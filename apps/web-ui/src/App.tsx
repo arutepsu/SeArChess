@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Routes, Route, useNavigate } from "react-router-dom";
-import type { PlayerColor, PlayableGameMode } from "./api/types";
+import type { PlayerColor, PlayableGameMode, GameState } from "./api/types";
+import type { MoveHistoryEntryDto } from "./api/backendTypes";
+import { getReplayFrame } from "./api/client";
+import { mapGameSnapshotToGameState } from "./api/mapper";
 import type { SpriteCatalog } from "./assets/spriteCatalog";
 import { loadSpriteCatalog } from "./assets/spriteCatalog";
 import { connectWebSocket, type WsClient } from "./api/ws";
@@ -86,9 +89,16 @@ export default function App() {
   const [blackClockMs, setBlackClockMs] = useState(baseClockMs);
   const [backgroundId, setBackgroundId] = useState(backgrounds[0].id);
   const [spriteCatalog, setSpriteCatalog] = useState<SpriteCatalog | null>(null);
+  const [timelinePly, setTimelinePly] = useState(0);
+  const [timelineTotalPlies, setTimelineTotalPlies] = useState(0);
+  const [timelineRawMoves, setTimelineRawMoves] = useState<MoveHistoryEntryDto[]>([]);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineError, setTimelineError] = useState<string | null>(null);
+  const [replayGame, setReplayGame] = useState<GameState | null>(null);
 
   const lastTickMs = useRef<number | null>(null);
   const wsClientRef = useRef<WsClient | null>(null);
+  const previousTimelineTotalRef = useRef(0);
 
   const clockRunning = useMemo(() => {
     const status = game?.status;
@@ -104,6 +114,10 @@ export default function App() {
       : session?.blackController;
 
   const boardInteractionDisabled = busy || sessionClosed || !clockRunning;
+  const replayModeActive = timelinePly < timelineTotalPlies;
+  const displayedGame = replayModeActive && replayGame ? replayGame : game;
+  const currentReplayMove =
+    timelinePly <= 0 ? null : timelineRawMoves[timelinePly - 1] ?? null;
 
   const canResign =
     Boolean(game) &&
@@ -131,6 +145,66 @@ export default function App() {
       resetClocks();
     }
   }, [game?.id, resetClocks]);
+
+  useEffect(() => {
+    if (!game) {
+      setTimelinePly(0);
+      setTimelineTotalPlies(0);
+      setTimelineRawMoves([]);
+      setTimelineError(null);
+      setReplayGame(null);
+      previousTimelineTotalRef.current = 0;
+      return;
+    }
+
+    const nextTotalPlies = game.moves.length;
+    const wasAtLiveEdge = timelinePly >= previousTimelineTotalRef.current;
+
+    setTimelineTotalPlies(nextTotalPlies);
+    if (wasAtLiveEdge) {
+      setTimelinePly(nextTotalPlies);
+    } else {
+      setTimelinePly((value) => Math.min(value, nextTotalPlies));
+    }
+
+    previousTimelineTotalRef.current = nextTotalPlies;
+  }, [game, timelinePly]);
+
+  useEffect(() => {
+    if (!game?.id) return;
+
+    let active = true;
+    setTimelineLoading(true);
+    setTimelineError(null);
+
+    getReplayFrame(game.id, timelinePly)
+      .then((frame) => {
+        if (!active) return;
+        setTimelineTotalPlies(frame.totalPlies);
+        setTimelineRawMoves(frame.rawMoves);
+
+        if (timelinePly < frame.totalPlies) {
+          setReplayGame(mapGameSnapshotToGameState(frame.game));
+        } else {
+          setReplayGame(null);
+        }
+      })
+      .catch((error) => {
+        if (!active) return;
+        setReplayError(
+          error instanceof Error
+            ? error.message
+            : "Replay timeline could not be loaded."
+        );
+      })
+      .finally(() => {
+        if (active) setTimelineLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [game?.id, timelinePly]);
 
   const handleStartGame = async (selectedMode: PlayableGameMode) => {
     setGameMode(selectedMode);
@@ -342,17 +416,65 @@ export default function App() {
               <CapturedPanel captured={game?.captured ?? []} spriteCatalog={spriteCatalog} />
             </aside>
 
-            {game ? (
-              <ChessBoard
-                board={game.board}
-                selectedSquare={selectedSquare}
-                legalMoves={legalMoves}
-                animation={animationPlan}
-                idleAnimation={true}
-                disabled={boardInteractionDisabled}
-                onSelect={handleSelect}
-                onAnimationFinished={handleAnimationFinished}
-              />
+            {displayedGame ? (
+              <section className="board-column">
+                <ChessBoard
+                  board={displayedGame.board}
+                  selectedSquare={replayModeActive ? undefined : selectedSquare}
+                  legalMoves={replayModeActive ? [] : legalMoves}
+                  animation={replayModeActive ? null : animationPlan}
+                  idleAnimation={true}
+                  disabled={boardInteractionDisabled || replayModeActive}
+                  onSelect={handleSelect}
+                  onAnimationFinished={handleAnimationFinished}
+                />
+
+                <section className="replay-timeline panel" aria-label="Time-travel timeline">
+                  <header className="replay-timeline-header">
+                    <h2>Time-Travel</h2>
+                    <p>
+                      Frame {timelinePly} / {timelineTotalPlies}
+                      {replayModeActive ? " (Replay)" : " (Live)"}
+                    </p>
+                  </header>
+
+                  {timelineError ? (
+                    <div className="replay-timeline-error">{timelineError}</div>
+                  ) : null}
+
+                  <input
+                    type="range"
+                    min={0}
+                    max={timelineTotalPlies}
+                    step={1}
+                    value={timelinePly}
+                    onChange={(event) =>
+                      setTimelinePly(Number(event.currentTarget.value))
+                    }
+                    disabled={timelineLoading || timelineTotalPlies <= 0}
+                  />
+
+                  <div className="replay-timeline-meta">
+                    <span>
+                      {currentReplayMove
+                        ? `${currentReplayMove.from} -> ${currentReplayMove.to}${currentReplayMove.promotion
+                          ? ` (${currentReplayMove.promotion})`
+                          : ""
+                        }`
+                        : "Initial position"}
+                    </span>
+                    {replayModeActive ? (
+                      <button
+                        type="button"
+                        onClick={() => setTimelinePly(timelineTotalPlies)}
+                        disabled={timelineLoading}
+                      >
+                        Back To Live
+                      </button>
+                    ) : null}
+                  </div>
+                </section>
+              </section>
             ) : (
               <section className="board-shell placeholder">
                 <div className="loading">Waiting for game data...</div>

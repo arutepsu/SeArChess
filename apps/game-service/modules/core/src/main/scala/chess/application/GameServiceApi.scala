@@ -17,8 +17,8 @@ import java.time.Instant
   * future gRPC, etc.) that need to interact with the game-session capability. It intentionally
   * hides the internal coordination between
   * [[chess.application.session.service.SessionGameCommandService]],
-  * [[chess.application.session.service.SessionLifecycleService]], and the underlying repository/event ports
-  * from transport adapters.
+  * [[chess.application.session.service.SessionLifecycleService]], and the underlying
+  * repository/event ports from transport adapters.
   *
   * ===Command/query ownership===
   * Commands (state-mutating operations) load their own session and game state from the given
@@ -171,3 +171,10 @@ trait GameServiceApi:
     * terminal game events.
     */
   def getArchiveSnapshot(id: GameId): Either[ArchiveError, GameArchiveSnapshot]
+
+  /** Reconstruct an exact replay frame by applying raw persisted moves up to [[ply]].
+    *
+    * Returns a [[GameView]] representing the board state at the requested ply, where `ply = 0`
+    * means the initial position and `ply = totalPlies` means the current persisted state.
+    */
+  def getReplayFrame(id: GameId, ply: Int): Either[ReplayError, GameView]
