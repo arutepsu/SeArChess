@@ -1,0 +1,31 @@
+{
+  "metadata": {
+    "test_type": "load",
+    "scenario_name": "io_bottleneck",
+    "timestamp": "2026-05-04T11:00:00Z"
+  },
+  "load_profile": {
+    "max_users": 50,
+    "duration": "5m",
+    "ramp_up_pattern": "linear"
+  },
+  "latency": {
+    "p50": 280,
+    "p95": 720,
+    "p99": 950
+  },
+  "throughput": {
+    "requests_per_second": 95
+  },
+  "errors": {
+    "error_rate": 0.008,
+    "total_errors": 38
+  },
+  "system": {
+    "cpu_usage_percent": 28,
+    "memory_usage_percent": 62
+  },
+  "optional": {
+    "db_pool_usage_percent": 88
+  }
+}

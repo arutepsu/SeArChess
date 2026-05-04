@@ -25,27 +25,28 @@ $env:BASE_URL = "http://localhost:8080"; k6 run tools/performance/k6/baseline_te
 
 ## Workload
 
-The k6 and Gatling workloads use stable backend endpoints:
+The k6 baseline/load/stress/spike workloads use stable backend gameplay endpoints:
 
-- `GET /health`
 - `POST /sessions` with `{"mode":"HumanVsHuman"}`
-- `GET /sessions/{sessionId}`
-- `GET /sessions/{sessionId}/state`
-- `GET /games/{gameId}`
 - `GET /games/{gameId}/legal-moves`
+- `POST /games/{gameId}/moves`
+- `GET /sessions/{sessionId}/state`
 
-Each virtual user creates one game session, then repeatedly reads the session, full state, game
-snapshot, and legal moves. This keeps `/health` in the scenario as a liveness check without making
-it the only measured workload.
+Each virtual user lifecycle creates a fresh isolated session, then runs a sequential gameplay loop:
+fetch legal moves, submit a deterministic legal move, and fetch the updated state. Core k6 gameplay
+steps deliberately avoid `http.batch`; the goal is to model player interaction order and exercise
+both read and write paths, not to maximize synthetic traffic. Move selection is deterministic:
+legal moves are sorted by `from/to/promotion` and selected from the current ply number, keeping runs
+comparable without external feeders or uncontrolled randomness.
 
 ## k6 Tests
 
 | Test | File | Measures | Thresholds |
 | :--- | :--- | :--- | :--- |
-| Baseline | `tools/performance/k6/baseline_test.js` | Repeatable low-load reference run | p95 `< 500 ms`, error rate `< 1%` |
-| Load | `tools/performance/k6/load_test.js` | Sustained normal load at 50 VUs | p95 `< 500 ms`, error rate `< 1%` |
-| Stress | `tools/performance/k6/stress_test.js` | Higher pressure ramp/hold behavior | p95 `< 1000 ms`, error rate `< 5%` |
-| Spike | `tools/performance/k6/spike_test.js` | Sudden jump from 20 to 150 VUs | p95 `< 1000 ms`, error rate `< 5%` |
+| Baseline | `tools/performance/k6/baseline_test.js` | Repeatable low-load player lifecycle with 4 plies | p95 `< 500 ms`, error rate `< 1%` |
+| Load | `tools/performance/k6/load_test.js` | Sustained normal load using the same lifecycle at 50 VUs | p95 `< 500 ms`, error rate `< 1%` |
+| Stress | `tools/performance/k6/stress_test.js` | Higher pressure ramp/hold behavior using the same lifecycle | p95 `< 1000 ms`, error rate `< 5%` |
+| Spike | `tools/performance/k6/spike_test.js` | Sudden jump from 20 to 150 VUs using the same lifecycle | p95 `< 1000 ms`, error rate `< 5%` |
 
 Run and export summaries:
 
@@ -70,8 +71,8 @@ Summaries are stored in `docs/performance/baseline/`.
 
 ## Gatling
 
-`modules/load-tests/src/test/scala/gatling/GameSimulation.scala` targets the same backend flow as
-the k6 scripts. It reads the target from, in order:
+`modules/load-tests/src/test/scala/gatling/GameSimulation.scala` targets backend session and game
+read endpoints. It reads the target from, in order:
 
 - JVM system property `BASE_URL`
 - JVM system property `baseUrl`

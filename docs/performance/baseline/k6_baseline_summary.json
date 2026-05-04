@@ -1,0 +1,162 @@
+{
+    "root_group": {
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {
+            "setup: create independent session": {
+                "name": "setup: create independent session",
+                "path": "::setup: create independent session",
+                "id": "a109d8fb05710035f8af3254e6814ecf",
+                "groups": {},
+                "checks": {
+                        "create session status is 201": {
+                            "passes": 0,
+                            "fails": 100,
+                            "name": "create session status is 201",
+                            "path": "::setup: create independent session::create session status is 201",
+                            "id": "fbe328f1e88ae084d5928cdd16ab41a1"
+                        },
+                        "create session body is not empty": {
+                            "fails": 100,
+                            "name": "create session body is not empty",
+                            "path": "::setup: create independent session::create session body is not empty",
+                            "id": "ce5ebf0c0034425897b61de29405adb6",
+                            "passes": 0
+                        },
+                        "create session body is valid JSON": {
+                            "passes": 0,
+                            "fails": 100,
+                            "name": "create session body is valid JSON",
+                            "path": "::setup: create independent session::create session body is valid JSON",
+                            "id": "8e68424d04390f892ebe6d6ac6705a55"
+                        },
+                        "create session returns sessionId and gameId": {
+                            "path": "::setup: create independent session::create session returns sessionId and gameId",
+                            "id": "2fda6ce137c9c27aa3710534b66b6678",
+                            "passes": 0,
+                            "fails": 100,
+                            "name": "create session returns sessionId and gameId"
+                        }
+                    }
+            }
+        },
+        "checks": {},
+        "name": "",
+        "path": ""
+    },
+    "metrics": {
+        "http_req_tls_handshaking": {
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "group_duration": {
+            "max": 209.9975,
+            "p(90)": 206.74422,
+            "p(95)": 209.4869,
+            "avg": 203.329013,
+            "min": 200.9398,
+            "med": 202.41535
+        },
+        "http_req_connecting": {
+            "max": 0,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0,
+            "min": 0,
+            "med": 0
+        },
+        "iteration_duration": {
+            "avg": 203.35445499999994,
+            "min": 200.9398,
+            "med": 202.4731,
+            "max": 209.9975,
+            "p(90)": 206.74422,
+            "p(95)": 209.4869
+        },
+        "vus": {
+            "value": 10,
+            "min": 10,
+            "max": 10
+        },
+        "data_received": {
+            "rate": 0,
+            "count": 0
+        },
+        "http_req_duration": {
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0,
+            "thresholds": {
+                "p(95)<500": false
+            }
+        },
+        "iterations": {
+            "count": 100,
+            "rate": 49.12130097569149
+        },
+        "http_req_waiting": {
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "http_req_blocked": {
+            "med": 0,
+            "max": 0,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0,
+            "min": 0
+        },
+        "http_req_sending": {
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "http_req_receiving": {
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "http_reqs": {
+            "count": 100,
+            "rate": 49.12130097569149
+        },
+        "checks": {
+            "passes": 0,
+            "fails": 400,
+            "value": 0
+        },
+        "vus_max": {
+            "min": 10,
+            "max": 10,
+            "value": 10
+        },
+        "http_req_failed": {
+            "passes": 100,
+            "fails": 0,
+            "thresholds": {
+                "rate<0.01": true
+            },
+            "value": 1
+        },
+        "data_sent": {
+            "rate": 0,
+            "count": 0
+        }
+    }
+}
