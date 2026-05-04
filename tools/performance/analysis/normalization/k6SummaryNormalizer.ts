@@ -29,6 +29,24 @@ function numberAt(root: unknown, path: string): number {
   return current;
 }
 
+function optionalNumberAt(root: unknown, path: string): number | undefined {
+  try {
+    return numberAt(root, path);
+  } catch (_) {
+    return undefined;
+  }
+}
+
+function k6NumberAt(raw: unknown, directPath: string, nestedPath: string, missingMessage?: string): number {
+  const direct = optionalNumberAt(raw, directPath);
+  if (direct !== undefined) return direct;
+
+  const nested = optionalNumberAt(raw, nestedPath);
+  if (nested !== undefined) return nested;
+
+  throw new Error(missingMessage ?? `${directPath} or ${nestedPath} must be a number`);
+}
+
 function buildOptional(context: NormalizerContext): OptionalMetrics | undefined {
   return context.dbPoolUsagePercent === undefined
     ? undefined
@@ -38,12 +56,17 @@ function buildOptional(context: NormalizerContext): OptionalMetrics | undefined 
 export function normalizeK6Summary(raw: unknown, context: NormalizerContext): PerformanceInput {
   assertValidNormalizerContext(context);
 
-  const p50 = numberAt(raw, 'metrics.http_req_duration.values.p(50)');
-  const p95 = numberAt(raw, 'metrics.http_req_duration.values.p(95)');
-  const p99 = numberAt(raw, 'metrics.http_req_duration.values.p(99)');
-  const errorRate = numberAt(raw, 'metrics.http_req_failed.values.rate');
-  const requestRate = numberAt(raw, 'metrics.http_reqs.values.rate');
-  const requestCount = numberAt(raw, 'metrics.http_reqs.values.count');
+  const p50 = k6NumberAt(raw, 'metrics.http_req_duration.med', 'metrics.http_req_duration.values.p(50)');
+  const p95 = k6NumberAt(raw, 'metrics.http_req_duration.p(95)', 'metrics.http_req_duration.values.p(95)');
+  const p99 = k6NumberAt(
+    raw,
+    'metrics.http_req_duration.p(99)',
+    'metrics.http_req_duration.values.p(99)',
+    'k6 summary must include p(99) at metrics.http_req_duration.p(99) or metrics.http_req_duration.values.p(99)',
+  );
+  const errorRate = k6NumberAt(raw, 'metrics.http_req_failed.value', 'metrics.http_req_failed.values.rate');
+  const requestRate = k6NumberAt(raw, 'metrics.http_reqs.rate', 'metrics.http_reqs.values.rate');
+  const requestCount = k6NumberAt(raw, 'metrics.http_reqs.count', 'metrics.http_reqs.values.count');
 
   return {
     metadata: {

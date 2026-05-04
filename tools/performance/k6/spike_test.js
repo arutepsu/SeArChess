@@ -6,6 +6,7 @@ const SPIKE_GAMEPLAY = {
 };
 
 export const options = {
+  summaryTrendStats: ['med', 'p(95)', 'p(99)'],
   stages: [
     { duration: '10s', target: 20 },
     { duration: '10s', target: 150 },

@@ -57,6 +57,21 @@ test('renderMarkdownReport renders PerformanceReport only', () => {
   assert.ok(markdown.endsWith('\n'));
 });
 
+test('renderMarkdownReport summarizes healthy UNKNOWN as no bottleneck detected', () => {
+  const healthyUnknownReport: PerformanceReport = {
+    metadata:     { test_type: 'load', scenario_name: 'healthy-api', timestamp: '2026-05-04T00:00:00Z' },
+    summary:      { p95_latency: 250, error_rate: 0.001, throughput: 500 },
+    observations: ['p95 latency is below threshold'],
+    bottleneck:   { type: 'UNKNOWN', confidence: 'LOW' },
+    evidence:     ['No strong bottleneck signal detected'],
+    suggestions:  ['No immediate optimization action is required for this load profile'],
+    notes:        [],
+  };
+  const markdown = renderMarkdownReport({ performanceReport: healthyUnknownReport });
+  assert.ok(markdown.includes('No bottleneck was detected under this load profile.'));
+  assert.ok(!markdown.includes('produced a UNKNOWN bottleneck classification'));
+});
+
 test('renderMarkdownReport renders PerformanceComparisonReport only', () => {
   const markdown = renderMarkdownReport({ comparisonReport });
   assert.ok(markdown.includes('## Comparison Report'));

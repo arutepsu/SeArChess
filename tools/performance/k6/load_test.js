@@ -6,6 +6,7 @@ const LOAD_GAMEPLAY = {
 };
 
 export const options = {
+  summaryTrendStats: ['med', 'p(95)', 'p(99)'],
   scenarios: {
     load: {
       executor: 'constant-vus',

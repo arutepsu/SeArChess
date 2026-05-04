@@ -1,5 +1,6 @@
 import type { AIReview } from '../ai/aiReviewModels';
 import type { PerformanceComparisonReport, PerformanceReport } from '../domain/models';
+import { HIGH_ERROR_RATE_THRESHOLD, HIGH_LATENCY_THRESHOLD_MS } from '../domain/thresholds';
 
 export interface MarkdownReportInput {
   performanceReport?: PerformanceReport;
@@ -22,12 +23,30 @@ function pushBulletList(lines: string[], items: string[]): void {
   }
 }
 
+function isHealthyUnknown(report: PerformanceReport): boolean {
+  return (
+    report.bottleneck.type === 'UNKNOWN' &&
+    report.summary.p95_latency <= HIGH_LATENCY_THRESHOLD_MS &&
+    report.summary.error_rate <= HIGH_ERROR_RATE_THRESHOLD
+  );
+}
+
+function buildPerformanceReportSummary(report: PerformanceReport): string {
+  if (isHealthyUnknown(report)) {
+    return 'No bottleneck was detected under this load profile. Latency and error rate remained below thresholds.';
+  }
+  return `Scenario ${report.metadata.scenario_name} produced a ${report.bottleneck.type} bottleneck classification with ${report.bottleneck.confidence} confidence.`;
+}
+
 function buildDeterministicExecutiveSummary(input: MarkdownReportInput): string {
   if (input.performanceReport && input.comparisonReport) {
+    if (isHealthyUnknown(input.performanceReport)) {
+      return `No bottleneck was detected under this load profile. Latency and error rate remained below thresholds. The comparison verdict is ${input.comparisonReport.verdict}.`;
+    }
     return `Scenario ${input.performanceReport.metadata.scenario_name} produced a ${input.performanceReport.bottleneck.type} bottleneck classification, and the comparison verdict is ${input.comparisonReport.verdict}.`;
   }
   if (input.performanceReport) {
-    return `Scenario ${input.performanceReport.metadata.scenario_name} produced a ${input.performanceReport.bottleneck.type} bottleneck classification with ${input.performanceReport.bottleneck.confidence} confidence.`;
+    return buildPerformanceReportSummary(input.performanceReport);
   }
   if (input.comparisonReport) {
     return `The comparison verdict is ${input.comparisonReport.verdict}.`;

@@ -46,6 +46,23 @@ const k6Summary = {
   },
 };
 
+const directK6Summary = {
+  metrics: {
+    http_req_duration: {
+      med: 111,
+      'p(95)': 444,
+      'p(99)': 777,
+    },
+    http_req_failed: {
+      value: 0.04,
+    },
+    http_reqs: {
+      rate: 333,
+      count: 1250,
+    },
+  },
+};
+
 const gatlingSummary = {
   stats: {
     numberOfRequests: {
@@ -84,6 +101,47 @@ test('normalizeK6Summary maps supported k6 summary to PerformanceInput', () => {
   assert.equal(input.errors.error_rate, 0.03);
   assert.equal(input.system.cpu_usage_percent, 72);
   assert.equal(input.optional?.db_pool_usage_percent, 44);
+});
+
+test('normalizeK6Summary maps actual direct k6 export shape to PerformanceInput', () => {
+  const input = normalizeK6Summary(directK6Summary, context);
+  assert.equal(input.latency.p50, 111);
+  assert.equal(input.latency.p95, 444);
+  assert.equal(input.latency.p99, 777);
+  assert.equal(input.errors.error_rate, 0.04);
+  assert.equal(input.throughput.requests_per_second, 333);
+  assert.equal(input.errors.total_errors, 50);
+});
+
+test('normalizeK6Summary maps direct med to latency.p50', () => {
+  const input = normalizeK6Summary(directK6Summary, context);
+  assert.equal(input.latency.p50, 111);
+});
+
+test('normalizeK6Summary maps direct http_req_failed.value to error_rate', () => {
+  const input = normalizeK6Summary(directK6Summary, context);
+  assert.equal(input.errors.error_rate, 0.04);
+});
+
+test('normalizeK6Summary maps direct http_reqs rate and count', () => {
+  const input = normalizeK6Summary(directK6Summary, context);
+  assert.equal(input.throughput.requests_per_second, 333);
+  assert.equal(input.errors.total_errors, 50);
+});
+
+test('normalizeK6Summary throws clear error when p99 is missing', () => {
+  assert.throws(
+    () => normalizeK6Summary({
+      metrics: {
+        ...directK6Summary.metrics,
+        http_req_duration: {
+          med: 111,
+          'p(95)': 444,
+        },
+      },
+    }, context),
+    /k6 summary must include p\(99\)/,
+  );
 });
 
 test('normalizeK6Summary throws on missing http_req_duration', () => {
@@ -176,13 +234,13 @@ test('normalizeGatlingSummary throws on missing stats', () => {
 
 test('normalize-k6 CLI happy path', () => {
   const dir = mkdtempSync(join(tmpdir(), 'perf-normalize-'));
-  const summaryPath = writeTmp(dir, 'k6-summary.json', k6Summary);
+  const summaryPath = writeTmp(dir, 'k6-summary.json', directK6Summary);
   const contextPath = writeTmp(dir, 'context.json', context);
   const result = spawnSync('node', [NORMALIZE_K6, summaryPath, contextPath], { encoding: 'utf-8' });
   assert.equal(result.status, 0, `stderr: ${result.stderr}`);
   const input = JSON.parse(result.stdout);
-  assert.equal(input.latency.p95, 450);
-  assert.equal(input.errors.total_errors, 30);
+  assert.equal(input.latency.p95, 444);
+  assert.equal(input.errors.total_errors, 50);
 });
 
 test('normalize-gatling CLI happy path', () => {

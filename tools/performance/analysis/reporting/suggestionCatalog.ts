@@ -21,6 +21,7 @@ export const SUGGESTIONS: Record<BottleneckType, string[]> = {
     'Reduce synchronous dependencies',
   ],
   UNKNOWN: [
-    'Collect more metrics to identify the bottleneck',
+    'No immediate optimization action is required for this load profile',
+    'Add DB pool, GC, and queue metrics for deeper observability if further diagnosis is needed',
   ],
 };

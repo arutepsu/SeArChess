@@ -50,6 +50,9 @@ comparable without external feeders or uncontrolled randomness.
 
 Run and export summaries:
 
+The k6 scripts configure `summaryTrendStats` with `med`, `p(95)`, and `p(99)`.
+Keep `p(99)` in exported summaries because the performance-analysis k6 normalizer requires it.
+
 ```bash
 BASE_URL=http://localhost:8080 k6 run tools/performance/k6/baseline_test.js --summary-export docs/performance/baseline/k6_baseline_summary.json
 BASE_URL=http://localhost:8080 k6 run tools/performance/k6/load_test.js --summary-export docs/performance/baseline/k6_load_summary.json
