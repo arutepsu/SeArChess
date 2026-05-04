@@ -4,10 +4,10 @@
   "version": "1.0.0",
   "scripts": {
     "build": "tsc",
-    "test": "tsc && node --test dist/analysis.test.js dist/cli/cli.test.js dist/ai.test.js dist/markdown.test.js dist/pipeline.test.js dist/normalization.test.js dist/run-k6.test.js dist/perf.test.js",
+    "test": "tsc && node --test dist/analysis.test.js dist/cli/cli.test.js dist/ai.test.js dist/markdown.test.js dist/pipeline.test.js dist/normalization.test.js dist/run-k6.test.js dist/perf.test.js dist/application/artifacts/artifacts.test.js",
     "analyze": "node dist/cli/analyze.js",
     "compare": "node dist/cli/compare.js",
-    "review":  "node dist/cli/review.js",
+    "review": "node dist/cli/review.js",
     "render": "node dist/cli/render.js",
     "pipeline": "node dist/cli/pipeline.js",
     "normalize:k6": "node dist/cli/normalize-k6.js",
@@ -18,5 +18,11 @@
   "devDependencies": {
     "@types/node": "^20.0.0",
     "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^8.4.2",
+    "chalk": "^4.1.2",
+    "cli-table3": "^0.6.5",
+    "ora": "^5.4.1"
   }
 }

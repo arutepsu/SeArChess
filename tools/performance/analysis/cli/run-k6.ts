@@ -8,19 +8,14 @@ import {
   type K6TestName,
   type RunK6ReportOptions,
 } from '../application/runK6Report';
-import {
-  loadPerformanceConfig,
-  resolvePerformanceOutputDir,
-  type PerformanceCliConfig,
-} from './config';
 
 const K6_TESTS = ['baseline', 'load', 'stress', 'spike'] as const;
 const K6_PHASES = ['baseline', 'optimized'] as const;
 
 export {
-  buildK6ArtifactPaths,
+  buildK6ArtifactPaths, 
   getK6TestConfig,
-  shouldContinueAfterK6Failure,
+  shouldContinueAfterK6Failure, 
   type K6Phase,
   type K6TestName,
   type RunK6ReportOptions as RunK6Options,
@@ -50,11 +45,7 @@ function isK6Phase(value: string): value is K6Phase {
   return K6_PHASES.includes(value as K6Phase);
 }
 
-export function parseRunK6Args(
-  args: string[],
-  config: PerformanceCliConfig = loadPerformanceConfig(),
-  configStartDir = process.cwd(),
-): RunK6ReportOptions {
+export function parseRunK6Args(args: string[]): RunK6ReportOptions {
   const parsed: Partial<RunK6ReportOptions> = {};
 
   for (let i = 0; i < args.length; i += 1) {
@@ -99,22 +90,12 @@ export function parseRunK6Args(
     }
   }
 
-  const phase = parsed.phase ?? config.defaultPhase;
-  const resolved: Partial<RunK6ReportOptions> = {
-    test: parsed.test,
-    baseUrl: parsed.baseUrl ?? config.baseUrl,
-    cpu: parsed.cpu ?? config.cpuUsagePercent,
-    memory: parsed.memory ?? config.memoryUsagePercent,
-    phase,
-    out: parsed.out ?? (config.outputRoot && phase ? resolvePerformanceOutputDir(config.outputRoot, phase, configStartDir) : undefined),
-  };
-
-  const missing = ['test', 'baseUrl', 'cpu', 'memory', 'phase'].filter((key) => resolved[key as keyof RunK6ReportOptions] === undefined);
+  const missing = ['test', 'baseUrl', 'cpu', 'memory', 'phase'].filter((key) => parsed[key as keyof RunK6ReportOptions] === undefined);
   if (missing.length > 0) {
     throw new Error(`Missing required arguments: ${missing.join(', ')}`);
   }
 
-  return resolved as RunK6ReportOptions;
+  return parsed as RunK6ReportOptions;
 }
 
 export function formatK6ReportSummary(report: PerformanceReport, outDir: string): string {
