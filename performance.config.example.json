@@ -1,0 +1,7 @@
+{
+  "baseUrl": "http://localhost:10000/api",
+  "outputRoot": "docs/performance",
+  "defaultPhase": "baseline",
+  "cpuUsagePercent": 72,
+  "memoryUsagePercent": 61
+}

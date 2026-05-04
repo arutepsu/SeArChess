@@ -1,0 +1,22 @@
+{
+  "name": "performance-analysis",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "build": "tsc",
+    "test": "tsc && node --test dist/analysis.test.js dist/cli/cli.test.js dist/ai.test.js dist/markdown.test.js dist/pipeline.test.js dist/normalization.test.js dist/run-k6.test.js dist/perf.test.js",
+    "analyze": "node dist/cli/analyze.js",
+    "compare": "node dist/cli/compare.js",
+    "review":  "node dist/cli/review.js",
+    "render": "node dist/cli/render.js",
+    "pipeline": "node dist/cli/pipeline.js",
+    "normalize:k6": "node dist/cli/normalize-k6.js",
+    "normalize:gatling": "node dist/cli/normalize-gatling.js",
+    "k6:report": "node dist/cli/run-k6.js",
+    "perf": "node dist/cli/perf.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0"
+  }
+}

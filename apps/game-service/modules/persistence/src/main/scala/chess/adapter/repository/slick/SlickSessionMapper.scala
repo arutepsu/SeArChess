@@ -1,18 +1,19 @@
-package chess.adapter.repository.postgres
+package chess.adapter.repository.slick
 
 import chess.application.port.repository.RepositoryError
-import chess.application.session.model.{GameSession, SessionLifecycle, SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
+import chess.application.session.model.{GameSession, SessionLifecycle, SessionMode, SideController}
 
 import java.sql.Timestamp
 
-private[postgres] object PostgresSessionMapper:
+object SlickSessionMapper:
 
-  def toRow(session: GameSession): PostgresSessionRow =
+  def toRow(tables: SlickTables)(session: GameSession): tables.SlickSessionRow =
+    import tables.SlickSessionRow
     val (whiteKind, whiteEngineId) = controllerColumns(session.whiteController)
     val (blackKind, blackEngineId) = controllerColumns(session.blackController)
 
-    PostgresSessionRow(
+    SlickSessionRow(
       sessionId = session.sessionId.value,
       gameId = session.gameId.value,
       mode = modeString(session.mode),
@@ -25,7 +26,7 @@ private[postgres] object PostgresSessionMapper:
       updatedAt = Timestamp.from(session.updatedAt)
     )
 
-  def toSession(row: PostgresSessionRow): Either[RepositoryError, GameSession] =
+  def toSession(tables: SlickTables)(row: tables.SlickSessionRow): Either[RepositoryError, GameSession] =
     for
       mode <- parseMode(row.mode)
       whiteController <- parseController(row.whiteControllerKind, row.whiteControllerEngineId)

@@ -1,0 +1,37 @@
+{
+  "metadata": {
+    "test_type": "stress",
+    "scenario_name": "k6-stress-baseline",
+    "timestamp": "2026-05-04T12:01:01.660Z"
+  },
+  "summary": {
+    "p95_latency": 1161.62558,
+    "error_rate": 0,
+    "throughput": 773.508381689777
+  },
+  "observations": [
+    "p50 latency is 400.54115ms",
+    "p95 latency is 1161.62558ms",
+    "p99 latency is 1667.466440999999ms",
+    "error rate is 0 (0 total errors)",
+    "throughput is 773.508381689777 requests/second",
+    "CPU usage is 72%",
+    "memory usage is 61%",
+    "max concurrent users is 1000"
+  ],
+  "bottleneck": {
+    "type": "SCALABILITY",
+    "confidence": "MEDIUM"
+  },
+  "evidence": [
+    "p95 latency is 1161.62558ms, exceeding the 500ms threshold",
+    "max concurrent users is 1000, at or above the 100-user threshold"
+  ],
+  "suggestions": [
+    "Improve architecture to support async and batching patterns",
+    "Reduce synchronous dependencies"
+  ],
+  "notes": [
+    "db_pool_usage_percent not provided; database connection pressure is unknown"
+  ]
+}

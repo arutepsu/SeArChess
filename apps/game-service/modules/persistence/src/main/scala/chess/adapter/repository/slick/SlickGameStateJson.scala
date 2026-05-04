@@ -1,11 +1,11 @@
-package chess.adapter.repository.postgres
+package chess.adapter.repository.slick
 
 import chess.application.port.repository.RepositoryError
 import chess.domain.model.{Board, Color, DrawReason, GameStatus, Move, Piece, PieceType, Position}
 import chess.domain.state.{CastlingRights, EnPassantState, GameState}
 import ujson.Value
 
-private[postgres] object PostgresGameStateJson:
+object SlickGameStateJson:
 
   def encode(state: GameState): String =
     ujson.write(

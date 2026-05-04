@@ -1,0 +1,28 @@
+{
+  "metadata": {
+    "test_type": "baseline",
+    "scenario_name": "k6-baseline-envoy",
+    "timestamp": "2026-05-04T13:10:00Z"
+  },
+  "load_profile": {
+    "max_users": 10,
+    "duration": "26s",
+    "ramp_up_pattern": "per-vu-iterations"
+  },
+  "latency": {
+    "p50": 5.9133,
+    "p95": 47.100485,
+    "p99": 61.982037999999996
+  },
+  "throughput": {
+    "requests_per_second": 49.97234242268353
+  },
+  "errors": {
+    "error_rate": 0,
+    "total_errors": 0
+  },
+  "system": {
+    "cpu_usage_percent": 72,
+    "memory_usage_percent": 61
+  }
+}

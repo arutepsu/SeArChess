@@ -1,0 +1,80 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: /scripts/game_benchmark.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 10 max VUs, 1m0s max duration (incl. graceful stop):
+              * baseline_test: 50 iterations for each of 10 VUs (maxDuration: 30s, gracefulStop: 30s)
+
+
+running (0m01.0s), 10/10 VUs, 10 complete and 0 interrupted iterations
+baseline_test   [   2% ] 10 VUs  01.0s/30s  010/500 iters, 50 per VU
+
+running (0m02.0s), 10/10 VUs, 10 complete and 0 interrupted iterations
+baseline_test   [   2% ] 10 VUs  02.0s/30s  010/500 iters, 50 per VU
+
+running (0m03.0s), 10/10 VUs, 30 complete and 0 interrupted iterations
+baseline_test   [   6% ] 10 VUs  03.0s/30s  030/500 iters, 50 per VU
+
+running (0m04.0s), 10/10 VUs, 110 complete and 0 interrupted iterations
+baseline_test   [  22% ] 10 VUs  04.0s/30s  110/500 iters, 50 per VU
+
+running (0m05.0s), 10/10 VUs, 200 complete and 0 interrupted iterations
+baseline_test   [  40% ] 10 VUs  05.0s/30s  200/500 iters, 50 per VU
+
+running (0m06.0s), 10/10 VUs, 280 complete and 0 interrupted iterations
+baseline_test   [  56% ] 10 VUs  06.0s/30s  280/500 iters, 50 per VU
+
+running (0m07.0s), 10/10 VUs, 360 complete and 0 interrupted iterations
+baseline_test   [  72% ] 10 VUs  07.0s/30s  360/500 iters, 50 per VU
+
+running (0m08.0s), 10/10 VUs, 441 complete and 0 interrupted iterations
+baseline_test   [  88% ] 10 VUs  08.0s/30s  441/500 iters, 50 per VU
+
+
+  █ THRESHOLDS 
+
+    http_req_duration
+    ✓ 'p(95)<500' p(95)=142.14ms
+
+    http_req_failed
+    ✓ 'rate<0.01' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 1000    115.796405/s
+    checks_succeeded...: 100.00% 1000 out of 1000
+    checks_failed......: 0.00%   0 out of 1000
+
+    ✓ status is 200
+    ✓ body has game text
+
+    HTTP
+    http_req_duration..............: avg=71.6ms   min=3.3ms    med=19.88ms max=2.1s p(90)=36.57ms  p(95)=142.14ms
+      { expected_response:true }...: avg=71.6ms   min=3.3ms    med=19.88ms max=2.1s p(90)=36.57ms  p(95)=142.14ms
+    http_req_failed................: 0.00%  0 out of 500
+    http_reqs......................: 500    57.898202/s
+
+    EXECUTION
+    iteration_duration.............: avg=172.39ms min=103.75ms med=120.6ms max=2.2s p(90)=137.19ms p(95)=242.66ms
+    iterations.....................: 500    57.898202/s
+    vus............................: 10     min=10       max=10
+    vus_max........................: 10     min=10       max=10
+
+    NETWORK
+    data_received..................: 453 kB 52 kB/s
+    data_sent......................: 42 kB  4.9 kB/s
+
+
+
+
+running (0m08.6s), 00/10 VUs, 500 complete and 0 interrupted iterations
+baseline_test ✓ [ 100% ] 10 VUs  08.6s/30s  500/500 iters, 50 per VU

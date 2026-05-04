@@ -1,0 +1,10 @@
+{
+  "testType": "load",
+  "scenarioName": "k6-load-baseline",
+  "timestamp": "2026-05-04T12:10:35.174Z",
+  "maxUsers": 50,
+  "duration": "1m",
+  "rampUpPattern": "constant-vus",
+  "cpuUsagePercent": 72,
+  "memoryUsagePercent": 61
+}

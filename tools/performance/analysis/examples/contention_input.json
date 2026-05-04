@@ -1,0 +1,28 @@
+{
+  "metadata": {
+    "test_type": "spike",
+    "scenario_name": "contention_spike",
+    "timestamp": "2026-05-04T12:00:00Z"
+  },
+  "load_profile": {
+    "max_users": 80,
+    "duration": "2m",
+    "ramp_up_pattern": "spike"
+  },
+  "latency": {
+    "p50": 410,
+    "p95": 980,
+    "p99": 2400
+  },
+  "throughput": {
+    "requests_per_second": 60
+  },
+  "errors": {
+    "error_rate": 0.07,
+    "total_errors": 420
+  },
+  "system": {
+    "cpu_usage_percent": 58,
+    "memory_usage_percent": 70
+  }
+}

@@ -21,5 +21,5 @@ object CheckValidator:
     allPieces(board, color)
       .collectFirst { case (pos, Piece(`color`, PieceType.King)) => pos }
 
-  private def allPieces(board: Board, color: Color): Seq[(Position, Piece)] =
-    board.pieces.filter(_._2.color == color)
+  private def allPieces(board: Board, color: Color): Iterator[(Position, Piece)] =
+    board.piecesIterator.filter(_._2.color == color)

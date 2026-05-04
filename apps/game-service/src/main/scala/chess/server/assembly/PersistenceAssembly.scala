@@ -12,16 +12,10 @@ import chess.adapter.repository.sqlite.{
   SqliteSessionGameStore,
   SqliteSessionRepository
 }
-import chess.adapter.repository.postgres.{
-  PostgresFlywaySchemaInitializer,
-  PostgresGameRepository,
-  PostgresSessionGameStore,
-  PostgresSessionRepository
-}
+import chess.adapter.repository.postgres.PostgresPersistenceRuntime
 import chess.application.port.repository.{GameRepository, SessionGameStore, SessionRepository}
 import chess.server.config.{AppConfig, MongoConfig, PersistenceMode, PostgresConfig, SqliteConfig}
 import chess.server.persistence.MongoPersistenceRuntime
-import slick.jdbc.PostgresProfile.api.Database
 
 final case class PersistenceWiring(
     sessionRepository: SessionRepository,
@@ -76,22 +70,15 @@ object PersistenceAssembly:
     PersistenceWiring(sessionRepo, gameRepo, store)
 
   private def assemblePostgres(cfg: PostgresConfig): PersistenceWiring =
-    PostgresFlywaySchemaInitializer.migrate(
-      url = cfg.url,
-      user = cfg.user,
-      password = cfg.password
-    )
-    val db =
-      Database.forURL(
-        url = cfg.url,
-        user = cfg.user,
-        password = cfg.password,
-        driver = "org.postgresql.Driver"
-      )
-    val sessionRepo = PostgresSessionRepository(db)
-    val gameRepo = PostgresGameRepository(db)
-    val store = PostgresSessionGameStore(db)
-    PersistenceWiring(sessionRepo, gameRepo, store, shutdown = () => db.close())
+    PostgresPersistenceRuntime.open(cfg.url, cfg.user, cfg.password) match
+      case Left(error) => throw IllegalArgumentException(s"Postgres persistence initialization failed: $error")
+      case Right(runtime) =>
+        PersistenceWiring(
+          runtime.sessionRepository,
+          runtime.gameRepository,
+          runtime.store,
+          shutdown = runtime.close
+        )
 
   private def assembleMongo(cfg: MongoConfig): PersistenceWiring =
     MongoPersistenceRuntime.open(cfg) match

@@ -20,8 +20,44 @@ final case class Board private (private val squares: Map[Position, Piece]):
   def remove(pos: Position): Board =
     Board(squares.removed(pos))
 
+  /** Move a piece from one position to another in a single operation, eliminating intermediate
+    * Board allocations. This is an optimization that combines remove and place into one Map
+    * operation.
+    */
+  def movePiece(from: Position, to: Position, piece: Piece): Board =
+    Board(squares.removed(from).updated(to, piece))
+
+  /** Move two pieces in a single atomic operation. Optimizes castling where both king and rook
+    * move. This eliminates three intermediate Board allocations compared to chaining individual
+    * remove/place operations.
+    */
+  def moveTwoPieces(
+      from1: Position,
+      to1: Position,
+      piece1: Piece,
+      from2: Position,
+      to2: Position,
+      piece2: Piece
+  ): Board =
+    Board(squares.removed(from1).removed(from2).updated(to1, piece1).updated(to2, piece2))
+
+  /** Move a piece and remove another in a single operation. Optimizes en passant where the
+    * capturing pawn moves and the captured pawn is removed. This eliminates one intermediate Board
+    * allocation compared to chaining remove/place/remove.
+    */
+  def moveAndRemove(
+      moveFrom: Position,
+      moveTo: Position,
+      piece: Piece,
+      removePos: Position
+  ): Board =
+    Board(squares.removed(moveFrom).removed(removePos).updated(moveTo, piece))
+
   /** All pieces currently on the board as (position, piece) pairs. */
   def pieces: Seq[(Position, Piece)] = squares.toSeq
+
+  /** Iterator over all pieces currently on the board as (position, piece) pairs. */
+  def piecesIterator: Iterator[(Position, Piece)] = squares.iterator
 
 object Board:
   /** An empty board with no pieces. */

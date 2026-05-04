@@ -1,0 +1,28 @@
+{
+  "metadata": {
+    "test_type": "baseline",
+    "scenario_name": "nominal_load",
+    "timestamp": "2026-05-04T09:00:00Z"
+  },
+  "load_profile": {
+    "max_users": 10,
+    "duration": "2m",
+    "ramp_up_pattern": "flat"
+  },
+  "latency": {
+    "p50": 45,
+    "p95": 210,
+    "p99": 380
+  },
+  "throughput": {
+    "requests_per_second": 520
+  },
+  "errors": {
+    "error_rate": 0.001,
+    "total_errors": 6
+  },
+  "system": {
+    "cpu_usage_percent": 22,
+    "memory_usage_percent": 38
+  }
+}

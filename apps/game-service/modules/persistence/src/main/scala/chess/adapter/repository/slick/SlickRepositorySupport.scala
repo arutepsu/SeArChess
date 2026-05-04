@@ -1,25 +1,29 @@
-package chess.adapter.repository.postgres
+package chess.adapter.repository.slick
 
+import _root_.slick.dbio.DBIO
+import _root_.slick.jdbc.JdbcProfile
 import chess.application.port.repository.RepositoryError
-import slick.dbio.DBIO
-import slick.jdbc.PostgresProfile.api.Database
 
 import java.sql.SQLException
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.util.control.NonFatal
 
-private[postgres] object PostgresRepositorySupport:
+object SlickRepositorySupport:
   def run[A](
-      db: Database,
+      profile: JdbcProfile
+  )(
+      db: profile.backend.Database,
       timeout: Duration
   )(
       action: DBIO[Either[RepositoryError, A]]
   ): Either[RepositoryError, A] =
-    run(db, timeout, None)(action)
+    run(profile)(db, timeout, None)(action)
 
   def run[A](
-      db: Database,
+      profile: JdbcProfile
+  )(
+      db: profile.backend.Database,
       timeout: Duration,
       uniqueConflictMessage: Option[String]
   )(
@@ -28,23 +32,11 @@ private[postgres] object PostgresRepositorySupport:
     try Await.result(db.run(action), timeout)
     catch case NonFatal(error) => Left(toRepositoryError(error, uniqueConflictMessage))
 
-  def runWithConflictMapping[A](
-      db: Database,
-      timeout: Duration,
-      conflictMessage: String
-  )(
-      action: DBIO[Either[RepositoryError, A]]
-  ): Either[RepositoryError, A] =
-    run(db, timeout, Some(conflictMessage))(action)
-
   def storageFailure(message: String): RepositoryError.StorageFailure =
     RepositoryError.StorageFailure(message)
 
   def storageFailure(error: Throwable): RepositoryError.StorageFailure =
     RepositoryError.StorageFailure(safeMessage(error))
-
-  def conflict(message: String): RepositoryError.Conflict =
-    RepositoryError.Conflict(message)
 
   def sequence[A](
       values: List[Either[RepositoryError, A]]

@@ -1,0 +1,28 @@
+{
+  "metadata": {
+    "test_type": "spike",
+    "scenario_name": "k6-spike-baseline-envoy",
+    "timestamp": "2026-05-04T13:05:00Z"
+  },
+  "load_profile": {
+    "max_users": 150,
+    "duration": "1m",
+    "ramp_up_pattern": "spike"
+  },
+  "latency": {
+    "p50": 58.82365,
+    "p95": 149.45176999999993,
+    "p99": 249.15192999999985
+  },
+  "throughput": {
+    "requests_per_second": 516.4712979405285
+  },
+  "errors": {
+    "error_rate": 0,
+    "total_errors": 0
+  },
+  "system": {
+    "cpu_usage_percent": 72,
+    "memory_usage_percent": 61
+  }
+}
