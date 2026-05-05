@@ -7,7 +7,10 @@ import cats.syntax.semigroupk.*
 import chess.adapter.http4s.Http4sApp
 import chess.server.assembly.{AppContext, EventWiring}
 import chess.server.config.{AiConfig, AppConfig}
-import chess.server.http.{CorsMiddleware, HealthRoutes, HistoryOutboxOpsRoutes}
+import chess.adapter.http4s.DomainMetricsRegistry
+import chess.server.http.{CorsMiddleware, HealthRoutes, HistoryOutboxOpsRoutes, HttpMetricsMiddleware, HttpMetricsRegistry, HttpRequestLoggingMiddleware, MigrationAdminRoutes}
+import chess.server.http.MetricsRoutes
+import chess.server.migration.MigrationCliRunner
 import com.comcast.ip4s.{Host, Port}
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.{HttpApp, Request}
@@ -18,11 +21,28 @@ object ServerWiring:
   def start(config: AppConfig): (AppContext, ServerRuntime) =
     val (ctx, events) = GameServiceComposition.assemble(config)
 
-    val publicGameplayApi: HttpApp[IO] =
-      Http4sApp(ctx.gameService).httpApp
+    val metricsRegistry = new HttpMetricsRegistry
+    val domainMetrics   = new DomainMetricsRegistry
 
+    val publicGameplayApi: HttpApp[IO] =
+      Http4sApp(
+        ctx.gameService,
+        ctx.persistentSessionService,
+        ctx.snapshotTransferService,
+        ctx.gameRepository,
+        ctx.sessionGameStore,
+        domainMetrics
+      ).httpApp
+
+    val baseOpsRoutes = HealthRoutes.routes <+> MetricsRoutes.routes(metricsRegistry, domainMetrics) <+> HistoryOutboxOpsRoutes(events.historyOutbox).routes
     val internalOpsRoutes =
-      HealthRoutes.routes <+> HistoryOutboxOpsRoutes(events.historyOutbox).routes
+      if config.migrationAdminEnabled then
+        val token = config.migrationAdminToken.getOrElse(
+          throw RuntimeException("migrationAdminToken must be set when migrationAdminEnabled — config validation should prevent this state")
+        )
+        baseOpsRoutes <+> MigrationAdminRoutes(token, MigrationCliRunner.runForReport(_)).routes
+      else
+        baseOpsRoutes
 
     val composedApp: HttpApp[IO] =
       Kleisli { (req: Request[IO]) =>
@@ -31,8 +51,14 @@ object ServerWiring:
           .getOrElseF(publicGameplayApi.run(req))
       }
 
+    val loggedApp: HttpApp[IO] =
+      HttpRequestLoggingMiddleware(composedApp)
+
+    val instrumentedApp: HttpApp[IO] =
+      HttpMetricsMiddleware(metricsRegistry, loggedApp)
+
     val httpApp: HttpApp[IO] =
-      CorsMiddleware(config.cors, composedApp)
+      CorsMiddleware(config.cors, instrumentedApp)
 
     val host = Host
       .fromString(config.http.host)
@@ -53,7 +79,7 @@ object ServerWiring:
         .allocated
         .unsafeRunSync()
 
-    (ctx, ServerRuntime(events.wsServer, shutdownHttp, IO(events.shutdown())))
+    (ctx, ServerRuntime(events.wsServer, shutdownHttp, IO { events.shutdown(); ctx.shutdownPersistence() }))
 
   private[server] def withServerAi(baseCtx: AppContext, events: EventWiring): AppContext =
     GameServiceComposition.withAi(baseCtx, events)

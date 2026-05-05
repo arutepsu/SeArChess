@@ -7,6 +7,7 @@ val scala3Version    = "3.8.2"
 val scalaFxVersion   = "21.0.0-R32"
 val javaFxVersion    = "21.0.1"
 val http4sVersion    = "0.23.29"
+val gatlingVersion   = "3.11.3"
 
 lazy val osClassifier: String = System.getProperty("os.name") match {
   case n if n.startsWith("Windows") => "win"
@@ -119,17 +120,48 @@ lazy val history = project
 
 // Module: adapter-persistence
 
+val slickVersion           = "3.6.1"
+val mongoDriverVersion     = "5.7.0"
+val flywayVersion          = "12.5.0"
+val postgresVersion        = "42.7.11"
+val testcontainersVersion  = "1.21.4"
+
 lazy val adapterPersistence = project
   .in(file("apps/game-service/modules/persistence"))
   .settings(
     commonSettings,
     libraryDependencies ++= Seq(
-      "com.lihaoyi" %% "ujson"        % "4.0.2",
-      "org.xerial"   % "sqlite-jdbc"  % "3.46.1.3"
+      "com.lihaoyi" %% "ujson"       % "4.0.2",
+      "org.xerial"   % "sqlite-jdbc" % "3.46.1.3",
+
+      // Slick / PostgreSQL
+      "com.typesafe.slick" %% "slick"          % slickVersion,
+      "com.typesafe.slick" %% "slick-hikaricp" % slickVersion,
+      "org.postgresql"      % "postgresql"     % postgresVersion,
+
+      // MongoDB
+      "org.mongodb" % "mongodb-driver-sync" % mongoDriverVersion,
+
+      // Flyway
+      "org.flywaydb" % "flyway-core"                % flywayVersion,
+      "org.flywaydb" % "flyway-database-postgresql" % flywayVersion
     )
   )
-  // Event modules are only needed for test fixtures and transactional outbox specs.
-  .dependsOn(gameCore, adapterEvent % Test, gameEventContract % Test, gameHistoryDelivery % Test)
+  .dependsOn(
+    gameCore,
+    migration,
+    adapterEvent % Test,
+    gameEventContract % Test,
+    gameHistoryDelivery % Test
+  )
+
+
+// Module: migration
+
+lazy val migration = project
+  .in(file("apps/game-service/modules/migration"))
+  .settings(commonSettings)
+  .dependsOn(gameCore)
 
 // Module: adapter-ai
 
@@ -200,7 +232,7 @@ lazy val adapterRestHttp4s = project
   // gameCore is required by the HTTP adapter's internal mapping layer; the
   // public adapter-rest-contract module remains wire-only.
   // adapterPersistence is only needed for test fixtures (InMemoryGameRepository etc.)
-  .dependsOn(adapterRestContract, gameCore, adapterPersistence % Test)
+  .dependsOn(adapterRestContract, gameCore, notation, adapterPersistence % Test)
 
 // Module: adapter-websocket
 
@@ -326,7 +358,10 @@ lazy val gameService = project
     run / fork          := true,
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-ember-server" % http4sVersion,
-      "org.http4s" %% "http4s-dsl" % http4sVersion
+      "org.http4s" %% "http4s-dsl"          % http4sVersion,
+      "org.testcontainers" % "testcontainers" % testcontainersVersion % Test,
+      "org.testcontainers" % "postgresql"     % testcontainersVersion % Test,
+      "org.testcontainers" % "mongodb"        % testcontainersVersion % Test
     ),
     excludeFromCoverage(
       ".*chess.server.ServerMain.*",
@@ -343,7 +378,9 @@ lazy val gameService = project
       ".*chess.server.assembly.PersistenceWiring.*",
       ".*chess.server.config.*",
       ".*chess.server.http.HealthRoutes.*",
-      ".*chess.server.http.CorsMiddleware.*"
+      ".*chess.server.http.MetricsRoutes.*",
+      ".*chess.server.http.CorsMiddleware.*",
+      ".*chess.server.http.HttpMetricsMiddleware.*"
     )
   )
   .dependsOn(
@@ -403,6 +440,38 @@ lazy val aiService = project
     )
   )
   .dependsOn(aiContract, observability)
+
+// ── Performance: Gatling load tests ──────────────────────────────────────────
+// Intentionally excluded from the root aggregate: Gatling runs are triggered
+// via the performance workbench CLI, not the standard sbt build pipeline.
+
+lazy val gatlingPerf = project
+  .in(file("tools/performance/gatling"))
+  .enablePlugins(GatlingPlugin)
+  .disablePlugins(wartremover.WartRemover)
+  .settings(
+    scalaVersion    := "2.13.14",
+    coverageEnabled := false,
+    libraryDependencies ++= Seq(
+      "io.gatling.highcharts" % "gatling-charts-highcharts" % gatlingVersion % Test,
+      "io.gatling"            % "gatling-test-framework"    % gatlingVersion % Test
+    )
+  )
+
+// Performance: internal JVM microbenchmarks.
+// Intentionally excluded from the root aggregate: JMH benchmarks are run explicitly
+// and should not slow down normal compile/test workflows.
+
+lazy val benchmarks = project
+  .in(file("modules/benchmarks"))
+  .enablePlugins(JmhPlugin)
+  .disablePlugins(wartremover.WartRemover)
+  .settings(
+    scalaVersion    := scala3Version,
+    name            := "searchess-benchmarks",
+    coverageEnabled := false
+  )
+  .dependsOn(domain, gameCore, adapterPersistence, adapterRestHttp4s)
 
 // ── Aliases ───────────────────────────────────────────────────────────────────
 //
@@ -521,9 +590,28 @@ lazy val root = project
     coverageEnabled := false
   )
   .aggregate(
-    domain, observability, notation, gameContract, aiContract, gameCore, history,
-    adapterPersistence, adapterAi, adapterEvent, gameEventContract, gameHistoryDelivery,
-    adapterRestContract, adapterRestHttp4s,
-    adapterWebsocket, adapterGui, adapterTui,
-    startupShared, gameService, historyService, aiService, desktopGui, tuiCli
+    domain,
+    observability,
+    notation,
+    gameContract,
+    aiContract,
+    gameCore,
+    history,
+    migration,
+    adapterPersistence,
+    adapterAi,
+    adapterEvent,
+    gameEventContract,
+    gameHistoryDelivery,
+    adapterRestContract,
+    adapterRestHttp4s,
+    adapterWebsocket,
+    adapterGui,
+    adapterTui,
+    startupShared,
+    gameService,
+    historyService,
+    aiService,
+    desktopGui,
+    tuiCli
   )

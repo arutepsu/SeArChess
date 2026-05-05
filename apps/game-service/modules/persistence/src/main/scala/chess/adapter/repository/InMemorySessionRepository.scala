@@ -16,33 +16,50 @@ import scala.collection.mutable
   */
 class InMemorySessionRepository extends SessionRepository:
 
-  private val store = mutable.HashMap.empty[SessionId, GameSession]
+  private val bySessionId = mutable.HashMap.empty[SessionId, GameSession]
+  private val sessionIdByGameId = mutable.HashMap.empty[GameId, SessionId]
 
   override def save(session: GameSession): Either[RepositoryError, Unit] =
     synchronized {
-      store.put(session.sessionId, session)
-      Right(())
+      sessionIdByGameId.get(session.gameId) match
+        case Some(existingSessionId) if existingSessionId != session.sessionId =>
+          Left(
+            RepositoryError.Conflict(
+              s"GameId ${session.gameId.value} is already owned by session $existingSessionId"
+            )
+          )
+        case _ =>
+          bySessionId.get(session.sessionId).foreach { previous =>
+            if previous.gameId != session.gameId then sessionIdByGameId.remove(previous.gameId)
+          }
+          bySessionId.put(session.sessionId, session)
+          sessionIdByGameId.put(session.gameId, session.sessionId)
+          Right(())
     }
 
   override def load(id: SessionId): Either[RepositoryError, GameSession] =
     synchronized {
-      store.get(id).toRight(RepositoryError.NotFound(id.value.toString))
+      bySessionId.get(id).toRight(RepositoryError.NotFound(id.value.toString))
     }
 
   override def loadByGameId(id: GameId): Either[RepositoryError, GameSession] =
     synchronized {
-      store.values
-        .find(_.gameId == id)
+      sessionIdByGameId
+        .get(id)
+        .flatMap(bySessionId.get)
         .toRight(RepositoryError.NotFound(id.value.toString))
     }
 
   override def listActive(): Either[RepositoryError, List[GameSession]] =
     synchronized {
       Right(
-        store.values
-          .filter(s =>
-            s.lifecycle != SessionLifecycle.Finished && s.lifecycle != SessionLifecycle.Cancelled
-          )
+        bySessionId.values
+          .filterNot(s => isTerminal(s.lifecycle))
           .toList
       )
     }
+
+  private def isTerminal(lifecycle: SessionLifecycle): Boolean =
+    lifecycle match
+      case SessionLifecycle.Finished | SessionLifecycle.Cancelled => true
+      case _                                                      => false

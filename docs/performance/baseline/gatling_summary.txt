@@ -1,0 +1,1629 @@
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::arrayBaseOffset has been called by net.openhft.hashing.UnsafeAccess (file:/C:/Users/selun/.sbt/boot/scala-2.12.21/org.scala-sbt/sbt/1.12.6/zero-allocation-hashing-0.16.jar)
+WARNING: Please consider reporting this to the maintainers of class net.openhft.hashing.UnsafeAccess
+WARNING: sun.misc.Unsafe::arrayBaseOffset will be removed in a future release
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::load has been called by com.sun.jna.Native in an unnamed module (file:/C:/Users/selun/.sbt/boot/scala-2.12.21/org.scala-sbt/sbt/1.12.6/jna-5.12.0.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+[info] welcome to sbt 1.12.6 (Oracle Corporation Java 26)
+[info] loading global plugins from C:\Users\selun\.sbt\1.0\plugins
+[info] loading settings for project searchess-build from plugins.sbt...
+[info] loading project definition from C:\SeArChess\project
+[info] loading settings for project root from build.sbt...
+[info] resolving key references (24840 settings) ...
+[info] set current project to SeArChess (in build file:/C:/SeArChess/)
+[warn] there are 5 keys that are not used by any other settings/tasks:
+[warn]  
+[warn] * aiService / run / mainClass
+[warn]   +- C:\SeArChess\build.sbt:419
+[warn] * desktopGui / run / mainClass
+[warn]   +- C:\SeArChess\build.sbt:311
+[warn] * gameService / run / mainClass
+[warn]   +- C:\SeArChess\build.sbt:347
+[warn] * historyService / run / mainClass
+[warn]   +- C:\SeArChess\build.sbt:395
+[warn] * tuiCli / run / mainClass
+[warn]   +- C:\SeArChess\build.sbt:328
+[warn]  
+[warn] note: a setting might still be used by a command; to exclude a key from this `lintUnused` check
+[warn] either append it to `Global / excludeLintKeys` or call .withRank(KeyRanks.Invisible) on the key
+[info] compiling 1 Scala source to C:\SeArChess\modules\load-tests\target\scala-2.13\test-classes ...
+[info] done compiling
+23:40:34.644 [pool-1-thread-1] INFO io.gatling.core.config.GatlingConfiguration$ -- Gatling will try to load 'gatling.conf' config file as ClassLoader resource.
+23:40:34.735 [pool-1-thread-1] DEBUG io.netty.util.internal.logging.InternalLoggerFactory -- Using SLF4J as the default logging framework
+23:40:34.746 [pool-1-thread-1] DEBUG io.netty.util.internal.PlatformDependent0 -- -Dio.netty.noUnsafe: false
+23:40:34.746 [pool-1-thread-1] DEBUG io.netty.util.internal.PlatformDependent0 -- Java version: 26
+23:40:34.749 [pool-1-thread-1] DEBUG io.netty.util.internal.PlatformDependent0 -- sun.misc.Unsafe.theUnsafe: available
+23:40:34.749 [pool-1-thread-1] DEBUG io.netty.util.internal.PlatformDependent0 -- sun.misc.Unsafe.copyMemory: available
+23:40:34.750 [pool-1-thread-1] DEBUG io.netty.util.internal.PlatformDependent0 -- sun.misc.Unsafe.storeFence: available
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by io.netty.util.internal.PlatformDependent0$4 (file:/C:/Users/selun/AppData/Local/Coursier/cache/v1/https/repo1.maven.org/maven2/io/netty/netty-common/4.1.109.Final/netty-common-4.1.109.Final.jar)
+WARNING: Please consider reporting this to the maintainers of class io.netty.util.internal.PlatformDependent0$4
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+23:40:34.756 [pool-1-thread-1] DEBUG io.netty.util.internal.PlatformDependent0 -- java.nio.Buffer.address: available
+23:40:34.756 [pool-1-thread-1] DEBUG io.netty.util.internal.PlatformDependent0 -- direct buffer constructor: unavailable: Reflective setAccessible(true) disabled
+23:40:34.756 [pool-1-thread-1] DEBUG io.netty.util.internal.PlatformDependent0 -- java.nio.Bits.unaligned: available, true
+23:40:34.757 [pool-1-thread-1] DEBUG io.netty.util.internal.PlatformDependent0 -- jdk.internal.misc.Unsafe.allocateUninitializedArray(int): unavailable: class io.netty.util.internal.PlatformDependent0$7 cannot access class jdk.internal.misc.Unsafe (in module java.base) because module java.base does not export jdk.internal.misc to unnamed module @3fa1496a
+23:40:34.758 [pool-1-thread-1] DEBUG io.netty.util.internal.PlatformDependent0 -- java.nio.DirectByteBuffer.<init>(long, {int,long}): unavailable
+23:40:34.758 [pool-1-thread-1] DEBUG io.netty.util.internal.PlatformDependent -- sun.misc.Unsafe: available
+23:40:34.758 [pool-1-thread-1] DEBUG io.netty.util.internal.PlatformDependent -- -Dio.netty.tmpdir: C:\Users\selun\AppData\Local\Temp (java.io.tmpdir)
+23:40:34.758 [pool-1-thread-1] DEBUG io.netty.util.internal.PlatformDependent -- -Dio.netty.bitMode: 64 (sun.arch.data.model)
+23:40:34.759 [pool-1-thread-1] DEBUG io.netty.util.internal.PlatformDependent -- Platform: Windows
+23:40:34.761 [pool-1-thread-1] DEBUG io.netty.util.internal.PlatformDependent -- -Dio.netty.maxDirectMemory: -1 bytes
+23:40:34.761 [pool-1-thread-1] DEBUG io.netty.util.internal.PlatformDependent -- -Dio.netty.uninitializedArrayAllocationThreshold: -1
+23:40:34.780 [pool-1-thread-1] DEBUG io.netty.util.internal.CleanerJava9 -- java.nio.ByteBuffer.cleaner(): available
+23:40:34.781 [pool-1-thread-1] DEBUG io.netty.util.internal.PlatformDependent -- -Dio.netty.noPreferDirect: false
+23:40:34.785 [pool-1-thread-1] DEBUG io.netty.util.internal.NativeLibraryLoader -- -Dio.netty.native.workdir: C:\Users\selun\AppData\Local\Temp (io.netty.tmpdir)
+23:40:34.785 [pool-1-thread-1] DEBUG io.netty.util.internal.NativeLibraryLoader -- -Dio.netty.native.deleteLibAfterLoading: true
+23:40:34.785 [pool-1-thread-1] DEBUG io.netty.util.internal.NativeLibraryLoader -- -Dio.netty.native.tryPatchShadedId: true
+23:40:34.785 [pool-1-thread-1] DEBUG io.netty.util.internal.NativeLibraryLoader -- -Dio.netty.native.detectNativeLibraryDuplicates: true
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::loadLibrary has been called by io.netty.util.internal.NativeLibraryUtil in an unnamed module (file:/C:/Users/selun/AppData/Local/Coursier/cache/v1/https/repo1.maven.org/maven2/io/netty/netty-common/4.1.109.Final/netty-common-4.1.109.Final.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+23:40:35.185 [pool-1-thread-1] DEBUG io.netty.util.internal.NativeLibraryLoader -- Successfully loaded the library C:\Users\selun\AppData\Local\Temp\netty_tcnative_windows_x86_6417286536095159613805.dll
+23:40:35.185 [pool-1-thread-1] DEBUG io.netty.util.internal.NativeLibraryLoader -- Loaded library with name 'netty_tcnative_windows_x86_64'
+23:40:35.185 [pool-1-thread-1] DEBUG io.netty.handler.ssl.OpenSsl -- Initialize netty-tcnative using engine: 'default'
+23:40:35.187 [pool-1-thread-1] DEBUG io.netty.handler.ssl.OpenSsl -- netty-tcnative using native library: BoringSSL
+23:40:35.317 [pool-1-thread-1] DEBUG io.netty.util.ResourceLeakDetector -- -Dio.netty.leakDetection.level: simple
+23:40:35.317 [pool-1-thread-1] DEBUG io.netty.util.ResourceLeakDetector -- -Dio.netty.leakDetection.targetRecords: 4
+23:40:35.325 [pool-1-thread-1] DEBUG io.netty.buffer.AbstractByteBuf -- -Dio.netty.buffer.checkAccessible: true
+23:40:35.325 [pool-1-thread-1] DEBUG io.netty.buffer.AbstractByteBuf -- -Dio.netty.buffer.checkBounds: true
+23:40:35.326 [pool-1-thread-1] DEBUG io.netty.util.ResourceLeakDetectorFactory -- Loaded default ResourceLeakDetector: io.netty.util.ResourceLeakDetector@5a24a5c4
+23:40:35.348 [pool-1-thread-1] DEBUG io.netty.util.internal.InternalThreadLocalMap -- -Dio.netty.threadLocalMap.stringBuilder.initialSize: 1024
+23:40:35.348 [pool-1-thread-1] DEBUG io.netty.util.internal.InternalThreadLocalMap -- -Dio.netty.threadLocalMap.stringBuilder.maxSize: 4096
+23:40:35.350 [pool-1-thread-1] DEBUG io.netty.buffer.PooledByteBufAllocator -- -Dio.netty.allocator.numHeapArenas: 24
+23:40:35.350 [pool-1-thread-1] DEBUG io.netty.buffer.PooledByteBufAllocator -- -Dio.netty.allocator.numDirectArenas: 24
+23:40:35.350 [pool-1-thread-1] DEBUG io.netty.buffer.PooledByteBufAllocator -- -Dio.netty.allocator.pageSize: 8192
+23:40:35.350 [pool-1-thread-1] DEBUG io.netty.buffer.PooledByteBufAllocator -- -Dio.netty.allocator.maxOrder: 9
+23:40:35.350 [pool-1-thread-1] DEBUG io.netty.buffer.PooledByteBufAllocator -- -Dio.netty.allocator.chunkSize: 4194304
+23:40:35.350 [pool-1-thread-1] DEBUG io.netty.buffer.PooledByteBufAllocator -- -Dio.netty.allocator.smallCacheSize: 256
+23:40:35.350 [pool-1-thread-1] DEBUG io.netty.buffer.PooledByteBufAllocator -- -Dio.netty.allocator.normalCacheSize: 64
+23:40:35.350 [pool-1-thread-1] DEBUG io.netty.buffer.PooledByteBufAllocator -- -Dio.netty.allocator.maxCachedBufferCapacity: 32768
+23:40:35.350 [pool-1-thread-1] DEBUG io.netty.buffer.PooledByteBufAllocator -- -Dio.netty.allocator.cacheTrimInterval: 8192
+23:40:35.351 [pool-1-thread-1] DEBUG io.netty.buffer.PooledByteBufAllocator -- -Dio.netty.allocator.cacheTrimIntervalMillis: 0
+23:40:35.351 [pool-1-thread-1] DEBUG io.netty.buffer.PooledByteBufAllocator -- -Dio.netty.allocator.useCacheForAllThreads: false
+23:40:35.351 [pool-1-thread-1] DEBUG io.netty.buffer.PooledByteBufAllocator -- -Dio.netty.allocator.maxCachedByteBuffersPerChunk: 1023
+23:40:35.360 [pool-1-thread-1] DEBUG io.netty.buffer.ByteBufUtil -- -Dio.netty.allocator.type: pooled
+23:40:35.361 [pool-1-thread-1] DEBUG io.netty.buffer.ByteBufUtil -- -Dio.netty.threadLocalDirectBufferSize: 0
+23:40:35.361 [pool-1-thread-1] DEBUG io.netty.buffer.ByteBufUtil -- -Dio.netty.maxThreadLocalCharBufferSize: 16384
+23:40:35.365 [pool-1-thread-1] DEBUG io.netty.util.ResourceLeakDetectorFactory -- Loaded default ResourceLeakDetector: io.netty.util.ResourceLeakDetector@1b5cf51a
+23:40:35.373 [pool-1-thread-1] DEBUG io.netty.util.Recycler -- -Dio.netty.recycler.maxCapacityPerThread: 4096
+23:40:35.373 [pool-1-thread-1] DEBUG io.netty.util.Recycler -- -Dio.netty.recycler.ratio: 8
+23:40:35.373 [pool-1-thread-1] DEBUG io.netty.util.Recycler -- -Dio.netty.recycler.chunkSize: 32
+23:40:35.373 [pool-1-thread-1] DEBUG io.netty.util.Recycler -- -Dio.netty.recycler.blocking: false
+23:40:35.373 [pool-1-thread-1] DEBUG io.netty.util.Recycler -- -Dio.netty.recycler.batchFastThreadLocalOnly: true
+23:40:35.381 [pool-1-thread-1] DEBUG io.netty.util.internal.PlatformDependent -- org.jctools-core.MpscChunkedArrayQueue: available
+23:40:35.393 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 => ECDHE-ECDSA-AES128-GCM-SHA256
+23:40:35.393 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: SSL_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 => ECDHE-ECDSA-AES128-GCM-SHA256
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 => ECDHE-RSA-AES128-GCM-SHA256
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: SSL_ECDHE_RSA_WITH_AES_128_GCM_SHA256 => ECDHE-RSA-AES128-GCM-SHA256
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 => ECDHE-ECDSA-AES256-GCM-SHA384
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: SSL_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 => ECDHE-ECDSA-AES256-GCM-SHA384
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 => ECDHE-RSA-AES256-GCM-SHA384
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: SSL_ECDHE_RSA_WITH_AES_256_GCM_SHA384 => ECDHE-RSA-AES256-GCM-SHA384
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256 => ECDHE-ECDSA-CHACHA20-POLY1305
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: SSL_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256 => ECDHE-ECDSA-CHACHA20-POLY1305
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256 => ECDHE-RSA-CHACHA20-POLY1305
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: SSL_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256 => ECDHE-RSA-CHACHA20-POLY1305
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256 => ECDHE-PSK-CHACHA20-POLY1305
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: SSL_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256 => ECDHE-PSK-CHACHA20-POLY1305
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA => ECDHE-ECDSA-AES128-SHA
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: SSL_ECDHE_ECDSA_WITH_AES_128_CBC_SHA => ECDHE-ECDSA-AES128-SHA
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA => ECDHE-RSA-AES128-SHA
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: SSL_ECDHE_RSA_WITH_AES_128_CBC_SHA => ECDHE-RSA-AES128-SHA
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA => ECDHE-PSK-AES128-CBC-SHA
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: SSL_ECDHE_PSK_WITH_AES_128_CBC_SHA => ECDHE-PSK-AES128-CBC-SHA
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA => ECDHE-ECDSA-AES256-SHA
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: SSL_ECDHE_ECDSA_WITH_AES_256_CBC_SHA => ECDHE-ECDSA-AES256-SHA
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA => ECDHE-RSA-AES256-SHA
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: SSL_ECDHE_RSA_WITH_AES_256_CBC_SHA => ECDHE-RSA-AES256-SHA
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA => ECDHE-PSK-AES256-CBC-SHA
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: SSL_ECDHE_PSK_WITH_AES_256_CBC_SHA => ECDHE-PSK-AES256-CBC-SHA
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: TLS_RSA_WITH_AES_128_GCM_SHA256 => AES128-GCM-SHA256
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: SSL_RSA_WITH_AES_128_GCM_SHA256 => AES128-GCM-SHA256
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: TLS_RSA_WITH_AES_256_GCM_SHA384 => AES256-GCM-SHA384
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: SSL_RSA_WITH_AES_256_GCM_SHA384 => AES256-GCM-SHA384
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: TLS_RSA_WITH_AES_128_CBC_SHA => AES128-SHA
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: SSL_RSA_WITH_AES_128_CBC_SHA => AES128-SHA
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: TLS_PSK_WITH_AES_128_CBC_SHA => PSK-AES128-CBC-SHA
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: SSL_PSK_WITH_AES_128_CBC_SHA => PSK-AES128-CBC-SHA
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: TLS_RSA_WITH_AES_256_CBC_SHA => AES256-SHA
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: SSL_RSA_WITH_AES_256_CBC_SHA => AES256-SHA
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: TLS_PSK_WITH_AES_256_CBC_SHA => PSK-AES256-CBC-SHA
+23:40:35.394 [pool-1-thread-1] DEBUG io.netty.handler.ssl.CipherSuiteConverter -- Cipher suite mapping: SSL_PSK_WITH_AES_256_CBC_SHA => PSK-AES256-CBC-SHA
+23:40:35.395 [pool-1-thread-1] DEBUG io.netty.handler.ssl.OpenSsl -- Supported protocols (OpenSSL): [SSLv2Hello, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3] 
+23:40:35.395 [pool-1-thread-1] DEBUG io.netty.handler.ssl.OpenSsl -- Default cipher suites (OpenSSL): [TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384, TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256, TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384, TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA, TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA, TLS_RSA_WITH_AES_128_GCM_SHA256, TLS_RSA_WITH_AES_128_CBC_SHA, TLS_RSA_WITH_AES_256_CBC_SHA, TLS_AES_128_GCM_SHA256, TLS_AES_256_GCM_SHA384, TLS_AES_128_GCM_SHA256, TLS_AES_256_GCM_SHA384, TLS_AES_128_GCM_SHA256, TLS_AES_256_GCM_SHA384, TLS_CHACHA20_POLY1305_SHA256]
+23:40:35.789 [GatlingSystem-akka.actor.default-dispatcher-5] INFO akka.event.slf4j.Slf4jLogger -- Slf4jLogger started
+23:40:36.285 [pool-1-thread-1] DEBUG io.netty.channel.MultithreadEventLoopGroup -- -Dio.netty.eventLoopThreads: 24
+23:40:36.304 [pool-1-thread-1] DEBUG io.netty.util.concurrent.GlobalEventExecutor -- -Dio.netty.globalEventExecutor.quietPeriodSeconds: 1
+23:40:36.327 [pool-1-thread-1] DEBUG io.netty.channel.nio.NioEventLoop -- -Dio.netty.noKeySetOptimization: false
+23:40:36.327 [pool-1-thread-1] DEBUG io.netty.channel.nio.NioEventLoop -- -Dio.netty.selectorAutoRebuildThreshold: 512
+Gatling 3.13.5 is available! (you're using 3.11.3)
+23:40:37.932 [pool-1-thread-1] DEBUG io.gatling.http.engine.HttpEngine -- Start warm up
+23:40:38.183 [gatling-1-1] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=0, remoteKey=RemoteKey{targetHostBaseUrl='https://gatling.io', proxyHost='null', proxyPort=0}}
+23:40:38.263 [gatling-1-1] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:38.279 [gatling-1-1] DEBUG io.netty.channel.DefaultChannelId -- -Dio.netty.processId: 12436 (auto-detected)
+23:40:38.283 [gatling-1-1] DEBUG io.netty.util.NetUtil -- -Djava.net.preferIPv4Stack: false
+23:40:38.283 [gatling-1-1] DEBUG io.netty.util.NetUtil -- -Djava.net.preferIPv6Addresses: false
+23:40:38.289 [gatling-1-1] DEBUG io.netty.util.NetUtilInitializations -- Loopback interface: loopback_0 (Software Loopback Interface 1, 0:0:0:0:0:0:0:1)
+23:40:38.290 [gatling-1-1] DEBUG io.netty.util.NetUtil -- Failed to get SOMAXCONN from sysctl and file \proc\sys\net\core\somaxconn. Default: 200
+23:40:38.293 [gatling-1-1] DEBUG io.netty.channel.DefaultChannelId -- -Dio.netty.machineId: 6c:24:08:ff:fe:f7:9f:44 (auto-detected)
+23:40:38.328 [gatling-1-1] DEBUG io.netty.bootstrap.ChannelInitializerExtensions -- -Dio.netty.bootstrap.extensions: null
+23:40:38.390 [gatling-1-1] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Installing SslHandler for gatling.io:443
+23:40:38.407 [gatling-1-1] DEBUG io.netty.util.ResourceLeakDetectorFactory -- Loaded default ResourceLeakDetector: io.netty.util.ResourceLeakDetector@179f3bd2
+23:40:38.472 [gatling-1-1] DEBUG io.netty.handler.ssl.util.InsecureTrustManagerFactory -- Accepting a server certificate: CN=gatling.io
+23:40:38.476 [gatling-1-1] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- TLS handshake successful: peerHost=gatling.io peerPort=443 protocol=TLSv1.3 cipher suite=TLS_AES_128_GCM_SHA256
+23:40:38.486 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET / HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-language: en-US,en;q=0.5
+accept-encoding: gzip
+connection: close
+user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/119.0
+host: gatling.io, content=null}
+23:40:38.496 [gatling-1-1] DEBUG io.netty.handler.ssl.SslHandler -- [id: 0x77a13a05, L:/192.168.178.125:54930 - R:gatling.io/198.202.211.1:443] HANDSHAKEN: protocol:TLSv1.3 cipher suite:TLS_AES_128_GCM_SHA256
+23:40:38.565 [gatling-1-1] DEBUG io.netty.util.ResourceLeakDetectorFactory -- Loaded default ResourceLeakDetector: io.netty.util.ResourceLeakDetector@4f944fe
+23:40:38.584 [gatling-1-1] DEBUG io.netty.handler.codec.compression.ZlibCodecFactory -- -Dio.netty.noJdkZlibDecoder: false
+23:40:38.584 [gatling-1-1] DEBUG io.netty.handler.codec.compression.ZlibCodecFactory -- -Dio.netty.noJdkZlibEncoder: false
+23:40:38.595 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Date: Wed, 29 Apr 2026 21:40:38 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+Connection: close
+set-cookie: _cfuvid=v.r8YiUmEgXtc932ReaTaQRYUBL6kSEAKN7qTCBNOPg-1777498838.3366027-1.0.1.1-k.mxzFaDDmc0ELa5MkX57hlbK9eY6u6t.XPb0c1bSpc; HttpOnly; SameSite=None; Secure; Path=/; Domain=gatling.io
+CF-Ray: 9f41775b9e5ed3b4-FRA
+CF-Cache-Status: HIT
+Age: 21708
+Last-Modified: Wed, 29 Apr 2026 15:38:50 GMT
+Server: cloudflare
+Strict-Transport-Security: max-age=31536000
+Vary: accept-encoding
+surrogate-control: max-age=432000
+surrogate-key: gatling.io 685a8fe4ddca049f26333871 pageId:685a8fe4ddca049f26333870 685bbddcda38f942f0e21505 6878c637117d8e2326e74ab7 68809670a5aa1db64a23658c 685bf722e9cfdeb7c4a6feab
+x-lambda-id: f121c11b-1ae5-4793-b35d-08506f54653d
+x-wf-region: us-east-1
+alt-svc: h3=":443"; ma=86400
+content-encoding: gzip'
+23:40:38.602 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 520, cap: 936), decoderResult: success)'
+23:40:38.605 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 4736, cap: 8192), decoderResult: success)'
+23:40:38.605 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 3223, cap: 4096), decoderResult: success)'
+23:40:38.606 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 5493, cap: 8192), decoderResult: success)'
+23:40:38.606 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 7119, cap: 8192), decoderResult: success)'
+23:40:38.608 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 7358, cap: 8192), decoderResult: success)'
+23:40:38.609 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 721, cap: 1024), decoderResult: success)'
+23:40:38.610 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 7314, cap: 8192), decoderResult: success)'
+23:40:38.611 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 3139, cap: 4096), decoderResult: success)'
+23:40:38.611 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 7741, cap: 8192), decoderResult: success)'
+23:40:38.612 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 9855, cap: 16384), decoderResult: success)'
+23:40:38.613 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 5645, cap: 8192), decoderResult: success)'
+23:40:38.615 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 28079, cap: 32768), decoderResult: success)'
+23:40:38.616 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 5089, cap: 8192), decoderResult: success)'
+23:40:38.617 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 3703, cap: 4096), decoderResult: success)'
+23:40:38.618 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 16702, cap: 32768), decoderResult: success)'
+23:40:38.619 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 7925, cap: 8192), decoderResult: success)'
+23:40:38.620 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 3090, cap: 4096), decoderResult: success)'
+23:40:38.623 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 7411, cap: 8192), decoderResult: success)'
+23:40:38.626 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 5501, cap: 8192), decoderResult: success)'
+23:40:38.629 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 7374, cap: 8192), decoderResult: success)'
+23:40:38.631 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 9335, cap: 16384), decoderResult: success)'
+23:40:38.632 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 10496, cap: 16384), decoderResult: success)'
+23:40:38.633 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 10904, cap: 16384), decoderResult: success)'
+23:40:38.633 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 24006, cap: 32768), decoderResult: success)'
+23:40:38.635 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 25587, cap: 32768), decoderResult: success)'
+23:40:38.636 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 16927, cap: 32768), decoderResult: success)'
+23:40:38.637 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 5027, cap: 8192), decoderResult: success)'
+23:40:38.649 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 20434, cap: 32768), decoderResult: success)'
+23:40:38.650 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 8504, cap: 16384), decoderResult: success)'
+23:40:38.653 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 11680, cap: 16384), decoderResult: success)'
+23:40:38.653 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 7290, cap: 8192), decoderResult: success)'
+23:40:38.654 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 3577, cap: 4096), decoderResult: success)'
+23:40:38.655 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 3133, cap: 4096), decoderResult: success)'
+23:40:38.656 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 10203, cap: 16384), decoderResult: success)'
+23:40:38.656 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 3808, cap: 4096), decoderResult: success)'
+23:40:38.657 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 5017, cap: 8192), decoderResult: success)'
+23:40:38.658 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 4633, cap: 8192), decoderResult: success)'
+23:40:38.658 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpContent(data: PooledUnsafeHeapByteBuf(ridx: 0, widx: 818, cap: 1024), decoderResult: success)'
+23:40:38.661 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='EmptyLastHttpContent'
+23:40:38.666 [pool-1-thread-1] DEBUG io.gatling.http.engine.HttpEngine -- Warm up request https://gatling.io successful
+23:40:38.672 [pool-1-thread-1] DEBUG io.gatling.http.engine.HttpEngine -- Warm up done
+Simulation gatling.GameSimulation started...
+23:40:38.710 [GatlingSystem-akka.actor.default-dispatcher-5] INFO io.gatling.core.stats.writer.ConsoleDataWriter -- Initializing
+23:40:38.710 [GatlingSystem-akka.actor.default-dispatcher-7] INFO io.gatling.core.stats.writer.LogFileDataWriter -- Initializing
+23:40:38.725 [GatlingSystem-akka.actor.default-dispatcher-5] INFO io.gatling.core.stats.writer.ConsoleDataWriter -- Initialized
+23:40:38.815 [GatlingSystem-akka.actor.default-dispatcher-7] INFO io.gatling.core.stats.writer.LogFileDataWriter -- Initialized
+23:40:38.906 [gatling-1-2] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=1
+23:40:38.913 [gatling-1-2] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=1, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:38.930 [gatling-1-2] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:38.933 [gatling-1-2] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #1
+23:40:38.937 [gatling-1-2] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:38.951 [gatling-1-2] DEBUG io.netty.handler.codec.compression.Zstd -- zstd-jni not in the classpath; Zstd support will be unavailable.
+23:40:38.951 [gatling-1-2] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:38 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:38.952 [gatling-1-2] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:38.953 [gatling-1-2] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=1, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:38.990 [gatling-1-2] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:39.033 [gatling-1-3] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=2
+23:40:39.034 [gatling-1-3] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=2, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:39.034 [gatling-1-3] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:39.035 [gatling-1-3] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #2
+23:40:39.037 [gatling-1-3] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:39.045 [gatling-1-3] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:39 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:39.045 [gatling-1-3] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:39.045 [gatling-1-3] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=2, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:39.046 [gatling-1-3] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:39.093 [gatling-1-2] DEBUG io.gatling.core.action.Exit -- End user #1
+23:40:39.096 [GatlingSystem-akka.actor.default-dispatcher-6] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:39.147 [gatling-1-3] DEBUG io.gatling.core.action.Exit -- End user #2
+23:40:39.148 [GatlingSystem-akka.actor.default-dispatcher-7] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:39.234 [gatling-1-4] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=3
+23:40:39.235 [gatling-1-4] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=3, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:39.235 [gatling-1-4] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:39.236 [gatling-1-4] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #3
+23:40:39.237 [gatling-1-4] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:39.243 [gatling-1-4] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:39 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:39.244 [gatling-1-4] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:39.244 [gatling-1-4] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=3, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:39.244 [gatling-1-4] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:39.345 [gatling-1-4] DEBUG io.gatling.core.action.Exit -- End user #3
+23:40:39.346 [GatlingSystem-akka.actor.default-dispatcher-6] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:39.434 [gatling-1-5] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=4
+23:40:39.434 [gatling-1-5] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=4, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:39.434 [gatling-1-5] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:39.437 [gatling-1-5] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #4
+23:40:39.439 [gatling-1-5] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:39.449 [gatling-1-5] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:39 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:39.449 [gatling-1-5] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:39.449 [gatling-1-5] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=4, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:39.450 [gatling-1-5] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:39.551 [gatling-1-5] DEBUG io.gatling.core.action.Exit -- End user #4
+23:40:39.552 [GatlingSystem-akka.actor.default-dispatcher-6] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:39.636 [gatling-1-6] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=5
+23:40:39.636 [gatling-1-6] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=5, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:39.636 [gatling-1-6] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:39.637 [gatling-1-6] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #5
+23:40:39.638 [gatling-1-6] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:39.644 [gatling-1-6] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:39 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:39.644 [gatling-1-6] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:39.644 [gatling-1-6] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=5, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:39.644 [gatling-1-6] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:39.745 [gatling-1-6] DEBUG io.gatling.core.action.Exit -- End user #5
+23:40:39.746 [GatlingSystem-akka.actor.default-dispatcher-7] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:39.835 [gatling-1-7] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=6
+23:40:39.836 [gatling-1-7] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=6, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:39.836 [gatling-1-7] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:39.837 [gatling-1-7] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #6
+23:40:39.839 [gatling-1-7] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:39.851 [gatling-1-7] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:39 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:39.852 [gatling-1-7] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:39.852 [gatling-1-7] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=6, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:39.852 [gatling-1-7] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:39.953 [gatling-1-7] DEBUG io.gatling.core.action.Exit -- End user #6
+23:40:39.954 [GatlingSystem-akka.actor.default-dispatcher-6] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:40.037 [gatling-1-8] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=7
+23:40:40.037 [gatling-1-8] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=7, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:40.037 [gatling-1-8] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:40.039 [gatling-1-8] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #7
+23:40:40.041 [gatling-1-8] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:40.048 [gatling-1-8] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:40 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:40.049 [gatling-1-8] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:40.049 [gatling-1-8] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=7, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:40.049 [gatling-1-8] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:40.150 [gatling-1-8] DEBUG io.gatling.core.action.Exit -- End user #7
+23:40:40.151 [GatlingSystem-akka.actor.default-dispatcher-8] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:40.236 [gatling-1-9] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=8
+23:40:40.237 [gatling-1-9] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=8, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:40.237 [gatling-1-9] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:40.238 [gatling-1-9] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #8
+23:40:40.240 [gatling-1-9] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:40.248 [gatling-1-9] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:40 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:40.249 [gatling-1-9] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:40.249 [gatling-1-9] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=8, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:40.249 [gatling-1-9] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:40.351 [gatling-1-9] DEBUG io.gatling.core.action.Exit -- End user #8
+23:40:40.352 [GatlingSystem-akka.actor.default-dispatcher-5] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:40.437 [gatling-1-10] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=9
+23:40:40.438 [gatling-1-10] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=9, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:40.438 [gatling-1-10] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:40.439 [gatling-1-10] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #9
+23:40:40.439 [gatling-1-10] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:40.447 [gatling-1-10] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:40 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:40.448 [gatling-1-10] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:40.448 [gatling-1-10] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=9, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:40.448 [gatling-1-10] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:40.550 [gatling-1-10] DEBUG io.gatling.core.action.Exit -- End user #9
+23:40:40.550 [GatlingSystem-akka.actor.default-dispatcher-8] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:40.638 [gatling-1-11] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=10
+23:40:40.638 [gatling-1-11] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=10, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:40.639 [gatling-1-11] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:40.639 [gatling-1-11] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #10
+23:40:40.640 [gatling-1-11] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:40.650 [gatling-1-11] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:40 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:40.650 [gatling-1-11] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:40.651 [gatling-1-11] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=10, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:40.651 [gatling-1-11] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:40.753 [gatling-1-11] DEBUG io.gatling.core.action.Exit -- End user #10
+23:40:40.754 [GatlingSystem-akka.actor.default-dispatcher-6] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:40.838 [gatling-1-12] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=11
+23:40:40.838 [gatling-1-12] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=11, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:40.839 [gatling-1-12] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:40.841 [gatling-1-12] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #11
+23:40:40.845 [gatling-1-12] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:40.854 [gatling-1-12] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:40 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:40.854 [gatling-1-12] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:40.854 [gatling-1-12] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=11, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:40.855 [gatling-1-12] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:40.957 [gatling-1-12] DEBUG io.gatling.core.action.Exit -- End user #11
+23:40:40.958 [GatlingSystem-akka.actor.default-dispatcher-6] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:41.029 [gatling-1-13] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=12
+23:40:41.029 [gatling-1-13] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=12, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:41.030 [gatling-1-13] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:41.033 [gatling-1-13] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #12
+23:40:41.035 [gatling-1-13] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:41.046 [gatling-1-13] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:41 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:41.046 [gatling-1-13] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:41.047 [gatling-1-13] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=12, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:41.048 [gatling-1-13] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:41.150 [gatling-1-13] DEBUG io.gatling.core.action.Exit -- End user #12
+23:40:41.150 [GatlingSystem-akka.actor.default-dispatcher-6] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:41.229 [gatling-1-14] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=13
+23:40:41.230 [gatling-1-14] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=13, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:41.231 [gatling-1-14] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:41.232 [gatling-1-14] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #13
+23:40:41.234 [gatling-1-14] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:41.239 [gatling-1-14] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:41 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:41.240 [gatling-1-14] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:41.240 [gatling-1-14] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=13, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:41.240 [gatling-1-14] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:41.341 [gatling-1-14] DEBUG io.gatling.core.action.Exit -- End user #13
+23:40:41.342 [GatlingSystem-akka.actor.default-dispatcher-8] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:41.431 [gatling-1-15] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=14
+23:40:41.432 [gatling-1-15] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=14, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:41.433 [gatling-1-15] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:41.436 [gatling-1-15] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #14
+23:40:41.439 [gatling-1-15] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:41.455 [gatling-1-15] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:41 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:41.455 [gatling-1-15] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:41.455 [gatling-1-15] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=14, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:41.457 [gatling-1-15] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:41.557 [gatling-1-15] DEBUG io.gatling.core.action.Exit -- End user #14
+23:40:41.557 [GatlingSystem-akka.actor.default-dispatcher-6] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:41.630 [gatling-1-16] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=15
+23:40:41.632 [gatling-1-16] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=15, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:41.632 [gatling-1-16] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:41.632 [gatling-1-16] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #15
+23:40:41.633 [gatling-1-16] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:41.638 [gatling-1-16] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:41 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:41.638 [gatling-1-16] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:41.638 [gatling-1-16] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=15, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:41.638 [gatling-1-16] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:41.739 [gatling-1-16] DEBUG io.gatling.core.action.Exit -- End user #15
+23:40:41.740 [GatlingSystem-akka.actor.default-dispatcher-8] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:41.830 [gatling-1-17] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=16
+23:40:41.832 [gatling-1-17] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=16, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:41.832 [gatling-1-17] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:41.833 [gatling-1-17] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #16
+23:40:41.834 [gatling-1-17] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:41.839 [gatling-1-17] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:41 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:41.840 [gatling-1-17] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:41.840 [gatling-1-17] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=16, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:41.840 [gatling-1-17] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:41.940 [gatling-1-17] DEBUG io.gatling.core.action.Exit -- End user #16
+23:40:41.941 [GatlingSystem-akka.actor.default-dispatcher-6] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:42.028 [gatling-1-18] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=17
+23:40:42.031 [gatling-1-18] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=17, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:42.032 [gatling-1-18] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:42.035 [gatling-1-18] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #17
+23:40:42.037 [gatling-1-18] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:42.043 [gatling-1-18] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:42 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:42.043 [gatling-1-18] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:42.044 [gatling-1-18] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=17, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:42.044 [gatling-1-18] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:42.145 [gatling-1-18] DEBUG io.gatling.core.action.Exit -- End user #17
+23:40:42.147 [GatlingSystem-akka.actor.default-dispatcher-8] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:42.228 [gatling-1-19] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=18
+23:40:42.228 [gatling-1-19] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=18, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:42.230 [gatling-1-19] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:42.231 [gatling-1-19] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #18
+23:40:42.232 [gatling-1-19] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:42.237 [gatling-1-19] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:42 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:42.237 [gatling-1-19] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:42.237 [gatling-1-19] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=18, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:42.238 [gatling-1-19] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:42.339 [gatling-1-19] DEBUG io.gatling.core.action.Exit -- End user #18
+23:40:42.340 [GatlingSystem-akka.actor.default-dispatcher-5] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:42.431 [gatling-1-20] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=19
+23:40:42.432 [gatling-1-20] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=19, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:42.432 [gatling-1-20] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:42.433 [gatling-1-20] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #19
+23:40:42.434 [gatling-1-20] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:42.442 [gatling-1-20] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:42 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:42.442 [gatling-1-20] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:42.442 [gatling-1-20] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=19, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:42.443 [gatling-1-20] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:42.543 [gatling-1-20] DEBUG io.gatling.core.action.Exit -- End user #19
+23:40:42.545 [GatlingSystem-akka.actor.default-dispatcher-6] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:42.630 [gatling-1-21] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=20
+23:40:42.631 [gatling-1-21] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=20, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:42.631 [gatling-1-21] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:42.631 [gatling-1-21] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #20
+23:40:42.632 [gatling-1-21] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:42.637 [gatling-1-21] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:42 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:42.637 [gatling-1-21] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:42.637 [gatling-1-21] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=20, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:42.637 [gatling-1-21] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:42.739 [gatling-1-21] DEBUG io.gatling.core.action.Exit -- End user #20
+23:40:42.739 [GatlingSystem-akka.actor.default-dispatcher-8] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:42.829 [gatling-1-22] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=21
+23:40:42.829 [gatling-1-22] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=21, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:42.830 [gatling-1-22] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:42.830 [gatling-1-22] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #21
+23:40:42.831 [gatling-1-22] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:42.837 [gatling-1-22] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:42 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:42.837 [gatling-1-22] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:42.837 [gatling-1-22] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=21, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:42.837 [gatling-1-22] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:42.939 [gatling-1-22] DEBUG io.gatling.core.action.Exit -- End user #21
+23:40:42.939 [GatlingSystem-akka.actor.default-dispatcher-8] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:43.028 [gatling-1-23] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=22
+23:40:43.028 [gatling-1-23] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=22, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:43.028 [gatling-1-23] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:43.030 [gatling-1-23] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #22
+23:40:43.032 [gatling-1-23] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:43.038 [gatling-1-23] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:43 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:43.038 [gatling-1-23] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:43.038 [gatling-1-23] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=22, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:43.038 [gatling-1-23] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:43.140 [gatling-1-23] DEBUG io.gatling.core.action.Exit -- End user #22
+23:40:43.140 [GatlingSystem-akka.actor.default-dispatcher-8] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:43.230 [gatling-1-24] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=23
+23:40:43.231 [gatling-1-24] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=23, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:43.232 [gatling-1-24] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:43.232 [gatling-1-24] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #23
+23:40:43.232 [gatling-1-24] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:43.235 [gatling-1-24] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:43 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:43.235 [gatling-1-24] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:43.235 [gatling-1-24] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=23, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:43.237 [gatling-1-24] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:43.338 [gatling-1-24] DEBUG io.gatling.core.action.Exit -- End user #23
+23:40:43.339 [GatlingSystem-akka.actor.default-dispatcher-8] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:43.430 [gatling-1-1] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=24
+23:40:43.431 [gatling-1-1] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=24, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:43.432 [gatling-1-1] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:43.432 [gatling-1-1] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #24
+23:40:43.435 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:43.439 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:43 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:43.440 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:43.440 [gatling-1-1] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=24, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:43.440 [gatling-1-1] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:43.542 [gatling-1-1] DEBUG io.gatling.core.action.Exit -- End user #24
+23:40:43.543 [GatlingSystem-akka.actor.default-dispatcher-6] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:43.631 [gatling-1-2] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=25
+23:40:43.631 [gatling-1-2] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=25, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:43.631 [gatling-1-2] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:43.631 [gatling-1-2] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #25
+23:40:43.634 [gatling-1-2] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:43.640 [gatling-1-2] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:43 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:43.640 [gatling-1-2] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:43.640 [gatling-1-2] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=25, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:43.641 [gatling-1-2] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:43.743 [gatling-1-2] DEBUG io.gatling.core.action.Exit -- End user #25
+23:40:43.743 [GatlingSystem-akka.actor.default-dispatcher-8] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+
+================================================================================
+2026-04-29 21:40:43 GMT                                       5s elapsed
+---- Requests ------------------------------------------------------------------
+> Global                                                   (OK=25     KO=0     )
+> GET /game                                                (OK=25     KO=0     )
+
+---- Game Endpoint Load Test ---------------------------------------------------
+[###################################--                                     ] 48%
+          waiting: 25     / active: 1      / done: 24    
+================================================================================
+
+23:40:43.830 [gatling-1-3] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=26
+23:40:43.832 [gatling-1-3] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=26, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:43.832 [gatling-1-3] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:43.834 [gatling-1-3] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #26
+23:40:43.835 [gatling-1-3] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:43.839 [gatling-1-3] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:43 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:43.839 [gatling-1-3] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:43.840 [gatling-1-3] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=26, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:43.840 [gatling-1-3] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:43.941 [gatling-1-3] DEBUG io.gatling.core.action.Exit -- End user #26
+23:40:43.942 [GatlingSystem-akka.actor.default-dispatcher-6] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:44.030 [gatling-1-4] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=27
+23:40:44.032 [gatling-1-4] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=27, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:44.033 [gatling-1-4] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:44.034 [gatling-1-4] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #27
+23:40:44.036 [gatling-1-4] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:44.041 [gatling-1-4] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:44 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:44.041 [gatling-1-4] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:44.041 [gatling-1-4] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=27, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:44.041 [gatling-1-4] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:44.144 [gatling-1-4] DEBUG io.gatling.core.action.Exit -- End user #27
+23:40:44.144 [GatlingSystem-akka.actor.default-dispatcher-8] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:44.228 [gatling-1-5] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=28
+23:40:44.229 [gatling-1-5] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=28, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:44.229 [gatling-1-5] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:44.229 [gatling-1-5] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #28
+23:40:44.231 [gatling-1-5] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:44.236 [gatling-1-5] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:44 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:44.236 [gatling-1-5] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:44.236 [gatling-1-5] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=28, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:44.236 [gatling-1-5] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:44.338 [gatling-1-5] DEBUG io.gatling.core.action.Exit -- End user #28
+23:40:44.339 [GatlingSystem-akka.actor.default-dispatcher-6] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:44.429 [gatling-1-6] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=29
+23:40:44.430 [gatling-1-6] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=29, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:44.430 [gatling-1-6] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:44.432 [gatling-1-6] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #29
+23:40:44.434 [gatling-1-6] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:44.442 [gatling-1-6] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:44 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:44.443 [gatling-1-6] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:44.443 [gatling-1-6] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=29, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:44.443 [gatling-1-6] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:44.544 [gatling-1-6] DEBUG io.gatling.core.action.Exit -- End user #29
+23:40:44.545 [GatlingSystem-akka.actor.default-dispatcher-5] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:44.628 [gatling-1-7] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=30
+23:40:44.628 [gatling-1-7] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=30, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:44.630 [gatling-1-7] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:44.631 [gatling-1-7] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #30
+23:40:44.632 [gatling-1-7] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:44.638 [gatling-1-7] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:44 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:44.638 [gatling-1-7] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:44.638 [gatling-1-7] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=30, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:44.639 [gatling-1-7] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:44.741 [gatling-1-7] DEBUG io.gatling.core.action.Exit -- End user #30
+23:40:44.742 [GatlingSystem-akka.actor.default-dispatcher-8] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:44.828 [gatling-1-8] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=31
+23:40:44.828 [gatling-1-8] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=31, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:44.828 [gatling-1-8] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:44.828 [gatling-1-8] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #31
+23:40:44.830 [gatling-1-8] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:44.835 [gatling-1-8] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:44 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:44.835 [gatling-1-8] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:44.835 [gatling-1-8] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=31, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:44.835 [gatling-1-8] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:44.935 [gatling-1-8] DEBUG io.gatling.core.action.Exit -- End user #31
+23:40:44.935 [GatlingSystem-akka.actor.default-dispatcher-5] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:45.028 [gatling-1-9] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=32
+23:40:45.028 [gatling-1-9] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=32, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:45.028 [gatling-1-9] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:45.028 [gatling-1-9] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #32
+23:40:45.030 [gatling-1-9] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:45.034 [gatling-1-9] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:45 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:45.034 [gatling-1-9] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:45.034 [gatling-1-9] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=32, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:45.034 [gatling-1-9] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:45.135 [gatling-1-9] DEBUG io.gatling.core.action.Exit -- End user #32
+23:40:45.135 [GatlingSystem-akka.actor.default-dispatcher-8] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:45.230 [gatling-1-10] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=33
+23:40:45.230 [gatling-1-10] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=33, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:45.231 [gatling-1-10] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:45.231 [gatling-1-10] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #33
+23:40:45.232 [gatling-1-10] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:45.238 [gatling-1-10] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:45 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:45.238 [gatling-1-10] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:45.238 [gatling-1-10] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=33, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:45.238 [gatling-1-10] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:45.341 [gatling-1-10] DEBUG io.gatling.core.action.Exit -- End user #33
+23:40:45.341 [GatlingSystem-akka.actor.default-dispatcher-5] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:45.427 [gatling-1-11] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=34
+23:40:45.427 [gatling-1-11] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=34, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:45.428 [gatling-1-11] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:45.428 [gatling-1-11] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #34
+23:40:45.431 [gatling-1-11] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:45.436 [gatling-1-11] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:45 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:45.436 [gatling-1-11] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:45.437 [gatling-1-11] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=34, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:45.437 [gatling-1-11] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:45.539 [gatling-1-11] DEBUG io.gatling.core.action.Exit -- End user #34
+23:40:45.539 [GatlingSystem-akka.actor.default-dispatcher-8] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:45.628 [gatling-1-12] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=35
+23:40:45.629 [gatling-1-12] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=35, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:45.631 [gatling-1-12] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:45.632 [gatling-1-12] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #35
+23:40:45.635 [gatling-1-12] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:45.640 [gatling-1-12] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:45 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:45.640 [gatling-1-12] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:45.641 [gatling-1-12] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=35, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:45.641 [gatling-1-12] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:45.743 [gatling-1-12] DEBUG io.gatling.core.action.Exit -- End user #35
+23:40:45.743 [GatlingSystem-akka.actor.default-dispatcher-5] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:45.829 [gatling-1-13] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=36
+23:40:45.830 [gatling-1-13] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=36, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:45.831 [gatling-1-13] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:45.833 [gatling-1-13] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #36
+23:40:45.835 [gatling-1-13] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:45.841 [gatling-1-13] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:45 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:45.841 [gatling-1-13] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:45.841 [gatling-1-13] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=36, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:45.842 [gatling-1-13] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:45.943 [gatling-1-13] DEBUG io.gatling.core.action.Exit -- End user #36
+23:40:45.943 [GatlingSystem-akka.actor.default-dispatcher-8] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:46.031 [gatling-1-14] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=37
+23:40:46.032 [gatling-1-14] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=37, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:46.032 [gatling-1-14] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:46.032 [gatling-1-14] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #37
+23:40:46.034 [gatling-1-14] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:46.040 [gatling-1-14] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:46 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:46.040 [gatling-1-14] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:46.040 [gatling-1-14] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=37, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:46.040 [gatling-1-14] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:46.141 [gatling-1-14] DEBUG io.gatling.core.action.Exit -- End user #37
+23:40:46.142 [GatlingSystem-akka.actor.default-dispatcher-8] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:46.228 [gatling-1-15] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=38
+23:40:46.228 [gatling-1-15] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=38, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:46.228 [gatling-1-15] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:46.230 [gatling-1-15] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #38
+23:40:46.234 [gatling-1-15] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:46.257 [gatling-1-15] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:46 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:46.258 [gatling-1-15] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:46.258 [gatling-1-15] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=38, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:46.259 [gatling-1-15] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:46.360 [gatling-1-15] DEBUG io.gatling.core.action.Exit -- End user #38
+23:40:46.360 [GatlingSystem-akka.actor.default-dispatcher-5] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:46.431 [gatling-1-16] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=39
+23:40:46.432 [gatling-1-16] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=39, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:46.432 [gatling-1-16] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:46.433 [gatling-1-16] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #39
+23:40:46.433 [gatling-1-16] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:46.435 [gatling-1-16] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:46 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:46.435 [gatling-1-16] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:46.437 [gatling-1-16] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=39, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:46.437 [gatling-1-16] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:46.537 [gatling-1-16] DEBUG io.gatling.core.action.Exit -- End user #39
+23:40:46.537 [GatlingSystem-akka.actor.default-dispatcher-5] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:46.632 [gatling-1-17] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=40
+23:40:46.633 [gatling-1-17] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=40, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:46.633 [gatling-1-17] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:46.635 [gatling-1-17] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #40
+23:40:46.638 [gatling-1-17] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:46.650 [gatling-1-17] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:46 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:46.651 [gatling-1-17] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:46.651 [gatling-1-17] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=40, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:46.652 [gatling-1-17] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:46.753 [gatling-1-17] DEBUG io.gatling.core.action.Exit -- End user #40
+23:40:46.753 [GatlingSystem-akka.actor.default-dispatcher-8] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:46.830 [gatling-1-18] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=41
+23:40:46.830 [gatling-1-18] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=41, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:46.831 [gatling-1-18] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:46.833 [gatling-1-18] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #41
+23:40:46.835 [gatling-1-18] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:46.841 [gatling-1-18] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:46 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:46.841 [gatling-1-18] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:46.841 [gatling-1-18] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=41, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:46.841 [gatling-1-18] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:46.943 [gatling-1-18] DEBUG io.gatling.core.action.Exit -- End user #41
+23:40:46.944 [GatlingSystem-akka.actor.default-dispatcher-5] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:47.028 [gatling-1-19] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=42
+23:40:47.028 [gatling-1-19] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=42, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:47.028 [gatling-1-19] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:47.030 [gatling-1-19] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #42
+23:40:47.033 [gatling-1-19] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:47.037 [gatling-1-19] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:47 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:47.037 [gatling-1-19] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:47.037 [gatling-1-19] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=42, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:47.037 [gatling-1-19] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:47.137 [gatling-1-19] DEBUG io.gatling.core.action.Exit -- End user #42
+23:40:47.137 [GatlingSystem-akka.actor.default-dispatcher-5] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:47.231 [gatling-1-20] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=43
+23:40:47.231 [gatling-1-20] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=43, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:47.232 [gatling-1-20] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:47.233 [gatling-1-20] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #43
+23:40:47.234 [gatling-1-20] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:47.238 [gatling-1-20] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:47 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:47.238 [gatling-1-20] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:47.239 [gatling-1-20] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=43, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:47.240 [gatling-1-20] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:47.341 [gatling-1-20] DEBUG io.gatling.core.action.Exit -- End user #43
+23:40:47.342 [GatlingSystem-akka.actor.default-dispatcher-6] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:47.430 [gatling-1-21] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=44
+23:40:47.430 [gatling-1-21] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=44, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:47.430 [gatling-1-21] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:47.432 [gatling-1-21] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #44
+23:40:47.432 [gatling-1-21] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:47.439 [gatling-1-21] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:47 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:47.439 [gatling-1-21] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:47.439 [gatling-1-21] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=44, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:47.439 [gatling-1-21] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:47.540 [gatling-1-21] DEBUG io.gatling.core.action.Exit -- End user #44
+23:40:47.540 [GatlingSystem-akka.actor.default-dispatcher-5] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:47.631 [gatling-1-22] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=45
+23:40:47.631 [gatling-1-22] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=45, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:47.632 [gatling-1-22] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:47.632 [gatling-1-22] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #45
+23:40:47.633 [gatling-1-22] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:47.637 [gatling-1-22] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:47 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:47.637 [gatling-1-22] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:47.637 [gatling-1-22] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=45, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:47.637 [gatling-1-22] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:47.738 [gatling-1-22] DEBUG io.gatling.core.action.Exit -- End user #45
+23:40:47.738 [GatlingSystem-akka.actor.default-dispatcher-8] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:47.828 [gatling-1-23] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=46
+23:40:47.828 [gatling-1-23] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=46, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:47.828 [gatling-1-23] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:47.828 [GatlingSystem-akka.actor.default-dispatcher-5] INFO io.gatling.core.controller.inject.open.OpenWorkload -- Scenario io.gatling.core.scenario.Scenario@4a988df9 has finished injecting
+23:40:47.828 [GatlingSystem-akka.actor.default-dispatcher-5] INFO io.gatling.core.controller.inject.Injector -- All scenarios have finished injecting
+23:40:47.828 [gatling-1-23] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #46
+23:40:47.831 [gatling-1-23] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:47.836 [gatling-1-23] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:47 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:47.837 [gatling-1-23] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:47.837 [gatling-1-23] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=46, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:47.837 [gatling-1-23] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:47.938 [gatling-1-23] DEBUG io.gatling.core.action.Exit -- End user #46
+23:40:47.939 [GatlingSystem-akka.actor.default-dispatcher-6] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:48.030 [gatling-1-24] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=47
+23:40:48.031 [gatling-1-24] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=47, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:48.031 [gatling-1-24] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:48.032 [gatling-1-24] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #47
+23:40:48.033 [gatling-1-24] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:48.038 [gatling-1-24] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:48 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:48.038 [gatling-1-24] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:48.038 [gatling-1-24] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=47, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:48.038 [gatling-1-24] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:48.139 [gatling-1-24] DEBUG io.gatling.core.action.Exit -- End user #47
+23:40:48.141 [GatlingSystem-akka.actor.default-dispatcher-8] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:48.230 [gatling-1-1] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=48
+23:40:48.230 [gatling-1-1] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=48, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:48.230 [gatling-1-1] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:48.231 [gatling-1-1] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #48
+23:40:48.232 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:48.234 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:48 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:48.234 [gatling-1-1] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:48.235 [gatling-1-1] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=48, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:48.235 [gatling-1-1] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:48.337 [gatling-1-1] DEBUG io.gatling.core.action.Exit -- End user #48
+23:40:48.337 [GatlingSystem-akka.actor.default-dispatcher-8] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:48.429 [gatling-1-2] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=49
+23:40:48.429 [gatling-1-2] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=49, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:48.430 [gatling-1-2] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:48.430 [gatling-1-2] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #49
+23:40:48.431 [gatling-1-2] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:48.435 [gatling-1-2] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:48 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:48.435 [gatling-1-2] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:48.435 [gatling-1-2] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=49, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:48.435 [gatling-1-2] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:48.536 [gatling-1-2] DEBUG io.gatling.core.action.Exit -- End user #49
+23:40:48.537 [GatlingSystem-akka.actor.default-dispatcher-5] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:48.630 [gatling-1-3] DEBUG io.gatling.http.engine.tx.HttpTxExecutor -- Sending request=GET /game uri=http://localhost:5173/game: scenario=Game Endpoint Load Test, userId=50
+23:40:48.630 [gatling-1-3] DEBUG io.gatling.http.client.pool.ChannelPool -- No channel in the pool for key ChannelPoolKey{clientId=50, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}}
+23:40:48.631 [gatling-1-3] DEBUG io.gatling.http.client.impl.DefaultHttpClient -- Opening new channel
+23:40:48.631 [gatling-1-3] DEBUG io.gatling.core.controller.inject.open.OpenWorkload -- Start user #50
+23:40:48.633 [gatling-1-3] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Write request WritableRequest{request=DefaultFullHttpRequest(decodeResult: success, version: HTTP/1.1, content: EmptyByteBufBE)
+GET /game HTTP/1.1
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+accept-encoding: gzip, deflate
+accept-language: en-US,en;q=0.5
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gatling/3
+host: localhost:5173, content=null}
+23:40:48.637 [gatling-1-3] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultHttpResponse(decodeResult: success, version: HTTP/1.1)
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/html
+Cache-Control: no-cache
+Etag: W/"2a2-MdjLTvCVT/1yzk1fSN1inSsH/jc"
+Date: Wed, 29 Apr 2026 21:40:48 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 674'
+23:40:48.637 [gatling-1-3] DEBUG io.gatling.http.client.impl.HttpAppHandler -- Read msg='DefaultLastHttpContent(data: PooledSlicedByteBuf(ridx: 0, widx: 674, cap: 674/674, unwrapped: PooledUnsafeDirectByteBuf(ridx: 905, widx: 905, cap: 2048)), decoderResult: success)'
+23:40:48.637 [gatling-1-3] DEBUG io.gatling.http.client.pool.ChannelPool -- Offering channel entry ChannelPoolKey{clientId=50, remoteKey=RemoteKey{targetHostBaseUrl='http://localhost:5173', proxyHost='null', proxyPort=0}} to pool
+23:40:48.637 [gatling-1-3] DEBUG io.gatling.core.action.Pause -- Pausing for 100ms
+23:40:48.738 [gatling-1-3] DEBUG io.gatling.core.action.Exit -- End user #50
+23:40:48.739 [GatlingSystem-akka.actor.default-dispatcher-6] DEBUG io.gatling.core.controller.inject.Injector -- End user #Game Endpoint Load Test
+23:40:48.740 [GatlingSystem-akka.actor.default-dispatcher-6] INFO io.gatling.core.controller.inject.Injector -- All users of scenario Game Endpoint Load Test are stopped
+
+================================================================================
+2026-04-29 21:40:48 GMT                                      10s elapsed
+---- Requests ------------------------------------------------------------------
+> Global                                                   (OK=50     KO=0     )
+> GET /game                                                (OK=50     KO=0     )
+
+---- Game Endpoint Load Test ---------------------------------------------------
+[##########################################################################]100%
+          waiting: 0      / active: 0      / done: 50    
+================================================================================
+
+23:40:48.740 [GatlingSystem-akka.actor.default-dispatcher-6] INFO io.gatling.core.controller.inject.Injector -- Stopping
+23:40:48.741 [GatlingSystem-akka.actor.default-dispatcher-5] INFO io.gatling.core.controller.Controller -- Injector has stopped, initiating graceful stop
+23:40:48.748 [GatlingSystem-akka.actor.default-dispatcher-8] DEBUG io.gatling.core.controller.Controller -- StatsEngine was stopped
+Simulation gatling.GameSimulation completed in 10 seconds
+23:40:48.792 [GatlingSystem-akka.actor.default-dispatcher-6] INFO akka.actor.CoordinatedShutdown -- Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+23:40:48.844 [gatling-1-17] DEBUG io.netty.buffer.PoolThreadCache -- Freed 2 thread-local buffer(s) from thread: gatling-1-17
+23:40:48.844 [gatling-1-18] DEBUG io.netty.buffer.PoolThreadCache -- Freed 2 thread-local buffer(s) from thread: gatling-1-18
+23:40:48.844 [gatling-1-5] DEBUG io.netty.buffer.PoolThreadCache -- Freed 2 thread-local buffer(s) from thread: gatling-1-5
+23:40:48.844 [gatling-1-20] DEBUG io.netty.buffer.PoolThreadCache -- Freed 2 thread-local buffer(s) from thread: gatling-1-20
+23:40:48.844 [gatling-1-21] DEBUG io.netty.buffer.PoolThreadCache -- Freed 2 thread-local buffer(s) from thread: gatling-1-21
+23:40:48.844 [gatling-1-24] DEBUG io.netty.buffer.PoolThreadCache -- Freed 2 thread-local buffer(s) from thread: gatling-1-24
+23:40:48.845 [gatling-1-14] DEBUG io.netty.buffer.PoolThreadCache -- Freed 2 thread-local buffer(s) from thread: gatling-1-14
+23:40:48.845 [gatling-1-15] DEBUG io.netty.buffer.PoolThreadCache -- Freed 2 thread-local buffer(s) from thread: gatling-1-15
+23:40:48.845 [gatling-1-16] DEBUG io.netty.buffer.PoolThreadCache -- Freed 2 thread-local buffer(s) from thread: gatling-1-16
+23:40:48.844 [gatling-1-2] DEBUG io.netty.buffer.PoolThreadCache -- Freed 2 thread-local buffer(s) from thread: gatling-1-2
+23:40:48.844 [gatling-1-10] DEBUG io.netty.buffer.PoolThreadCache -- Freed 2 thread-local buffer(s) from thread: gatling-1-10
+23:40:48.844 [gatling-1-9] DEBUG io.netty.buffer.PoolThreadCache -- Freed 2 thread-local buffer(s) from thread: gatling-1-9
+23:40:48.844 [gatling-1-1] DEBUG io.netty.buffer.PoolThreadCache -- Freed 26 thread-local buffer(s) from thread: gatling-1-1
+23:40:48.844 [gatling-1-19] DEBUG io.netty.buffer.PoolThreadCache -- Freed 2 thread-local buffer(s) from thread: gatling-1-19
+23:40:48.844 [gatling-1-12] DEBUG io.netty.buffer.PoolThreadCache -- Freed 2 thread-local buffer(s) from thread: gatling-1-12
+23:40:48.844 [gatling-1-11] DEBUG io.netty.buffer.PoolThreadCache -- Freed 2 thread-local buffer(s) from thread: gatling-1-11
+23:40:48.844 [gatling-1-3] DEBUG io.netty.buffer.PoolThreadCache -- Freed 2 thread-local buffer(s) from thread: gatling-1-3
+23:40:48.844 [gatling-1-22] DEBUG io.netty.buffer.PoolThreadCache -- Freed 2 thread-local buffer(s) from thread: gatling-1-22
+23:40:48.844 [gatling-1-23] DEBUG io.netty.buffer.PoolThreadCache -- Freed 2 thread-local buffer(s) from thread: gatling-1-23
+23:40:48.844 [gatling-1-13] DEBUG io.netty.buffer.PoolThreadCache -- Freed 2 thread-local buffer(s) from thread: gatling-1-13
+23:40:48.845 [gatling-1-4] DEBUG io.netty.buffer.PoolThreadCache -- Freed 2 thread-local buffer(s) from thread: gatling-1-4
+23:40:48.845 [gatling-1-7] DEBUG io.netty.buffer.PoolThreadCache -- Freed 2 thread-local buffer(s) from thread: gatling-1-7
+23:40:48.845 [gatling-1-6] DEBUG io.netty.buffer.PoolThreadCache -- Freed 2 thread-local buffer(s) from thread: gatling-1-6
+23:40:48.845 [gatling-1-8] DEBUG io.netty.buffer.PoolThreadCache -- Freed 2 thread-local buffer(s) from thread: gatling-1-8
+Parsing log file(s)...
+23:40:48.856 [pool-1-thread-1] INFO io.gatling.charts.stats.LogFileReader$ -- Collected List(C:\SeArChess\modules\load-tests\target\gatling\gamesimulation-20260429214037818\simulation.log) from gamesimulation-20260429214037818
+23:40:48.870 [pool-1-thread-1] INFO io.gatling.charts.stats.LogFileReader -- First pass
+23:40:48.885 [pool-1-thread-1] INFO io.gatling.charts.stats.LogFileReader -- First pass done: read 153 lines
+23:40:48.900 [pool-1-thread-1] INFO io.gatling.charts.stats.LogFileReader -- Second pass
+23:40:48.929 [pool-1-thread-1] INFO io.gatling.charts.stats.LogFileReader -- Second pass: read 153 lines
+Parsing log file(s) done in 0s.
+Generating reports...
+
+================================================================================
+---- Global Information --------------------------------------------------------
+> request count                                         50 (OK=50     KO=0     )
+> min response time                                      5 (OK=5      KO=-     )
+> max response time                                     40 (OK=40     KO=-     )
+> mean response time                                    11 (OK=11     KO=-     )
+> std deviation                                          6 (OK=6      KO=-     )
+> response time 50th percentile                          9 (OK=9      KO=-     )
+> response time 75th percentile                         12 (OK=12     KO=-     )
+> response time 95th percentile                         21 (OK=21     KO=-     )
+> response time 99th percentile                         35 (OK=35     KO=-     )
+> mean requests/sec                                      5 (OK=5      KO=-     )
+---- Response Time Distribution ------------------------------------------------
+> t < 800 ms                                            50 (   100%)
+> 800 ms <= t < 1200 ms                                  0 (     0%)
+> t >= 1200 ms                                           0 (     0%)
+> failed                                                 0 (     0%)
+================================================================================
+
+Reports generated, please open the following file: file:///C:/SeArChess/modules/load-tests/target/gatling/gamesimulation-20260429214037818/index.html
+Global: 99th percentile of response time is less than 500.0 : true (actual : 35.0)
+Global: percentage of failed events is less than 1.0 : true (actual : 0.0)
+[info] Simulation GameSimulation successful.
+[info] Simulation(s) execution ended.
+[success] Total time: 32 s, completed 29.04.2026, 23:40:49

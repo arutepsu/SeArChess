@@ -30,3 +30,7 @@ metals.sbt
 .idea
 .idea_modules
 /.worksheet/
+docs/performance/**/*.json
+docs/performance/**/*.md
+docs/performance/**/logs/
+docs/performance/**/runs/

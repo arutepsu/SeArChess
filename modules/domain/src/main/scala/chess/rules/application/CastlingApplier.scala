@@ -28,8 +28,4 @@ object CastlingApplier:
       .pieceAt(rookFrom)
       .getOrElse(throw AssertionError("Rook missing after CastlingValidator"))
 
-    board
-      .remove(kingFrom)
-      .place(kingTo, king)
-      .remove(rookFrom)
-      .place(rookTo, rook)
+    board.moveTwoPieces(kingFrom, kingTo, king, rookFrom, rookTo, rook)

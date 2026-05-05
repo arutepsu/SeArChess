@@ -14,7 +14,4 @@ object EnPassantApplier:
     val capturingPawn = board
       .pieceAt(move.from)
       .getOrElse(throw AssertionError("Capturing pawn missing after EnPassantValidator"))
-    board
-      .remove(move.from)
-      .place(move.to, capturingPawn)
-      .remove(enPassant.capturablePawnSquare)
+    board.moveAndRemove(move.from, move.to, capturingPawn, enPassant.capturablePawnSquare)

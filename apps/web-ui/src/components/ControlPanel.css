@@ -1,21 +1,37 @@
 .control-panel {
-  background: rgba(20, 21, 27, 0.88);
-  border-radius: 24px;
+  /* Hintergrund an Background-Panel anpassen */
+  background: rgba(43, 24, 28, 0.85);
+  backdrop-filter: blur(12px);
+  border: 2px solid #5a3a3a;
+  /* Gleicher Rahmen wie links */
+  border-radius: 16px;
+  /* Einheitlicher Radius */
   padding: 20px;
-  color: #f4efe6;
+  color: #f0e6d2;
+  /* Etwas wärmeres Weiß */
+  width: 280px;
+  /* Leicht breiter für bessere Lesbarkeit */
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
+/* --- Header & Typografie --- */
 .control-panel header h2 {
+  font-family: 'Georgia', serif;
+  /* Serif-Look wie links */
   margin: 0;
-  font-size: 1.1rem;
-  letter-spacing: 0.1rem;
-  text-transform: uppercase;
+  font-size: 1.3rem;
+  letter-spacing: 0.05rem;
+  text-transform: none;
+  /* Weniger "Schreien", mehr Eleganz */
+  color: #e6b347;
+  /* Goldener Akzent für die Titel */
 }
 
 .control-panel header p {
-  margin: 6px 0 16px;
-  font-size: 0.8rem;
-  opacity: 0.6;
+  margin: 4px 0 20px;
+  font-size: 0.85rem;
+  color: #bfa8a8;
+  opacity: 1;
 }
 
 .control-panel .status {
@@ -39,10 +55,38 @@
   padding: 10px 12px;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.04);
+  position: relative;
+  /* Wichtig für die Positionierung des Balkens */
+  overflow: hidden;
+  /* Damit der Balken an den Ecken nicht übersteht */
+}
+
+/* Der visuelle Zeit-Balken */
+.control-panel .clock::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 4px;
+  background: #e6b347;
+  /* Standardfarbe */
+  width: var(--time-left, 100%);
+  /* Diesen Wert müsstest du via JS/Inline-Style steuern (z.B. style="width: 70%") */
+  opacity: 0.6;
+  transition: width 1s linear;
+  /* Geschmeidige Abnahme */
+}
+
+/* Wenn die Uhr aktiv ist, soll der Balken leuchten */
+.control-panel .clock.is-active::after {
+  background: #ffce74;
+  box-shadow: 0 0 10px rgba(255, 206, 116, 0.8);
+  opacity: 1;
 }
 
 .control-panel .clock.is-active {
-  box-shadow: 0 0 0 1px rgba(255, 206, 116, 0.55), 0 12px 22px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 1px rgba(255, 206, 116, 0.55),
+    0 12px 22px rgba(0, 0, 0, 0.35);
 }
 
 .control-panel .clock-time {
@@ -64,31 +108,202 @@
   font-size: 1rem;
 }
 
+.control-panel .session-save {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid rgba(255, 206, 116, 0.22);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.control-panel .session-identifiers {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.control-panel .session-identifiers div {
+  display: grid;
+  gap: 4px;
+}
+
+.control-panel .session-identifiers dt {
+  color: #bfa8a8;
+  font-family: 'Courier New', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.05rem;
+  text-transform: uppercase;
+}
+
+.control-panel .session-identifiers dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #f4efe6;
+  font-family: 'Courier New', monospace;
+  font-size: 0.72rem;
+  line-height: 1.25;
+}
+
+.control-panel .session-save-note,
+.control-panel .session-save-success,
+.control-panel .session-save-error {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.control-panel .session-save-note {
+  color: #d6c6b2;
+  opacity: 0.82;
+}
+
+.control-panel .session-save-success {
+  color: #baf0c3;
+}
+
+.control-panel .session-save-error {
+  color: #ff9d9d;
+}
+
+/* --- Notation display --- */
+.control-panel .notation {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.control-panel .notation-note {
+  margin: -4px 0 0;
+  font-size: 0.75rem;
+  opacity: 0.66;
+}
+
+.control-panel .notation-text {
+  margin: 6px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 0.75rem;
+  line-height: 1.2;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.control-panel .notation-output {
+  display: grid;
+  gap: 8px;
+}
+
+.control-panel .notation-output textarea {
+  width: 100%;
+  border: 1px solid rgba(255, 206, 116, 0.2);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f4efe6;
+  font: inherit;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  resize: vertical;
+}
+
+.control-panel .notation-output-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.control-panel .notation-error,
+.control-panel .notation-success {
+  margin: 0;
+  font-size: 0.76rem;
+}
+
+.control-panel .notation-error {
+  color: #ff9d9d;
+}
+
+.control-panel .notation-success {
+  color: #baf0c3;
+}
+
+/* --- Import notation --- */
+.control-panel .import-notation {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.control-panel .import-notation textarea {
+  width: 100%;
+  margin-top: 6px;
+  border: 1px solid rgba(255, 206, 116, 0.2);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f4efe6;
+  font: inherit;
+  resize: vertical;
+}
+
+.control-panel .import-notation input[type="file"] {
+  width: 100%;
+  margin-top: 8px;
+  font-size: 0.78rem;
+  color: #f4efe6;
+}
+
+.control-panel .import-notation textarea:disabled {
+  opacity: 0.6;
+}
+
+.control-panel .notation button,
+.control-panel .import-notation button {
+  width: 100%;
+}
+
+.control-panel .notation>div>button,
+.control-panel .import-notation>div>button {
+  margin-top: 8px;
+}
+
+/* --- Actions --- */
 .control-panel .actions {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 10px;
 }
 
+/* --- Mode select --- */
 .control-panel .mode-select {
   display: grid;
   gap: 6px;
 }
 
-.control-panel select {
-  min-height: 38px;
-  border: 1px solid rgba(255, 206, 116, 0.35);
-  border-radius: 14px;
-  padding: 8px 10px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #f4efe6;
-  font: inherit;
+.control-panel select,
+.control-panel .notation-output textarea,
+.control-panel .import-notation textarea {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid #5a3a3a;
+  border-radius: 8px;
+  color: #f0e6d2;
+  font-family: 'Courier New', monospace;
+  transition: border-color 0.3s ease;
+}
+
+.control-panel select:focus,
+.control-panel textarea:focus {
+  border-color: #e6b347;
+  outline: none;
 }
 
 .control-panel select:disabled {
   opacity: 0.6;
 }
 
+/* --- Buttons --- */
 .control-panel button {
   border: none;
   border-radius: 14px;
@@ -97,12 +312,37 @@
   color: #231710;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  /* Sanfter Übergang für alle Eigenschaften */
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.3s ease,
+    background-color 0.3s ease,
+    color 0.3s ease;
 }
 
 .control-panel button:hover {
+  background: #ffce74;
+  /* Etwas helleres Gold beim Hover */
+  color: #2b181c;
   transform: translateY(-2px);
-  box-shadow: 0 12px 18px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 4px 12px rgba(230, 179, 71, 0.3);
+}
+
+.control-panel .btn-danger {
+  background: #a34e56;
+  color: white;
+}
+
+/* Optional: Klick-Effekt (Active) */
+.control-panel button:active {
+  transform: translateY(0);
+  filter: brightness(0.9);
+}
+
+.control-panel .label {
+  color: #bfa8a8;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.05rem;
 }
 
 .control-panel button:disabled {

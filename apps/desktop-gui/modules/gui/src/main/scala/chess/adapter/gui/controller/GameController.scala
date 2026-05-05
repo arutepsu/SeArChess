@@ -3,10 +3,10 @@ package chess.adapter.gui.controller
 import chess.adapter.gui.animation.{AnimationPlan, AnimationPlanner}
 import chess.adapter.gui.input.InputAction
 import chess.adapter.gui.viewmodel.*
-import chess.application.ChessService
+import chess.application.GameStateCommandService
 import chess.application.session.model.{DesktopSessionContext, SessionLifecycle, SideController}
 import chess.application.session.model.SessionIds.GameId
-import chess.application.session.service.{GameSessionCommands, SessionService}
+import chess.application.session.service.{GameSessionCommands, SessionLifecycleService}
 import chess.domain.state.GameState
 import chess.domain.model.{Color, GameStatus, Move, PieceType, Position}
 
@@ -32,7 +32,7 @@ import chess.domain.model.{Color, GameStatus, Move, PieceType, Position}
   *
   * @param commands
   *   single write boundary for session-aware game mutations
-  * @param sessionService
+  * @param sessionLifecycleService
   *   session lifecycle operations (promotion, import session provisioning)
   * @param sessionContext
   *   shared context holding the current [[chess.application.session.model.GameSession]]
@@ -46,7 +46,7 @@ class GameController(
     onRefresh: GameViewModel => Unit,
     onAnimate: AnimationPlan => Unit,
     commands: GameSessionCommands,
-    sessionService: SessionService,
+    sessionLifecycleService: SessionLifecycleService,
     sessionContext: DesktopSessionContext
 ):
   private var gameState: GameState = game.getState
@@ -114,14 +114,14 @@ class GameController(
       case _: GameStatus.Checkmate | _: GameStatus.Draw | _: GameStatus.Resigned =>
         SessionLifecycle.Finished
       case _ => SessionLifecycle.Active
-    sessionService
+    sessionLifecycleService
       .createSession(
         GameId.random(),
         session.mode,
         session.whiteController,
         session.blackController
       )
-      .flatMap(newSess => sessionService.updateLifecycle(newSess.sessionId, targetLifecycle))
+      .flatMap(newSess => sessionLifecycleService.updateLifecycle(newSess.sessionId, targetLifecycle))
       .foreach(updated => sessionContext.setSession(updated))
 
     gameState = importedState
@@ -146,7 +146,7 @@ class GameController(
     * to the pure [[GameController.transition]] path.
     *
     * Promotion flow:
-    *   1. When a pawn reaches the back rank ([[ChessService.isPromotionPending]]), the session is
+    *   1. When a pawn reaches the back rank ([[GameStateCommandService.isPromotionPending]]), the session is
     *      transitioned to [[chess.application.session.model.SessionLifecycle.AwaitingPromotion]]
     *      before the promotion overlay is shown. No domain state change occurs yet. 2. When the
     *      promotion piece is chosen, [[GameSessionCommands.submitMove]] commits the complete move
@@ -162,10 +162,10 @@ class GameController(
       case InputAction.SquareClicked(pos) =>
         viewModel.guiState match
           case GuiState.PieceSelected(from, targets) if targets.contains(pos) =>
-            if ChessService.isPromotionPending(gameState, from, pos) then
+            if GameStateCommandService.isPromotionPending(gameState, from, pos) then
               // Transition session to AwaitingPromotion before opening the overlay.
               // Best-effort: overlay still opens even if session persistence fails.
-              sessionService.preparePromotion(session.sessionId) match
+              sessionLifecycleService.preparePromotion(session.sessionId) match
                 case Right(updated) => sessionContext.setSession(updated)
                 case Left(_)        => ()
               val promotingColor = gameState.board
@@ -242,7 +242,7 @@ class GameController(
             sessionContext.setSession(newSess)
             (fresh, GameViewModelMapper.build(fresh, GuiState.WaitingForSelection), None)
           case Left(_) =>
-            val fresh = ChessService.createNewGame()
+            val fresh = GameStateCommandService.createNewGame()
             (fresh, GameViewModelMapper.build(fresh, GuiState.WaitingForSelection), None)
 
       case _ =>
@@ -273,7 +273,7 @@ object GameController:
   ): (GameState, GameViewModel, Option[AnimationPlan]) =
     action match
       case InputAction.ResetClicked =>
-        val fresh = ChessService.createNewGame()
+        val fresh = GameStateCommandService.createNewGame()
         (fresh, GameViewModelMapper.build(fresh, GuiState.WaitingForSelection), None)
 
       case InputAction.SquareClicked(pos) =>
@@ -310,7 +310,7 @@ object GameController:
       vm: GameViewModel,
       pos: Position
   ): (GameState, GameViewModel, Option[AnimationPlan]) =
-    val targets = ChessService.legalTargetsFrom(state, pos)
+    val targets = GameStateCommandService.legalTargetsFrom(state, pos)
     if targets.nonEmpty then
       val gs = GuiState.PieceSelected(pos, targets)
       (state, vm.copy(squares = GameViewModelMapper.buildSquares(state, gs), guiState = gs), None)
@@ -326,7 +326,7 @@ object GameController:
   // ── Move submission ────────────────────────────────────────────────────────
 
   private def isPromotionMove(state: GameState, from: Position, to: Position): Boolean =
-    ChessService.isPromotionPending(state, from, to)
+    GameStateCommandService.isPromotionPending(state, from, to)
 
   private def submitMove(
       state: GameState,
@@ -349,7 +349,7 @@ object GameController:
       (state, promoVm, None)
     else
       val prevBoard = state.board
-      ChessService.applyMove(state, Move(from, to)) match
+      GameStateCommandService.applyMove(state, Move(from, to)) match
         case Left(_) =>
           // Shouldn't happen for a target from legalMovesFrom; clear selection gracefully
           clearSelection(state, vm)
@@ -375,7 +375,7 @@ object GameController:
       to: Position,
       pt: PieceType
   ): (GameState, GameViewModel, Option[AnimationPlan]) =
-    ChessService.applyMove(state, Move(from, to, Some(pt))) match
+    GameStateCommandService.applyMove(state, Move(from, to, Some(pt))) match
       case Left(_) =>
         (state, vm, None) // invalid choice; overlay stays open
       case Right(newState) =>

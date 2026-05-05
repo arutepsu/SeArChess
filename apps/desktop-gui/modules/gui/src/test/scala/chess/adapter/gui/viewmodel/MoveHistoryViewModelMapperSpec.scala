@@ -3,7 +3,7 @@ package chess.adapter.gui.viewmodel
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.OptionValues
-import chess.application.ChessService
+import chess.application.GameStateCommandService
 import chess.domain.model.{Move, PieceType, Position}
 import chess.domain.state.GameState
 
@@ -12,7 +12,7 @@ class MoveHistoryViewModelMapperSpec extends AnyFlatSpec with Matchers with Opti
   private def pos(alg: String): Position =
     Position.fromAlgebraic(alg).getOrElse(throw AssertionError(s"Bad alg: $alg"))
 
-  private val freshState = ChessService.createNewGame()
+  private val freshState = GameStateCommandService.createNewGame()
 
   private def stateWithHistory(moves: Move*): GameState =
     freshState.copy(moveHistory = moves.toList)

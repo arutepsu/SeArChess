@@ -2,8 +2,15 @@ package chess.adapter.http4s
 
 import cats.effect.IO
 import cats.syntax.semigroupk.*
-import chess.adapter.http4s.route.{Http4sArchiveRoutes, Http4sGameRoutes, Http4sSessionRoutes}
+import chess.adapter.http4s.route.{
+  Http4sArchiveRoutes,
+  Http4sGameRoutes,
+  Http4sNotationRoutes,
+  Http4sSessionRoutes
+}
 import chess.application.GameServiceApi
+import chess.application.port.repository.{GameRepository, SessionGameStore}
+import chess.application.session.service.{PersistentSessionService, SessionSnapshotTransferService}
 import org.http4s.HttpApp
 
 /** REST adapter surface for the chess API.
@@ -15,17 +22,27 @@ import org.http4s.HttpApp
   * Both route classes depend only on [[GameServiceApi]] — the single Game Service boundary. This
   * replaces the previous three-dependency split
   * ([[chess.application.session.service.GameSessionCommands]],
-  * [[chess.application.session.service.SessionService]],
+  * [[chess.application.session.service.SessionLifecycleService]], and
   * [[chess.application.port.repository.GameRepository]]).
   *
   * @param gameService
   *   the Game Service boundary (commands + queries)
+  * @param domainMetrics
+  *   shared domain metrics registry; defaults to a new instance when not provided
   */
-class Http4sApp(gameService: GameServiceApi):
+class Http4sApp(
+    gameService: GameServiceApi,
+    persistentSessionService: PersistentSessionService,
+    snapshotTransferService: SessionSnapshotTransferService,
+    gameRepository: GameRepository,
+    sessionGameStore: SessionGameStore,
+    domainMetrics: DomainMetricsRegistry = new DomainMetricsRegistry()
+):
 
   private val combinedRoutes =
-    Http4sSessionRoutes(gameService).routes <+>
-      Http4sGameRoutes(gameService).routes <+>
+    Http4sSessionRoutes(gameService, persistentSessionService, snapshotTransferService, domainMetrics).routes <+>
+      Http4sGameRoutes(gameService, domainMetrics).routes <+>
+      Http4sNotationRoutes(gameRepository, sessionGameStore).routes <+>
       Http4sArchiveRoutes(gameService).routes
 
   /** Combined [[HttpApp]] for all REST routes.

@@ -2,7 +2,7 @@ package chess.adapter.gui.notation
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import chess.application.ChessService
+import chess.application.GameStateCommandService
 import chess.domain.state.GameState
 import chess.domain.model.Color
 import chess.notation.api.{
@@ -26,7 +26,7 @@ import chess.notation.api.{
 class NotationSidebarSpec extends AnyFlatSpec with Matchers:
 
   private val InitialFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-  private val freshGame = ChessService.createNewGame()
+  private val freshGame = GameStateCommandService.createNewGame()
   private val blankState = NotationSidebarState()
   private val defaultApi = GuiNotationApi.default
 
@@ -331,7 +331,7 @@ class NotationSidebarSpec extends AnyFlatSpec with Matchers:
     object DummyController
         extends NotationSidebarController(
           api = GuiNotationApi.default,
-          stateProvider = () => chess.application.ChessService.createNewGame(),
+          stateProvider = () => chess.application.GameStateCommandService.createNewGame(),
           onImportedState = _ => (),
           onRefresh = _ => ()
         )
@@ -449,7 +449,7 @@ class NotationSidebarSpec extends AnyFlatSpec with Matchers:
     object DummyController
         extends NotationSidebarController(
           api = GuiNotationApi.default,
-          stateProvider = () => chess.application.ChessService.createNewGame(),
+          stateProvider = () => chess.application.GameStateCommandService.createNewGame(),
           onImportedState = _ => (),
           onRefresh = _ => ()
         )

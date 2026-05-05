@@ -1,11 +1,11 @@
 package chess.startup.local
 
-import chess.application.{ChessService, GameStateObservable}
+import chess.application.{GameStateCommandService, GameStateObservable}
 import chess.domain.state.GameState
 import scala.collection.mutable
 
 /** Concrete synchronized implementation of [[GameStateObservable]] for local clients. */
-class ObservableGame(initialState: GameState = ChessService.createNewGame())
+class ObservableGame(initialState: GameState = GameStateCommandService.createNewGame())
     extends GameStateObservable:
   private var state: GameState = initialState
   private val observers = mutable.ListBuffer[GameState => Unit]()

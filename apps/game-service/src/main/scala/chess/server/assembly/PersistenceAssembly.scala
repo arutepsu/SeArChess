@@ -12,13 +12,16 @@ import chess.adapter.repository.sqlite.{
   SqliteSessionGameStore,
   SqliteSessionRepository
 }
+import chess.adapter.repository.postgres.PostgresPersistenceRuntime
 import chess.application.port.repository.{GameRepository, SessionGameStore, SessionRepository}
-import chess.server.config.{AppConfig, PersistenceMode, SqliteConfig}
+import chess.server.config.{AppConfig, MongoConfig, PersistenceMode, PostgresConfig, SqliteConfig}
+import chess.server.persistence.MongoPersistenceRuntime
 
 final case class PersistenceWiring(
     sessionRepository: SessionRepository,
     gameRepository: GameRepository,
-    store: SessionGameStore
+    store: SessionGameStore,
+    shutdown: () => Unit = () => ()
 )
 
 /** Game Service persistence infrastructure assembly. */
@@ -26,6 +29,22 @@ object PersistenceAssembly:
 
   def assemble(config: AppConfig): PersistenceWiring =
     config.persistence match
+      case PersistenceMode.Postgres =>
+        assemblePostgres(
+          config.postgres.getOrElse(
+            throw IllegalArgumentException(
+              "Postgres persistence mode selected but postgres config is missing"
+            )
+          )
+        )
+      case PersistenceMode.Mongo =>
+        assembleMongo(
+          config.mongo.getOrElse(
+            throw IllegalArgumentException(
+              "Mongo persistence mode selected but mongo config is missing"
+            )
+          )
+        )
       case PersistenceMode.InMemory => assembleInMemory()
       case PersistenceMode.SQLite =>
         assembleSQLite(
@@ -49,3 +68,25 @@ object PersistenceAssembly:
     val gameRepo = SqliteGameRepository(ds)
     val store = SqliteSessionGameStore(ds, sessionRepo, gameRepo)
     PersistenceWiring(sessionRepo, gameRepo, store)
+
+  private def assemblePostgres(cfg: PostgresConfig): PersistenceWiring =
+    PostgresPersistenceRuntime.open(cfg.url, cfg.user, cfg.password) match
+      case Left(error) => throw IllegalArgumentException(s"Postgres persistence initialization failed: $error")
+      case Right(runtime) =>
+        PersistenceWiring(
+          runtime.sessionRepository,
+          runtime.gameRepository,
+          runtime.store,
+          shutdown = runtime.close
+        )
+
+  private def assembleMongo(cfg: MongoConfig): PersistenceWiring =
+    MongoPersistenceRuntime.open(cfg) match
+      case Left(error) => throw IllegalArgumentException(s"Mongo persistence initialization failed: $error")
+      case Right(runtime) =>
+        PersistenceWiring(
+          runtime.sessionRepository,
+          runtime.gameRepository,
+          runtime.store,
+          shutdown = () => runtime.close()
+        )

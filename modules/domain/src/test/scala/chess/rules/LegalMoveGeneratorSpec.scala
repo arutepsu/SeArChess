@@ -71,3 +71,44 @@ class LegalMoveGeneratorSpec extends AnyFlatSpec with Matchers:
     val state = freshState
     LegalMoveGenerator.legalMovesFrom(state, algPos("e4")) shouldBe empty
   }
+
+  // ── Sliding-attacker pin / king-safety via isPathClear ─────────────────────
+
+  it should "reject a rook move that leaves the king on the rook's vacated file exposed to an opponent rook" in {
+    // White rook on e4 shields the white king on e1 from a black rook on e8.
+    // Moving the white rook off the e-file should not be legal.
+    val whiteKing = Piece(Color.White, PieceType.King)
+    val whiteRook = Piece(Color.White, PieceType.Rook)
+    val blackRook = Piece(Color.Black, PieceType.Rook)
+    val blackKing = Piece(Color.Black, PieceType.King)
+    val board = Board.empty
+      .place(algPos("e1"), whiteKing)
+      .place(algPos("e4"), whiteRook)
+      .place(algPos("e8"), blackRook)
+      .place(algPos("a8"), blackKing)
+    val state = freshState.copy(board = board)
+    val moves = LegalMoveGenerator.legalMovesFrom(state, algPos("e4"))
+    // The rook may only move along the e-file (staying between king and attacker)
+    moves.map(_.to.toString) should not contain oneOf("d4", "f4", "c4", "g4", "h4", "b4")
+    moves.map(_.to) should contain(algPos("e8")) // can capture attacker
+    moves.map(_.to) should contain(algPos("e5")) // can stay on file
+  }
+
+  it should "reject a bishop move that leaves the king on the diagonal exposed to an opponent bishop" in {
+    // White bishop on d4 shields the white king on a1 from a black bishop on g7.
+    // Moving the bishop off the a1-h8 diagonal should not be legal.
+    val whiteKing = Piece(Color.White, PieceType.King)
+    val whiteBishop = Piece(Color.White, PieceType.Bishop)
+    val blackBishop = Piece(Color.Black, PieceType.Bishop)
+    val blackKing = Piece(Color.Black, PieceType.King)
+    val board = Board.empty
+      .place(algPos("a1"), whiteKing)
+      .place(algPos("d4"), whiteBishop)
+      .place(algPos("g7"), blackBishop)
+      .place(algPos("h1"), blackKing)
+    val state = freshState.copy(board = board)
+    val moves = LegalMoveGenerator.legalMovesFrom(state, algPos("d4"))
+    // Bishop may only move along the a1-h8 diagonal
+    moves.map(_.to.toString) should not contain oneOf("c5", "e3", "c3", "e5")
+    moves.map(_.to) should contain(algPos("g7")) // can capture attacker
+  }

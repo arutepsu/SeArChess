@@ -14,7 +14,7 @@ import chess.adapter.repository.{
   InMemorySessionGameStore,
   InMemorySessionRepository
 }
-import chess.application.{ChessService, GameStateObservable}
+import chess.application.{GameStateCommandService, GameStateObservable}
 import chess.application.event.AppEvent
 import chess.application.session.model.SessionIds.GameId
 import chess.application.session.model.{
@@ -23,7 +23,7 @@ import chess.application.session.model.{
   SessionMode,
   SideController
 }
-import chess.application.session.service.{SessionGameService, SessionService}
+import chess.application.session.service.{SessionGameCommandService, SessionLifecycleService}
 import chess.domain.model.{Board, Color, DrawReason, GameStatus, Move, Piece, PieceType, Position}
 import chess.domain.state.GameState
 import org.scalatest.EitherValues
@@ -33,7 +33,7 @@ import org.scalatest.matchers.should.Matchers
 class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   /** Minimal in-process [[GameStateObservable]] for unit tests. */
-  private class TestObservableGame(initial: GameState = ChessService.createNewGame())
+  private class TestObservableGame(initial: GameState = GameStateCommandService.createNewGame())
       extends GameStateObservable:
     private var s = initial
     private val cbs = scala.collection.mutable.ListBuffer.empty[GameState => Unit]
@@ -56,8 +56,8 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
     val sessionRepo = new InMemorySessionRepository
     val gameRepo = new InMemoryGameRepository
     val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val svc = new SessionService(sessionRepo, _ => ())
-    val commands = new SessionGameService(svc, store, _ => ())
+    val svc = new SessionLifecycleService(sessionRepo, _ => ())
+    val commands = new SessionGameCommandService(svc, store, _ => ())
     val session = commands
       .newGame(SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal)
       .fold(e => throw AssertionError(s"freshController setup failed: $e"), identity)
@@ -79,7 +79,7 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
   private def algPos(alg: String): Position =
     Position.fromAlgebraic(alg).getOrElse(throw AssertionError(s"Bad algebraic: $alg"))
 
-  private def freshState: GameState = ChessService.createNewGame()
+  private def freshState: GameState = GameStateCommandService.createNewGame()
   private def freshVm(s: GameState): GameViewModel =
     GameViewModelMapper.build(s, GuiState.WaitingForSelection)
 
@@ -533,7 +533,7 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
       collector: CollectingEventPublisher = CollectingEventPublisher()
   ): (
       GameController,
-      SessionGameService,
+      SessionGameCommandService,
       InMemoryGameRepository,
       CollectingEventPublisher,
       DesktopSessionContext
@@ -541,9 +541,9 @@ class GameControllerSpec extends AnyFlatSpec with Matchers with EitherValues:
     val sessionRepo = new InMemorySessionRepository
     val gameRepo = new InMemoryGameRepository
     val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val service = new SessionService(sessionRepo, collector)
-    val sessionGameSvc = new SessionGameService(service, store, collector)
-    val session = sessionGameSvc
+    val service = new SessionLifecycleService(sessionRepo, collector)
+    val sessionGameSvc = new SessionGameCommandService(service, store, collector)
+    val session = service
       .createSession(
         GameId.random(),
         SessionMode.HumanVsHuman,

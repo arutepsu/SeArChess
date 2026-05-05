@@ -11,7 +11,7 @@ import chess.application.event.AppEvent
 import chess.application.port.ai.{AIError, AiMoveSuggestionClient, AIRequestContext, AIResponse}
 import chess.application.session.model.{SessionMode, SideController}
 import chess.application.session.model.SessionIds.GameId
-import chess.application.session.service.{SessionGameService, SessionService}
+import chess.application.session.service.{SessionGameCommandService, SessionLifecycleService}
 import chess.domain.model.{Move, Position}
 import chess.domain.state.GameStateFactory
 import org.scalatest.{EitherValues, OptionValues}
@@ -25,9 +25,9 @@ class AITurnServiceEventSpec extends AnyFlatSpec with Matchers with EitherValues
     val sessionRepo = InMemorySessionRepository()
     val gameRepo = InMemoryGameRepository()
     val store = InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionService = SessionService(sessionRepo, _ => ())
-    val svc = SessionGameService(sessionService, store, _ => ())
-    val session = svc
+    val sessionLifecycleService = SessionLifecycleService(sessionRepo, _ => ())
+    val svc = SessionGameCommandService(sessionLifecycleService, store, _ => ())
+    val session = sessionLifecycleService
       .createSession(
         gameId = GameId.random(),
         mode = SessionMode.HumanVsAI,
@@ -56,9 +56,9 @@ class AITurnServiceEventSpec extends AnyFlatSpec with Matchers with EitherValues
     val sessionRepo = InMemorySessionRepository()
     val gameRepo = InMemoryGameRepository()
     val store = InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionService = SessionService(sessionRepo, _ => ())
-    val svc = SessionGameService(sessionService, store, _ => ())
-    val humanSession = svc
+    val sessionLifecycleService = SessionLifecycleService(sessionRepo, _ => ())
+    val svc = SessionGameCommandService(sessionLifecycleService, store, _ => ())
+    val humanSession = sessionLifecycleService
       .createSession(
         gameId = GameId.random(),
         mode = SessionMode.HumanVsHuman,

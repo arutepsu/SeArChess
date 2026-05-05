@@ -33,7 +33,7 @@ object TuiWiring:
     val ctx = LocalGameAssembly.build(config)
 
     // ── TUI-local session ────────────────────────────────────────────────────
-    val session = ctx.sessionService
+    val session = ctx.sessionLifecycleService
       .createSession(
         GameId.random(),
         SessionMode.HumanVsHuman,

@@ -1,0 +1,28 @@
+{
+  "metadata": {
+    "test_type": "stress",
+    "scenario_name": "cpu_saturation",
+    "timestamp": "2026-05-04T10:00:00Z"
+  },
+  "load_profile": {
+    "max_users": 200,
+    "duration": "3m",
+    "ramp_up_pattern": "linear"
+  },
+  "latency": {
+    "p50": 320,
+    "p95": 850,
+    "p99": 1100
+  },
+  "throughput": {
+    "requests_per_second": 180
+  },
+  "errors": {
+    "error_rate": 0.005,
+    "total_errors": 27
+  },
+  "system": {
+    "cpu_usage_percent": 92,
+    "memory_usage_percent": 55
+  }
+}

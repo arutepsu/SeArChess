@@ -28,6 +28,8 @@ class ServerWiringSpec extends AnyFlatSpec with Matchers with EitherValues with 
     webSocket = WebSocketConfig(enabled = false, port = 9090),
     persistence = PersistenceMode.InMemory,
     sqlite = None,
+    postgres = None,
+    mongo = None,
     eventMode = EventMode.InProcess,
     cors = CorsConfig(enabled = false, allowedOrigin = "*"),
     history = HistoryForwardingConfig(enabled = false, baseUrl = None, timeoutMillis = 2000),

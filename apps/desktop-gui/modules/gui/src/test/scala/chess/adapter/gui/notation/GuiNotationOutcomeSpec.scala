@@ -2,7 +2,7 @@ package chess.adapter.gui.notation
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import chess.application.ChessService
+import chess.application.GameStateCommandService
 
 /** Contracts for the [[GuiNotationOutcome]] sealed hierarchy and its supporting types.
   *
@@ -12,7 +12,7 @@ import chess.application.ChessService
   */
 class GuiNotationOutcomeSpec extends AnyFlatSpec with Matchers:
 
-  private val freshState = ChessService.createNewGame()
+  private val freshState = GameStateCommandService.createNewGame()
 
   // ── ImportSuccess: default warnings ─────────────────────────────────────────
 

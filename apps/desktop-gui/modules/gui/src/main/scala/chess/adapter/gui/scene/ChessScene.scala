@@ -28,7 +28,7 @@ import chess.adapter.gui.render.{
 }
 import chess.adapter.gui.viewmodel.{GameViewModel, MoveHistoryViewModelMapper}
 import chess.application.session.model.DesktopSessionContext
-import chess.application.session.service.{GameSessionCommands, SessionService}
+import chess.application.session.service.{GameSessionCommands, SessionLifecycleService}
 import chess.domain.state.GameState
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.Scene
@@ -37,7 +37,7 @@ import scalafx.scene.layout.{BorderPane, Pane, StackPane}
 /** Assembles the board, status bar, promotion overlay, animation layer, and right-side tools panel
   * (notation + move history) into a single [[Scene]].
   *
-  * The session dependencies — [[GameSessionCommands]], [[SessionService]], and the current
+  * The session dependencies — [[GameSessionCommands]], [[sessionLifecycleService]], and the current
   * [[DesktopSessionContext]] — are provided by the composition root (e.g. `game-service/Main`).
   * GUI, TUI, and any other adapters share the same command boundary and session identity so that
   * moves from any adapter are authoritative over the same repository-backed game state.
@@ -51,7 +51,7 @@ import scalafx.scene.layout.{BorderPane, Pane, StackPane}
   *   TUI) observe it
   * @param commands
   *   single write boundary for session-aware game mutations
-  * @param sessionService
+  * @param sessionLifecycleService
   *   session lifecycle operations (promotion, import provisioning)
   * @param sessionContext
   *   the shared [[DesktopSessionContext]] (created once at startup)
@@ -59,7 +59,7 @@ import scalafx.scene.layout.{BorderPane, Pane, StackPane}
 class ChessScene(
     game: chess.application.GameStateObservable,
     commands: GameSessionCommands,
-    sessionService: SessionService,
+    sessionLifecycleService: SessionLifecycleService,
     sessionContext: DesktopSessionContext
 ):
 
@@ -79,7 +79,7 @@ class ChessScene(
   // ChessScene is no longer responsible for creating session infrastructure.
 
   private val controller =
-    new GameController(game, refresh, startAnimation, commands, sessionService, sessionContext)
+    new GameController(game, refresh, startAnimation, commands, sessionLifecycleService, sessionContext)
   private var vm: GameViewModel = controller.currentViewModel
 
   private val boardGrid = BoardRenderer.create(vm, handle, factory)

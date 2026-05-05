@@ -8,8 +8,14 @@ import chess.application.port.event.{
   NoOpTerminalEventJsonSerializer,
   TerminalEventJsonSerializer
 }
-import chess.application.port.repository.GameRepository
-import chess.application.session.service.{GameSessionCommands, SessionGameService, SessionService}
+import chess.application.port.repository.{GameRepository, SessionGameStore}
+import chess.application.session.service.{
+  GameSessionCommands,
+  PersistentSessionService,
+  SessionSnapshotTransferService,
+  SessionGameCommandService,
+  SessionLifecycleService
+}
 
 final case class CoreEventBindings(
     publisher: EventPublisher,
@@ -18,31 +24,53 @@ final case class CoreEventBindings(
 
 final case class AppContext(
     commands: GameSessionCommands,
-    sessionService: SessionService,
+    sessionLifecycleService: SessionLifecycleService,
+    persistentSessionService: PersistentSessionService,
+    snapshotTransferService: SessionSnapshotTransferService,
+    sessionGameStore: SessionGameStore,
     gameRepository: GameRepository,
-    gameService: GameServiceApi
+    gameService: GameServiceApi,
+    shutdownPersistence: () => Unit = () => ()
 )
 
 /** Wires Game Service application services from service-owned infrastructure. */
 object CoreAssembly:
 
   def build(persistence: PersistenceWiring, events: CoreEventBindings): AppContext =
-    val sessionService =
-      SessionService(persistence.sessionRepository, events.publisher, events.terminalSerializer)
-    val commands = SessionGameService(
-      sessionService,
+    val sessionLifecycleService =
+      SessionLifecycleService(persistence.sessionRepository, events.publisher, events.terminalSerializer)
+    val commands = SessionGameCommandService(
+      sessionLifecycleService,
       persistence.store,
       events.publisher,
       events.terminalSerializer
     )
+    val persistentSessionService = PersistentSessionService(
+      persistence.sessionRepository,
+      persistence.gameRepository,
+      persistence.store,
+      sessionLifecycleService
+    )
+    val snapshotTransferService =
+      SessionSnapshotTransferService(persistentSessionService, persistence.store)
     val gameService = DefaultGameService(
       commands = commands,
-      sessionService = sessionService,
+      sessionLifecycleService = sessionLifecycleService,
       gameRepository = persistence.gameRepository,
       publisher = events.publisher,
       aiService = None
     )
-    AppContext(commands, sessionService, persistence.gameRepository, gameService)
+    AppContext(
+      commands,
+      sessionLifecycleService,
+      persistentSessionService,
+      snapshotTransferService,
+      persistence.store,
+      persistence.gameRepository,
+      gameService,
+      persistence.shutdown
+    )
 
   object SilentEventPublisher extends EventPublisher:
     def publish(event: AppEvent): Unit = ()
+

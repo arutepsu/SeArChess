@@ -2,7 +2,7 @@ package chess.adapter.gui.notation
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import chess.application.ChessService
+import chess.application.GameStateCommandService
 import chess.domain.model.{Color, PieceType}
 import chess.domain.state.GameState
 import chess.notation.api.{
@@ -34,7 +34,7 @@ import chess.notation.api.{
 class GuiNotationApiSpec extends AnyFlatSpec with Matchers:
 
   private val InitialFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-  private val freshState = ChessService.createNewGame()
+  private val freshState = GameStateCommandService.createNewGame()
 
   // ── FEN import: success ────────────────────────────────────────────────────
 

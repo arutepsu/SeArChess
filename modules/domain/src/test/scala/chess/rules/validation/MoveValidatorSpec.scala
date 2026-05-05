@@ -73,6 +73,20 @@ class MoveValidatorSpec extends AnyFlatSpec with Matchers with EitherValues:
     validate(board, rook, "a1", "a8").left.value shouldBe a[DomainError.BlockedPath]
   }
 
+  it should "fail when the path is blocked by a friendly piece" in {
+    val rook = Piece(Color.White, PieceType.Rook)
+    val blocker = Piece(Color.White, PieceType.Pawn)
+    val board = boardWith("a1" -> rook, "d1" -> blocker)
+    validate(board, rook, "a1", "h1").left.value shouldBe a[DomainError.BlockedPath]
+  }
+
+  it should "succeed on an adjacent capture with no intermediate squares" in {
+    val rook = Piece(Color.White, PieceType.Rook)
+    val target = Piece(Color.Black, PieceType.Pawn)
+    val board = boardWith("a1" -> rook, "b1" -> target)
+    validate(board, rook, "a1", "b1").value shouldBe ()
+  }
+
   // ── Bishop ─────────────────────────────────────────────────────────────────
 
   "Bishop" should "move diagonally to an empty square" in {
@@ -126,6 +140,19 @@ class MoveValidatorSpec extends AnyFlatSpec with Matchers with EitherValues:
     val blocker = Piece(Color.Black, PieceType.Pawn)
     val board = boardWith("a1" -> queen, "d4" -> blocker)
     validate(board, queen, "a1", "h8").left.value shouldBe a[DomainError.BlockedPath]
+  }
+
+  it should "move along a descending diagonal (h8 to a1) when path is clear" in {
+    val queen = Piece(Color.White, PieceType.Queen)
+    val board = boardWith("h8" -> queen)
+    validate(board, queen, "h8", "a1").value shouldBe ()
+  }
+
+  it should "fail on a descending diagonal when an intermediate square is occupied" in {
+    val queen = Piece(Color.White, PieceType.Queen)
+    val blocker = Piece(Color.Black, PieceType.Pawn)
+    val board = boardWith("h8" -> queen, "e5" -> blocker)
+    validate(board, queen, "h8", "a1").left.value shouldBe a[DomainError.BlockedPath]
   }
 
   // ── Knight ─────────────────────────────────────────────────────────────────

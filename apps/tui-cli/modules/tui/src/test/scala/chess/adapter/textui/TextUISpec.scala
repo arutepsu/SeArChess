@@ -5,12 +5,12 @@ import chess.adapter.repository.{
   InMemorySessionGameStore,
   InMemorySessionRepository
 }
-import chess.application.{ChessService, GameStateObservable}
+import chess.application.{GameStateCommandService, GameStateObservable}
 import chess.application.event.AppEvent
 import chess.application.port.event.EventPublisher
 import chess.application.session.model.SessionIds.GameId
 import chess.application.session.model.{DesktopSessionContext, SessionMode, SideController}
-import chess.application.session.service.{SessionGameService, SessionService}
+import chess.application.session.service.{SessionGameCommandService, SessionLifecycleService}
 import chess.domain.state.GameState
 import chess.domain.model.*
 import org.scalatest.EitherValues
@@ -21,7 +21,7 @@ import scala.collection.mutable
 class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
 
   /** Minimal in-process [[GameStateObservable]] for unit tests. */
-  private class TestObservableGame(initial: GameState = ChessService.createNewGame())
+  private class TestObservableGame(initial: GameState = GameStateCommandService.createNewGame())
       extends GameStateObservable:
     private var s = initial
     private val cbs = scala.collection.mutable.ListBuffer.empty[GameState => Unit]
@@ -137,7 +137,7 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
       .place(pos("a7"), Piece(Color.White, PieceType.Pawn))
       .place(pos("a1"), Piece(Color.White, PieceType.King))
       .place(pos("e8"), Piece(Color.Black, PieceType.King))
-    ChessService.createNewGame().copy(board = board, currentPlayer = Color.White)
+    GameStateCommandService.createNewGame().copy(board = board, currentPlayer = Color.White)
 
   it should "show 'No promotion' message when promote is used on a fresh game" in {
     val c = TestConsole(List("promote q", "quit"))
@@ -214,10 +214,10 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     val sessionRepo = new InMemorySessionRepository
     val gameRepo = new InMemoryGameRepository
     val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionSvc = new SessionService(sessionRepo, _ => ())
-    val svc = new SessionGameService(sessionSvc, store, collector.publish(_))
+    val sessionSvc = new SessionLifecycleService(sessionRepo, _ => ())
+    val svc = new SessionGameCommandService(sessionSvc, store, collector.publish(_))
     val gameId = GameId.random()
-    val session = svc
+    val session = sessionSvc
       .createSession(
         gameId,
         SessionMode.HumanVsHuman,
@@ -237,10 +237,10 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     val sessionRepo = new InMemorySessionRepository
     val gameRepo = new InMemoryGameRepository
     val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionSvc = new SessionService(sessionRepo, _ => ())
-    val svc = new SessionGameService(sessionSvc, store, collector.publish(_))
+    val sessionSvc = new SessionLifecycleService(sessionRepo, _ => ())
+    val svc = new SessionGameCommandService(sessionSvc, store, collector.publish(_))
     val gameId = GameId.random()
-    val session = svc
+    val session = sessionSvc
       .createSession(
         gameId,
         SessionMode.HumanVsHuman,
@@ -263,10 +263,10 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     val sessionRepo = new InMemorySessionRepository
     val gameRepo = new InMemoryGameRepository
     val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionSvc = new SessionService(sessionRepo, _ => ())
-    val svc = new SessionGameService(sessionSvc, store, collector.publish(_))
+    val sessionSvc = new SessionLifecycleService(sessionRepo, _ => ())
+    val svc = new SessionGameCommandService(sessionSvc, store, collector.publish(_))
     val gameId = GameId.random()
-    val session = svc
+    val session = sessionSvc
       .createSession(
         gameId,
         SessionMode.HumanVsHuman,
@@ -285,10 +285,10 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     val sessionRepo = new InMemorySessionRepository
     val gameRepo = new InMemoryGameRepository
     val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionSvc = new SessionService(sessionRepo, _ => ())
-    val svc = new SessionGameService(sessionSvc, store, _ => ())
+    val sessionSvc = new SessionLifecycleService(sessionRepo, _ => ())
+    val svc = new SessionGameCommandService(sessionSvc, store, _ => ())
     val gameId = GameId.random()
-    val session = svc
+    val session = sessionSvc
       .createSession(
         gameId,
         SessionMode.HumanVsHuman,
@@ -306,10 +306,10 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     val sessionRepo = new InMemorySessionRepository
     val gameRepo = new InMemoryGameRepository
     val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionSvc = new SessionService(sessionRepo, _ => ())
-    val svc = new SessionGameService(sessionSvc, store, _ => ())
+    val sessionSvc = new SessionLifecycleService(sessionRepo, _ => ())
+    val svc = new SessionGameCommandService(sessionSvc, store, _ => ())
     val gameId = GameId.random()
-    val session = svc
+    val session = sessionSvc
       .createSession(
         gameId,
         SessionMode.HumanVsHuman,
@@ -329,10 +329,10 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     val sessionRepo = new InMemorySessionRepository
     val gameRepo = new InMemoryGameRepository
     val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionSvc = new SessionService(sessionRepo, _ => ())
-    val svc = new SessionGameService(sessionSvc, store, _ => ())
+    val sessionSvc = new SessionLifecycleService(sessionRepo, _ => ())
+    val svc = new SessionGameCommandService(sessionSvc, store, _ => ())
     val gameId = GameId.random()
-    val session = svc
+    val session = sessionSvc
       .createSession(
         gameId,
         SessionMode.HumanVsHuman,
@@ -353,10 +353,10 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     val sessionRepo = new InMemorySessionRepository
     val gameRepo = new InMemoryGameRepository
     val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionSvc = new SessionService(sessionRepo, _ => ())
-    val svc = new SessionGameService(sessionSvc, store, collector.publish(_))
+    val sessionSvc = new SessionLifecycleService(sessionRepo, _ => ())
+    val svc = new SessionGameCommandService(sessionSvc, store, collector.publish(_))
     val gameId = GameId.random()
-    val session = svc
+    val session = sessionSvc
       .createSession(
         gameId,
         SessionMode.HumanVsHuman,
@@ -373,7 +373,7 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   // ── Shared desktop session ─────────────────────────────────────────────────
-  // These tests prove that two adapters sharing the same SessionGameService and
+  // These tests prove that two adapters sharing the same SessionGameCommandService and
   // GameSession operate on ONE authoritative game identity.  Moves from either
   // adapter accumulate in the same repository entry under the same GameId.
 
@@ -382,10 +382,10 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     val sessionRepo = new InMemorySessionRepository
     val gameRepo = new InMemoryGameRepository
     val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionSvc = new SessionService(sessionRepo, _ => ())
-    val svc = new SessionGameService(sessionSvc, store, _ => ())
+    val sessionSvc = new SessionLifecycleService(sessionRepo, _ => ())
+    val svc = new SessionGameCommandService(sessionSvc, store, _ => ())
     val gameId = GameId.random()
-    val session = svc
+    val session = sessionSvc
       .createSession(
         gameId,
         SessionMode.HumanVsHuman,
@@ -417,10 +417,10 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     val sessionRepo = new InMemorySessionRepository
     val gameRepo = new InMemoryGameRepository
     val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionSvc = new SessionService(sessionRepo, _ => ())
-    val svc = new SessionGameService(sessionSvc, store, collector.publish(_))
+    val sessionSvc = new SessionLifecycleService(sessionRepo, _ => ())
+    val svc = new SessionGameCommandService(sessionSvc, store, collector.publish(_))
     val gameId = GameId.random()
-    val session = svc
+    val session = sessionSvc
       .createSession(
         gameId,
         SessionMode.HumanVsHuman,
@@ -448,10 +448,10 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     val sessionRepo = new InMemorySessionRepository
     val gameRepo = new InMemoryGameRepository
     val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionSvc = new SessionService(sessionRepo, _ => ())
-    val svc = new SessionGameService(sessionSvc, store, _ => ())
+    val sessionSvc = new SessionLifecycleService(sessionRepo, _ => ())
+    val svc = new SessionGameCommandService(sessionSvc, store, _ => ())
     val gameId = GameId.random()
-    val session = svc
+    val session = sessionSvc
       .createSession(
         gameId,
         SessionMode.HumanVsHuman,
@@ -483,10 +483,10 @@ class TextUISpec extends AnyFlatSpec with Matchers with EitherValues:
     val sessionRepo = new InMemorySessionRepository
     val gameRepo = new InMemoryGameRepository
     val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionSvc = new SessionService(sessionRepo, _ => ())
-    val svc = new SessionGameService(sessionSvc, store, _ => ())
+    val sessionSvc = new SessionLifecycleService(sessionRepo, _ => ())
+    val svc = new SessionGameCommandService(sessionSvc, store, _ => ())
     val gameId = GameId.random()
-    val session = svc
+    val session = sessionSvc
       .createSession(
         gameId,
         SessionMode.HumanVsHuman,

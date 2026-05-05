@@ -134,3 +134,33 @@ object EventAssembly:
             None,
             () => ()
           )
+
+        case PersistenceMode.Postgres =>
+          StructuredLog.warn(
+            "game-service",
+            "history_forwarding_best_effort",
+            "reason" -> "durable history outbox is currently sqlite-only",
+            "persistence" -> config.persistence.toString,
+            "historyBaseUrl" -> url
+          )
+          (
+            Seq(HistoryHttpEventPublisher(url, config.history.timeoutMillis)),
+            NoOpTerminalEventJsonSerializer,
+            None,
+            () => ()
+          )
+
+        case PersistenceMode.Mongo =>
+          StructuredLog.warn(
+            "game-service",
+            "history_forwarding_best_effort",
+            "reason" -> "durable history outbox is currently sqlite-only",
+            "persistence" -> config.persistence.toString,
+            "historyBaseUrl" -> url
+          )
+          (
+            Seq(HistoryHttpEventPublisher(url, config.history.timeoutMillis)),
+            NoOpTerminalEventJsonSerializer,
+            None,
+            () => ()
+          )

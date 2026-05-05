@@ -9,7 +9,7 @@ import chess.adapter.repository.{
 import chess.application.query.game.{GameArchiveSnapshot, GameClosure}
 import chess.application.session.model.{SessionMode, SideController}
 import chess.application.session.model.SessionIds.GameId
-import chess.application.session.service.{SessionGameService, SessionService}
+import chess.application.session.service.{SessionGameCommandService, SessionLifecycleService}
 import chess.domain.model.{Color, DrawReason, GameStatus}
 import chess.domain.state.GameStateFactory
 import org.scalatest.EitherValues
@@ -33,8 +33,8 @@ class GameArchiveSnapshotSpec extends AnyFlatSpec with Matchers with EitherValue
     val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
     val svc = DefaultGameService(
       commands =
-        new SessionGameService(new SessionService(sessionRepo, collector), store, collector),
-      sessionService = new SessionService(sessionRepo, collector),
+        new SessionGameCommandService(new SessionLifecycleService(sessionRepo, collector), store, collector),
+      sessionLifecycleService = new SessionLifecycleService(sessionRepo, collector),
       gameRepository = gameRepo,
       publisher = collector
     )
@@ -165,8 +165,8 @@ class GameArchiveSnapshotSpec extends AnyFlatSpec with Matchers with EitherValue
     val store = new InMemorySessionGameStore(sessionRepo, gameRepo)
     val svc = DefaultGameService(
       commands =
-        new SessionGameService(new SessionService(sessionRepo, collector), store, collector),
-      sessionService = new SessionService(sessionRepo, collector),
+        new SessionGameCommandService(new SessionLifecycleService(sessionRepo, collector), store, collector),
+      sessionLifecycleService = new SessionLifecycleService(sessionRepo, collector),
       gameRepository = gameRepo,
       publisher = collector
     )

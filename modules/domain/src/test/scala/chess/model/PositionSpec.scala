@@ -88,6 +88,45 @@ class PositionSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   // ── toString ───────────────────────────────────────────────────────────────
 
-  "Position.toString" should "return the algebraic label" in {
+  "Position.toString" should "return the algebraic label for e2" in {
     Position.from(4, 1).value.toString shouldBe "e2"
+  }
+
+  it should "return a1 for the bottom-left corner (file=0, rank=0)" in {
+    Position.from(0, 0).value.toString shouldBe "a1"
+  }
+
+  it should "return h1 for the bottom-right corner (file=7, rank=0)" in {
+    Position.from(7, 0).value.toString shouldBe "h1"
+  }
+
+  it should "return a8 for the top-left corner (file=0, rank=7)" in {
+    Position.from(0, 7).value.toString shouldBe "a8"
+  }
+
+  it should "return h8 for the top-right corner (file=7, rank=7)" in {
+    Position.from(7, 7).value.toString shouldBe "h8"
+  }
+
+  it should "return e4 for the central square (file=4, rank=3)" in {
+    Position.from(4, 3).value.toString shouldBe "e4"
+  }
+
+  it should "produce correct labels for all 64 squares" in {
+    val files = "abcdefgh"
+    for
+      file <- 0 to 7
+      rank <- 0 to 7
+    do
+      val expected = s"${files(file)}${rank + 1}"
+      Position.from(file, rank).value.toString shouldBe expected
+  }
+
+  it should "round-trip through fromAlgebraic for all 64 squares" in {
+    for
+      file <- 0 to 7
+      rank <- 0 to 7
+    do
+      val pos = Position.from(file, rank).value
+      Position.fromAlgebraic(pos.toString).value shouldBe pos
   }

@@ -16,8 +16,8 @@ import java.time.Instant
   * This trait is the single entry point for all inbound adapters (REST, WebSocket command channel,
   * future gRPC, etc.) that need to interact with the game-session capability. It intentionally
   * hides the internal coordination between
-  * [[chess.application.session.service.SessionGameService]],
-  * [[chess.application.session.service.SessionService]], and the underlying repository/event ports
+  * [[chess.application.session.service.SessionGameCommandService]],
+  * [[chess.application.session.service.SessionLifecycleService]], and the underlying repository/event ports
   * from transport adapters.
   *
   * ===Command/query ownership===

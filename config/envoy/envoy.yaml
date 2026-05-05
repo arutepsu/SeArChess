@@ -38,6 +38,10 @@ static_resources:
                           route:
                             cluster: game_service_ws
                         - match:
+                            path: /admin/migrations
+                          route:
+                            cluster: game_service_http
+                        - match:
                             prefix: /
                           direct_response:
                             status: 404
