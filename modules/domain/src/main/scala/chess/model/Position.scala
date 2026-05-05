@@ -10,11 +10,24 @@ import chess.domain.error.DomainError
   * companion object.
   */
 final case class Position private (file: Int, rank: Int):
-  /** Algebraic label, e.g. Position(4, 1) → "e2" */
-  override def toString: String =
-    s"${('a' + file).toChar}${rank + 1}"
+  /** Algebraic label, e.g. Position(4, 1) → "e2".
+    *
+    * Returns a pre-allocated string from [[Position.algebraicLabels]] — avoids a new String
+    * allocation on every call, which matters in the response-mapping hot path where toString is
+    * invoked once per square for the board, once per move for history, and twice per legal move
+    * for the legalTargetsByFrom map.
+    */
+  override def toString: String = Position.algebraicLabels(file)(rank)
 
 object Position:
+
+  /** Pre-allocated algebraic labels for all 64 board squares, indexed by [file][rank].
+    *
+    * Indexed as algebraicLabels(file)(rank) where file 0–7 corresponds to a–h and rank 0–7
+    * corresponds to 1–8. Initialised once at class-loading time; never mutated.
+    */
+  val algebraicLabels: Array[Array[String]] =
+    Array.tabulate(8, 8)((file, rank) => s"${('a' + file).toChar}${rank + 1}")
 
   private val ValidRange = 0 to 7
 

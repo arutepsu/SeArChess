@@ -126,16 +126,23 @@ object MoveValidator:
         )
       )
 
-  /** True if every square strictly between from and to is empty. */
+  /** True if every square strictly between from and to is empty.
+    *
+    * Uses a while loop instead of a LazyList pipeline to avoid allocating Cons nodes and
+    * (Int, Int) tuples on every call — this method is on the hot path of legal-move generation
+    * and check detection.
+    */
   private def isPathClear(board: Board, move: Move): Boolean =
     val stepFile = Integer.signum(move.to.file - move.from.file)
     val stepRank = Integer.signum(move.to.rank - move.from.rank)
-    LazyList
-      .iterate((move.from.file + stepFile, move.from.rank + stepRank)) { case (f, r) =>
-        (f + stepFile, r + stepRank)
-      }
-      .takeWhile { case (f, r) => f != move.to.file || r != move.to.rank }
-      .forall { case (f, r) => Position.from(f, r).toOption.flatMap(board.pieceAt).isEmpty }
+    var f = move.from.file + stepFile
+    var r = move.from.rank + stepRank
+    var clear = true
+    while clear && (f != move.to.file || r != move.to.rank) do
+      clear = Position.from(f, r).toOption.flatMap(board.pieceAt).isEmpty
+      f += stepFile
+      r += stepRank
+    clear
 
   private val ok: Either[DomainError, Unit] = Right(())
   private def illegal(m: Move): Left[DomainError.IllegalMove, Nothing] = Left(
