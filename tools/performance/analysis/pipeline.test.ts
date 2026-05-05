@@ -42,7 +42,7 @@ test('runPerformancePipeline returns complete Markdown report', async () => {
 
 test('runPerformancePipeline uses optimized report in final Markdown', async () => {
   const markdown = await runPerformancePipeline({ baselineInput, optimizedInput });
-  assert.ok(markdown.includes('- p95 latency: 420ms'));
+  assert.ok(markdown.includes('- p95 latency: 420.00ms'));
   assert.ok(markdown.includes('- Scenario: api-optimized'));
 });
 

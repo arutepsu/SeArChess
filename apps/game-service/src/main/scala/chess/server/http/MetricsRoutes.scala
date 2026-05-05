@@ -1,6 +1,7 @@
 package chess.server.http
 
 import cats.effect.IO
+import chess.adapter.http4s.DomainMetricsRegistry
 import org.http4s.{Charset, HttpRoutes, MediaType}
 import org.http4s.dsl.io.*
 import org.http4s.headers.`Content-Type`
@@ -26,26 +27,33 @@ import scala.jdk.CollectionConverters.*
   *   # HELP http_requests_total ...
   *   http_requests_total{method="GET",route="/sessions",status="200"} 42
   *   ...
+  *   # HELP searchess_sessions_created_total ...
+  *   searchess_sessions_created_total 7
+  *   ...
   * }}}
   *
   * No application secrets, request/response bodies, or user data are exposed. JVM values are drawn
-  * from the JVM management API; HTTP metrics from the in-process [[HttpMetricsRegistry]].
+  * from the JVM management API; HTTP metrics from the in-process [[HttpMetricsRegistry]]; domain
+  * metrics from the in-process [[DomainMetricsRegistry]].
   */
 object MetricsRoutes:
 
   private val textPlainUtf8 = `Content-Type`(MediaType.text.plain, Charset.`UTF-8`)
 
-  def routes(registry: HttpMetricsRegistry): HttpRoutes[IO] =
+  def routes(httpRegistry: HttpMetricsRegistry, domainRegistry: DomainMetricsRegistry): HttpRoutes[IO] =
     HttpRoutes.of[IO]:
       case GET -> Root / "metrics" =>
-        IO(buildMetricsText(registry)).flatMap(body => Ok(body).map(_.withContentType(textPlainUtf8)))
+        IO(buildMetricsText(httpRegistry, domainRegistry)).flatMap(body => Ok(body).map(_.withContentType(textPlainUtf8)))
 
-  private def buildMetricsText(registry: HttpMetricsRegistry): String =
-    val sb = new java.lang.StringBuilder(2048)
+  private def buildMetricsText(httpRegistry: HttpMetricsRegistry, domainRegistry: DomainMetricsRegistry): String =
+    val sb = new java.lang.StringBuilder(4096)
 
     appendJvmMetrics(sb)
-    val httpText = registry.renderPrometheusText()
+
+    val httpText = httpRegistry.renderPrometheusText()
     if httpText.nonEmpty then sb.append(httpText)
+
+    sb.append(domainRegistry.renderPrometheusText())
 
     sb.toString
 

@@ -97,7 +97,7 @@ function formatThroughput(value: number): string {
 export function formatK6SuiteSummary(result: RunK6SuiteResult): string {
   const artifactDirectory = result.results[0]?.artifactPaths.outDir ?? '';
   const table = renderTable(
-    ['Test', 'p95', 'Error', 'Throughput', 'Bottleneck', 'Confidence'],
+    ['Test', 'p95', 'Error', 'Throughput', 'Bottleneck', 'Diagnosis confidence'],
     result.results.map((r) => [
       r.test,
       formatLatency(r.report.summary.p95_latency),

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { resolveArtifactRoot } from './artifactRoot';
 
 export type RunHistoryPhase = 'baseline' | 'optimized' | 'unknown';
-export type RunHistoryKind = 'k6-single' | 'k6-suite' | 'unknown';
+export type RunHistoryKind = 'k6-single' | 'k6-suite' | 'gatling-single' | 'unknown';
 
 export interface RunHistoryItem {
   runId: string;
@@ -12,6 +12,7 @@ export interface RunHistoryItem {
   createdAt?: Date;
   kind: RunHistoryKind;
   reports: string[];
+  htmlReports: string[];
   logs: string[];
 }
 
@@ -39,6 +40,13 @@ function markdownReportsInRun(runPath: string): string[] {
     .sort();
 }
 
+function htmlReportsInRun(runPath: string): string[] {
+  return safeDirectoryEntries(runPath)
+    .filter((entry) => entry.endsWith('.html'))
+    .map((entry) => join(runPath, entry))
+    .sort();
+}
+
 function logsInRun(runPath: string): string[] {
   const logsDir = join(runPath, 'logs');
   return safeDirectoryEntries(logsDir)
@@ -50,6 +58,7 @@ function logsInRun(runPath: string): string[] {
 function determineKind(runPath: string, reports: string[]): RunHistoryKind {
   if (existsSync(join(runPath, 'k6_suite_report.md'))) return 'k6-suite';
   if (reports.some((r) => /k6_.*_report\.md$/.test(r.replace(/\\/g, '/')))) return 'k6-single';
+  if (reports.some((r) => /gatling_.*_report\.md$/.test(r.replace(/\\/g, '/')))) return 'gatling-single';
   return 'unknown';
 }
 
@@ -60,6 +69,7 @@ function discoverPhaseRuns(root: string, phase: 'baseline' | 'optimized'): RunHi
     .filter(({ runPath }) => isDirectory(runPath))
     .map(({ runId, runPath }) => {
       const reports = markdownReportsInRun(runPath);
+      const htmlReports = htmlReportsInRun(runPath);
       const logs = logsInRun(runPath);
       const stats = statSync(runPath);
       return {
@@ -69,6 +79,7 @@ function discoverPhaseRuns(root: string, phase: 'baseline' | 'optimized'): RunHi
         createdAt: stats.mtime,
         kind: determineKind(runPath, reports),
         reports,
+        htmlReports,
         logs,
       };
     });

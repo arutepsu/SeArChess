@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { runEnvironmentCheck } from './doctor/environmentCheck';
 import { runK6ReportAsync, type K6Phase, type K6ReportProgressEvent, type K6TestName, type RunK6ReportOptions } from '../application/runK6Report';
 import { runK6SuiteAsync, type K6SuiteProgressEvent, type RunK6SuiteOptions } from '../application/runK6Suite';
+import { runGatlingReportAsync, type GatlingReportProgressEvent, type GatlingTestName, type RunGatlingReportOptions } from '../application/runGatlingReport';
 import { createInteractiveRunOutDir } from './artifacts/interactiveRunArtifacts';
 import { loadPerformanceConfig, resolvePerformanceOutputDir, type PerformanceCliConfig } from './config';
 import {
@@ -15,11 +16,14 @@ import { inputPrompt, selectPrompt } from './ui/prompts';
 import { startSpinner, type CliSpinner } from './ui/spinner';
 import * as theme from './ui/theme';
 import {
+  artifactSummaryFromGatlingPaths,
   artifactSummaryFromK6Paths,
   artifactSummaryFromK6Suite,
+  blankLineAfterRun,
   renderArtifactSummary,
   renderEnvironmentCheck,
   renderMarkdownPreview,
+  renderObservabilityHint,
   renderProgressLine,
   renderRunArtifactPaths,
   renderRunHistoryChoiceLabel,
@@ -32,9 +36,11 @@ import {
   renderWorkbenchHeader,
   selectPreferredMarkdownReport,
 } from './ui/workbenchView';
+import { renderToolSummaryFromFile } from './ui/toolSummaryView';
 
 type WorkbenchArea = 'k6' | 'gatling' | 'jmh' | 'reports' | 'settings' | 'doctor' | 'exit';
 type K6WorkbenchAction = 'baseline' | 'load' | 'spike' | 'stress' | 'suite' | 'back';
+type GatlingWorkbenchAction = GatlingTestName | 'back';
 type ReportsAction = 'browse-runs' | 'latest-suite-report' | 'back';
 type RunDetailAction = 'preview' | 'paths' | 'generate-ai' | 'preview-ai' | 'back';
 
@@ -207,6 +213,48 @@ export function formatK6SuiteProgressEvent(event: K6SuiteProgressEvent): string 
       return check('suite report generated');
     case 'suite:complete':
       return undefined;
+  }
+}
+
+export function buildInteractiveGatlingReportOptions(test: GatlingTestName, commonOptions: InteractiveK6CommonOptions): RunGatlingReportOptions {
+  return {
+    ...commonOptions,
+    test,
+    outputMode: 'log',
+  };
+}
+
+export function gatlingReportSpinnerAction(event: GatlingReportProgressEvent): ProgressSpinnerAction {
+  switch (event.step) {
+    case 'gatling:start':
+      return {
+        kind: 'start',
+        text: `Running Gatling ${event.test}... writing raw output to log`,
+        test: `Gatling ${event.test}`,
+        logPath: event.path,
+      };
+    case 'gatling:complete':
+      return { kind: 'succeed', text: `Gatling ${event.test} execution completed` };
+    default:
+      return { kind: 'none' };
+  }
+}
+
+export function formatGatlingReportProgressEvent(event: GatlingReportProgressEvent): string | undefined {
+  switch (event.step) {
+    case 'gatling:start':
+    case 'gatling:complete':
+      return undefined;
+    case 'summary:found':
+      return check('summary exported');
+    case 'context:written':
+      return check('context written');
+    case 'normalization:complete':
+      return check('normalized input generated');
+    case 'analysis:complete':
+      return check('deterministic report generated');
+    case 'markdown:written':
+      return check('Markdown report generated');
   }
 }
 
@@ -486,6 +534,7 @@ export async function runK6WorkbenchFlow(config: PerformanceCliConfig): Promise<
       }
       process.stdout.write(`\n${renderSuiteRunResult(result)}\n\n`);
       process.stdout.write(`${renderArtifactSummary(artifactSummaryFromK6Suite(result, commonOptions.out ?? ''))}\n`);
+      process.stdout.write(`\n${renderObservabilityHint(commonOptions.runId, commonOptions.baseUrl)}\n${blankLineAfterRun()}`);
       return 0;
     }
 
@@ -517,7 +566,68 @@ export async function runK6WorkbenchFlow(config: PerformanceCliConfig): Promise<
       process.stderr.write(`${theme.warning(`Warning: k6 exited with code ${result.k6ExitCode}; continuing because summary export exists.`)}\n`);
     }
     process.stdout.write(`\n${renderSingleRunResult(result.report)}\n\n`);
+    const toolSummary = renderToolSummaryFromFile('k6', result.artifactPaths.summaryPath);
+    if (toolSummary) {
+      process.stdout.write(`${toolSummary}\n\n`);
+    }
     process.stdout.write(`${renderArtifactSummary(artifactSummaryFromK6Paths(result.artifactPaths))}\n`);
+    process.stdout.write(`\n${renderObservabilityHint(commonOptions.runId, commonOptions.baseUrl)}\n${blankLineAfterRun()}`);
+    return 0;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!failActiveSpinner(activeSpinner, msg)) {
+      process.stderr.write(`${theme.error(msg)}\n`);
+    }
+    return 1;
+  }
+}
+
+export async function runGatlingWorkbenchFlow(config: PerformanceCliConfig): Promise<number> {
+  let activeSpinner: ActiveSpinnerState | undefined;
+
+  try {
+    process.stdout.write(`\n${theme.section('Gatling Simulations')}\n`);
+    const action = await selectPrompt<GatlingWorkbenchAction>({
+      message: 'Select Gatling action',
+      choices: [
+        { name: 'Run smoke simulation', value: 'smoke' },
+        { name: 'Run load simulation', value: 'load' },
+        { name: 'Run stress simulation', value: 'stress' },
+        { name: 'Back', value: 'back' },
+      ],
+    });
+
+    if (action === 'back') {
+      return 0;
+    }
+
+    const commonOptions = await promptCommonK6Options(config, 'gatling', action);
+    process.stdout.write(`${renderRunMetadata({
+      tool: 'gatling',
+      workload: action,
+      phase: commonOptions.phase,
+      runId: commonOptions.runId,
+    })}\n\n`);
+    process.stdout.write(`${theme.section('Progress')}\n`);
+
+    const options: RunGatlingReportOptions = {
+      ...buildInteractiveGatlingReportOptions(action, commonOptions),
+      onProgress: (event) => {
+        activeSpinner = applySpinnerAction(gatlingReportSpinnerAction(event), activeSpinner);
+        printProgress(formatGatlingReportProgressEvent(event));
+      },
+    };
+
+    const result = await runGatlingReportAsync(options);
+    stopActiveSpinner(activeSpinner);
+    activeSpinner = undefined;
+    process.stdout.write(`\n${renderSingleRunResult(result.report)}\n\n`);
+    const toolSummary = renderToolSummaryFromFile('gatling', result.artifactPaths.summaryPath, result.artifactPaths.htmlReportPath);
+    if (toolSummary) {
+      process.stdout.write(`${toolSummary}\n\n`);
+    }
+    process.stdout.write(`${renderArtifactSummary(artifactSummaryFromGatlingPaths(result.artifactPaths))}\n`);
+    process.stdout.write(`\n${renderObservabilityHint(commonOptions.runId, commonOptions.baseUrl)}\n${blankLineAfterRun()}`);
     return 0;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -575,7 +685,9 @@ export async function runInteractiveCli(): Promise<number> {
         continue;
       }
       if (area === 'gatling') {
-        process.stdout.write(`${theme.muted('Coming soon: Gatling simulations')}\n`);
+        const config = loadPerformanceConfig();
+        const result = await runGatlingWorkbenchFlow(config);
+        if (result !== 0) return result;
         continue;
       }
       if (area === 'jmh') {

@@ -7,6 +7,7 @@ val scala3Version    = "3.8.2"
 val scalaFxVersion   = "21.0.0-R32"
 val javaFxVersion    = "21.0.1"
 val http4sVersion    = "0.23.29"
+val gatlingVersion   = "3.11.3"
 
 lazy val osClassifier: String = System.getProperty("os.name") match {
   case n if n.startsWith("Windows") => "win"
@@ -439,6 +440,23 @@ lazy val aiService = project
     )
   )
   .dependsOn(aiContract, observability)
+
+// ── Performance: Gatling load tests ──────────────────────────────────────────
+// Intentionally excluded from the root aggregate: Gatling runs are triggered
+// via the performance workbench CLI, not the standard sbt build pipeline.
+
+lazy val gatlingPerf = project
+  .in(file("tools/performance/gatling"))
+  .enablePlugins(GatlingPlugin)
+  .disablePlugins(wartremover.WartRemover)
+  .settings(
+    scalaVersion    := "2.13.14",
+    coverageEnabled := false,
+    libraryDependencies ++= Seq(
+      "io.gatling.highcharts" % "gatling-charts-highcharts" % gatlingVersion % Test,
+      "io.gatling"            % "gatling-test-framework"    % gatlingVersion % Test
+    )
+  )
 
 // ── Aliases ───────────────────────────────────────────────────────────────────
 //

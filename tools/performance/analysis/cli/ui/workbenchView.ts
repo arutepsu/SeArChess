@@ -1,5 +1,6 @@
 import { basename, dirname, relative } from 'node:path';
 import type { K6ArtifactPaths } from '../../application/runK6Report';
+import type { GatlingArtifactPaths } from '../../application/runGatlingReport';
 import type { RunK6SuiteResult } from '../../application/runK6Suite';
 import type { RunHistoryItem } from '../reports/runHistory';
 import type { PerformanceReport } from '../../domain/models';
@@ -19,8 +20,11 @@ export interface RunMetadataInput {
 export interface ArtifactSummaryInput {
   folder: string;
   report?: string;
+  reportHtml?: string;
+  htmlReport?: string;
   log?: string;
   suiteReport?: string;
+  suiteReportHtml?: string;
   logs?: string;
 }
 
@@ -36,6 +40,56 @@ function formatPercent(value: number): string {
 
 function formatThroughput(value: number): string {
   return `${value.toFixed(2)} req/s`;
+}
+
+function metricRows(rows: string[][]): string[][] {
+  return rows.map(([metric, value]) => [theme.label(metric), value]);
+}
+
+function styleValue(value: string, style: theme.SemanticStyle): string {
+  return theme.applySemanticStyle(value, style);
+}
+
+export function resultStatusStyle(status: string): theme.SemanticStyle {
+  const normalized = status.toLowerCase();
+  if (normalized.includes('healthy') || normalized === 'ok' || normalized === 'pass' || normalized === 'passed') {
+    return 'success';
+  }
+  if (normalized.includes('warning') || normalized.includes('degraded') || normalized.includes('pressure') || normalized.includes('suspected')) {
+    return 'warning';
+  }
+  if (normalized.includes('critical') || normalized.includes('failed') || normalized === 'ko' || normalized.includes('error')) {
+    return 'error';
+  }
+  return 'muted';
+}
+
+export function resultBottleneckStyle(bottleneck: string): theme.SemanticStyle {
+  return bottleneck === 'UNKNOWN' ? 'muted' : 'warning';
+}
+
+export function resultConfidenceStyle(confidence: string): theme.SemanticStyle {
+  if (confidence === 'HIGH') return 'success';
+  if (confidence === 'MEDIUM' || confidence === 'LOW') return 'warning';
+  return 'neutral';
+}
+
+export function displayBottleneck(report: PerformanceReport): string {
+  return humanStatus(report) === 'Healthy' && report.bottleneck.type === 'UNKNOWN'
+    ? 'None detected'
+    : report.bottleneck.type;
+}
+
+export function resultErrorRateStyle(errorRate: number): theme.SemanticStyle {
+  if (errorRate === 0) return 'success';
+  if (errorRate < 0.01) return 'warning';
+  return 'error';
+}
+
+export function resultLatencyStyle(p95Latency: number, threshold = HIGH_LATENCY_THRESHOLD_MS): theme.SemanticStyle {
+  if (p95Latency > threshold) return 'error';
+  if (p95Latency >= threshold * 0.8) return 'warning';
+  return 'success';
 }
 
 function padLabel(label: string): string {
@@ -97,29 +151,52 @@ export function humanStatus(report: PerformanceReport): string {
 }
 
 export function renderSingleRunResult(report: PerformanceReport): string {
+  const status = humanStatus(report);
+  const p95 = formatLatency(report.summary.p95_latency);
+  const errorRate = formatPercent(report.summary.error_rate);
+  const throughput = formatThroughput(report.summary.throughput);
   return [
-    theme.section('Result'),
+    renderRunCompleteSummary(report),
+    '',
+    theme.sectionHeader('Result'),
     '',
     renderTable(
       ['Metric', 'Value'],
-      [
-        ['Status', humanStatus(report)],
-        ['Bottleneck', report.bottleneck.type],
-        ['Confidence', report.bottleneck.confidence],
-        ['p95 latency', formatLatency(report.summary.p95_latency)],
-        ['Error rate', formatPercent(report.summary.error_rate)],
-        ['Throughput', formatThroughput(report.summary.throughput)],
-      ],
+      metricRows([
+        ['Status', styleValue(status, resultStatusStyle(status))],
+        ['Bottleneck', styleValue(displayBottleneck(report), resultBottleneckStyle(report.bottleneck.type))],
+        ['Diagnosis confidence', styleValue(report.bottleneck.confidence, resultConfidenceStyle(report.bottleneck.confidence))],
+        ['p95 latency', styleValue(p95, resultLatencyStyle(report.summary.p95_latency))],
+        ['Error rate', styleValue(errorRate, resultErrorRateStyle(report.summary.error_rate))],
+        ['Throughput', theme.info(throughput)],
+      ]),
     ),
   ].join('\n');
 }
 
+export function renderRunCompleteSummary(report: PerformanceReport): string {
+  const status = humanStatus(report);
+  const p95 = formatLatency(report.summary.p95_latency);
+  const errorRate = formatPercent(report.summary.error_rate);
+  const throughput = formatThroughput(report.summary.throughput);
+  return [
+    theme.label('Run complete:'),
+    styleValue(status, resultStatusStyle(status)),
+    theme.muted('-'),
+    `p95 ${styleValue(p95, resultLatencyStyle(report.summary.p95_latency))}`,
+    theme.muted('-'),
+    `errors ${styleValue(errorRate, resultErrorRateStyle(report.summary.error_rate))}`,
+    theme.muted('-'),
+    theme.info(throughput),
+  ].join(' ');
+}
+
 export function renderSuiteRunResult(result: RunK6SuiteResult): string {
   return [
-    theme.section('Result'),
+    theme.sectionHeader('Result'),
     '',
     renderTable(
-      ['Test', 'p95', 'Error', 'Throughput', 'Bottleneck', 'Confidence'],
+      ['Test', 'p95', 'Error', 'Throughput', 'Bottleneck', 'Diagnosis confidence'],
       result.results.map((entry) => [
         entry.test,
         formatLatency(entry.report.summary.p95_latency),
@@ -133,31 +210,71 @@ export function renderSuiteRunResult(result: RunK6SuiteResult): string {
 }
 
 export function renderArtifactSummary(input: ArtifactSummaryInput): string {
-  const lines = [
-    theme.section('Artifacts'),
-    `  ${padLabel('Folder:')} ${theme.muted(input.folder)}`,
+  const rows: string[][] = [
+    [theme.label('Folder'), theme.path(input.folder)],
   ];
 
   if (input.suiteReport) {
-    lines.push(`  ${padLabel('Suite report:')} ${theme.muted(input.suiteReport)}`);
+    rows.push([theme.label('Suite report'), theme.path(input.suiteReport)]);
+  }
+  if (input.suiteReportHtml) {
+    rows.push([theme.label('Suite HTML'), theme.path(input.suiteReportHtml)]);
   }
   if (input.report) {
-    lines.push(`  ${padLabel('Report:')} ${theme.muted(input.report)}`);
+    rows.push([theme.label('Report'), theme.path(input.report)]);
+  }
+  if (input.reportHtml) {
+    rows.push([theme.label('Report HTML'), theme.path(input.reportHtml)]);
+  }
+  if (input.htmlReport) {
+    rows.push([theme.label('Gatling HTML'), theme.path(input.htmlReport)]);
   }
   if (input.logs) {
-    lines.push(`  ${padLabel('Logs:')} ${theme.muted(input.logs)}`);
+    rows.push([theme.label('Logs'), theme.path(input.logs)]);
   }
   if (input.log) {
-    lines.push(`  ${padLabel('Log:')} ${theme.muted(input.log)}`);
+    rows.push([theme.label('Log'), theme.path(input.log)]);
   }
 
-  return lines.join('\n');
+  return [
+    theme.sectionHeader('Artifacts'),
+    '',
+    renderTable(['Artifact', 'Path'], rows),
+  ].join('\n');
+}
+
+export function blankLineAfterRun(): string {
+  return '\n';
+}
+
+export function renderObservabilityHint(runId: string, baseUrl: string): string {
+  const p = (label: string) => label.padEnd(10, ' ');
+  return [
+    theme.sectionHeader('Observability'),
+    '',
+    `  ${p('Run ID:')}${runId}`,
+    `  ${p('Target:')}${baseUrl}`,
+    `  ${p('Headers:')}X-Performance-Run-Id, X-Performance-Tool, X-Performance-Workload, X-Performance-Phase`,
+    `  ${p('Metrics:')}GET /metrics on the backend service`,
+    `  ${p('Logs:')}grep backend logs for: performanceRunId=${runId}`,
+  ].join('\n');
 }
 
 export function artifactSummaryFromK6Paths(paths: K6ArtifactPaths): ArtifactSummaryInput {
   return {
     folder: paths.outDir,
     report: paths.markdownPath,
+    reportHtml: paths.reportHtmlPath,
+    log: paths.logPath,
+  };
+}
+
+export function artifactSummaryFromGatlingPaths(paths: GatlingArtifactPaths): ArtifactSummaryInput {
+  return {
+    folder: paths.outDir,
+    report: paths.markdownPath,
+    reportHtml: paths.reportHtmlPath,
+    htmlReport: paths.htmlReportPath,
     log: paths.logPath,
   };
 }
@@ -167,6 +284,7 @@ export function artifactSummaryFromK6Suite(result: RunK6SuiteResult, fallbackFol
   return {
     folder: firstResult?.artifactPaths.outDir ?? fallbackFolder,
     suiteReport: result.suiteReportPath,
+    suiteReportHtml: result.suiteReportHtmlPath,
     logs: firstResult ? dirname(firstResult.artifactPaths.logPath) : undefined,
   };
 }
@@ -215,6 +333,8 @@ export function renderRunHistoryDetails(item: RunHistoryItem): string {
     '',
     ...renderFileList('Reports:', item, item.reports),
     '',
+    ...renderFileList('HTML Reports:', item, item.htmlReports),
+    '',
     ...renderFileList('Logs:', item, item.logs),
   ].join('\n');
 }
@@ -245,6 +365,12 @@ export function renderRunArtifactPaths(item: RunHistoryItem): string {
   if (item.reports.length > 0) {
     lines.push('  Reports:');
     for (const r of item.reports) {
+      lines.push(`    ${r}`);
+    }
+  }
+  if (item.htmlReports.length > 0) {
+    lines.push('  HTML Reports:');
+    for (const r of item.htmlReports) {
       lines.push(`    ${r}`);
     }
   }
@@ -334,6 +460,10 @@ export function renderEnvironmentCheck(result: EnvironmentCheckResult): string {
 
   if (result.k6Version) {
     lines.push(`  ${p('Version:')}${result.k6Version}`);
+  }
+
+  if (result.gatlingSimulationExists !== undefined) {
+    lines.push(`  ${p('Gatling:')}${result.gatlingSimulationExists ? `configured ${okMark}` : `not configured ${warnMark}`}`);
   }
 
   if (result.prometheusConfigExists !== undefined || result.grafanaDirExists !== undefined) {

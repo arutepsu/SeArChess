@@ -7,6 +7,7 @@ export const TOP_LEVEL_HELP = [
   'Commands:',
   '  k6           Run a k6 test, normalize, analyze, and write artifacts',
   '  k6-suite     Run baseline, load, spike, and stress k6 reports',
+  '  gatling      Run the code-first Gatling Scala simulation via sbt and write artifacts',
   '  interactive  Start interactive Performance Workbench',
   '  start        Alias for interactive Performance Workbench',
   '  help         Show this help',
@@ -16,6 +17,9 @@ export const TOP_LEVEL_HELP = [
   '  perf start',
   '  perf k6-suite',
   '  perf k6-suite --phase optimized',
+  '  perf gatling --test smoke --base-url http://localhost:8080 --cpu 72 --memory 61 --phase baseline',
+  '  perf gatling --test load --base-url http://localhost:8080 --cpu 72 --memory 61 --phase baseline',
+  '  perf gatling --test stress --base-url http://localhost:8080 --cpu 72 --memory 61 --phase baseline',
   '  perf k6 --test load --base-url http://localhost:10000/api --cpu 72 --memory 61 --phase baseline',
 ].join('\n');
 

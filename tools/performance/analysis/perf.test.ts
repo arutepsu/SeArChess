@@ -35,16 +35,27 @@ import { renderTable } from './cli/ui/table';
 import {
   error,
   muted,
+  path,
   section,
+  semanticStyle,
+  shortenPathForDisplay,
   success,
   title,
   warning,
 } from './cli/ui/theme';
 import {
+  blankLineAfterRun,
+  displayBottleneck,
   humanStatus,
+  resultBottleneckStyle,
+  resultConfidenceStyle,
+  resultErrorRateStyle,
+  resultLatencyStyle,
+  resultStatusStyle,
   renderArtifactSummary,
   renderEnvironmentCheck,
   renderMarkdownPreview,
+  renderRunCompleteSummary,
   renderRunArtifactPaths,
   renderRunHistoryChoiceLabel,
   renderRunHistoryDetails,
@@ -56,12 +67,19 @@ import {
   selectPreferredMarkdownReport,
 } from './cli/ui/workbenchView';
 import {
+  buildGatlingToolSummaryRows,
+  buildK6ToolSummaryRows,
+  renderToolSummaryFromSummary,
+} from './cli/ui/toolSummaryView';
+import {
   getCommandVersion,
   isCommandAvailable,
   runEnvironmentCheck,
   type EnvironmentCheckResult,
 } from './cli/doctor/environmentCheck';
 import type { BottleneckType, Confidence, PerformanceReport } from './domain/models';
+import { buildK6SuiteReportHtmlPath } from './application/runK6Suite';
+import { renderK6SuiteHtmlReport } from './reporting/k6SuiteHtmlBuilder';
 
 const PERF = join(__dirname, 'cli', 'perf.js');
 
@@ -369,29 +387,321 @@ test('single-run workbench result includes p95 throughput and bottleneck', () =>
   const output = renderSingleRunResult(samplePerformanceReport());
   assert.ok(output.includes('54.68ms'));
   assert.ok(output.includes('47.09 req/s'));
-  assert.ok(output.includes('UNKNOWN'));
+  assert.ok(output.includes('None detected'));
+});
+
+test('Result section renders all deterministic metrics', () => {
+  const output = renderSingleRunResult(samplePerformanceReport());
+
+  assert.ok(output.includes('Run complete:'));
+  assert.ok(output.includes('Result'));
+  assert.ok(output.includes('Status'));
+  assert.ok(output.includes('Bottleneck'));
+  assert.ok(output.includes('Diagnosis confidence'));
+  assert.ok(!output.includes('Confidence'));
+  assert.ok(output.includes('p95 latency'));
+  assert.ok(output.includes('Error rate'));
+  assert.ok(output.includes('Throughput'));
+});
+
+test('Healthy UNKNOWN bottleneck displays as none detected in CLI output', () => {
+  const report = samplePerformanceReport('UNKNOWN', 'LOW');
+  const output = renderSingleRunResult(report);
+
+  assert.equal(displayBottleneck(report), 'None detected');
+  assert.ok(output.includes('Bottleneck'));
+  assert.ok(output.includes('None detected'));
+  assert.ok(!output.includes('UNKNOWN'));
+});
+
+test('run complete summary renders compact deterministic metrics', () => {
+  const output = renderRunCompleteSummary(samplePerformanceReport());
+
+  assert.ok(output.includes('Run complete:'));
+  assert.ok(output.includes('Healthy'));
+  assert.ok(output.includes('p95 54.68ms'));
+  assert.ok(output.includes('errors 0.00%'));
+  assert.ok(output.includes('47.09 req/s'));
 });
 
 test('workbench artifact summary includes report and log paths', () => {
   const output = renderArtifactSummary({
     folder: 'docs/performance/baseline/runs/run-1',
     report: 'docs/performance/baseline/runs/run-1/k6_load_report.md',
+    reportHtml: 'docs/performance/baseline/runs/run-1/k6_load_report.html',
     log: 'docs/performance/baseline/runs/run-1/logs/k6_load.log',
   });
   assert.ok(output.includes('k6_load_report.md'));
+  assert.ok(output.includes('Report HTML'));
+  assert.ok(output.includes('k6_load_report.html'));
   assert.ok(output.includes('logs/k6_load.log'));
+});
+
+test('workbench artifact summary renders Report HTML separately from Gatling HTML', () => {
+  const output = renderArtifactSummary({
+    folder: 'docs/performance/baseline/runs/run-1',
+    report: 'docs/performance/baseline/runs/run-1/gatling_smoke_report.md',
+    reportHtml: 'docs/performance/baseline/runs/run-1/gatling_smoke_report.html',
+    htmlReport: 'tools/performance/gatling/target/gatling/searchess-run/index.html',
+  });
+
+  assert.ok(output.includes('Report HTML'));
+  assert.ok(output.includes('gatling_smoke_report.html'));
+  assert.ok(output.includes('Gatling HTML'));
+  assert.ok(output.includes('index.html'));
+  assert.ok(output.indexOf('Report HTML') < output.indexOf('Gatling HTML'));
+});
+
+test('workbench artifact summary omits missing optional artifact paths safely', () => {
+  const output = renderArtifactSummary({
+    folder: 'docs/performance/baseline/runs/run-1',
+  });
+
+  assert.ok(output.includes('Artifacts'));
+  assert.ok(output.includes('Folder'));
+  assert.ok(!output.includes('undefined'));
+  assert.ok(!output.includes('Gatling HTML'));
+  assert.ok(!output.includes('Log'));
+});
+
+test('semantic style maps healthy OK PASS values to success', () => {
+  assert.equal(semanticStyle('Healthy'), 'success');
+  assert.equal(semanticStyle('OK'), 'success');
+  assert.equal(semanticStyle('PASS'), 'success');
+  assert.equal(resultStatusStyle('Healthy'), 'success');
+});
+
+test('semantic style maps failed KO critical values to error', () => {
+  assert.equal(semanticStyle('failed'), 'error');
+  assert.equal(semanticStyle('KO'), 'error');
+  assert.equal(semanticStyle('critical'), 'error');
+  assert.equal(resultStatusStyle('Critical'), 'error');
+});
+
+test('LOW confidence renders through warning styling', () => {
+  assert.equal(resultConfidenceStyle('LOW'), 'warning');
+  assert.equal(resultConfidenceStyle('MEDIUM'), 'warning');
+  assert.equal(resultConfidenceStyle('HIGH'), 'success');
+});
+
+test('UNKNOWN bottleneck renders through neutral muted styling', () => {
+  assert.equal(resultBottleneckStyle('UNKNOWN'), 'muted');
+});
+
+test('Error rate coloring handles healthy warning and critical ranges', () => {
+  assert.equal(resultErrorRateStyle(0), 'success');
+  assert.equal(resultErrorRateStyle(0.005), 'warning');
+  assert.equal(resultErrorRateStyle(0.01), 'error');
+});
+
+test('p95 latency coloring handles below near and above threshold', () => {
+  assert.equal(resultLatencyStyle(100, 500), 'success');
+  assert.equal(resultLatencyStyle(425, 500), 'warning');
+  assert.equal(resultLatencyStyle(501, 500), 'error');
+});
+
+test('color formatting does not hide plain text when color is disabled', () => {
+  const output = renderSingleRunResult(samplePerformanceReport());
+
+  assert.ok(output.includes('Healthy'));
+  assert.ok(output.includes('LOW'));
+});
+
+test('long path shortening keeps the filename visible', () => {
+  const longPath = 'C:\\Users\\cgmar\\IdeaProjects\\searchess\\tools\\performance\\gatling\\target\\gatling\\searchessgameplaysimulation-20260505143544101\\index.html';
+  const shortened = shortenPathForDisplay(longPath, 72);
+
+  assert.ok(shortened.length <= 72);
+  assert.ok(shortened.includes('...\\'));
+  assert.ok(shortened.endsWith('index.html'));
+  assert.ok(shortened.endsWith('\\index.html'));
+});
+
+test('path formatter shortens long paths without losing filename', () => {
+  const longPath = 'C:\\Users\\cgmar\\IdeaProjects\\searchess\\tools\\performance\\gatling\\target\\gatling\\searchessgameplaysimulation-20260505143544101\\index.html';
+  const output = path(longPath, 72);
+
+  assert.ok(output.includes('...\\'));
+  assert.ok(output.includes('index.html'));
+});
+
+test('shortened paths preserve a separator before filename', () => {
+  const longPath = 'C:\\Users\\cgmar\\IdeaProjects\\searchess\\tools\\performance\\gatling\\target\\gatling\\searchessgameplaysimulation-20260505143544101\\index.html';
+  const shortened = shortenPathForDisplay(longPath, 64);
+
+  assert.match(shortened, /[\\/]index\.html$/);
+  assert.ok(!shortened.includes('...index.html'));
+});
+
+test('Gatling Tool Summary renders requests total OK and KO', () => {
+  const rows = buildGatlingToolSummaryRows({
+    stats: {
+      numberOfRequests: { total: 3900, ok: 3900, ko: 0 },
+    },
+  });
+
+  assert.deepEqual(rows, [
+    { metric: 'Requests', value: '3900 total / 3900 OK / 0 KO' },
+  ]);
+});
+
+test('Gatling Tool Summary rounds latency and request rate to two decimals', () => {
+  const rows = buildGatlingToolSummaryRows({
+    stats: {
+      numberOfRequests: { total: 3900, ok: 3900, ko: 0 },
+      minResponseTime: { total: 4 },
+      meanResponseTime: { total: 16.004 },
+      maxResponseTime: { total: 109 },
+      meanNumberOfRequestsPerSecond: { total: 61.904761904761905 },
+    },
+  });
+
+  assert.ok(rows.some((row) => row.metric === 'Latency' && row.value === 'min 4.00ms / mean 16.00ms / max 109.00ms'));
+  assert.ok(rows.some((row) => row.metric === 'Request rate' && row.value === '61.90 req/s'));
+});
+
+test('Gatling Tool Summary includes response time distribution', () => {
+  const rows = buildGatlingToolSummaryRows({
+    stats: {
+      numberOfRequests: { total: 3900, ok: 3900, ko: 0 },
+      group1: { count: 3900 },
+      group2: { count: 0 },
+      group3: { count: 0 },
+      group4: { count: 0 },
+    },
+  });
+
+  assert.ok(rows.some((row) => row.metric === 'Distribution' && row.value === '<800ms 100.00% / 800-1200ms 0.00% / >=1200ms 0.00% / failed 0.00%'));
+});
+
+test('Gatling Tool Summary includes Native report when htmlReportPath exists', () => {
+  const nativePath = 'C:\\repo\\tools\\performance\\gatling\\target\\gatling\\searchessgameplaysimulation-20260505143544101\\index.html';
+  const rows = buildGatlingToolSummaryRows({
+    stats: {
+      numberOfRequests: { total: 1, ok: 1, ko: 0 },
+    },
+  }, nativePath);
+  const rendered = renderToolSummaryFromSummary('gatling', {
+    stats: {
+      numberOfRequests: { total: 1, ok: 1, ko: 0 },
+    },
+  }, nativePath);
+
+  assert.ok(rows.some((row) => row.metric === 'Native report' && row.value.endsWith('index.html')));
+  assert.ok(rendered?.includes('Native report'));
+  assert.ok(rendered?.includes('index.html'));
+});
+
+test('Gatling Tool Summary omits Native report when htmlReportPath is missing', () => {
+  const rows = buildGatlingToolSummaryRows({
+    stats: {
+      numberOfRequests: { total: 1, ok: 1, ko: 0 },
+    },
+  });
+
+  assert.ok(!rows.some((row) => row.metric === 'Native report'));
+});
+
+test('k6 Tool Summary omits missing fields safely', () => {
+  const rows = buildK6ToolSummaryRows({ metrics: { http_reqs: { values: { count: 23508 } } } });
+
+  assert.deepEqual(rows, [
+    { metric: 'Requests', value: '23508 total' },
+  ]);
+});
+
+test('k6 Tool Summary renders request total and rate when present', () => {
+  const rows = buildK6ToolSummaryRows({
+    metrics: {
+      http_reqs: { values: { count: 23508, rate: 385.514 } },
+    },
+  });
+
+  assert.ok(rows.some((row) => row.metric === 'Requests' && row.value === '23508 total / 385.51 req/s'));
+});
+
+test('k6 Tool Summary renders latency percentiles when present', () => {
+  const rows = buildK6ToolSummaryRows({
+    metrics: {
+      http_req_duration: { values: { 'p(50)': 12, 'p(95)': 52.271, 'p(99)': 90 } },
+    },
+  });
+
+  assert.ok(rows.some((row) => row.metric === 'Latency' && row.value === 'p50 12.00ms / p95 52.27ms / p99 90.00ms'));
+});
+
+test('interactive output keeps deterministic Result separate from Tool Summary', () => {
+  const result = renderSingleRunResult(samplePerformanceReport());
+  const toolSummary = renderToolSummaryFromSummary('gatling', {
+    stats: {
+      numberOfRequests: { total: 3900, ok: 3900, ko: 0 },
+    },
+  });
+  const artifacts = renderArtifactSummary({
+    folder: 'docs/performance/baseline/runs/run-1',
+    report: 'docs/performance/baseline/runs/run-1/gatling_load_report.md',
+  });
+  const output = `${result}\n\n${toolSummary ?? ''}\n\n${artifacts}${blankLineAfterRun()}? Select area`;
+
+  assert.ok(output.includes('Result'));
+  assert.ok(output.includes('Tool Summary'));
+  assert.ok(output.includes('Artifacts'));
+  assert.ok(output.indexOf('Result') < output.indexOf('Tool Summary'));
+  assert.ok(output.indexOf('Tool Summary') < output.indexOf('Artifacts'));
+  assert.ok(output.includes('Bottleneck'));
+  assert.ok(output.includes('3900 total / 3900 OK / 0 KO'));
+});
+
+test('completed interactive run output leaves a blank line before next prompt', () => {
+  const output = `${renderArtifactSummary({ folder: 'docs/performance/baseline/runs/run-1' })}\n${blankLineAfterRun()}? Select area`;
+
+  assert.match(output, /\n\n\? Select area$/);
+});
+
+test('k6 suite HTML report path and renderer are available beside suite Markdown', () => {
+  const outDir = join('docs', 'performance', 'baseline', 'runs', 'run-1');
+  const suiteReportPath = join(outDir, 'k6_suite_report.md');
+  const suiteReportHtmlPath = buildK6SuiteReportHtmlPath(outDir);
+  const html = renderK6SuiteHtmlReport({
+    suiteReportPath,
+    suiteReportHtmlPath,
+    results: [{
+      test: 'load',
+      report: samplePerformanceReport('UNKNOWN', 'LOW'),
+      artifactPaths: {
+        outDir,
+        summaryPath: join(outDir, 'k6_load_summary.json'),
+        contextPath: join(outDir, 'k6_load_context.json'),
+        inputPath: join(outDir, 'k6_load_input.json'),
+        reportJsonPath: join(outDir, 'k6_load_report.json'),
+        markdownPath: join(outDir, 'k6_load_report.md'),
+        reportHtmlPath: join(outDir, 'k6_load_report.html'),
+        logPath: join(outDir, 'logs', 'k6_load.log'),
+      },
+      k6ExitCode: 0,
+      continuedAfterThresholdFailure: false,
+    }],
+  });
+
+  assert.ok(suiteReportHtmlPath.endsWith('k6_suite_report.html'));
+  assert.ok(html.includes('k6 Suite Performance Report'));
+  assert.ok(html.includes('k6_load_report.md'));
+  assert.ok(html.includes('54.68ms'));
 });
 
 function createHistoryRun(
   outputRoot: string,
   phase: 'baseline' | 'optimized',
   runId: string,
-  files: { reports?: string[]; logs?: string[]; jsonReports?: Record<string, unknown> },
+  files: { reports?: string[]; htmlReports?: string[]; logs?: string[]; jsonReports?: Record<string, unknown> },
 ): string {
   const runPath = join(outputRoot, phase, 'runs', runId);
   mkdirSync(runPath, { recursive: true });
   for (const report of files.reports ?? []) {
     writeFileSync(join(runPath, report), '# report\n');
+  }
+  for (const report of files.htmlReports ?? []) {
+    writeFileSync(join(runPath, report), '<!doctype html>\n');
   }
   for (const [name, value] of Object.entries(files.jsonReports ?? {})) {
     writeFileSync(join(runPath, name), JSON.stringify(value, null, 2) + '\n');
@@ -415,6 +725,7 @@ test('findRunHistory detects k6-single run', () => {
   const outputRoot = mkdtempSync(join(tmpdir(), 'perf-history-single-'));
   createHistoryRun(outputRoot, 'baseline', '20260504T153658-k6-load-940a85', {
     reports: ['k6_load_report.md'],
+    htmlReports: ['k6_load_report.html'],
     logs: ['k6_load.log'],
   });
 
@@ -423,6 +734,8 @@ test('findRunHistory detects k6-single run', () => {
   assert.equal(item.phase, 'baseline');
   assert.equal(item.kind, 'k6-single');
   assert.equal(item.reports.length, 1);
+  assert.equal(item.htmlReports.length, 1);
+  assert.ok(item.htmlReports[0].endsWith('k6_load_report.html'));
   assert.equal(item.logs.length, 1);
 });
 
@@ -470,12 +783,15 @@ test('renderRunHistoryDetails includes folder reports and logs', () => {
   const outputRoot = mkdtempSync(join(tmpdir(), 'perf-history-details-'));
   createHistoryRun(outputRoot, 'baseline', '20260504T153658-k6-load-940a85', {
     reports: ['k6_load_report.md'],
+    htmlReports: ['k6_load_report.html'],
     logs: ['k6_load.log'],
   });
   const [item] = findRunHistory(outputRoot);
   const output = renderRunHistoryDetails(item);
   assert.ok(output.includes(item.path));
   assert.ok(output.includes('k6_load_report.md'));
+  assert.ok(output.includes('HTML Reports'));
+  assert.ok(output.includes('k6_load_report.html'));
   assert.ok(output.includes('k6_load.log'));
 });
 
@@ -507,12 +823,15 @@ test('renderRunArtifactPaths includes full folder, report, and log paths', () =>
   const outputRoot = mkdtempSync(join(tmpdir(), 'perf-artifact-paths-'));
   createHistoryRun(outputRoot, 'baseline', '20260504T153658-k6-load-940a85', {
     reports: ['k6_load_report.md'],
+    htmlReports: ['k6_load_report.html'],
     logs: ['k6_load.log'],
   });
   const [item] = findRunHistory(outputRoot);
   const output = renderRunArtifactPaths(item);
   assert.ok(output.includes(item.path));
   assert.ok(output.includes('k6_load_report.md'));
+  assert.ok(output.includes('HTML Reports'));
+  assert.ok(output.includes('k6_load_report.html'));
   assert.ok(output.includes('k6_load.log'));
 });
 

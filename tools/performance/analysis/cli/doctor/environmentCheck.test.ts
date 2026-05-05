@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { renderEnvironmentCheck } from '../ui/workbenchView';
@@ -121,4 +121,72 @@ test('resolveObservabilityPaths returns consistent paths regardless of nested st
 
   assert.equal(fromRoot.prometheusConfigPath, fromNested.prometheusConfigPath);
   assert.equal(fromRoot.grafanaDirPath, fromNested.grafanaDirPath);
+});
+
+test('Searchess domain Grafana dashboard is valid JSON with expected panels and PromQL', () => {
+  const dashboardPath = join(
+    process.cwd(),
+    '..',
+    'observability',
+    'grafana',
+    'dashboards',
+    'searchess-domain.json',
+  );
+  const dashboard = JSON.parse(readFileSync(dashboardPath, 'utf-8')) as {
+    title: string;
+    uid: string;
+    tags: string[];
+    panels: Array<{ title: string; targets?: Array<{ expr?: string }> }>;
+  };
+  const panelTitles = dashboard.panels.map((panel) => panel.title);
+  const expressions = dashboard.panels.flatMap((panel) =>
+    panel.targets?.map((target) => target.expr ?? '') ?? [],
+  );
+  const expressionText = expressions.join('\n');
+
+  assert.equal(dashboard.title, 'Searchess — Domain Metrics');
+  assert.equal(dashboard.uid, 'searchess-domain');
+  assert.deepEqual(dashboard.tags, ['searchess', 'domain', 'performance']);
+  assert.ok(panelTitles.includes('Domain Operation Rate'));
+  assert.ok(panelTitles.includes('Sessions Created'));
+  assert.ok(panelTitles.includes('Games Created'));
+  assert.ok(panelTitles.includes('Legal Move Generation p95'));
+  assert.ok(panelTitles.includes('Submit Move p95'));
+  assert.ok(panelTitles.includes('Fetch State p95'));
+  assert.ok(expressionText.includes('searchess_sessions_created_total{job="searchess-game-service"}'));
+  assert.ok(expressionText.includes('searchess_legal_move_generation_duration_seconds_bucket{job="searchess-game-service"}'));
+  assert.ok(expressionText.includes('searchess_submit_move_duration_seconds_bucket{job="searchess-game-service"}'));
+  assert.ok(expressionText.includes('searchess_fetch_state_duration_seconds_bucket{job="searchess-game-service"}'));
+});
+
+test('Prometheus config scrapes Docker game-service target with stable job name', () => {
+  const prometheusPath = join(
+    process.cwd(),
+    '..',
+    'observability',
+    'prometheus',
+    'prometheus.yml',
+  );
+  const config = readFileSync(prometheusPath, 'utf-8');
+
+  assert.ok(config.includes("job_name: 'searchess-game-service'"));
+  assert.ok(config.includes("metrics_path: /metrics"));
+  assert.ok(config.includes("targets: ['game-service:8080']"));
+  assert.ok(config.includes("host.docker.internal:8080"));
+});
+
+test('Observability compose attaches Prometheus to external Searchess app network', () => {
+  const composePath = join(
+    process.cwd(),
+    '..',
+    'observability',
+    'docker-compose.observability.yml',
+  );
+  const compose = readFileSync(composePath, 'utf-8');
+
+  assert.ok(compose.includes('container_name: searchess-prometheus'));
+  assert.ok(compose.includes('searchess_app'));
+  assert.ok(compose.includes('external: true'));
+  assert.ok(compose.includes('name: searchess_default'));
+  assert.match(compose, /prometheus:[\s\S]*networks:[\s\S]*-\s+default[\s\S]*-\s+searchess_app/);
 });

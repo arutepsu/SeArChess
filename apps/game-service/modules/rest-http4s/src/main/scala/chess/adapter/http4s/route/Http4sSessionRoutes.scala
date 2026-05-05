@@ -1,6 +1,7 @@
 package chess.adapter.http4s.route
 
 import cats.effect.IO
+import chess.adapter.http4s.DomainMetricsRegistry
 import chess.adapter.http4s.mapper.{GameMapper, SessionMapper}
 import chess.adapter.http4s.route.Http4sRouteSupport.*
 import chess.adapter.rest.contract.dto.{
@@ -43,7 +44,8 @@ import org.http4s.dsl.io.*
 class Http4sSessionRoutes(
     gameService: GameServiceApi,
     persistentSessionService: PersistentSessionService,
-    snapshotTransferService: SessionSnapshotTransferService
+    snapshotTransferService: SessionSnapshotTransferService,
+    metrics: DomainMetricsRegistry = new DomainMetricsRegistry()
 ):
 
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
@@ -93,8 +95,11 @@ class Http4sSessionRoutes(
       )
 
     result match
-      case Right(resp) => jsonResponse(Status.Created, CreateSessionResponse.toJson(resp))
-      case Left(msg)   => jsonError(Status.BadRequest, "BAD_REQUEST", msg)
+      case Right(resp) =>
+        metrics.recordSessionCreated()
+        jsonResponse(Status.Created, CreateSessionResponse.toJson(resp))
+      case Left(msg) =>
+        jsonError(Status.BadRequest, "BAD_REQUEST", msg)
 
   private def handleImport(body: String): IO[Response[IO]] =
     val result: Either[(Status, String, String), SessionStateResponse] =
@@ -146,7 +151,10 @@ class Http4sSessionRoutes(
       case Left(msg) =>
         jsonError(Status.BadRequest, "BAD_REQUEST", msg)
       case Right(uuid) =>
-        persistentSessionService.loadAggregate(SessionId(uuid)) match
+        val startNs = System.nanoTime()
+        val result  = persistentSessionService.loadAggregate(SessionId(uuid))
+        metrics.recordFetchState((System.nanoTime() - startNs).toDouble / 1e9)
+        result match
           case Left(err) =>
             val (status, code, message) = persistentErrToHttpErr(err, idStr)
             jsonError(status, code, message)

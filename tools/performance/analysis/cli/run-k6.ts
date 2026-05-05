@@ -104,7 +104,7 @@ export function formatK6ReportSummary(report: PerformanceReport, outDir: string)
     `error rate: ${(report.summary.error_rate * 100).toFixed(2)}%`,
     `throughput: ${report.summary.throughput} req/s`,
     `bottleneck type: ${report.bottleneck.type}`,
-    `confidence: ${report.bottleneck.confidence}`,
+    `diagnosis confidence: ${report.bottleneck.confidence}`,
     `artifact directory: ${outDir}`,
   ].join('\n');
 }

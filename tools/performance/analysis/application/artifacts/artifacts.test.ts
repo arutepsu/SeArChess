@@ -59,12 +59,15 @@ test('findRunHistory detects baseline k6-single run', () => {
   const tmpDir = mkdtempSync(join(tmpdir(), 'perf-hist-single-'));
   const runDir = makeRunDir(tmpDir, 'baseline', '20260504T120000-k6-baseline-aabbcc');
   writeFileSync(join(runDir, 'k6_baseline_report.md'), '# Report');
+  writeFileSync(join(runDir, 'k6_baseline_report.html'), '<!doctype html>');
 
   const result = findRunHistory(tmpDir);
   assert.equal(result.length, 1);
   assert.equal(result[0].phase, 'baseline');
   assert.equal(result[0].kind, 'k6-single');
   assert.equal(result[0].runId, '20260504T120000-k6-baseline-aabbcc');
+  assert.equal(result[0].htmlReports.length, 1);
+  assert.ok(result[0].htmlReports[0].endsWith('k6_baseline_report.html'));
 });
 
 test('findRunHistory detects baseline k6-suite run', () => {

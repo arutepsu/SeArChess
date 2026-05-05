@@ -17,6 +17,7 @@ export interface EnvironmentCheckResult {
   optimizedRunsDirExists: boolean;
   k6Available: boolean;
   k6Version?: string;
+  gatlingSimulationExists?: boolean;
   prometheusConfigExists?: boolean;
   grafanaDirExists?: boolean;
 }
@@ -54,6 +55,16 @@ export function resolveObservabilityPaths(startDir = process.cwd()): {
   };
 }
 
+export function resolveGatlingSimulationPath(startDir = process.cwd()): string {
+  const repoRoot = performanceConfigRoot(startDir);
+  return join(
+    repoRoot,
+    'tools', 'performance', 'gatling',
+    'src', 'test', 'scala', 'searchess',
+    'SearchessGameplaySimulation.scala',
+  );
+}
+
 export function runEnvironmentCheck(): EnvironmentCheckResult {
   const configRoot = performanceConfigRoot();
   const configFilePath = join(configRoot, 'performance.config.json');
@@ -67,6 +78,9 @@ export function runEnvironmentCheck(): EnvironmentCheckResult {
 
   const k6Version = getCommandVersion('k6', ['version']);
   const k6Available = k6Version !== undefined;
+
+  const gatlingSimulationPath = resolveGatlingSimulationPath();
+  const gatlingSimulationExists = existsSync(gatlingSimulationPath);
 
   const { prometheusConfigPath, grafanaDirPath } = resolveObservabilityPaths();
 
@@ -83,6 +97,7 @@ export function runEnvironmentCheck(): EnvironmentCheckResult {
     optimizedRunsDirExists: existsSync(optimizedRunsDir),
     k6Available,
     k6Version,
+    gatlingSimulationExists,
     prometheusConfigExists: existsSync(prometheusConfigPath),
     grafanaDirExists: existsSync(grafanaDirPath),
   };

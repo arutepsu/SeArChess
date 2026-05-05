@@ -4,6 +4,7 @@ import type { K6ArtifactPaths, K6OutputMode, K6Phase, K6ReportProgressEvent, K6T
 import { runK6Report, runK6ReportAsync } from './runK6Report';
 import type { PerformanceReport } from '../domain/models';
 import { renderK6SuiteMarkdownReport } from '../reporting/k6SuiteMarkdownBuilder';
+import { renderK6SuiteHtmlReport } from '../reporting/k6SuiteHtmlBuilder';
 
 export const K6_SUITE_TEST_ORDER: K6TestName[] = ['baseline', 'load', 'spike', 'stress'];
 export type K6SuiteProgressStep =
@@ -43,10 +44,15 @@ export interface RunK6SuiteTestResult {
 export interface RunK6SuiteResult {
   results: RunK6SuiteTestResult[];
   suiteReportPath: string;
+  suiteReportHtmlPath: string;
 }
 
 export function buildK6SuiteReportPath(outDir: string): string {
   return join(outDir, 'k6_suite_report.md');
+}
+
+export function buildK6SuiteReportHtmlPath(outDir: string): string {
+  return join(outDir, 'k6_suite_report.html');
 }
 
 export function runK6Suite(options: RunK6SuiteOptions): RunK6SuiteResult {
@@ -87,8 +93,11 @@ export function runK6Suite(options: RunK6SuiteOptions): RunK6SuiteResult {
   });
 
   const suiteReportPath = buildK6SuiteReportPath(results[0]?.artifactPaths.outDir ?? '');
-  const suiteMarkdown = renderK6SuiteMarkdownReport({ results, suiteReportPath });
+  const suiteReportHtmlPath = buildK6SuiteReportHtmlPath(results[0]?.artifactPaths.outDir ?? '');
+  const suiteMarkdown = renderK6SuiteMarkdownReport({ results, suiteReportPath, suiteReportHtmlPath });
   writeFileSync(suiteReportPath, suiteMarkdown);
+  const suiteHtml = renderK6SuiteHtmlReport({ results, suiteReportPath, suiteReportHtmlPath });
+  writeFileSync(suiteReportHtmlPath, suiteHtml);
   options.onProgress?.({
     step: 'suite:markdown-written',
     message: 'Suite Markdown report generated.',
@@ -100,7 +109,7 @@ export function runK6Suite(options: RunK6SuiteOptions): RunK6SuiteResult {
     path: suiteReportPath,
   });
 
-  return { results, suiteReportPath };
+  return { results, suiteReportPath, suiteReportHtmlPath };
 }
 
 export async function runK6SuiteAsync(options: RunK6SuiteOptions): Promise<RunK6SuiteResult> {
@@ -143,8 +152,11 @@ export async function runK6SuiteAsync(options: RunK6SuiteOptions): Promise<RunK6
   }
 
   const suiteReportPath = buildK6SuiteReportPath(results[0]?.artifactPaths.outDir ?? '');
-  const suiteMarkdown = renderK6SuiteMarkdownReport({ results, suiteReportPath });
+  const suiteReportHtmlPath = buildK6SuiteReportHtmlPath(results[0]?.artifactPaths.outDir ?? '');
+  const suiteMarkdown = renderK6SuiteMarkdownReport({ results, suiteReportPath, suiteReportHtmlPath });
   writeFileSync(suiteReportPath, suiteMarkdown);
+  const suiteHtml = renderK6SuiteHtmlReport({ results, suiteReportPath, suiteReportHtmlPath });
+  writeFileSync(suiteReportHtmlPath, suiteHtml);
   options.onProgress?.({
     step: 'suite:markdown-written',
     message: 'Suite Markdown report generated.',
@@ -156,5 +168,5 @@ export async function runK6SuiteAsync(options: RunK6SuiteOptions): Promise<RunK6
     path: suiteReportPath,
   });
 
-  return { results, suiteReportPath };
+  return { results, suiteReportPath, suiteReportHtmlPath };
 }

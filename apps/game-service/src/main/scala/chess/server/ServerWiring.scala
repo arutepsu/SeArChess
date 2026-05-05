@@ -7,7 +7,8 @@ import cats.syntax.semigroupk.*
 import chess.adapter.http4s.Http4sApp
 import chess.server.assembly.{AppContext, EventWiring}
 import chess.server.config.{AiConfig, AppConfig}
-import chess.server.http.{CorsMiddleware, HealthRoutes, HistoryOutboxOpsRoutes, HttpMetricsMiddleware, HttpMetricsRegistry, MigrationAdminRoutes}
+import chess.adapter.http4s.DomainMetricsRegistry
+import chess.server.http.{CorsMiddleware, HealthRoutes, HistoryOutboxOpsRoutes, HttpMetricsMiddleware, HttpMetricsRegistry, HttpRequestLoggingMiddleware, MigrationAdminRoutes}
 import chess.server.http.MetricsRoutes
 import chess.server.migration.MigrationCliRunner
 import com.comcast.ip4s.{Host, Port}
@@ -21,6 +22,7 @@ object ServerWiring:
     val (ctx, events) = GameServiceComposition.assemble(config)
 
     val metricsRegistry = new HttpMetricsRegistry
+    val domainMetrics   = new DomainMetricsRegistry
 
     val publicGameplayApi: HttpApp[IO] =
       Http4sApp(
@@ -28,10 +30,11 @@ object ServerWiring:
         ctx.persistentSessionService,
         ctx.snapshotTransferService,
         ctx.gameRepository,
-        ctx.sessionGameStore
+        ctx.sessionGameStore,
+        domainMetrics
       ).httpApp
 
-    val baseOpsRoutes = HealthRoutes.routes <+> MetricsRoutes.routes(metricsRegistry) <+> HistoryOutboxOpsRoutes(events.historyOutbox).routes
+    val baseOpsRoutes = HealthRoutes.routes <+> MetricsRoutes.routes(metricsRegistry, domainMetrics) <+> HistoryOutboxOpsRoutes(events.historyOutbox).routes
     val internalOpsRoutes =
       if config.migrationAdminEnabled then
         val token = config.migrationAdminToken.getOrElse(
@@ -48,8 +51,11 @@ object ServerWiring:
           .getOrElseF(publicGameplayApi.run(req))
       }
 
+    val loggedApp: HttpApp[IO] =
+      HttpRequestLoggingMiddleware(composedApp)
+
     val instrumentedApp: HttpApp[IO] =
-      HttpMetricsMiddleware(metricsRegistry, composedApp)
+      HttpMetricsMiddleware(metricsRegistry, loggedApp)
 
     val httpApp: HttpApp[IO] =
       CorsMiddleware(config.cors, instrumentedApp)

@@ -3,10 +3,19 @@ import { check, group, sleep } from 'k6';
 
 export const BASE_URL = (__ENV.BASE_URL || 'http://localhost:10000/api').replace(/\/+$/, '');
 
+const PERFORMANCE_RUN_ID = __ENV.PERFORMANCE_RUN_ID || 'local-dev';
+const PERFORMANCE_TOOL = __ENV.PERFORMANCE_TOOL || 'k6';
+const PERFORMANCE_WORKLOAD = __ENV.PERFORMANCE_WORKLOAD || __ENV.K6_TEST || 'smoke';
+const PERFORMANCE_PHASE = __ENV.PERFORMANCE_PHASE || 'local';
+
 const JSON_PARAMS = {
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
+    'X-Performance-Run-Id': PERFORMANCE_RUN_ID,
+    'X-Performance-Tool': PERFORMANCE_TOOL,
+    'X-Performance-Workload': PERFORMANCE_WORKLOAD,
+    'X-Performance-Phase': PERFORMANCE_PHASE,
   },
 };
 
@@ -46,8 +55,6 @@ export function createSession() {
     JSON.stringify({ mode: 'HumanVsHuman' }),
     JSON_PARAMS
   );
-    console.log(`STATUS: ${response.status}`);
-  console.log(`BODY: ${response.body}`);
   const body = checkedJson(response, 'create session', 201);
 
   const hasIds = check(body, {

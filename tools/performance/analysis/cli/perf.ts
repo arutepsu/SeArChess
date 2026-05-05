@@ -1,5 +1,6 @@
 import { TOP_LEVEL_HELP } from './help';
 import { runInteractiveCli } from './interactive';
+import { runGatlingCli } from './run-gatling';
 import { runK6Cli } from './run-k6';
 import { runK6SuiteCli } from './run-k6-suite';
 
@@ -21,6 +22,10 @@ export function runPerfCli(args: string[], deps: PerfCliDeps = { runInteractive:
 
   if (command === 'k6-suite') {
     return runK6SuiteCli(args.slice(1));
+  }
+
+  if (command === 'gatling') {
+    return runGatlingCli(args.slice(1));
   }
 
   if (command === 'interactive' || command === 'start') {

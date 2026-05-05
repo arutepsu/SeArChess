@@ -1,6 +1,8 @@
 # Observability stack: Prometheus + Grafana
 #
-# Usage (game service running locally via sbt / java -jar):
+# Default usage (main Searchess stack running in Docker):
+#
+#   docker compose up -d --build
 #
 #   cd tools/performance/observability
 #   docker compose -f docker-compose.observability.yml up -d
@@ -8,14 +10,12 @@
 #   Prometheus: http://localhost:9090
 #   Grafana:    http://localhost:3000  (admin / admin)
 #
-# Prometheus is configured to scrape host.docker.internal:8080/metrics.
-# On Linux without Docker Desktop the extra_hosts entry maps
-# host.docker.internal to the host via host-gateway.
+# Prometheus is attached to the main Searchess compose network and scrapes
+# game-service:8080/metrics. Start the main stack first so the external
+# searchess_default network exists.
 #
-# For a fully containerised deployment (everything in docker-compose.yml):
-#   - Change the prometheus target from host.docker.internal:8080 to game-service:8080
-#   - Attach both compose projects to the same Docker network, or
-#     merge this file with docker-compose.yml as an override.
+# For local sbt / java -jar backend testing, use a local-specific Prometheus
+# target such as host.docker.internal:8080 instead.
 
 services:
   prometheus:
@@ -23,8 +23,6 @@ services:
     container_name: searchess-prometheus
     ports:
       - "9090:9090"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
@@ -33,6 +31,9 @@ services:
       - '--storage.tsdb.path=/prometheus'
       - '--storage.tsdb.retention.time=7d'
       - '--web.enable-lifecycle'
+    networks:
+      - default
+      - searchess_app
     restart: unless-stopped
 
   grafana:
@@ -55,3 +56,8 @@ services:
 volumes:
   prometheus_data:
   grafana_data:
+
+networks:
+  searchess_app:
+    external: true
+    name: searchess_default

@@ -18,7 +18,7 @@ export interface AIReviewArtifactPaths {
 export interface ReviewableRunBundle {
   runId: string;
   runPath: string;
-  tool: 'k6' | 'unknown';
+  tool: 'k6' | 'gatling' | 'unknown';
   kind: 'single' | 'suite' | 'unknown';
   reportJsonPaths: string[];
   reportMarkdownPaths: string[];
@@ -46,6 +46,7 @@ export function selectAIReviewMarkdown(item: RunHistoryItem): string | undefined
   const singlePath = buildAIReviewArtifactPaths(item.path, 'single').markdownPath;
   if (item.kind === 'k6-suite' && existsSync(suitePath)) return suitePath;
   if (item.kind === 'k6-single' && existsSync(singlePath)) return singlePath;
+  if (item.kind === 'gatling-single' && existsSync(singlePath)) return singlePath;
   if (existsSync(suitePath)) return suitePath;
   return existsSync(singlePath) ? singlePath : undefined;
 }
@@ -64,20 +65,37 @@ function isK6DeterministicReportMarkdown(entry: string): boolean {
   return /^k6_.*_report\.md$/.test(entry);
 }
 
+function isGatlingDeterministicReportJson(entry: string): boolean {
+  return /^gatling_.*_report\.json$/.test(entry);
+}
+
+function isGatlingDeterministicReportMarkdown(entry: string): boolean {
+  return /^gatling_.*_report\.md$/.test(entry);
+}
+
 export function buildReviewableRunBundle(item: RunHistoryItem): ReviewableRunBundle {
-  const reportJsonPaths = sortedEntries(item.path, isK6DeterministicReportJson)
+  const k6JsonPaths = sortedEntries(item.path, isK6DeterministicReportJson)
     .map((entry) => join(item.path, entry));
-  const reportMarkdownPaths = sortedEntries(item.path, isK6DeterministicReportMarkdown)
+  const gatlingJsonPaths = sortedEntries(item.path, isGatlingDeterministicReportJson)
     .map((entry) => join(item.path, entry));
+  const k6MdPaths = sortedEntries(item.path, isK6DeterministicReportMarkdown)
+    .map((entry) => join(item.path, entry));
+  const gatlingMdPaths = sortedEntries(item.path, isGatlingDeterministicReportMarkdown)
+    .map((entry) => join(item.path, entry));
+
+  const reportJsonPaths = [...k6JsonPaths, ...gatlingJsonPaths];
+  const reportMarkdownPaths = [...k6MdPaths, ...gatlingMdPaths];
   const suiteMarkdownPath = existsSync(join(item.path, 'k6_suite_report.md'))
     ? join(item.path, 'k6_suite_report.md')
     : undefined;
-  const tool = item.kind === 'k6-single' || item.kind === 'k6-suite' ? 'k6' : 'unknown';
-  const kind = item.kind === 'k6-suite'
-    ? 'suite'
-    : item.kind === 'k6-single'
-      ? 'single'
-      : 'unknown';
+
+  const tool: ReviewableRunBundle['tool'] =
+    item.kind === 'gatling-single' ? 'gatling' :
+    (item.kind === 'k6-single' || item.kind === 'k6-suite' ? 'k6' : 'unknown');
+
+  const kind: ReviewableRunBundle['kind'] =
+    item.kind === 'k6-suite' ? 'suite' :
+    (item.kind === 'k6-single' || item.kind === 'gatling-single' ? 'single' : 'unknown');
 
   return {
     runId: item.runId,

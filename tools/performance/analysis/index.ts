@@ -2,6 +2,7 @@ export { analyze } from './application/analyzePerformance';
 export { compare } from './application/comparePerformance';
 export { reviewSingle, reviewComparison } from './application/reviewPerformance';
 export { renderPerformanceReview } from './application/renderPerformanceReview';
+export { renderPerformanceReviewHtml } from './application/renderPerformanceReviewHtml';
 export { runPerformancePipeline } from './application/runPerformancePipeline';
 export { runK6Suite, runK6SuiteAsync } from './application/runK6Suite';
 export { runK6ReportAsync } from './application/runK6Report';

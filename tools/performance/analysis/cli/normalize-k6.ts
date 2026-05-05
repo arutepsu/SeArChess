@@ -10,7 +10,7 @@ function readJsonFile(filePath: string): unknown {
     throw new Error(`Error reading "${filePath}": ${msg}`);
   }
 }
-
+ 
 function main(): void {
   const summaryPath = process.argv[2] as string | undefined;
   const contextPath = process.argv[3] as string | undefined;
