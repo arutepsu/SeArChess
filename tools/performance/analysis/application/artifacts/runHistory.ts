@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { resolveArtifactRoot } from './artifactRoot';
 
 export type RunHistoryPhase = 'baseline' | 'optimized' | 'unknown';
-export type RunHistoryKind = 'k6-single' | 'k6-suite' | 'gatling-single' | 'unknown';
+export type RunHistoryKind = 'k6-single' | 'k6-suite' | 'gatling-single' | 'jmh-single' | 'unknown';
 
 export interface RunHistoryItem {
   runId: string;
@@ -49,14 +49,19 @@ function htmlReportsInRun(runPath: string): string[] {
 
 function logsInRun(runPath: string): string[] {
   const logsDir = join(runPath, 'logs');
-  return safeDirectoryEntries(logsDir)
+  const logs = safeDirectoryEntries(logsDir)
     .filter((entry) => entry.endsWith('.log'))
-    .map((entry) => join(logsDir, entry))
+    .map((entry) => join(logsDir, entry));
+  const rootTextLogs = safeDirectoryEntries(runPath)
+    .filter((entry) => entry === 'jmh_results.txt')
+    .map((entry) => join(runPath, entry));
+  return [...logs, ...rootTextLogs]
     .sort();
 }
 
 function determineKind(runPath: string, reports: string[]): RunHistoryKind {
   if (existsSync(join(runPath, 'k6_suite_report.md'))) return 'k6-suite';
+  if (existsSync(join(runPath, 'jmh_report.md'))) return 'jmh-single';
   if (reports.some((r) => /k6_.*_report\.md$/.test(r.replace(/\\/g, '/')))) return 'k6-single';
   if (reports.some((r) => /gatling_.*_report\.md$/.test(r.replace(/\\/g, '/')))) return 'gatling-single';
   return 'unknown';

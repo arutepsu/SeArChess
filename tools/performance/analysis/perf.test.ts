@@ -6,14 +6,17 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   buildInteractiveK6ReportOptions,
+  buildInteractiveJmhReportOptions,
   buildInteractiveRunOutDir,
   buildInteractiveK6SuiteOptions,
   formatK6ReportProgressEvent,
+  formatJmhReportProgressEvent,
   formatK6SuiteProgressEvent,
   formatRunningSpinnerText,
   k6WorkbenchActionToTest,
   k6ReportSpinnerAction,
   k6SuiteSpinnerAction,
+  jmhReportSpinnerAction,
   parsePercentAnswer,
   resolveAnswer,
 } from './cli/interactive';
@@ -80,6 +83,7 @@ import {
 import type { BottleneckType, Confidence, PerformanceReport } from './domain/models';
 import { buildK6SuiteReportHtmlPath } from './application/runK6Suite';
 import { renderK6SuiteHtmlReport } from './reporting/k6SuiteHtmlBuilder';
+import { jmhProfileOptions } from './application/runJmhReport';
 
 const PERF = join(__dirname, 'cli', 'perf.js');
 
@@ -91,6 +95,67 @@ test('perf --help prints usage', () => {
   assert.ok(result.stdout.includes('k6-suite'));
   assert.ok(result.stdout.includes('interactive'));
   assert.ok(result.stdout.includes('start'));
+});
+
+test('interactive JMH options use profile defaults and workbench output folder', () => {
+  const options = buildInteractiveJmhReportOptions({
+    profile: 'gc',
+    phase: 'baseline',
+    out: 'docs/performance/baseline/runs/jmh-gc-demo',
+    runId: 'jmh-gc-demo',
+    pattern: 'chess.benchmarks.*',
+    benchmarkGroupId: 'all',
+    benchmarkGroupLabel: 'All benchmarks',
+  });
+
+  assert.equal(options.profile, 'gc');
+  assert.equal(options.gcProfiler, true);
+  assert.equal(options.measurementIterations, 5);
+  assert.equal(options.out, 'docs/performance/baseline/runs/jmh-gc-demo');
+  assert.equal(options.runId, 'jmh-gc-demo');
+});
+
+test('JMH profile defaults define smoke, baseline, and gc/allocation runs', () => {
+  assert.deepEqual(jmhProfileOptions('smoke'), {
+    warmupIterations: 1,
+    measurementIterations: 1,
+    forks: 1,
+    threads: 1,
+    gcProfiler: false,
+    pattern: 'chess.benchmarks.*',
+  });
+  assert.equal(jmhProfileOptions('baseline').measurementIterations, 5);
+  assert.equal(jmhProfileOptions('gc').gcProfiler, true);
+});
+
+test('JMH progress helpers render execution and artifact events', () => {
+  const start = jmhReportSpinnerAction({
+    step: 'jmh:start',
+    profile: 'smoke',
+    message: 'Starting',
+    path: 'jmh_results.txt',
+  });
+  assert.equal(start.kind, 'start');
+
+  assert.equal(formatJmhReportProgressEvent({
+    step: 'jmh:complete',
+    profile: 'smoke',
+    message: 'Done',
+  }), undefined);
+  assert.match(formatJmhReportProgressEvent({
+    step: 'structured-report:written',
+    profile: 'smoke',
+    message: 'Structured',
+  }) ?? '', /structured report written/);
+});
+
+test('interactive JMH menu exposes real actions instead of coming soon placeholder', () => {
+  const interactiveBundle = readFileSync(join(__dirname, 'cli', 'interactive.js'), 'utf-8');
+
+  assert.match(interactiveBundle, /Run smoke JMH benchmark/);
+  assert.match(interactiveBundle, /Run baseline JMH benchmark/);
+  assert.match(interactiveBundle, /Run GC\/allocation JMH benchmark/);
+  assert.doesNotMatch(interactiveBundle, /Coming soon: JMH benchmarks/);
 });
 
 test('perf unknown command exits 1', () => {

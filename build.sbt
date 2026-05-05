@@ -458,6 +458,21 @@ lazy val gatlingPerf = project
     )
   )
 
+// Performance: internal JVM microbenchmarks.
+// Intentionally excluded from the root aggregate: JMH benchmarks are run explicitly
+// and should not slow down normal compile/test workflows.
+
+lazy val benchmarks = project
+  .in(file("modules/benchmarks"))
+  .enablePlugins(JmhPlugin)
+  .disablePlugins(wartremover.WartRemover)
+  .settings(
+    scalaVersion    := scala3Version,
+    name            := "searchess-benchmarks",
+    coverageEnabled := false
+  )
+  .dependsOn(domain, gameCore, adapterPersistence, adapterRestHttp4s)
+
 // ── Aliases ───────────────────────────────────────────────────────────────────
 //
 // Full-project workflow:

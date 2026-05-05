@@ -81,6 +81,22 @@ test('findRunHistory detects baseline k6-suite run', () => {
   assert.equal(result[0].kind, 'k6-suite');
 });
 
+test('findRunHistory detects JMH run with structured report artifacts', () => {
+  const tmpDir = mkdtempSync(join(tmpdir(), 'perf-hist-jmh-'));
+  const runDir = makeRunDir(tmpDir, 'baseline', '20260505T150000-jmh-smoke-aabbcc');
+  writeFileSync(join(runDir, 'jmh_report.md'), '# JMH');
+  writeFileSync(join(runDir, 'jmh_report.json'), '{}');
+  writeFileSync(join(runDir, 'jmh_results.json'), '[]');
+  writeFileSync(join(runDir, 'jmh_results.txt'), 'output');
+
+  const result = findRunHistory(tmpDir);
+
+  assert.equal(result.length, 1);
+  assert.equal(result[0].kind, 'jmh-single');
+  assert.equal(result[0].reports.length, 1);
+  assert.ok(result[0].logs[0].endsWith('jmh_results.txt'));
+});
+
 test('findRunHistory detects optimized run', () => {
   const tmpDir = mkdtempSync(join(tmpdir(), 'perf-hist-opt-'));
   makeRunDir(tmpDir, 'optimized', '20260504T140000-k6-baseline-112233');

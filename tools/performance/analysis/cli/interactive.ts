@@ -3,6 +3,8 @@ import { runEnvironmentCheck } from './doctor/environmentCheck';
 import { runK6ReportAsync, type K6Phase, type K6ReportProgressEvent, type K6TestName, type RunK6ReportOptions } from '../application/runK6Report';
 import { runK6SuiteAsync, type K6SuiteProgressEvent, type RunK6SuiteOptions } from '../application/runK6Suite';
 import { runGatlingReportAsync, type GatlingReportProgressEvent, type GatlingTestName, type RunGatlingReportOptions } from '../application/runGatlingReport';
+import { jmhProfileOptions, runJmhReportAsync, type JmhReportProgressEvent, type JmhWorkbenchProfile, type RunJmhReportOptions } from '../application/runJmhReport';
+import { DEFAULT_JMH_GROUP_ID, findJmhBenchmarkGroup, listJmhBenchmarkGroups, resolveJmhPattern, type JmhBenchmarkGroupId } from '../application/jmhBenchmarkGroups';
 import { createInteractiveRunOutDir } from './artifacts/interactiveRunArtifacts';
 import { loadPerformanceConfig, resolvePerformanceOutputDir, type PerformanceCliConfig } from './config';
 import {
@@ -17,6 +19,7 @@ import { startSpinner, type CliSpinner } from './ui/spinner';
 import * as theme from './ui/theme';
 import {
   artifactSummaryFromGatlingPaths,
+  artifactSummaryFromJmhPaths,
   artifactSummaryFromK6Paths,
   artifactSummaryFromK6Suite,
   blankLineAfterRun,
@@ -25,6 +28,8 @@ import {
   renderMarkdownPreview,
   renderObservabilityHint,
   renderProgressLine,
+  renderJmhRunResult,
+  renderJmhToolSummary,
   renderRunArtifactPaths,
   renderRunHistoryChoiceLabel,
   renderRunHistoryDetails,
@@ -41,12 +46,23 @@ import { renderToolSummaryFromFile } from './ui/toolSummaryView';
 type WorkbenchArea = 'k6' | 'gatling' | 'jmh' | 'reports' | 'settings' | 'doctor' | 'exit';
 type K6WorkbenchAction = 'baseline' | 'load' | 'spike' | 'stress' | 'suite' | 'back';
 type GatlingWorkbenchAction = GatlingTestName | 'back';
+type JmhWorkbenchAction = JmhWorkbenchProfile | 'back';
 type ReportsAction = 'browse-runs' | 'latest-suite-report' | 'back';
 type RunDetailAction = 'preview' | 'paths' | 'generate-ai' | 'preview-ai' | 'back';
 
 type InteractiveK6CommonOptions = Pick<RunK6SuiteOptions, 'baseUrl' | 'cpu' | 'memory' | 'phase' | 'out'>;
 interface InteractiveK6RunOptions extends InteractiveK6CommonOptions {
   runId: string;
+}
+
+interface InteractiveJmhRunOptions {
+  profile: JmhWorkbenchProfile;
+  phase: K6Phase;
+  out: string;
+  runId: string;
+  pattern: string;
+  benchmarkGroupId: JmhBenchmarkGroupId;
+  benchmarkGroupLabel: string;
 }
 
 export type ProgressSpinnerAction =
@@ -258,6 +274,49 @@ export function formatGatlingReportProgressEvent(event: GatlingReportProgressEve
   }
 }
 
+export function buildInteractiveJmhReportOptions(input: InteractiveJmhRunOptions): RunJmhReportOptions {
+  return {
+    ...jmhProfileOptions(input.profile, input.pattern),
+    profile: input.profile,
+    phase: input.phase,
+    out: input.out,
+    runId: input.runId,
+    outputMode: 'log',
+    benchmarkGroupId: input.benchmarkGroupId,
+    benchmarkGroupLabel: input.benchmarkGroupLabel,
+  };
+}
+
+export function jmhReportSpinnerAction(event: JmhReportProgressEvent): ProgressSpinnerAction {
+  switch (event.step) {
+    case 'jmh:start':
+      return {
+        kind: 'start',
+        text: `Running JMH ${event.profile}... writing raw output to log`,
+        test: `JMH ${event.profile}`,
+        logPath: event.path,
+      };
+    case 'jmh:complete':
+      return { kind: 'succeed', text: 'JMH execution completed' };
+    default:
+      return { kind: 'none' };
+  }
+}
+
+export function formatJmhReportProgressEvent(event: JmhReportProgressEvent): string | undefined {
+  switch (event.step) {
+    case 'jmh:start':
+    case 'jmh:complete':
+      return undefined;
+    case 'raw-json:written':
+      return check('raw JSON written');
+    case 'structured-report:written':
+      return check('structured report written');
+    case 'markdown:written':
+      return check('Markdown report written');
+  }
+}
+
 function printProgress(line: string | undefined): void {
   if (line) {
     process.stdout.write(`${line}\n`);
@@ -364,6 +423,51 @@ async function promptCommonK6Options(config: PerformanceCliConfig, tool: string,
     phase,
     out: runFolder.out,
     runId: runFolder.runId,
+  };
+}
+
+async function promptJmhOptions(config: PerformanceCliConfig, profile: JmhWorkbenchProfile): Promise<InteractiveJmhRunOptions> {
+  const defaultPhaseValue = config.defaultPhase ?? 'baseline';
+  const phase = parsePhaseAnswer(resolveAnswer(await inputPrompt({
+    message: 'Phase',
+    default: defaultPhaseValue,
+  }), defaultPhaseValue));
+  const defaultOut = defaultOutputDirectory(config, phase);
+  const outputBase = resolveAnswer(await inputPrompt({
+    message: 'Output directory',
+    default: defaultOut,
+  }), defaultOut);
+
+  const groupId = await selectPrompt<JmhBenchmarkGroupId>({
+    message: 'Benchmark group',
+    choices: listJmhBenchmarkGroups().map((g) => ({
+      name: `${g.label} — ${g.description}`,
+      value: g.id,
+    })),
+    default: DEFAULT_JMH_GROUP_ID,
+  });
+
+  let pattern: string;
+  if (groupId === 'custom') {
+    pattern = resolveAnswer(await inputPrompt({
+      message: 'JMH pattern',
+      default: 'chess.benchmarks.*',
+    }), 'chess.benchmarks.*') ?? 'chess.benchmarks.*';
+  } else {
+    pattern = resolveJmhPattern(groupId);
+  }
+
+  const group = findJmhBenchmarkGroup(groupId === 'custom' ? 'custom' : groupId);
+  const runFolder = buildInteractiveRunOutDir(phase, 'jmh', profile, outputBase);
+
+  return {
+    profile,
+    phase,
+    out: runFolder.out,
+    runId: runFolder.runId,
+    pattern,
+    benchmarkGroupId: groupId,
+    benchmarkGroupLabel: group.label,
   };
 }
 
@@ -638,6 +742,59 @@ export async function runGatlingWorkbenchFlow(config: PerformanceCliConfig): Pro
   }
 }
 
+export async function runJmhWorkbenchFlow(config: PerformanceCliConfig): Promise<number> {
+  let activeSpinner: ActiveSpinnerState | undefined;
+
+  try {
+    process.stdout.write(`\n${theme.section('JMH Benchmarks')}\n`);
+    const action = await selectPrompt<JmhWorkbenchAction>({
+      message: 'Select JMH action',
+      choices: [
+        { name: 'Run smoke JMH benchmark', value: 'smoke' },
+        { name: 'Run baseline JMH benchmark', value: 'baseline' },
+        { name: 'Run GC/allocation JMH benchmark', value: 'gc' },
+        { name: 'Back', value: 'back' },
+      ],
+    });
+
+    if (action === 'back') {
+      return 0;
+    }
+
+    const commonOptions = await promptJmhOptions(config, action);
+    process.stdout.write(`${renderRunMetadata({
+      tool: 'jmh',
+      workload: action,
+      group: commonOptions.benchmarkGroupLabel,
+      phase: commonOptions.phase,
+      runId: commonOptions.runId,
+    })}\n\n`);
+    process.stdout.write(`${theme.section('Progress')}\n`);
+
+    const options: RunJmhReportOptions = {
+      ...buildInteractiveJmhReportOptions(commonOptions),
+      onProgress: (event) => {
+        activeSpinner = applySpinnerAction(jmhReportSpinnerAction(event), activeSpinner);
+        printProgress(formatJmhReportProgressEvent(event));
+      },
+    };
+
+    const result = await runJmhReportAsync(options);
+    stopActiveSpinner(activeSpinner);
+    activeSpinner = undefined;
+    process.stdout.write(`\n${renderJmhRunResult(result.report)}\n\n`);
+    process.stdout.write(`${renderJmhToolSummary(result.report)}\n\n`);
+    process.stdout.write(`${renderArtifactSummary(artifactSummaryFromJmhPaths(result.artifactPaths))}\n${blankLineAfterRun()}`);
+    return 0;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!failActiveSpinner(activeSpinner, msg)) {
+      process.stderr.write(`${theme.error(msg)}\n`);
+    }
+    return 1;
+  }
+}
+
 export async function runInteractiveCli(): Promise<number> {
   try {
     process.stdout.write(`${theme.title(renderWorkbenchHeader())}\n\n`);
@@ -691,7 +848,9 @@ export async function runInteractiveCli(): Promise<number> {
         continue;
       }
       if (area === 'jmh') {
-        process.stdout.write(`${theme.muted('Coming soon: JMH benchmarks')}\n`);
+        const config = loadPerformanceConfig();
+        const result = await runJmhWorkbenchFlow(config);
+        if (result !== 0) return result;
         continue;
       }
       if (area === 'settings') {

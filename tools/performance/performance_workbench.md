@@ -4,7 +4,7 @@
 
 The Searchess Performance Workbench is an in-repo performance tool for running, analyzing, and browsing performance-test evidence for the Searchess backend.
 
-It currently supports k6 load tests and Gatling simulations. JMH benchmarks are planned as a future extension.
+It currently supports k6 load tests, Gatling simulations, and a first JMH benchmark suite for isolated JVM hot paths.
 
 ## Location
 
@@ -58,7 +58,7 @@ Menu areas:
 - Gatling Simulations
 - JMH Benchmarks
 
-JMH is a placeholder for future integration. Gatling is fully integrated.
+JMH is integrated as a separate benchmark lane. It writes structured JMH artifacts and history entries, but it is intentionally not converted into the k6/Gatling `PerformanceReport` model.
 
 Interactive k6 runs:
 
@@ -77,6 +77,14 @@ Interactive single-test runs print three separate sections:
 In the `Result` section, `Status` describes the health of the run, `Bottleneck` describes the detected limiting factor, and `Diagnosis confidence` describes confidence in that bottleneck diagnosis. A healthy run with no latency, error-rate, or resource pressure may correctly show no detected bottleneck with low diagnosis confidence; that means the analyzer has little evidence for a specific limiting factor, not that the run itself is unreliable.
 
 Keep these meanings separate. Native k6/Gatling metrics are useful evidence for understanding the run, but they are not the normalized analyzer result and do not change the deterministic bottleneck rules.
+
+Interactive JMH runs use JMH-specific sections instead:
+
+- `Result`: benchmark count, fastest/slowest score, and allocation availability.
+- `Tool Summary`: JMH options such as warmup iterations, measurement iterations, forks, threads, GC profiler, and benchmark pattern.
+- `Artifacts`: structured JMH report, raw JMH JSON, captured JMH console output, and Markdown report.
+
+JMH does not emit observability correlation headers because it does not send HTTP requests.
 
 The interactive workbench uses semantic colorized terminal output for readability: section headers are highlighted, healthy/pass/OK values are green, warnings and low/medium diagnosis confidence are yellow, failures/errors/KO values are red, unknown values are muted, and artifact paths are displayed in muted blue. These colors are only presentation hints in the terminal. They do not change saved Markdown reports, JSON reports, normalized inputs, or analyzer behavior.
 
@@ -828,9 +836,138 @@ A healthy smoke run produces entries like:
 > absent from Prometheus labels to avoid high-cardinality label explosion. Use Grafana for
 > aggregated metrics and the log file for per-run filtering.
 
+## JMH Benchmarks
+
+k6 and Gatling measure end-to-end HTTP/system behavior: client load, routing, request parsing,
+application work, metrics, serialization, and response handling. JMH measures isolated JVM hot
+paths inside Searchess so local rule-engine and application-service costs can be inspected without
+HTTP, Docker, Prometheus, Grafana, or network noise.
+
+JMH is useful for Scala/JVM code because it manages warmup, JIT compilation effects, dead-code
+elimination, forks, timing modes, and measurement stability. Its results should not be compared
+directly with k6 or Gatling throughput. Use JMH to understand internal operation cost; use k6 and
+Gatling to understand full-service behavior under load.
+
+The initial benchmark suite lives in `modules/benchmarks` and targets:
+
+- legal move generation through `GameStateRules.legalMoves`
+- move application/state transition through `GameStateRules.applyMove`
+- the in-memory `DefaultGameService` path for `getLegalMoves` and `submitMove`
+- domain/application-to-DTO mapping through `GameView.fromState`, `GameMapper`, and `SessionMapper`
+- JSON response rendering through `GameResponse.toJson`, `LegalMovesResponse.toJson`,
+  `SessionStateResponse.toJson`, and `ujson.write`
+
+The mapping and JSON benchmarks isolate response construction cost without executing HTTP routes.
+They are useful when k6 or Gatling shows response latency and you need to separate chess/domain
+cost from DTO construction or JSON rendering cost.
+
+The benchmark project is intentionally not aggregated into normal test runs. Run it explicitly:
+
+```powershell
+# Short sanity run
+sbt "benchmarks / Jmh / run -wi 1 -i 3 -f1 -t1 chess.benchmarks.*"
+
+# Full local run
+sbt "benchmarks / Jmh / run -wi 5 -i 10 -f2 -t1 chess.benchmarks.*"
+
+# Optional JSON output for later analysis
+sbt "benchmarks / Jmh / run -wi 3 -i 5 -f1 -t1 -rf json -rff docs/performance/jmh/jmh-results.json chess.benchmarks.*"
+```
+
+### JMH Artifact Workflow
+
+From the interactive workbench, choose `JMH Benchmarks` and one of:
+
+- `Run smoke JMH benchmark`: `-wi 1 -i 1 -f1 -t1`, useful for validating benchmark wiring.
+- `Run baseline JMH benchmark`: `-wi 3 -i 5 -f1 -t1`, the normal local evidence profile.
+- `Run GC/allocation JMH benchmark`: baseline options plus `-prof gc`, useful for allocation bytes/op.
+
+Interactive JMH runs use the same phase/run-folder discipline as k6 and Gatling:
+
+```text
+docs/performance/<phase>/runs/<run-id>/
+|-- jmh_results.json   # raw JMH JSON output
+|-- jmh_results.txt    # captured SBT/JMH console output
+|-- jmh_report.json    # structured Searchess JMH report model
+`-- jmh_report.md      # Searchess JMH Markdown summary
+```
+
+Reports & History detects these folders as `jmh-single` runs and previews `jmh_report.md`.
+
+Use the lightweight report command when you want to preserve benchmark evidence:
+
+```powershell
+cd tools/performance/analysis
+npm run build
+npm run jmh:report -- --run-id baseline-rules-20260505
+```
+
+The command creates a run folder under:
+
+```text
+docs/performance/jmh/runs/<run-id>/
+|-- jmh-results.json   # raw JMH JSON output
+|-- jmh-results.txt    # captured SBT/JMH console output
+`-- jmh-report.md      # lightweight Searchess Markdown summary
+```
+
+The default command runs:
+
+```powershell
+sbt "benchmarks / Jmh / run -wi 3 -i 5 -f1 -t1 -rf json -rff docs/performance/jmh/runs/<run-id>/jmh-results.json chess.benchmarks.*"
+```
+
+For a quick artifact smoke run, lower the JMH iterations:
+
+```powershell
+npm run jmh:report -- --run-id smoke-jmh --warmup-iterations 1 --measurement-iterations 1 --forks 1 --threads 1
+```
+
+To include JMH GC/allocation secondary metrics, add the optional GC profiler:
+
+```powershell
+npm run jmh:report -- --run-id baseline-jmh-gc --gc-profiler
+```
+
+### Benchmark Groups
+
+Use `--group <id>` to run a named subset of the benchmark suite instead of typing a raw JMH pattern. The workbench interactive flow presents the same list as a selection prompt.
+
+| Group ID               | Label                  | JMH Pattern                                               | When to use                                              |
+|------------------------|------------------------|-----------------------------------------------------------|----------------------------------------------------------|
+| `all`                  | All benchmarks         | `chess.benchmarks.*`                                      | Full suite baseline; default when no flag is supplied    |
+| `domain-rules`         | Domain rules           | `chess.benchmarks.LegalMoveGenerationBenchmark.*`         | Isolate legal-move generation cost                       |
+| `move-application`     | Move application       | `chess.benchmarks.MoveApplicationBenchmark.*`             | Isolate state-transition and move-application cost       |
+| `game-service`         | Game service           | `chess.benchmarks.GameServiceBenchmark.*`                 | In-memory application-service boundary cost              |
+| `mapping`              | Mapping                | `chess.benchmarks.MappingBenchmark.*`                     | Domain/application model to DTO mapping cost             |
+| `json-rendering`       | JSON rendering         | `chess.benchmarks.JsonRenderingBenchmark.*`               | DTO to JSON rendering/serialization cost                 |
+| `response-construction`| Response construction  | `chess.benchmarks.*(MappingBenchmark\|JsonRenderingBenchmark).*` | Mapping plus JSON rendering together               |
+
+`--group` and `--pattern` are mutually exclusive. Use `--pattern <regex>` for any pattern not covered by the named groups.
+
+```powershell
+# Run only the response-construction group with GC profiler
+npm run jmh:report -- --run-id rc-baseline --group response-construction --gc-profiler
+
+# Run only domain-rules as a quick smoke check
+npm run jmh:report -- --run-id smoke-rules --group domain-rules -wi 1 -i 1 -f 1
+```
+
+The generated Markdown table includes benchmark name, JMH mode, score, score error when present,
+unit, allocation bytes/op when present, and benchmark parameters. For `AverageTime` (`avgt`),
+lower scores are faster for the same benchmark and unit. Score error is JMH measurement
+uncertainty, not an application error rate. Allocation values are optional and appear only when
+JMH emits secondary metrics such as `gc.alloc.rate.norm` from `-prof gc`.
+
+Keep JMH reports separate from the normalized k6/Gatling reports. JMH reports help explain isolated
+JVM operation cost; they do not replace end-to-end k6/Gatling evidence and are not forced into the
+Searchess `PerformanceReport` or `PerformanceInput` shapes.
+
+The current suite uses deterministic in-memory fixtures only. `submitMove` is reset per benchmark
+invocation so repeated measurements do not mutate one game into an invalid turn state.
+
 ## Future Extensions
 
-- JMH benchmarks
 - real AI review provider
 - CI artifact mode
 - richer comparison workflows

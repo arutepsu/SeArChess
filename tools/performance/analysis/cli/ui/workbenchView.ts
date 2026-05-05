@@ -1,9 +1,12 @@
-import { basename, dirname, relative } from 'node:path';
+import { existsSync } from 'node:fs';
+import { basename, dirname, join, relative } from 'node:path';
 import type { K6ArtifactPaths } from '../../application/runK6Report';
 import type { GatlingArtifactPaths } from '../../application/runGatlingReport';
+import type { JmhArtifactPaths } from '../../application/runJmhReport';
 import type { RunK6SuiteResult } from '../../application/runK6Suite';
 import type { RunHistoryItem } from '../reports/runHistory';
 import type { PerformanceReport } from '../../domain/models';
+import type { JmhStructuredReport } from '../../application/jmhReport';
 import type { EnvironmentCheckResult } from '../doctor/environmentCheck';
 import type { WorkbenchSettingsView } from '../settings/settingsView';
 import { HIGH_ERROR_RATE_THRESHOLD, HIGH_LATENCY_THRESHOLD_MS } from '../../domain/thresholds';
@@ -13,6 +16,7 @@ import * as theme from './theme';
 export interface RunMetadataInput {
   tool: string;
   workload: string;
+  group?: string;
   phase: string;
   runId: string;
 }
@@ -22,6 +26,9 @@ export interface ArtifactSummaryInput {
   report?: string;
   reportHtml?: string;
   htmlReport?: string;
+  reportJson?: string;
+  jmhJson?: string;
+  jmhOutput?: string;
   log?: string;
   suiteReport?: string;
   suiteReportHtml?: string;
@@ -40,6 +47,12 @@ function formatPercent(value: number): string {
 
 function formatThroughput(value: number): string {
   return `${value.toFixed(2)} req/s`;
+}
+
+function formatJmhNumber(value: number): string {
+  if (Math.abs(value) >= 100) return value.toFixed(2);
+  if (Math.abs(value) >= 1) return value.toFixed(3);
+  return value.toPrecision(3);
 }
 
 function metricRows(rows: string[][]): string[][] {
@@ -105,13 +118,19 @@ export function renderWorkbenchHeader(): string {
 }
 
 export function renderRunMetadata(input: RunMetadataInput): string {
-  return [
+  const lines = [
     theme.section('Run'),
     `  ${padLabel('Tool:')} ${input.tool}`,
     `  ${padLabel('Workload:')} ${input.workload}`,
+  ];
+  if (input.group) {
+    lines.push(`  ${padLabel('Group:')} ${input.group}`);
+  }
+  lines.push(
     `  ${padLabel('Phase:')} ${input.phase}`,
     `  ${padLabel('Run ID:')} ${input.runId}`,
-  ].join('\n');
+  );
+  return lines.join('\n');
 }
 
 export function renderProgressLine(status: ProgressLineStatus, text: string): string {
@@ -209,6 +228,53 @@ export function renderSuiteRunResult(result: RunK6SuiteResult): string {
   ].join('\n');
 }
 
+export function renderJmhRunResult(report: JmhStructuredReport): string {
+  const fastest = report.summary.fastestBenchmark
+    ? `${report.summary.fastestBenchmark.shortName} - ${formatJmhNumber(report.summary.fastestBenchmark.score)} ${report.summary.fastestBenchmark.unit}`
+    : '-';
+  const slowest = report.summary.slowestBenchmark
+    ? `${report.summary.slowestBenchmark.shortName} - ${formatJmhNumber(report.summary.slowestBenchmark.score)} ${report.summary.slowestBenchmark.unit}`
+    : '-';
+  const rows = [
+    ['Benchmarks', report.benchmarkCount.toString()],
+    ['Mode', report.results[0]?.mode ?? '-'],
+    ['Fastest', fastest],
+    ['Slowest', slowest],
+    ['Allocation data', report.summary.allocationDataAvailable ? theme.success('yes') : theme.muted('no')],
+  ];
+  if (report.summary.highestAllocationBenchmark) {
+    rows.push([
+      'Highest allocation',
+      `${report.summary.highestAllocationBenchmark.shortName} - ${formatJmhNumber(report.summary.highestAllocationBenchmark.allocationBytesPerOp)} B/op`,
+    ]);
+  }
+  return [
+    theme.sectionHeader('Result'),
+    '',
+    renderTable(['Metric', 'Value'], metricRows(rows)),
+  ].join('\n');
+}
+
+export function renderJmhToolSummary(report: JmhStructuredReport): string {
+  const rows: string[][] = [];
+  if (report.options.benchmarkGroupLabel) {
+    rows.push(['Benchmark group', report.options.benchmarkGroupLabel]);
+  }
+  rows.push(
+    ['Pattern', report.options.pattern],
+    ['Warmup iterations', report.options.warmupIterations.toString()],
+    ['Measurement iterations', report.options.measurementIterations.toString()],
+    ['Forks', report.options.forks.toString()],
+    ['Threads', report.options.threads.toString()],
+    ['GC profiler', report.options.gcProfiler ? theme.success('enabled') : theme.muted('disabled')],
+  );
+  return [
+    theme.sectionHeader('Tool Summary'),
+    '',
+    renderTable(['Metric', 'Value'], metricRows(rows)),
+  ].join('\n');
+}
+
 export function renderArtifactSummary(input: ArtifactSummaryInput): string {
   const rows: string[][] = [
     [theme.label('Folder'), theme.path(input.folder)],
@@ -226,8 +292,17 @@ export function renderArtifactSummary(input: ArtifactSummaryInput): string {
   if (input.reportHtml) {
     rows.push([theme.label('Report HTML'), theme.path(input.reportHtml)]);
   }
+  if (input.reportJson) {
+    rows.push([theme.label('Report JSON'), theme.path(input.reportJson)]);
+  }
   if (input.htmlReport) {
     rows.push([theme.label('Gatling HTML'), theme.path(input.htmlReport)]);
+  }
+  if (input.jmhJson) {
+    rows.push([theme.label('JMH JSON'), theme.path(input.jmhJson)]);
+  }
+  if (input.jmhOutput) {
+    rows.push([theme.label('JMH output'), theme.path(input.jmhOutput)]);
   }
   if (input.logs) {
     rows.push([theme.label('Logs'), theme.path(input.logs)]);
@@ -276,6 +351,16 @@ export function artifactSummaryFromGatlingPaths(paths: GatlingArtifactPaths): Ar
     reportHtml: paths.reportHtmlPath,
     htmlReport: paths.htmlReportPath,
     log: paths.logPath,
+  };
+}
+
+export function artifactSummaryFromJmhPaths(paths: JmhArtifactPaths): ArtifactSummaryInput {
+  return {
+    folder: paths.outDir,
+    report: paths.markdownPath,
+    reportJson: paths.reportJsonPath,
+    jmhJson: paths.rawJsonPath,
+    jmhOutput: paths.rawTextPath,
   };
 }
 
@@ -339,6 +424,15 @@ export function renderRunHistoryDetails(item: RunHistoryItem): string {
   ].join('\n');
 }
 
+function jmhArtifactPathsInRun(item: RunHistoryItem): string[] {
+  if (item.kind !== 'jmh-single') return [];
+  return [
+    join(item.path, 'jmh_report.json'),
+    join(item.path, 'jmh_results.json'),
+    join(item.path, 'jmh_results.txt'),
+  ].filter((path) => existsSync(path));
+}
+
 export function renderRunHistoryChoiceLabel(item: RunHistoryItem): string {
   const count = item.reports.length;
   const reportLabel = count === 1 ? '1 report' : `${count} reports`;
@@ -378,6 +472,13 @@ export function renderRunArtifactPaths(item: RunHistoryItem): string {
     lines.push('  Logs:');
     for (const l of item.logs) {
       lines.push(`    ${l}`);
+    }
+  }
+  const artifacts = jmhArtifactPathsInRun(item);
+  if (artifacts.length > 0) {
+    lines.push('  Artifacts:');
+    for (const artifact of artifacts) {
+      lines.push(`    ${artifact}`);
     }
   }
   return lines.join('\n');
