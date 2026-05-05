@@ -30,13 +30,12 @@ object MoveValidator:
   def canAttack(board: Board, piece: Piece, from: Position, to: Position): Boolean =
     if from == to then false
     else
-      val move = Move(from, to)
       piece.pieceType match
-        case PieceType.Rook   => validateRook(board, move).isRight
-        case PieceType.Bishop => validateBishop(board, move).isRight
-        case PieceType.Queen  => validateQueen(board, move).isRight
-        case PieceType.Knight => validateKnight(move).isRight
-        case PieceType.King   => validateKing(move).isRight
+        case PieceType.Rook   => rookCanMove(board, from, to)
+        case PieceType.Bishop => bishopCanMove(board, from, to)
+        case PieceType.Queen  => queenCanMove(board, from, to)
+        case PieceType.Knight => knightCanMove(from, to)
+        case PieceType.King   => kingCanMove(from, to)
         case PieceType.Pawn   => pawnAttacks(piece.color, from, to)
 
   private def pawnAttacks(color: Color, from: Position, to: Position): Boolean =
@@ -57,38 +56,28 @@ object MoveValidator:
   // ── sliding pieces ─────────────────────────────────────────────────────────
 
   private def validateRook(board: Board, move: Move): Either[DomainError, Unit] =
-    val straight = move.to.file == move.from.file || move.to.rank == move.from.rank
+    val straight = isStraight(move.from, move.to)
     if !straight then illegal(move)
-    else if isPathClear(board, move) then ok
+    else if isPathClear(board, move.from, move.to) then ok
     else blocked(move)
 
   private def validateBishop(board: Board, move: Move): Either[DomainError, Unit] =
-    val df = math.abs(move.to.file - move.from.file)
-    val dr = math.abs(move.to.rank - move.from.rank)
-    if df != dr then illegal(move)
-    else if isPathClear(board, move) then ok
+    if !isDiagonal(move.from, move.to) then illegal(move)
+    else if isPathClear(board, move.from, move.to) then ok
     else blocked(move)
 
   private def validateQueen(board: Board, move: Move): Either[DomainError, Unit] =
-    val df = move.to.file - move.from.file
-    val dr = move.to.rank - move.from.rank
-    val straight = df == 0 || dr == 0
-    val diagonal = math.abs(df) == math.abs(dr)
-    if !straight && !diagonal then illegal(move)
-    else if isPathClear(board, move) then ok
+    if !queenPattern(move.from, move.to) then illegal(move)
+    else if isPathClear(board, move.from, move.to) then ok
     else blocked(move)
 
   // ── non-sliding pieces ─────────────────────────────────────────────────────
 
   private def validateKnight(move: Move): Either[DomainError, Unit] =
-    val df = math.abs(move.to.file - move.from.file)
-    val dr = math.abs(move.to.rank - move.from.rank)
-    if (df == 1 && dr == 2) || (df == 2 && dr == 1) then ok else illegal(move)
+    if knightCanMove(move.from, move.to) then ok else illegal(move)
 
   private def validateKing(move: Move): Either[DomainError, Unit] =
-    val df = math.abs(move.to.file - move.from.file)
-    val dr = math.abs(move.to.rank - move.from.rank)
-    if df <= 1 && dr <= 1 then ok else illegal(move)
+    if kingCanMove(move.from, move.to) then ok else illegal(move)
 
   // ── pawn ───────────────────────────────────────────────────────────────────
 
@@ -132,13 +121,41 @@ object MoveValidator:
     * (Int, Int) tuples on every call — this method is on the hot path of legal-move generation
     * and check detection.
     */
-  private def isPathClear(board: Board, move: Move): Boolean =
-    val stepFile = Integer.signum(move.to.file - move.from.file)
-    val stepRank = Integer.signum(move.to.rank - move.from.rank)
-    var f = move.from.file + stepFile
-    var r = move.from.rank + stepRank
+  private def rookCanMove(board: Board, from: Position, to: Position): Boolean =
+    isStraight(from, to) && isPathClear(board, from, to)
+
+  private def bishopCanMove(board: Board, from: Position, to: Position): Boolean =
+    isDiagonal(from, to) && isPathClear(board, from, to)
+
+  private def queenCanMove(board: Board, from: Position, to: Position): Boolean =
+    queenPattern(from, to) && isPathClear(board, from, to)
+
+  private def knightCanMove(from: Position, to: Position): Boolean =
+    val df = math.abs(to.file - from.file)
+    val dr = math.abs(to.rank - from.rank)
+    (df == 1 && dr == 2) || (df == 2 && dr == 1)
+
+  private def kingCanMove(from: Position, to: Position): Boolean =
+    val df = math.abs(to.file - from.file)
+    val dr = math.abs(to.rank - from.rank)
+    df <= 1 && dr <= 1
+
+  private def isStraight(from: Position, to: Position): Boolean =
+    to.file == from.file || to.rank == from.rank
+
+  private def isDiagonal(from: Position, to: Position): Boolean =
+    math.abs(to.file - from.file) == math.abs(to.rank - from.rank)
+
+  private def queenPattern(from: Position, to: Position): Boolean =
+    isStraight(from, to) || isDiagonal(from, to)
+
+  private def isPathClear(board: Board, from: Position, to: Position): Boolean =
+    val stepFile = Integer.signum(to.file - from.file)
+    val stepRank = Integer.signum(to.rank - from.rank)
+    var f = from.file + stepFile
+    var r = from.rank + stepRank
     var clear = true
-    while clear && (f != move.to.file || r != move.to.rank) do
+    while clear && (f != to.file || r != to.rank) do
       clear = Position.from(f, r).toOption.flatMap(board.pieceAt).isEmpty
       f += stepFile
       r += stepRank
