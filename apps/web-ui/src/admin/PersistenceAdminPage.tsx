@@ -170,12 +170,14 @@ export default function PersistenceAdminPage({ onBack }: Props) {
                   {
                     value: "dry-run" as MigrationMode,
                     label: "DryRun",
-                    description: "Reads only — shows what would be migrated, no writes"
+                    description: "Reads only — shows what would be migrated, no writes",
+                    isWrite: false
                   },
                   {
                     value: "validate-only" as MigrationMode,
                     label: "ValidateOnly",
-                    description: "Compares source and target without writing"
+                    description: "Compares source and target without writing",
+                    isWrite: false
                   },
                   {
                     value: "execute" as MigrationMode,
