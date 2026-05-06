@@ -6,7 +6,13 @@ import { join } from 'node:path';
 import type { RunHistoryItem } from '../../application/artifacts/runHistory';
 import { generateStructuredReview } from '../../application/reviewPerformance';
 import { StubAIReviewProvider } from '../../ai/aiReviewProvider';
-import { runDetailActionChoices } from '../interactive';
+import {
+  runDetailActionChoices,
+  handleRunDetailAction,
+  type RunDetailAction,
+  type RunDetailActionDeps,
+} from '../interactive';
+import { AI_REVIEW_DISABLED_MESSAGE } from './aiReviewArtifacts';
 import {
   buildReviewInputFromRun,
   generateStructuredReviewForRun,
@@ -49,28 +55,41 @@ function makeDeps(
 }
 
 // ---------------------------------------------------------------------------
-// runDetailActionChoices — menu contract
+// runDetailActionChoices — exhaustive menu contract
 // ---------------------------------------------------------------------------
 
-test('runDetailActionChoices includes generate-structured-review value', () => {
-  const values = runDetailActionChoices().map((c) => c.value);
-  assert.ok(values.includes('generate-structured-review'));
+const EXPECTED_RUN_DETAIL_ACTIONS = [
+  'back',
+  'generate-ai',
+  'generate-structured-review',
+  'paths',
+  'preview',
+  'preview-ai',
+  'preview-structured-review',
+] as const;
+
+test('runDetailActionChoices contains exactly the expected action values', () => {
+  const actual = runDetailActionChoices().map((c) => c.value).sort();
+  const expected = [...EXPECTED_RUN_DETAIL_ACTIONS].sort();
+  assert.deepEqual(actual, expected,
+    `choices mismatch — actual: ${JSON.stringify(actual)}, expected: ${JSON.stringify(expected)}`);
 });
 
-test('runDetailActionChoices label for generate-structured-review mentions structured review', () => {
+test('runDetailActionChoices: generate-structured-review label mentions structured review', () => {
   const entry = runDetailActionChoices().find((c) => c.value === 'generate-structured-review');
-  assert.ok(entry, 'choice not found');
+  assert.ok(entry, 'generate-structured-review choice not found');
   assert.ok(
     entry.name.toLowerCase().includes('structured review'),
     `unexpected label: ${entry.name}`,
   );
 });
 
-test('runDetailActionChoices still includes all original actions', () => {
-  const values = runDetailActionChoices().map((c) => c.value);
-  for (const expected of ['preview', 'paths', 'generate-ai', 'preview-ai', 'back'] as const) {
-    assert.ok(values.includes(expected), `missing action: ${expected}`);
-  }
+test('runDetailActionChoices: preview-structured-review label mentions both preview and structured review', () => {
+  const entry = runDetailActionChoices().find((c) => c.value === 'preview-structured-review');
+  assert.ok(entry, 'preview-structured-review choice not found');
+  const lower = entry.name.toLowerCase();
+  assert.ok(lower.includes('preview'), `unexpected label: ${entry.name}`);
+  assert.ok(lower.includes('structured review'), `unexpected label: ${entry.name}`);
 });
 
 // ---------------------------------------------------------------------------
@@ -270,7 +289,7 @@ test('runDetailActionChoices label for preview-structured-review mentions previe
   assert.ok(lower.includes('structured review'), `unexpected label: ${entry.name}`);
 });
 
-test('runDetailActionChoices generate-structured-review appears before preview-structured-review', () => {
+test('runDetailActionChoices: generate-structured-review appears before preview-structured-review', () => {
   const values = runDetailActionChoices().map((c) => c.value);
   const genIdx = values.indexOf('generate-structured-review');
   const preIdx = values.indexOf('preview-structured-review');
@@ -298,4 +317,111 @@ test('selectStructuredReviewMarkdown returns path when review_report.md exists',
   assert.ok(result !== undefined, 'expected a path');
   assert.ok(result.endsWith('review_report.md'), `unexpected path: ${result}`);
   assert.ok(existsSync(result), 'returned path should exist');
+});
+
+// ---------------------------------------------------------------------------
+// handleRunDetailAction
+// ---------------------------------------------------------------------------
+
+const stubConfig = { outputRoot: '/tmp/perf-stub', ai: undefined } as Parameters<typeof handleRunDetailAction>[2];
+
+function makeActionDeps(
+  overrides: Partial<RunDetailActionDeps>,
+  output: string[],
+): RunDetailActionDeps {
+  return {
+    readFile: () => '# content',
+    write: (text) => output.push(text),
+    selectMarkdown: () => undefined,
+    selectAIMarkdown: () => undefined,
+    selectStructuredMarkdown: () => undefined,
+    generateAI: async () => { throw new Error(AI_REVIEW_DISABLED_MESSAGE); },
+    generateStructured: async () => {},
+    renderPreview: (path, _content) => `preview:${path}`,
+    renderPaths: (_item) => 'artifact-paths',
+    ...overrides,
+  };
+}
+
+test('handleRunDetailAction: back returns back', async () => {
+  const result = await handleRunDetailAction('back', makeItem('k6-single'), stubConfig, makeActionDeps({}, []));
+  assert.equal(result, 'back');
+});
+
+test('handleRunDetailAction: paths writes rendered paths and returns continue', async () => {
+  const output: string[] = [];
+  const result = await handleRunDetailAction('paths', makeItem('k6-single'), stubConfig, makeActionDeps({
+    renderPaths: () => 'run-paths-output',
+  }, output));
+  assert.equal(result, 'continue');
+  assert.ok(output.join('').includes('run-paths-output'), `expected paths output, got: ${output.join('')}`);
+});
+
+test('handleRunDetailAction: preview with no markdown writes muted message and returns continue', async () => {
+  const output: string[] = [];
+  const result = await handleRunDetailAction('preview', makeItem('k6-single'), stubConfig, makeActionDeps({
+    selectMarkdown: () => undefined,
+  }, output));
+  assert.equal(result, 'continue');
+  assert.ok(output.join('').toLowerCase().includes('no report'), `expected no-report message, got: ${output.join('')}`);
+});
+
+test('handleRunDetailAction: preview with markdown writes rendered preview and returns continue', async () => {
+  const runDir = mkdtempSync(join(tmpdir(), 'perf-action-preview-'));
+  const output: string[] = [];
+  const result = await handleRunDetailAction('preview', makeItem('k6-single', { path: runDir }), stubConfig, makeActionDeps({
+    selectMarkdown: () => join(runDir, 'report.md'),
+    readFile: () => '# Report',
+    renderPreview: (p, _c) => `rendered:${p}`,
+  }, output));
+  assert.equal(result, 'continue');
+  assert.ok(output.join('').includes('rendered:'), `expected rendered preview, got: ${output.join('')}`);
+});
+
+test('handleRunDetailAction: generate-structured-review calls generateStructured and returns continue', async () => {
+  let called = false;
+  const output: string[] = [];
+  const result = await handleRunDetailAction('generate-structured-review', makeItem('k6-single'), stubConfig, makeActionDeps({
+    generateStructured: async (_item) => { called = true; },
+  }, output));
+  assert.equal(result, 'continue');
+  assert.ok(called, 'generateStructured was not called');
+});
+
+test('handleRunDetailAction: preview-structured-review with no review writes muted message and returns continue', async () => {
+  const output: string[] = [];
+  const result = await handleRunDetailAction('preview-structured-review', makeItem('k6-single'), stubConfig, makeActionDeps({
+    selectStructuredMarkdown: () => undefined,
+  }, output));
+  assert.equal(result, 'continue');
+  const combined = output.join('');
+  assert.ok(
+    combined.toLowerCase().includes('no structured review'),
+    `expected no-structured-review message, got: ${combined}`,
+  );
+});
+
+test('handleRunDetailAction: preview-structured-review with review writes rendered preview and returns continue', async () => {
+  const runDir = mkdtempSync(join(tmpdir(), 'perf-action-sr-preview-'));
+  const output: string[] = [];
+  const srPath = join(runDir, 'review_report.md');
+  const result = await handleRunDetailAction('preview-structured-review', makeItem('k6-single', { path: runDir }), stubConfig, makeActionDeps({
+    selectStructuredMarkdown: () => srPath,
+    readFile: () => '# SR',
+    renderPreview: (p, _c) => `sr-rendered:${p}`,
+  }, output));
+  assert.equal(result, 'continue');
+  assert.ok(output.join('').includes('sr-rendered:'), `expected rendered SR preview, got: ${output.join('')}`);
+});
+
+test('handleRunDetailAction: generate-ai when disabled writes muted message and returns continue', async () => {
+  const output: string[] = [];
+  const result = await handleRunDetailAction('generate-ai', makeItem('k6-single'), stubConfig, makeActionDeps({
+    generateAI: async () => { throw new Error(AI_REVIEW_DISABLED_MESSAGE); },
+  }, output));
+  assert.equal(result, 'continue');
+  assert.ok(
+    output.join('').includes(AI_REVIEW_DISABLED_MESSAGE),
+    `expected disabled message, got: ${output.join('')}`,
+  );
 });

@@ -469,7 +469,12 @@ lazy val benchmarks = project
   .settings(
     scalaVersion    := scala3Version,
     name            := "searchess-benchmarks",
-    coverageEnabled := false
+    coverageEnabled := false,
+    libraryDependencies ++= Seq(
+      "org.testcontainers" % "testcontainers" % testcontainersVersion,
+      "org.testcontainers" % "postgresql"     % testcontainersVersion,
+      "org.testcontainers" % "mongodb"        % testcontainersVersion
+    )
   )
   .dependsOn(domain, gameCore, adapterPersistence, adapterRestHttp4s)
 

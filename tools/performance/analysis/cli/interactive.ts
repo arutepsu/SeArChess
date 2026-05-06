@@ -55,7 +55,7 @@ type K6WorkbenchAction = 'baseline' | 'load' | 'spike' | 'stress' | 'suite' | 'b
 type GatlingWorkbenchAction = GatlingTestName | 'back';
 type JmhWorkbenchAction = JmhWorkbenchProfile | 'back';
 type ReportsAction = 'browse-runs' | 'latest-suite-report' | 'structured-review' | 'preview-structured-review' | 'back';
-type RunDetailAction = 'preview' | 'paths' | 'generate-ai' | 'preview-ai' | 'generate-structured-review' | 'preview-structured-review' | 'back';
+export type RunDetailAction = 'preview' | 'paths' | 'generate-ai' | 'preview-ai' | 'generate-structured-review' | 'preview-structured-review' | 'back';
 
 type InteractiveK6CommonOptions = Pick<RunK6SuiteOptions, 'baseUrl' | 'cpu' | 'memory' | 'phase' | 'out'>;
 interface InteractiveK6RunOptions extends InteractiveK6CommonOptions {
@@ -126,6 +126,135 @@ export function runDetailActionChoices(): SelectPromptChoice<RunDetailAction>[] 
     { name: 'Preview structured review for this run', value: 'preview-structured-review' },
     { name: 'Back', value: 'back' },
   ];
+}
+
+export type RunDetailActionResult = 'back' | 'continue';
+
+export interface RunDetailActionDeps {
+  readFile: (path: string) => string;
+  write: (text: string) => void;
+  selectMarkdown: typeof selectPreferredMarkdownReport;
+  selectAIMarkdown: typeof selectAIReviewMarkdown;
+  selectStructuredMarkdown: typeof selectStructuredReviewMarkdown;
+  generateAI: typeof generateAIReviewForRun;
+  generateStructured: typeof generateStructuredReviewForRun;
+  renderPreview: typeof renderMarkdownPreview;
+  renderPaths: typeof renderRunArtifactPaths;
+}
+
+function defaultRunDetailActionDeps(): RunDetailActionDeps {
+  return {
+    readFile: (path) => readFileSync(path, 'utf-8'),
+    write: (text) => process.stdout.write(text),
+    selectMarkdown: selectPreferredMarkdownReport,
+    selectAIMarkdown: selectAIReviewMarkdown,
+    selectStructuredMarkdown: selectStructuredReviewMarkdown,
+    generateAI: generateAIReviewForRun,
+    generateStructured: generateStructuredReviewForRun,
+    renderPreview: renderMarkdownPreview,
+    renderPaths: renderRunArtifactPaths,
+  };
+}
+
+export async function handleRunDetailAction(
+  action: RunDetailAction,
+  item: RunHistoryItem,
+  config: PerformanceCliConfig,
+  deps: RunDetailActionDeps,
+): Promise<RunDetailActionResult> {
+  switch (action) {
+    case 'back':
+      return 'back';
+
+    case 'preview': {
+      const reportPath = deps.selectMarkdown(item);
+      if (!reportPath) {
+        deps.write(`${theme.muted('No report found for this run.')}\n`);
+        return 'continue';
+      }
+      let previewContent: string;
+      try {
+        previewContent = deps.readFile(reportPath);
+      } catch {
+        deps.write(`${theme.muted(`Could not read report: ${reportPath}`)}\n`);
+        return 'continue';
+      }
+      deps.write(`\n${deps.renderPreview(reportPath, previewContent)}\n`);
+      return 'continue';
+    }
+
+    case 'paths':
+      deps.write(`\n${deps.renderPaths(item)}\n`);
+      return 'continue';
+
+    case 'generate-ai': {
+      try {
+        const result = await deps.generateAI(item, config);
+        const label = result.bundle.kind === 'suite' ? 'AI suite review generated.' : 'AI review generated.';
+        deps.write(`${theme.success(label)}\n`);
+        deps.write(`${theme.muted(`JSON: ${result.paths.jsonPath}`)}\n`);
+        deps.write(`${theme.muted(`Markdown: ${result.paths.markdownPath}`)}\n`);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (message === AI_REVIEW_DISABLED_MESSAGE) {
+          deps.write(`${theme.muted(message)}\n`);
+        } else {
+          deps.write(`${theme.warning(message)}\n`);
+        }
+      }
+      return 'continue';
+    }
+
+    case 'preview-ai': {
+      const aiPath = deps.selectAIMarkdown(item);
+      if (!aiPath) {
+        deps.write(`${theme.muted('No AI review found for this run. Generate one first.')}\n`);
+        return 'continue';
+      }
+      let aiContent: string;
+      try {
+        aiContent = deps.readFile(aiPath);
+      } catch {
+        deps.write(`${theme.muted(`Could not read AI review: ${aiPath}`)}\n`);
+        return 'continue';
+      }
+      deps.write(`\n${deps.renderPreview(aiPath, aiContent)}\n`);
+      return 'continue';
+    }
+
+    case 'generate-structured-review': {
+      try {
+        await deps.generateStructured(item);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        deps.write(`${theme.warning(message)}\n`);
+      }
+      return 'continue';
+    }
+
+    case 'preview-structured-review': {
+      const srPath = deps.selectStructuredMarkdown(item);
+      if (!srPath) {
+        deps.write(`${theme.muted('No structured review found for this run. Generate one first.')}\n`);
+        return 'continue';
+      }
+      let srContent: string;
+      try {
+        srContent = deps.readFile(srPath);
+      } catch {
+        deps.write(`${theme.muted(`Could not read structured review: ${srPath}`)}\n`);
+        return 'continue';
+      }
+      deps.write(`\n${deps.renderPreview(srPath, srContent)}\n`);
+      return 'continue';
+    }
+
+    default: {
+      const _unreachable: never = action;
+      deps.write(`${theme.warning(`Unknown run action: ${String(_unreachable)}`)}\n`);
+      return 'continue';
+    }
+  }
 }
 
 export function defaultOutputDirectory(config: PerformanceCliConfig, phase: K6Phase): string | undefined {
@@ -512,96 +641,15 @@ async function promptJmhOptions(config: PerformanceCliConfig, profile: JmhWorkbe
 }
 
 async function browseRunDetailFlow(item: RunHistoryItem, config: PerformanceCliConfig): Promise<number> {
+  const deps = defaultRunDetailActionDeps();
   while (true) {
     process.stdout.write(`\n${renderRunHistoryDetails(item)}\n`);
-
     const action = await selectPrompt<RunDetailAction>({
       message: 'Run Actions',
       choices: runDetailActionChoices(),
     });
-
-    if (action === 'back') return 0;
-
-    if (action === 'preview') {
-      const reportPath = selectPreferredMarkdownReport(item);
-      if (!reportPath) {
-        process.stdout.write(`${theme.muted('No report found for this run.')}\n`);
-        continue;
-      }
-      let content: string;
-      try {
-        content = readFileSync(reportPath, 'utf-8');
-      } catch {
-        process.stdout.write(`${theme.muted(`Could not read report: ${reportPath}`)}\n`);
-        continue;
-      }
-      process.stdout.write(`\n${renderMarkdownPreview(reportPath, content)}\n`);
-      continue;
-    }
-
-    if (action === 'generate-ai') {
-      try {
-        const result = await generateAIReviewForRun(item, config);
-        const label = result.bundle.kind === 'suite' ? 'AI suite review generated.' : 'AI review generated.';
-        process.stdout.write(`${theme.success(label)}\n`);
-        process.stdout.write(`${theme.muted(`JSON: ${result.paths.jsonPath}`)}\n`);
-        process.stdout.write(`${theme.muted(`Markdown: ${result.paths.markdownPath}`)}\n`);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        if (message === AI_REVIEW_DISABLED_MESSAGE) {
-          process.stdout.write(`${theme.muted(message)}\n`);
-        } else {
-          process.stdout.write(`${theme.warning(message)}\n`);
-        }
-      }
-      continue;
-    }
-
-    if (action === 'preview-ai') {
-      const reportPath = selectAIReviewMarkdown(item);
-      if (!reportPath) {
-        process.stdout.write(`${theme.muted('No AI review found for this run. Generate one first.')}\n`);
-        continue;
-      }
-      let content: string;
-      try {
-        content = readFileSync(reportPath, 'utf-8');
-      } catch {
-        process.stdout.write(`${theme.muted(`Could not read AI review: ${reportPath}`)}\n`);
-        continue;
-      }
-      process.stdout.write(`\n${renderMarkdownPreview(reportPath, content)}\n`);
-      continue;
-    }
-
-    if (action === 'generate-structured-review') {
-      try {
-        await generateStructuredReviewForRun(item);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        process.stdout.write(`${theme.warning(message)}\n`);
-      }
-      continue;
-    }
-
-    if (action === 'preview-structured-review') {
-      const reviewPath = selectStructuredReviewMarkdown(item);
-      if (!reviewPath) {
-        process.stdout.write(`${theme.muted('No structured review found for this run. Generate one first.')}\n`);
-        continue;
-      }
-      let content: string;
-      try {
-        content = readFileSync(reviewPath, 'utf-8');
-      } catch {
-        process.stdout.write(`${theme.muted(`Could not read structured review: ${reviewPath}`)}\n`);
-        continue;
-      }
-      process.stdout.write(`\n${renderMarkdownPreview(reviewPath, content)}\n`);
-      continue;
-    }
-
-    process.stdout.write(`\n${renderRunArtifactPaths(item)}\n`);
+    const result = await handleRunDetailAction(action, item, config, deps);
+    if (result === 'back') return 0;
   }
 }
 

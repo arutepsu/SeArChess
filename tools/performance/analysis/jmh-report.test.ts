@@ -160,9 +160,9 @@ test('buildJmhArtifactPaths uses workbench underscore artifact names', () => {
 // Benchmark group model
 // ---------------------------------------------------------------------------
 
-test('listJmhBenchmarkGroups returns all 8 expected groups', () => {
+test('listJmhBenchmarkGroups returns all 11 expected groups', () => {
   const groups = listJmhBenchmarkGroups();
-  assert.equal(groups.length, 8);
+  assert.equal(groups.length, 11);
 
   const ids = groups.map((g) => g.id);
   assert.ok(ids.includes('all'));
@@ -172,6 +172,9 @@ test('listJmhBenchmarkGroups returns all 8 expected groups', () => {
   assert.ok(ids.includes('mapping'));
   assert.ok(ids.includes('json-rendering'));
   assert.ok(ids.includes('response-construction'));
+  assert.ok(ids.includes('postgres-persistence'));
+  assert.ok(ids.includes('mongo-persistence'));
+  assert.ok(ids.includes('persistence'));
   assert.ok(ids.includes('custom'));
 });
 
@@ -183,6 +186,13 @@ test('resolveJmhPattern returns correct pattern for each named group', () => {
   assert.equal(resolveJmhPattern('mapping'), 'chess.benchmarks.MappingBenchmark.*');
   assert.equal(resolveJmhPattern('json-rendering'), 'chess.benchmarks.JsonRenderingBenchmark.*');
   assert.equal(resolveJmhPattern('response-construction'), 'chess.benchmarks.*(MappingBenchmark|JsonRenderingBenchmark).*');
+  assert.equal(resolveJmhPattern('postgres-persistence'), 'chess.benchmarks.persistence.Postgres.*RepositoryBenchmark.*');
+  assert.equal(resolveJmhPattern('mongo-persistence'), 'chess.benchmarks.persistence.mongo.Mongo.*RepositoryBenchmark.*');
+  assert.equal(resolveJmhPattern('persistence'), 'chess.benchmarks.persistence.*');
+});
+
+test('resolveJmhPattern persistence group avoids shell pipe characters', () => {
+  assert.doesNotMatch(resolveJmhPattern('persistence'), /\|/);
 });
 
 test('DEFAULT_JMH_GROUP_ID is all', () => {
@@ -219,6 +229,27 @@ test('parseRunJmhArgs --group builds correct sbt command', () => {
   const opts = parseRunJmhArgs(['--run-id', 'test', '--group', 'response-construction']);
   const cmd = buildJmhSbtCommand(opts, 'out/jmh-results.json');
   assert.match(cmd, /MappingBenchmark\|JsonRenderingBenchmark/);
+});
+
+test('parseRunJmhArgs --group postgres-persistence resolves to Postgres persistence pattern', () => {
+  const opts = parseRunJmhArgs(['--run-id', 'test', '--group', 'postgres-persistence']);
+  assert.equal(opts.pattern, 'chess.benchmarks.persistence.Postgres.*RepositoryBenchmark.*');
+  assert.equal(opts.benchmarkGroupId, 'postgres-persistence');
+  assert.equal(opts.benchmarkGroupLabel, 'Postgres persistence');
+});
+
+test('parseRunJmhArgs --group mongo-persistence resolves to Mongo persistence pattern', () => {
+  const opts = parseRunJmhArgs(['--run-id', 'test', '--group', 'mongo-persistence']);
+  assert.equal(opts.pattern, 'chess.benchmarks.persistence.mongo.Mongo.*RepositoryBenchmark.*');
+  assert.equal(opts.benchmarkGroupId, 'mongo-persistence');
+  assert.equal(opts.benchmarkGroupLabel, 'Mongo persistence');
+});
+
+test('parseRunJmhArgs --group persistence resolves to combined persistence pattern', () => {
+  const opts = parseRunJmhArgs(['--run-id', 'test', '--group', 'persistence']);
+  assert.equal(opts.pattern, 'chess.benchmarks.persistence.*');
+  assert.equal(opts.benchmarkGroupId, 'persistence');
+  assert.equal(opts.benchmarkGroupLabel, 'Persistence all');
 });
 
 test('parseRunJmhArgs --pattern still works without --group', () => {

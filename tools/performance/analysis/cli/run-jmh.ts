@@ -8,6 +8,7 @@ import {
   DEFAULT_JMH_GROUP_ID,
   findJmhBenchmarkGroup,
   isValidNamedGroupId,
+  listJmhBenchmarkGroups,
 } from '../application/jmhBenchmarkGroups';
 
 interface RunJmhOptions {
@@ -63,7 +64,7 @@ export function parseRunJmhArgs(args: string[]): RunJmhOptions {
         const groupId = requireValue(args, i, '--group');
         if (!isValidNamedGroupId(groupId)) {
           throw new Error(
-            `Invalid --group: "${groupId}". Valid groups: all, domain-rules, move-application, game-service, mapping, json-rendering, response-construction`,
+            `Invalid --group: "${groupId}". Valid groups: ${validNamedGroupIds().join(', ')}`,
           );
         }
         options.benchmarkGroupId = groupId;
@@ -230,6 +231,9 @@ export const JMH_HELP = [
   '  mapping               Domain/application model to DTO mapping cost',
   '  json-rendering        DTO to JSON rendering/serialization cost',
   '  response-construction Mapping plus JSON rendering layer',
+  '  postgres-persistence  Relational repository persistence benchmarks',
+  '  mongo-persistence     Document repository persistence benchmarks',
+  '  persistence           Postgres and Mongo repository persistence benchmarks',
   '',
   'Artifacts:',
   '  jmh-results.json   Raw JMH JSON output',
@@ -240,6 +244,12 @@ export const JMH_HELP = [
   'Use --gc-profiler to append -prof gc and include allocation metrics when JMH emits them.',
   'Use --pattern <regex> for a custom JMH benchmark pattern (mutually exclusive with --group).',
 ].join('\n');
+
+function validNamedGroupIds(): string[] {
+  return listJmhBenchmarkGroups()
+    .filter((group) => group.id !== 'custom')
+    .map((group) => group.id);
+}
 
 if (require.main === module) {
   process.exitCode = runJmhCli(process.argv.slice(2));
