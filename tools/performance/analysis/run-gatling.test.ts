@@ -66,6 +66,14 @@ function createGatlingHistoryRun(
   return runPath;
 }
 
+function gatlingSourcePath(...parts: string[]): string {
+  return join(process.cwd(), '..', 'gatling', 'src', 'test', 'scala', 'searchess', ...parts);
+}
+
+function readGatlingSource(...parts: string[]): string {
+  return readFileSync(gatlingSourcePath(...parts), 'utf-8');
+}
+
 test('run-gatling argument parser rejects unsupported argument', () => {
   const dir = mkdtempSync(join(tmpdir(), 'perf-gatling-args-'));
   writeFileSync(join(dir, 'performance.config.json'), JSON.stringify({
@@ -91,6 +99,7 @@ test('run-gatling argument parser uses config defaults when no args provided', (
 
   const options = parseRunGatlingArgs([], dir);
   assert.equal(options.test, 'load');
+  assert.equal(options.gatlingPattern, undefined);
   assert.equal(options.baseUrl, 'http://localhost:10000/api');
   assert.equal(options.cpu, 72);
   assert.equal(options.memory, 61);
@@ -109,6 +118,24 @@ test('run-gatling argument parser accepts named workload profiles', () => {
   assert.equal(parseRunGatlingArgs(['--test', 'smoke'], dir).test, 'smoke');
   assert.equal(parseRunGatlingArgs(['--test', 'load'], dir).test, 'load');
   assert.equal(parseRunGatlingArgs(['--test', 'stress'], dir).test, 'stress');
+});
+
+test('run-gatling argument parser accepts Gatling scenario patterns', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'perf-gatling-patterns-'));
+  writeFileSync(join(dir, 'performance.config.json'), JSON.stringify({
+    baseUrl: 'http://localhost:10000/api',
+    cpuUsagePercent: 72,
+    memoryUsagePercent: 61,
+    defaultPhase: 'baseline',
+  }));
+
+  assert.equal(parseRunGatlingArgs(['--gatling-pattern', 'gameplay'], dir).gatlingPattern, 'gameplay');
+  assert.equal(parseRunGatlingArgs(['--gatling-pattern', 'legalMoves'], dir).gatlingPattern, 'legalMoves');
+  assert.equal(parseRunGatlingArgs(['--gatling-pattern', 'writeHeavy'], dir).gatlingPattern, 'writeHeavy');
+  assert.throws(
+    () => parseRunGatlingArgs(['--gatling-pattern', 'database'], dir),
+    /Unknown Gatling pattern: database. Supported: all, gameplay, session, legalMoves, moveSubmission, readHeavy, writeHeavy./,
+  );
 });
 
 test('run-gatling CLI args override config defaults', () => {
@@ -180,7 +207,7 @@ test('Workbench Gatling artifact summary includes native HTML report when provid
 test('run-gatling getGatlingTestConfig returns load config', () => {
   const config = getGatlingTestConfig('load');
   assert.equal(config.test, 'load');
-  assert.equal(config.simulationClass, 'searchess.SearchessGameplaySimulation');
+  assert.equal(config.simulationClass, 'searchess.simulations.SearchessGameplaySimulation');
   assert.equal(config.maxUsers, 50);
   assert.equal(config.duration, '1m');
   assert.equal(config.rampUpPattern, 'linear');
@@ -191,16 +218,17 @@ test('run-gatling getGatlingTestConfig returns smoke and stress configs', () => 
   const stress = getGatlingTestConfig('stress');
 
   assert.equal(smoke.test, 'smoke');
-  assert.equal(smoke.simulationClass, 'searchess.SearchessGameplaySimulation');
+  assert.equal(smoke.simulationClass, 'searchess.simulations.SearchessGameplaySimulation');
   assert.equal(smoke.maxUsers, 3);
   assert.equal(stress.test, 'stress');
-  assert.equal(stress.simulationClass, 'searchess.SearchessGameplaySimulation');
+  assert.equal(stress.simulationClass, 'searchess.simulations.SearchessGameplaySimulation');
   assert.equal(stress.maxUsers, 100);
 });
 
-test('run-gatling process env passes selected workload profile to Gatling', () => {
+test('run-gatling process env passes selected workload and Gatling pattern to Gatling', () => {
   const env = buildGatlingProcessEnv({
     test: 'stress',
+    gatlingPattern: 'writeHeavy',
     baseUrl: 'http://localhost:8080',
     cpu: 72,
     memory: 61,
@@ -213,128 +241,94 @@ test('run-gatling process env passes selected workload profile to Gatling', () =
   assert.equal(env.GATLING_RUN_ID, '20260505T120000-gatling-stress-abc123');
   assert.equal(env.GATLING_TOOL, 'gatling');
   assert.equal(env.GATLING_WORKLOAD, 'stress');
+  assert.equal(env.GATLING_PATTERN, 'writeHeavy');
   assert.equal(env.GATLING_PHASE, 'baseline');
 });
 
 test('Gatling simulation source demonstrates compositional Scala scenario structure', () => {
-  const sourcePath = join(
-    process.cwd(),
-    '..',
-    'gatling',
-    'src',
-    'test',
-    'scala',
-    'searchess',
-    'SearchessGameplaySimulation.scala',
-  );
-  const source = readFileSync(sourcePath, 'utf-8');
+  const source = readGatlingSource('simulations', 'SearchessGameplaySimulation.scala');
+  const scenarios = readGatlingSource('scenarios', 'GatlingScenarioPatterns.scala');
+  const chains = readGatlingSource('chains', 'GameplayChains.scala');
+  const feeders = readGatlingSource('feeders', 'SearchessFeeders.scala');
+  const workloads = readGatlingSource('workloads', 'WorkloadProfiles.scala');
 
   assert.ok(source.includes('class SearchessGameplaySimulation'));
-  assert.ok(source.includes('private val createSession'));
-  assert.ok(source.includes('private def fetchLegalMoves'));
-  assert.ok(source.includes('private def submitMove'));
-  assert.ok(source.includes('private def fetchUpdatedState'));
-  assert.ok(source.includes('private def gameplayTurn'));
-  assert.ok(source.includes('private val gameplayLoop'));
-  assert.ok(source.includes('csv("searchess/session_modes.csv").circular'));
-  assert.ok(source.includes('rampUsers(50).during(10.seconds)'));
-  assert.ok(source.includes('constantUsersPerSec(5).during(50.seconds)'));
+  assert.ok(source.includes('GatlingScenarioPatterns.choose(GatlingConfig.scenarioPattern)'));
+  assert.ok(scenarios.includes('GameplayChains.createSession'));
+  assert.ok(scenarios.includes('GameplayChains.completeGameplayFlow'));
+  assert.ok(scenarios.includes('case "legalMoves"'));
+  assert.ok(scenarios.includes('case "writeHeavy"'));
+  assert.ok(chains.includes('val createSession'));
+  assert.ok(chains.includes('def fetchLegalMoves'));
+  assert.ok(chains.includes('def submitMove'));
+  assert.ok(chains.includes('def fetchUpdatedState'));
+  assert.ok(chains.includes('def gameplayTurn'));
+  assert.ok(chains.includes('val readHeavyFlow'));
+  assert.ok(chains.includes('val writeHeavyFlow'));
+  assert.ok(feeders.includes('csv("searchess/session_modes.csv").circular'));
+  assert.ok(workloads.includes('rampUsers(GatlingConfig.loadRampUsers)'));
+  assert.ok(workloads.includes('constantUsersPerSec(GatlingConfig.loadUsersPerSecond)'));
 });
 
-test('Gatling simulation source contains smoke load and stress workload profiles', () => {
-  const sourcePath = join(
-    process.cwd(),
-    '..',
-    'gatling',
-    'src',
-    'test',
-    'scala',
-    'searchess',
-    'SearchessGameplaySimulation.scala',
-  );
-  const source = readFileSync(sourcePath, 'utf-8');
+test('Gatling workload profiles expose smoke load and stress workload selection', () => {
+  const config = readGatlingSource('config', 'GatlingConfig.scala');
+  const workloads = readGatlingSource('workloads', 'WorkloadProfiles.scala');
 
-  assert.ok(source.includes('"GATLING_WORKLOAD"'));
-  assert.ok(source.includes('.getOrElse("load")'));
-  assert.ok(source.includes('case "smoke"'));
-  assert.ok(source.includes('rampUsers(3).during(3.seconds)'));
-  assert.ok(source.includes('case "load"'));
-  assert.ok(source.includes('rampUsers(50).during(10.seconds)'));
-  assert.ok(source.includes('constantUsersPerSec(5).during(50.seconds)'));
-  assert.ok(source.includes('case "stress"'));
-  assert.ok(source.includes('rampUsers(100).during(15.seconds)'));
-  assert.ok(source.includes('constantUsersPerSec(10).during(60.seconds)'));
+  assert.ok(config.includes('"searchess.gatling.workload"'));
+  assert.ok(config.includes('"searchess.gatling.pattern"'));
+  assert.ok(config.includes('"GATLING_WORKLOAD"'));
+  assert.ok(config.includes('"GATLING_PATTERN"'));
+  assert.ok(config.includes('val workloadProfile'));
+  assert.ok(config.includes('val scenarioPattern'));
+  assert.ok(workloads.includes('case "smoke"'));
+  assert.ok(workloads.includes('GatlingConfig.smokeUsers'));
+  assert.ok(workloads.includes('case "load"'));
+  assert.ok(workloads.includes('GatlingConfig.loadRampUsers'));
+  assert.ok(workloads.includes('GatlingConfig.loadUsersPerSecond'));
+  assert.ok(workloads.includes('case "stress"'));
+  assert.ok(workloads.includes('GatlingConfig.stressRampUsers'));
+  assert.ok(workloads.includes('GatlingConfig.stressUsersPerSecond'));
 });
 
 test('Gatling simulation source includes performance correlation headers', () => {
-  const sourcePath = join(
-    process.cwd(),
-    '..',
-    'gatling',
-    'src',
-    'test',
-    'scala',
-    'searchess',
-    'SearchessGameplaySimulation.scala',
-  );
-  const source = readFileSync(sourcePath, 'utf-8');
+  const source = readGatlingSource('simulations', 'SearchessGameplaySimulation.scala');
+  const config = readGatlingSource('config', 'GatlingConfig.scala');
 
-  assert.ok(source.includes('envValue("GATLING_RUN_ID", "PERFORMANCE_RUN_ID")'));
-  assert.ok(source.includes('envValue("GATLING_TOOL", "PERFORMANCE_TOOL")'));
-  assert.ok(source.includes('envValue("GATLING_WORKLOAD", "PERFORMANCE_WORKLOAD")'));
-  assert.ok(source.includes('envValue("GATLING_PHASE", "PERFORMANCE_PHASE")'));
-  assert.ok(source.includes('.header("X-Performance-Run-Id", performanceRunId)'));
-  assert.ok(source.includes('.header("X-Performance-Tool", performanceTool)'));
-  assert.ok(source.includes('.header("X-Performance-Workload", workloadProfile)'));
-  assert.ok(source.includes('.header("X-Performance-Phase", performancePhase)'));
+  assert.ok(config.includes('"GATLING_RUN_ID"'));
+  assert.ok(config.includes('"GATLING_TOOL"'));
+  assert.ok(config.includes('"GATLING_WORKLOAD"'));
+  assert.ok(config.includes('"GATLING_PATTERN"'));
+  assert.ok(config.includes('"GATLING_PHASE"'));
+  assert.ok(source.includes('.header("X-Performance-Run-Id", GatlingConfig.performanceRunId)'));
+  assert.ok(source.includes('.header("X-Performance-Tool", GatlingConfig.performanceTool)'));
+  assert.ok(source.includes('.header("X-Performance-Workload", GatlingConfig.workloadProfile)'));
+  assert.ok(source.includes('.header("X-Performance-Phase", GatlingConfig.performancePhase)'));
 });
 
-test('Gatling simulation source fails clearly for unknown workload profile', () => {
-  const sourcePath = join(
-    process.cwd(),
-    '..',
-    'gatling',
-    'src',
-    'test',
-    'scala',
-    'searchess',
-    'SearchessGameplaySimulation.scala',
-  );
-  const source = readFileSync(sourcePath, 'utf-8');
+test('Gatling workload and scenario selectors fail clearly for unknown values', () => {
+  const workloads = readGatlingSource('workloads', 'WorkloadProfiles.scala');
+  const scenarios = readGatlingSource('scenarios', 'GatlingScenarioPatterns.scala');
 
-  assert.ok(source.includes('Unknown Gatling workload profile:'));
-  assert.ok(source.includes('Expected smoke, load, or stress.'));
+  assert.ok(workloads.includes('Unknown Gatling workload:'));
+  assert.ok(workloads.includes('Supported:'));
+  assert.ok(workloads.includes('smoke'));
+  assert.ok(workloads.includes('load'));
+  assert.ok(workloads.includes('stress'));
+  assert.ok(scenarios.includes('Unknown Gatling pattern:'));
+  assert.ok(scenarios.includes('all'));
+  assert.ok(scenarios.includes('gameplay'));
+  assert.ok(scenarios.includes('writeHeavy'));
 });
 
 test('Gatling simulation source includes quality-gate assertions', () => {
-  const sourcePath = join(
-    process.cwd(),
-    '..',
-    'gatling',
-    'src',
-    'test',
-    'scala',
-    'searchess',
-    'SearchessGameplaySimulation.scala',
-  );
-  const source = readFileSync(sourcePath, 'utf-8');
+  const source = readGatlingSource('simulations', 'SearchessGameplaySimulation.scala');
 
   assert.ok(source.includes('global.failedRequests.percent.lt(1.0)'));
   assert.ok(source.includes('global.responseTime.percentile3.lt(500)'));
 });
 
 test('Gatling simulation source groups gameplay phases for native reports', () => {
-  const sourcePath = join(
-    process.cwd(),
-    '..',
-    'gatling',
-    'src',
-    'test',
-    'scala',
-    'searchess',
-    'SearchessGameplaySimulation.scala',
-  );
-  const source = readFileSync(sourcePath, 'utf-8');
+  const source = readGatlingSource('chains', 'GameplayChains.scala');
 
   assert.ok(source.includes('group("Create session")'));
   assert.ok(source.includes('group("Fetch legal moves")'));
@@ -344,17 +338,7 @@ test('Gatling simulation source groups gameplay phases for native reports', () =
 });
 
 test('Gatling simulation source includes semantic JSON checks', () => {
-  const sourcePath = join(
-    process.cwd(),
-    '..',
-    'gatling',
-    'src',
-    'test',
-    'scala',
-    'searchess',
-    'SearchessGameplaySimulation.scala',
-  );
-  const source = readFileSync(sourcePath, 'utf-8');
+  const source = readGatlingSource('requests', 'SearchessRequests.scala');
 
   assert.ok(source.includes('jsonPath("$.session.sessionId")'));
   assert.ok(source.includes('jsonPath("$.session.mode").is("#{sessionMode}")'));
@@ -384,12 +368,13 @@ test('Gatling documentation covers lecture concepts', () => {
 test('Gatling CLI help communicates load command and observability base URL', () => {
   assert.ok(GATLING_HELP.includes('code-first Gatling Scala simulation'));
   assert.ok(GATLING_HELP.includes('--test <smoke|load|stress>'));
-  assert.ok(GATLING_HELP.includes('perf gatling --test smoke --base-url http://localhost:8080'));
-  assert.ok(GATLING_HELP.includes('perf gatling --test load --base-url http://localhost:8080'));
-  assert.ok(GATLING_HELP.includes('perf gatling --test stress --base-url http://localhost:8080'));
-  assert.ok(TOP_LEVEL_HELP.includes('perf gatling --test smoke --base-url http://localhost:8080'));
-  assert.ok(TOP_LEVEL_HELP.includes('perf gatling --test load --base-url http://localhost:8080'));
-  assert.ok(TOP_LEVEL_HELP.includes('perf gatling --test stress --base-url http://localhost:8080'));
+  assert.ok(GATLING_HELP.includes('--gatling-pattern <all|gameplay|session|legalMoves|moveSubmission|readHeavy|writeHeavy>'));
+  assert.ok(GATLING_HELP.includes('perf gatling --test smoke --gatling-pattern gameplay --base-url http://localhost:8080'));
+  assert.ok(GATLING_HELP.includes('perf gatling --test load --gatling-pattern legalMoves --base-url http://localhost:8080'));
+  assert.ok(GATLING_HELP.includes('perf gatling --test stress --gatling-pattern writeHeavy --base-url http://localhost:8080'));
+  assert.ok(TOP_LEVEL_HELP.includes('perf gatling --test smoke --gatling-pattern gameplay --base-url http://localhost:8080'));
+  assert.ok(TOP_LEVEL_HELP.includes('perf gatling --test load --gatling-pattern legalMoves --base-url http://localhost:8080'));
+  assert.ok(TOP_LEVEL_HELP.includes('perf gatling --test stress --gatling-pattern writeHeavy --base-url http://localhost:8080'));
 });
 
 test('convertGatlingGlobalStats wraps flat stats in expected envelope', () => {

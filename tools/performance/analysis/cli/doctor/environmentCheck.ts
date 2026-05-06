@@ -61,6 +61,7 @@ export function resolveGatlingSimulationPath(startDir = process.cwd()): string {
     repoRoot,
     'tools', 'performance', 'gatling',
     'src', 'test', 'scala', 'searchess',
+    'simulations',
     'SearchessGameplaySimulation.scala',
   );
 }

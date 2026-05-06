@@ -4,12 +4,14 @@ import {
   getGatlingTestConfig,
   runGatlingReport,
   type GatlingPhase,
+  type GatlingPattern,
   type GatlingTestName,
   type RunGatlingReportOptions,
 } from '../application/runGatlingReport';
+import { DEFAULT_GATLING_SCENARIO_PATTERN_ID, isGatlingScenarioPatternId } from '../application/gatlingScenarioPatterns';
 import { loadPerformanceConfig } from './config';
 
-export { buildGatlingArtifactPaths, getGatlingTestConfig, type GatlingPhase, type GatlingTestName, type RunGatlingReportOptions };
+export { buildGatlingArtifactPaths, getGatlingTestConfig, type GatlingPhase, type GatlingPattern, type GatlingTestName, type RunGatlingReportOptions };
 
 const GATLING_TESTS = ['smoke', 'load', 'stress'] as const;
 const GATLING_PHASES = ['baseline', 'optimized'] as const;
@@ -34,6 +36,10 @@ function isGatlingTestName(value: string): value is GatlingTestName {
   return GATLING_TESTS.includes(value as GatlingTestName);
 }
 
+function isGatlingPattern(value: string): value is GatlingPattern {
+  return isGatlingScenarioPatternId(value);
+}
+
 function isGatlingPhase(value: string): value is GatlingPhase {
   return GATLING_PHASES.includes(value as GatlingPhase);
 }
@@ -54,9 +60,18 @@ export function parseRunGatlingArgs(args: string[], startDir?: string): RunGatli
       case '--test': {
         const value = requireValue(args, i, '--test');
         if (!isGatlingTestName(value)) {
-          throw new Error('--test must be one of: smoke, load, stress');
+          throw new Error(`Unknown Gatling workload: ${value}. Supported: smoke, load, stress.`);
         }
         parsed.test = value;
+        i += 1;
+        break;
+      }
+      case '--gatling-pattern': {
+        const value = requireValue(args, i, '--gatling-pattern');
+        if (!isGatlingPattern(value)) {
+          throw new Error('Unknown Gatling pattern: ' + value + '. Supported: all, gameplay, session, legalMoves, moveSubmission, readHeavy, writeHeavy.');
+        }
+        parsed.gatlingPattern = value;
         i += 1;
         break;
       }
@@ -129,16 +144,18 @@ export function runGatlingCli(args: string[]): number {
 }
 
 export const GATLING_HELP = [
-  'Usage: perf gatling [--test <smoke|load|stress>] [--base-url <url>] [--cpu <number>] [--memory <number>] [--phase <baseline|optimized>] [--out <directory>]',
+  'Usage: perf gatling [--test <smoke|load|stress>] [--gatling-pattern <all|gameplay|session|legalMoves|moveSubmission|readHeavy|writeHeavy>] [--base-url <url>] [--cpu <number>] [--memory <number>] [--phase <baseline|optimized>] [--out <directory>]',
   '',
   'Runs the code-first Gatling Scala simulation via sbt and produces a deterministic performance report.',
-  'Profiles: smoke validates the scenario quickly, load is the normal benchmark, stress explores bottlenecks.',
+  'Workloads: smoke validates quickly, load is the normal benchmark, stress explores bottlenecks.',
+  `Default Gatling pattern: ${DEFAULT_GATLING_SCENARIO_PATTERN_ID}.`,
   'Use --base-url http://localhost:8080 when correlating route traffic with Prometheus/Grafana metrics.',
   'The base URL, output root, default phase, CPU, and memory may come from performance.config.json.',
   'Explicit CLI arguments override config values.',
   '',
   'Options:',
-  '  --test      Workload profile: smoke, load, or stress (default: load)',
+  '  --test             Workload profile: smoke, load, or stress (default: load)',
+  '  --gatling-pattern  Scenario pattern: all, gameplay, session, legalMoves, moveSubmission, readHeavy, or writeHeavy',
   '  --base-url  Target base URL',
   '  --cpu       CPU usage % (0–100)',
   '  --memory    Memory usage % (0–100)',
@@ -147,9 +164,9 @@ export const GATLING_HELP = [
   '',
   'Examples:',
   '  perf gatling',
-  '  perf gatling --test smoke --base-url http://localhost:8080 --cpu 72 --memory 61 --phase baseline',
-  '  perf gatling --test load --base-url http://localhost:8080 --cpu 72 --memory 61 --phase baseline',
-  '  perf gatling --test stress --base-url http://localhost:8080 --cpu 72 --memory 61 --phase baseline',
+  '  perf gatling --test smoke --gatling-pattern gameplay --base-url http://localhost:8080 --cpu 72 --memory 61 --phase baseline',
+  '  perf gatling --test load --gatling-pattern legalMoves --base-url http://localhost:8080 --cpu 72 --memory 61 --phase baseline',
+  '  perf gatling --test stress --gatling-pattern writeHeavy --base-url http://localhost:8080 --cpu 72 --memory 61 --phase baseline',
   '  perf gatling --test load --base-url http://localhost:10000/api --cpu 72 --memory 61 --phase baseline',
   '  perf gatling --phase optimized --out docs/performance/optimized',
 ].join('\n');

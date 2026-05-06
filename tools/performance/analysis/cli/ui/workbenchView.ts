@@ -17,6 +17,7 @@ export interface RunMetadataInput {
   tool: string;
   workload: string;
   group?: string;
+  pattern?: string;
   phase: string;
   runId: string;
 }
@@ -125,6 +126,9 @@ export function renderRunMetadata(input: RunMetadataInput): string {
   ];
   if (input.group) {
     lines.push(`  ${padLabel('Group:')} ${input.group}`);
+  }
+  if (input.pattern) {
+    lines.push(`  ${padLabel('Pattern:')} ${input.pattern}`);
   }
   lines.push(
     `  ${padLabel('Phase:')} ${input.phase}`,

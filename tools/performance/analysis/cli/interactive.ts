@@ -2,8 +2,9 @@ import { readFileSync } from 'node:fs';
 import { runEnvironmentCheck } from './doctor/environmentCheck';
 import { runK6ReportAsync, type K6Phase, type K6ReportProgressEvent, type K6TestName, type RunK6ReportOptions } from '../application/runK6Report';
 import { runK6SuiteAsync, type K6SuiteProgressEvent, type RunK6SuiteOptions } from '../application/runK6Suite';
-import { runGatlingReportAsync, type GatlingReportProgressEvent, type GatlingTestName, type RunGatlingReportOptions } from '../application/runGatlingReport';
+import { runGatlingReportAsync, type GatlingPattern, type GatlingReportProgressEvent, type GatlingTestName, type RunGatlingReportOptions } from '../application/runGatlingReport';
 import { jmhProfileOptions, runJmhReportAsync, type JmhReportProgressEvent, type JmhWorkbenchProfile, type RunJmhReportOptions } from '../application/runJmhReport';
+import { DEFAULT_GATLING_SCENARIO_PATTERN_ID, findGatlingScenarioPattern, listGatlingScenarioPatterns } from '../application/gatlingScenarioPatterns';
 import { DEFAULT_JMH_GROUP_ID, findJmhBenchmarkGroup, listJmhBenchmarkGroups, resolveJmhPattern, type JmhBenchmarkGroupId } from '../application/jmhBenchmarkGroups';
 import { createInteractiveRunOutDir } from './artifacts/interactiveRunArtifacts';
 import { loadPerformanceConfig, resolvePerformanceOutputDir, type PerformanceCliConfig } from './config';
@@ -12,9 +13,15 @@ import {
   generateAIReviewForRun,
   selectAIReviewMarkdown,
 } from './reports/aiReviewArtifacts';
+import {
+  generateStructuredReviewForRun,
+  runPreviewStructuredReviewWorkbenchFlow,
+  runStructuredReviewWorkbenchFlow,
+  selectStructuredReviewMarkdown,
+} from './reports/structuredReviewWorkbench';
 import { findRunHistory, type RunHistoryItem } from './reports/runHistory';
 import { buildWorkbenchSettingsView } from './settings/settingsView';
-import { inputPrompt, selectPrompt } from './ui/prompts';
+import { inputPrompt, selectPrompt, type SelectPromptChoice } from './ui/prompts';
 import { startSpinner, type CliSpinner } from './ui/spinner';
 import * as theme from './ui/theme';
 import {
@@ -47,8 +54,8 @@ type WorkbenchArea = 'k6' | 'gatling' | 'jmh' | 'reports' | 'settings' | 'doctor
 type K6WorkbenchAction = 'baseline' | 'load' | 'spike' | 'stress' | 'suite' | 'back';
 type GatlingWorkbenchAction = GatlingTestName | 'back';
 type JmhWorkbenchAction = JmhWorkbenchProfile | 'back';
-type ReportsAction = 'browse-runs' | 'latest-suite-report' | 'back';
-type RunDetailAction = 'preview' | 'paths' | 'generate-ai' | 'preview-ai' | 'back';
+type ReportsAction = 'browse-runs' | 'latest-suite-report' | 'structured-review' | 'preview-structured-review' | 'back';
+export type RunDetailAction = 'preview' | 'paths' | 'generate-ai' | 'preview-ai' | 'generate-structured-review' | 'preview-structured-review' | 'back';
 
 type InteractiveK6CommonOptions = Pick<RunK6SuiteOptions, 'baseUrl' | 'cpu' | 'memory' | 'phase' | 'out'>;
 interface InteractiveK6RunOptions extends InteractiveK6CommonOptions {
@@ -97,6 +104,157 @@ export function parsePhaseAnswer(value: string | undefined): K6Phase {
     throw new Error('Phase must be baseline or optimized');
   }
   return value;
+}
+
+export function reportActionChoices(): SelectPromptChoice<ReportsAction>[] {
+  return [
+    { name: 'Browse recent runs', value: 'browse-runs' },
+    { name: 'Show latest suite report', value: 'latest-suite-report' },
+    { name: 'Generate structured review', value: 'structured-review' },
+    { name: 'Preview last structured review', value: 'preview-structured-review' },
+    { name: 'Back', value: 'back' },
+  ];
+}
+
+export function runDetailActionChoices(): SelectPromptChoice<RunDetailAction>[] {
+  return [
+    { name: 'Preview Markdown report', value: 'preview' },
+    { name: 'Show artifact paths', value: 'paths' },
+    { name: 'Generate AI review', value: 'generate-ai' },
+    { name: 'Preview AI review', value: 'preview-ai' },
+    { name: 'Generate structured review for this run', value: 'generate-structured-review' },
+    { name: 'Preview structured review for this run', value: 'preview-structured-review' },
+    { name: 'Back', value: 'back' },
+  ];
+}
+
+export type RunDetailActionResult = 'back' | 'continue';
+
+export interface RunDetailActionDeps {
+  readFile: (path: string) => string;
+  write: (text: string) => void;
+  selectMarkdown: typeof selectPreferredMarkdownReport;
+  selectAIMarkdown: typeof selectAIReviewMarkdown;
+  selectStructuredMarkdown: typeof selectStructuredReviewMarkdown;
+  generateAI: typeof generateAIReviewForRun;
+  generateStructured: typeof generateStructuredReviewForRun;
+  renderPreview: typeof renderMarkdownPreview;
+  renderPaths: typeof renderRunArtifactPaths;
+}
+
+function defaultRunDetailActionDeps(): RunDetailActionDeps {
+  return {
+    readFile: (path) => readFileSync(path, 'utf-8'),
+    write: (text) => process.stdout.write(text),
+    selectMarkdown: selectPreferredMarkdownReport,
+    selectAIMarkdown: selectAIReviewMarkdown,
+    selectStructuredMarkdown: selectStructuredReviewMarkdown,
+    generateAI: generateAIReviewForRun,
+    generateStructured: generateStructuredReviewForRun,
+    renderPreview: renderMarkdownPreview,
+    renderPaths: renderRunArtifactPaths,
+  };
+}
+
+export async function handleRunDetailAction(
+  action: RunDetailAction,
+  item: RunHistoryItem,
+  config: PerformanceCliConfig,
+  deps: RunDetailActionDeps,
+): Promise<RunDetailActionResult> {
+  switch (action) {
+    case 'back':
+      return 'back';
+
+    case 'preview': {
+      const reportPath = deps.selectMarkdown(item);
+      if (!reportPath) {
+        deps.write(`${theme.muted('No report found for this run.')}\n`);
+        return 'continue';
+      }
+      let previewContent: string;
+      try {
+        previewContent = deps.readFile(reportPath);
+      } catch {
+        deps.write(`${theme.muted(`Could not read report: ${reportPath}`)}\n`);
+        return 'continue';
+      }
+      deps.write(`\n${deps.renderPreview(reportPath, previewContent)}\n`);
+      return 'continue';
+    }
+
+    case 'paths':
+      deps.write(`\n${deps.renderPaths(item)}\n`);
+      return 'continue';
+
+    case 'generate-ai': {
+      try {
+        const result = await deps.generateAI(item, config);
+        const label = result.bundle.kind === 'suite' ? 'AI suite review generated.' : 'AI review generated.';
+        deps.write(`${theme.success(label)}\n`);
+        deps.write(`${theme.muted(`JSON: ${result.paths.jsonPath}`)}\n`);
+        deps.write(`${theme.muted(`Markdown: ${result.paths.markdownPath}`)}\n`);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (message === AI_REVIEW_DISABLED_MESSAGE) {
+          deps.write(`${theme.muted(message)}\n`);
+        } else {
+          deps.write(`${theme.warning(message)}\n`);
+        }
+      }
+      return 'continue';
+    }
+
+    case 'preview-ai': {
+      const aiPath = deps.selectAIMarkdown(item);
+      if (!aiPath) {
+        deps.write(`${theme.muted('No AI review found for this run. Generate one first.')}\n`);
+        return 'continue';
+      }
+      let aiContent: string;
+      try {
+        aiContent = deps.readFile(aiPath);
+      } catch {
+        deps.write(`${theme.muted(`Could not read AI review: ${aiPath}`)}\n`);
+        return 'continue';
+      }
+      deps.write(`\n${deps.renderPreview(aiPath, aiContent)}\n`);
+      return 'continue';
+    }
+
+    case 'generate-structured-review': {
+      try {
+        await deps.generateStructured(item);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        deps.write(`${theme.warning(message)}\n`);
+      }
+      return 'continue';
+    }
+
+    case 'preview-structured-review': {
+      const srPath = deps.selectStructuredMarkdown(item);
+      if (!srPath) {
+        deps.write(`${theme.muted('No structured review found for this run. Generate one first.')}\n`);
+        return 'continue';
+      }
+      let srContent: string;
+      try {
+        srContent = deps.readFile(srPath);
+      } catch {
+        deps.write(`${theme.muted(`Could not read structured review: ${srPath}`)}\n`);
+        return 'continue';
+      }
+      deps.write(`\n${deps.renderPreview(srPath, srContent)}\n`);
+      return 'continue';
+    }
+
+    default: {
+      const _unreachable: never = action;
+      deps.write(`${theme.warning(`Unknown run action: ${String(_unreachable)}`)}\n`);
+      return 'continue';
+    }
+  }
 }
 
 export function defaultOutputDirectory(config: PerformanceCliConfig, phase: K6Phase): string | undefined {
@@ -237,6 +395,17 @@ export function buildInteractiveGatlingReportOptions(test: GatlingTestName, comm
     ...commonOptions,
     test,
     outputMode: 'log',
+  };
+}
+
+export function buildInteractiveGatlingReportOptionsWithPattern(
+  test: GatlingTestName,
+  pattern: GatlingPattern,
+  commonOptions: InteractiveK6CommonOptions,
+): RunGatlingReportOptions {
+  return {
+    ...buildInteractiveGatlingReportOptions(test, commonOptions),
+    gatlingPattern: pattern,
   };
 }
 
@@ -472,75 +641,15 @@ async function promptJmhOptions(config: PerformanceCliConfig, profile: JmhWorkbe
 }
 
 async function browseRunDetailFlow(item: RunHistoryItem, config: PerformanceCliConfig): Promise<number> {
+  const deps = defaultRunDetailActionDeps();
   while (true) {
     process.stdout.write(`\n${renderRunHistoryDetails(item)}\n`);
-
     const action = await selectPrompt<RunDetailAction>({
       message: 'Run Actions',
-      choices: [
-        { name: 'Preview Markdown report', value: 'preview' },
-        { name: 'Show artifact paths', value: 'paths' },
-        { name: 'Generate AI review', value: 'generate-ai' },
-        { name: 'Preview AI review', value: 'preview-ai' },
-        { name: 'Back', value: 'back' },
-      ],
+      choices: runDetailActionChoices(),
     });
-
-    if (action === 'back') return 0;
-
-    if (action === 'preview') {
-      const reportPath = selectPreferredMarkdownReport(item);
-      if (!reportPath) {
-        process.stdout.write(`${theme.muted('No report found for this run.')}\n`);
-        continue;
-      }
-      let content: string;
-      try {
-        content = readFileSync(reportPath, 'utf-8');
-      } catch {
-        process.stdout.write(`${theme.muted(`Could not read report: ${reportPath}`)}\n`);
-        continue;
-      }
-      process.stdout.write(`\n${renderMarkdownPreview(reportPath, content)}\n`);
-      continue;
-    }
-
-    if (action === 'generate-ai') {
-      try {
-        const result = await generateAIReviewForRun(item, config);
-        const label = result.bundle.kind === 'suite' ? 'AI suite review generated.' : 'AI review generated.';
-        process.stdout.write(`${theme.success(label)}\n`);
-        process.stdout.write(`${theme.muted(`JSON: ${result.paths.jsonPath}`)}\n`);
-        process.stdout.write(`${theme.muted(`Markdown: ${result.paths.markdownPath}`)}\n`);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        if (message === AI_REVIEW_DISABLED_MESSAGE) {
-          process.stdout.write(`${theme.muted(message)}\n`);
-        } else {
-          process.stdout.write(`${theme.warning(message)}\n`);
-        }
-      }
-      continue;
-    }
-
-    if (action === 'preview-ai') {
-      const reportPath = selectAIReviewMarkdown(item);
-      if (!reportPath) {
-        process.stdout.write(`${theme.muted('No AI review found for this run. Generate one first.')}\n`);
-        continue;
-      }
-      let content: string;
-      try {
-        content = readFileSync(reportPath, 'utf-8');
-      } catch {
-        process.stdout.write(`${theme.muted(`Could not read AI review: ${reportPath}`)}\n`);
-        continue;
-      }
-      process.stdout.write(`\n${renderMarkdownPreview(reportPath, content)}\n`);
-      continue;
-    }
-
-    process.stdout.write(`\n${renderRunArtifactPaths(item)}\n`);
+    const result = await handleRunDetailAction(action, item, config, deps);
+    if (result === 'back') return 0;
   }
 }
 
@@ -570,17 +679,21 @@ export async function runReportsWorkbenchFlow(config: PerformanceCliConfig): Pro
   process.stdout.write(`\n${theme.section('Reports & History')}\n`);
   const action = await selectPrompt<ReportsAction>({
     message: 'Select report action',
-    choices: [
-      { name: 'Browse recent runs', value: 'browse-runs' },
-      { name: 'Show latest suite report', value: 'latest-suite-report' },
-      { name: 'Back', value: 'back' },
-    ],
+    choices: reportActionChoices(),
   });
 
   if (action === 'back') return 0;
 
   if (action === 'browse-runs') {
     return browseRecentRunsFlow(config);
+  }
+
+  if (action === 'structured-review') {
+    return runStructuredReviewWorkbenchFlow(config);
+  }
+
+  if (action === 'preview-structured-review') {
+    return runPreviewStructuredReviewWorkbenchFlow(config);
   }
 
   const history = findRunHistory(config.outputRoot);
@@ -694,9 +807,9 @@ export async function runGatlingWorkbenchFlow(config: PerformanceCliConfig): Pro
     const action = await selectPrompt<GatlingWorkbenchAction>({
       message: 'Select Gatling action',
       choices: [
-        { name: 'Run smoke simulation', value: 'smoke' },
-        { name: 'Run load simulation', value: 'load' },
-        { name: 'Run stress simulation', value: 'stress' },
+        { name: 'Run smoke Gatling simulation', value: 'smoke' },
+        { name: 'Run load Gatling simulation', value: 'load' },
+        { name: 'Run stress Gatling simulation', value: 'stress' },
         { name: 'Back', value: 'back' },
       ],
     });
@@ -706,16 +819,26 @@ export async function runGatlingWorkbenchFlow(config: PerformanceCliConfig): Pro
     }
 
     const commonOptions = await promptCommonK6Options(config, 'gatling', action);
+    const gatlingPattern = await selectPrompt<GatlingPattern>({
+      message: 'Gatling pattern',
+      choices: listGatlingScenarioPatterns().map((pattern) => ({
+        name: `${pattern.label} - ${pattern.description}`,
+        value: pattern.id,
+      })),
+      default: DEFAULT_GATLING_SCENARIO_PATTERN_ID,
+    });
+    const gatlingPatternLabel = findGatlingScenarioPattern(gatlingPattern).label;
     process.stdout.write(`${renderRunMetadata({
       tool: 'gatling',
       workload: action,
+      pattern: gatlingPatternLabel,
       phase: commonOptions.phase,
       runId: commonOptions.runId,
     })}\n\n`);
     process.stdout.write(`${theme.section('Progress')}\n`);
 
     const options: RunGatlingReportOptions = {
-      ...buildInteractiveGatlingReportOptions(action, commonOptions),
+      ...buildInteractiveGatlingReportOptionsWithPattern(action, gatlingPattern, commonOptions),
       onProgress: (event) => {
         activeSpinner = applySpinnerAction(gatlingReportSpinnerAction(event), activeSpinner);
         printProgress(formatGatlingReportProgressEvent(event));

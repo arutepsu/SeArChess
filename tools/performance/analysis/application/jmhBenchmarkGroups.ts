@@ -6,6 +6,9 @@ export type JmhBenchmarkGroupId =
   | 'mapping'
   | 'json-rendering'
   | 'response-construction'
+  | 'postgres-persistence'
+  | 'mongo-persistence'
+  | 'persistence'
   | 'custom';
 
 export interface JmhBenchmarkGroup {
@@ -57,6 +60,24 @@ const GROUPS: readonly JmhBenchmarkGroup[] = [
     label: 'Response construction',
     description: 'Mapping plus JSON rendering layer.',
     pattern: 'chess.benchmarks.*(MappingBenchmark|JsonRenderingBenchmark).*',
+  },
+  {
+    id: 'postgres-persistence',
+    label: 'Postgres persistence',
+    description: 'Relational repository persistence benchmarks.',
+    pattern: 'chess.benchmarks.persistence.Postgres.*RepositoryBenchmark.*',
+  },
+  {
+    id: 'mongo-persistence',
+    label: 'Mongo persistence',
+    description: 'Document repository persistence benchmarks.',
+    pattern: 'chess.benchmarks.persistence.mongo.Mongo.*RepositoryBenchmark.*',
+  },
+  {
+    id: 'persistence',
+    label: 'Persistence all',
+    description: 'Postgres and Mongo repository persistence benchmarks.',
+    pattern: 'chess.benchmarks.persistence.*',
   },
   {
     id: 'custom',

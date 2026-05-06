@@ -18,6 +18,7 @@ import {
   k6SuiteSpinnerAction,
   jmhReportSpinnerAction,
   parsePercentAnswer,
+  reportActionChoices,
   resolveAnswer,
 } from './cli/interactive';
 import {
@@ -33,6 +34,17 @@ import {
   generateAIReviewForRun,
   selectAIReviewMarkdown,
 } from './cli/reports/aiReviewArtifacts';
+import {
+  readLastStructuredReviewOutputDir,
+  rememberStructuredReviewOutputDir,
+  structuredReviewOutputHistoryPath,
+} from './cli/reports/structuredReviewOutputHistory';
+import {
+  buildInteractiveReviewInput,
+  parseStructuredReviewNotes,
+  runPreviewStructuredReviewWorkbenchFlow,
+  runStructuredReviewWorkbenchFlow,
+} from './cli/reports/structuredReviewWorkbench';
 import { findRunHistory } from './cli/reports/runHistory';
 import { renderTable } from './cli/ui/table';
 import {
@@ -81,6 +93,7 @@ import {
   type EnvironmentCheckResult,
 } from './cli/doctor/environmentCheck';
 import type { BottleneckType, Confidence, PerformanceReport } from './domain/models';
+import type { ReviewInput, ReviewReader, ReviewReport } from './ai/aiReviewModels';
 import { buildK6SuiteReportHtmlPath } from './application/runK6Suite';
 import { renderK6SuiteHtmlReport } from './reporting/k6SuiteHtmlBuilder';
 import { jmhProfileOptions } from './application/runJmhReport';
@@ -209,6 +222,239 @@ test('interactive default resolution uses default on empty answer and explicit a
   assert.equal(resolveAnswer('', 'baseline'), 'baseline');
   assert.equal(resolveAnswer('  ', 'baseline'), 'baseline');
   assert.equal(resolveAnswer('optimized', 'baseline'), 'optimized');
+});
+
+test('structured review notes parser trims comma-separated notes', () => {
+  assert.deepEqual(parseStructuredReviewNotes('alpha, beta, ,gamma'), ['alpha', 'beta', 'gamma']);
+  assert.deepEqual(parseStructuredReviewNotes('   '), []);
+});
+
+test('interactive review input builder defaults empty module name', () => {
+  assert.equal(buildInteractiveReviewInput({ moduleName: '   ' }).moduleName, 'performance-analysis');
+});
+
+test('interactive review input builder defaults empty review question', () => {
+  assert.equal(buildInteractiveReviewInput({ userQuestion: '   ' }).userQuestion, 'Review the selected module.');
+});
+
+test('interactive review input builder trims notes and removes empty notes', () => {
+  assert.deepEqual(buildInteractiveReviewInput({
+    notes: ' architecture, , testing ,  ',
+  }).notes, ['architecture', 'testing']);
+});
+
+test('interactive review input builder omits empty review text', () => {
+  assert.equal('reviewText' in buildInteractiveReviewInput({ reviewText: '   ' }), false);
+});
+
+test('interactive review input builder preserves non-empty review text', () => {
+  assert.equal(buildInteractiveReviewInput({ reviewText: '  pasted review  ' }).reviewText, 'pasted review');
+});
+
+test('reports menu exposes preview last structured review action', () => {
+  assert.ok(reportActionChoices().some((choice) => choice.name === 'Preview last structured review'));
+});
+
+test('interactive structured review flow displays generated report when no output dir is provided', async () => {
+  const answers = ['game', 'Review game module', 'no test summary, keep immutable', '', ''];
+  const output: string[] = [];
+  let capturedInput: ReviewInput | undefined;
+
+  const report: ReviewReport = {
+    summary: 'Structured review for game',
+    findings: [
+      {
+        severity: 'info',
+        category: 'architecture',
+        location: 'game',
+        message: 'Generated report',
+        reasoning: 'The workbench action called the application use case.',
+        suggestion: 'Keep using generateStructuredReview.',
+      },
+    ],
+    suggestedNextSteps: ['Use this from the UI'],
+  };
+
+  const result = await runStructuredReviewWorkbenchFlow({}, {
+    input: async () => answers.shift() ?? '',
+    createReader: () => ({ readReview: async () => report } as ReviewReader),
+    generate: async (input) => {
+      capturedInput = input;
+      return { report, saved: false };
+    },
+    renderMarkdown: (value) => `# Structured Review Report\n${value.summary}`,
+    readLastOutputDir: () => undefined,
+    rememberOutputDir: () => {
+      throw new Error('should not remember unsaved preview-only output');
+    },
+    write: (text) => output.push(text),
+  });
+
+  assert.equal(result, 0);
+  assert.equal(capturedInput?.moduleName, 'game');
+  assert.equal(capturedInput?.userQuestion, 'Review game module');
+  assert.deepEqual(capturedInput?.notes, ['no test summary', 'keep immutable']);
+  const rendered = output.join('');
+  assert.ok(rendered.includes('Structured review generated.'));
+  assert.ok(rendered.includes('# Structured Review Report'));
+  assert.ok(rendered.includes('Structured review for game'));
+});
+
+test('interactive structured review flow displays saved artifact paths when output dir is provided', async () => {
+  const answers = ['tests', 'Review tests', '', 'review text', 'out/review'];
+  const output: string[] = [];
+  let capturedOutputDir: string | undefined;
+  let rememberedOutputDir: string | undefined;
+
+  const report: ReviewReport = {
+    summary: 'Structured review for tests',
+    findings: [],
+    suggestedNextSteps: [],
+  };
+
+  const result = await runStructuredReviewWorkbenchFlow({}, {
+    input: async () => answers.shift() ?? '',
+    createReader: () => ({ readReview: async () => report } as ReviewReader),
+    generate: async (_input, _reader, options) => {
+      capturedOutputDir = options?.outputDir;
+      return {
+        report,
+        saved: true,
+        paths: {
+          jsonPath: 'out/review/review_report.json',
+          markdownPath: 'out/review/review_report.md',
+        },
+      };
+    },
+    renderMarkdown: (value) => `# Structured Review Report\n${value.summary}`,
+    readLastOutputDir: () => undefined,
+    rememberOutputDir: (outputDir) => {
+      rememberedOutputDir = outputDir;
+    },
+    write: (text) => output.push(text),
+  });
+
+  assert.equal(result, 0);
+  assert.equal(capturedOutputDir, 'out/review');
+  assert.equal(rememberedOutputDir, 'out/review');
+  const rendered = output.join('');
+  assert.ok(rendered.includes('Structured review generated.'));
+  assert.ok(rendered.includes('review_report.json'));
+  assert.ok(rendered.includes('review_report.md'));
+});
+
+test('structured review output history persists last output directory', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'structured-review-history-'));
+  writeFileSync(join(dir, 'performance.config.json'), '{}');
+
+  rememberStructuredReviewOutputDir('out/review', dir);
+
+  assert.equal(readLastStructuredReviewOutputDir(dir), 'out/review');
+  assert.ok(existsSync(structuredReviewOutputHistoryPath(dir)));
+});
+
+test('interactive structured review flow uses the review input builder', async () => {
+  const answers = ['   ', '   ', ' alpha, , beta ', '  pasted review  ', ''];
+  let capturedInput: ReviewInput | undefined;
+  const report: ReviewReport = {
+    summary: 'Structured review',
+    findings: [],
+    suggestedNextSteps: [],
+  };
+
+  const result = await runStructuredReviewWorkbenchFlow({}, {
+    input: async () => answers.shift() ?? '',
+    createReader: () => ({ readReview: async () => report } as ReviewReader),
+    generate: async (input) => {
+      capturedInput = input;
+      return { report, saved: false };
+    },
+    renderMarkdown: (value) => value.summary,
+    readLastOutputDir: () => undefined,
+    rememberOutputDir: () => undefined,
+    write: () => undefined,
+  });
+
+  assert.equal(result, 0);
+  assert.deepEqual(capturedInput, {
+    moduleName: 'performance-analysis',
+    userQuestion: 'Review the selected module.',
+    notes: ['alpha', 'beta'],
+    reviewText: 'pasted review',
+  });
+});
+
+test('interactive structured review preview displays saved markdown', async () => {
+  const output: string[] = [];
+  const result = await runPreviewStructuredReviewWorkbenchFlow({ outputRoot: 'out/review' }, {
+    input: async () => '',
+    exists: (path) => path.endsWith('review_report.md'),
+    read: () => '# Structured Review Report\nSaved review',
+    readLastOutputDir: () => undefined,
+    renderPreview: (path, content) => `PREVIEW ${path}\n${content}`,
+    write: (text) => output.push(text),
+  });
+
+  assert.equal(result, 0);
+  const rendered = output.join('');
+  assert.ok(rendered.includes('PREVIEW'));
+  assert.ok(rendered.includes('review_report.md'));
+  assert.ok(rendered.includes('Saved review'));
+});
+
+test('interactive structured review preview uses remembered output directory', async () => {
+  const output: string[] = [];
+  let checkedPath = '';
+  const result = await runPreviewStructuredReviewWorkbenchFlow({ outputRoot: 'out/default' }, {
+    input: async () => '',
+    exists: (path) => {
+      checkedPath = path;
+      return true;
+    },
+    read: () => '# Structured Review Report\nRemembered review',
+    readLastOutputDir: () => 'out/remembered',
+    renderPreview: (path, content) => `PREVIEW ${path}\n${content}`,
+    write: (text) => output.push(text),
+  });
+
+  assert.equal(result, 0);
+  assert.ok(checkedPath.replace(/\\/g, '/').includes('out/remembered'));
+  assert.ok(output.join('').includes('Remembered review'));
+});
+
+test('interactive structured review preview falls back to default output directory', async () => {
+  let checkedPath = '';
+  const result = await runPreviewStructuredReviewWorkbenchFlow({ outputRoot: 'out/default' }, {
+    input: async () => '',
+    exists: (path) => {
+      checkedPath = path;
+      return true;
+    },
+    read: () => '# Structured Review Report\nDefault review',
+    readLastOutputDir: () => undefined,
+    renderPreview: (path, content) => `PREVIEW ${path}\n${content}`,
+    write: () => undefined,
+  });
+
+  assert.equal(result, 0);
+  assert.ok(checkedPath.replace(/\\/g, '/').includes('out/default'));
+});
+
+test('interactive structured review preview shows friendly missing artifact message', async () => {
+  const output: string[] = [];
+  const result = await runPreviewStructuredReviewWorkbenchFlow({ outputRoot: 'out/review' }, {
+    input: async () => '',
+    exists: () => false,
+    read: () => {
+      throw new Error('should not read missing artifact');
+    },
+    readLastOutputDir: () => undefined,
+    renderPreview: (path, content) => `PREVIEW ${path}\n${content}`,
+    write: (text) => output.push(text),
+  });
+
+  assert.equal(result, 0);
+  assert.ok(output.join('').includes('No structured review artifact found. Generate a structured review first.'));
 });
 
 test('loadPerformanceConfig accepts AI settings', () => {
@@ -484,8 +730,10 @@ test('run complete summary renders compact deterministic metrics', () => {
 
   assert.ok(output.includes('Run complete:'));
   assert.ok(output.includes('Healthy'));
-  assert.ok(output.includes('p95 54.68ms'));
-  assert.ok(output.includes('errors 0.00%'));
+  assert.ok(output.includes('p95'));
+  assert.ok(output.includes('54.68ms'));
+  assert.ok(output.includes('errors'));
+  assert.ok(output.includes('0.00%'));
   assert.ok(output.includes('47.09 req/s'));
 });
 

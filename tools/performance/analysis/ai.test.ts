@@ -1,16 +1,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildPrompt } from './ai/aiPromptBuilder';
 import { StubAIReviewProvider } from './ai/aiReviewProvider';
 import { createAIReviewProvider } from './ai/aiReviewProviderFactory';
-import { runAIReview } from './ai/aiReviewService';
-import type { AIReviewProvider, AIReviewRequest } from './ai/aiReviewModels';
+import { readReviewInput, runAIReview } from './ai/aiReviewService';
+import type { AIReviewProvider, AIReviewRequest, ReviewInput } from './ai/aiReviewModels';
 import type { PerformanceReport, PerformanceComparisonReport } from './domain/models';
 import { validateAIReview } from './validation/validateAIReview';
+import { generateStructuredReview, readStructuredReview } from './application/reviewPerformance';
+import { renderStructuredReviewMarkdown } from './reporting/reviewReportMarkdownBuilder';
+import { saveStructuredReviewArtifacts } from './application/artifacts/structuredReviewArtifacts';
 
 const REVIEW = join(__dirname, 'cli', 'review.js');
 
@@ -220,6 +223,24 @@ test('stub provider returns valid AIReview', async () => {
   assert.deepEqual(validateAIReview(review), []);
 });
 
+test('stub provider reads review input into a deterministic structured report', async () => {
+  const provider = new StubAIReviewProvider();
+  const input: ReviewInput = {
+    moduleName: 'game',
+    userQuestion: 'Review game architecture',
+    notes: ['No test summary supplied'],
+  };
+
+  const report1 = await provider.readReview(input);
+  const report2 = await provider.readReview({ ...input, userQuestion: 'Different question' });
+
+  assert.equal(report1.summary, report2.summary);
+  assert.ok(report1.findings.length > 0);
+  assert.equal(report1.findings[0]?.severity, 'info');
+  assert.equal(report1.findings[0]?.category, 'architecture');
+  assert.ok(report1.suggestedNextSteps.length > 0);
+});
+
 test('stub provider makes no network calls and resolves immediately', async () => {
   const provider = new StubAIReviewProvider();
   const start    = Date.now();
@@ -293,6 +314,87 @@ test('review service passes prompt containing report data to provider', async ()
   assert.ok(capturedPrompt.includes('CPU_BOUND'));
 });
 
+test('review reading service returns a structured ReviewReport', async () => {
+  const provider = new StubAIReviewProvider();
+  const report = await readReviewInput({ moduleName: 'tests' }, provider);
+
+  assert.ok(typeof report.summary === 'string');
+  assert.ok(report.summary.includes('tests'));
+  assert.ok(report.findings.length > 0);
+  assert.equal(report.findings[0]?.severity, 'info');
+  assert.equal(report.findings[0]?.category, 'architecture');
+  assert.ok(report.suggestedNextSteps.length > 0);
+});
+
+test('application review reader delegates through existing AI reader boundary', async () => {
+  const provider = new StubAIReviewProvider();
+  const report = await readStructuredReview({ moduleName: 'performance-analysis' }, provider);
+
+  assert.ok(report.summary.includes('performance-analysis'));
+  assert.ok(report.findings.some((finding) => finding.category === 'maintainability'));
+});
+
+test('structured review markdown includes findings and next steps', async () => {
+  const provider = new StubAIReviewProvider();
+  const report = await readReviewInput({ moduleName: 'game' }, provider);
+  const markdown = renderStructuredReviewMarkdown(report);
+
+  assert.ok(markdown.includes('# Structured Review Report'));
+  assert.ok(markdown.includes('info / architecture'));
+  assert.ok(markdown.includes('## Suggested Next Steps'));
+});
+
+test('structured review artifact writer saves JSON and Markdown reports', async () => {
+  const provider = new StubAIReviewProvider();
+  const report = await readReviewInput({ moduleName: 'game' }, provider);
+  const outputDir = mkdtempSync(join(tmpdir(), 'perf-structured-review-'));
+
+  const paths = saveStructuredReviewArtifacts(report, outputDir);
+
+  assert.ok(paths.jsonPath.endsWith('review_report.json'));
+  assert.ok(paths.markdownPath.endsWith('review_report.md'));
+  assert.ok(existsSync(paths.jsonPath));
+  assert.ok(existsSync(paths.markdownPath));
+
+  const parsed = JSON.parse(readFileSync(paths.jsonPath, 'utf-8'));
+  assert.equal(parsed.summary, report.summary);
+  assert.ok(Array.isArray(parsed.findings));
+  assert.ok(Array.isArray(parsed.suggestedNextSteps));
+
+  const markdown = readFileSync(paths.markdownPath, 'utf-8');
+  assert.ok(markdown.includes('# Structured Review Report'));
+  assert.ok(markdown.includes('## Summary'));
+  assert.ok(markdown.includes('## Findings'));
+  assert.ok(markdown.includes('## Suggested Next Steps'));
+});
+
+test('generateStructuredReview without outputDir returns unsaved report', async () => {
+  const provider = new StubAIReviewProvider();
+
+  const result = await generateStructuredReview({ moduleName: 'project' }, provider);
+
+  assert.equal(result.saved, false);
+  assert.equal(result.paths, undefined);
+  assert.ok(result.report.summary.includes('project'));
+  assert.ok(result.report.findings.length > 0);
+});
+
+test('generateStructuredReview with outputDir saves artifacts', async () => {
+  const provider = new StubAIReviewProvider();
+  const outputDir = mkdtempSync(join(tmpdir(), 'perf-generate-structured-review-'));
+
+  const result = await generateStructuredReview({ moduleName: 'tests' }, provider, { outputDir });
+
+  assert.equal(result.saved, true);
+  assert.ok(result.paths?.jsonPath.endsWith('review_report.json'));
+  assert.ok(result.paths?.markdownPath.endsWith('review_report.md'));
+  assert.ok(existsSync(result.paths!.jsonPath));
+  assert.ok(existsSync(result.paths!.markdownPath));
+
+  const parsed = JSON.parse(readFileSync(result.paths!.jsonPath, 'utf-8'));
+  assert.equal(parsed.summary, result.report.summary);
+});
+
 // ---------------------------------------------------------------------------
 // CLI review command
 // ---------------------------------------------------------------------------
@@ -312,6 +414,57 @@ test('cli review: exits 0 and prints AIReview JSON for a PerformanceReport file'
   assert.ok(typeof review.executiveSummary     === 'string');
   assert.ok(typeof review.bottleneckExplanation === 'string');
   assert.ok(Array.isArray(review.risks));
+});
+
+test('cli review: exits 0 and prints structured ReviewReport JSON for a ReviewInput file', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'perf-review-input-'));
+  const inPath = writeTmp(dir, 'review-input.json', {
+    moduleName: 'game',
+    userQuestion: 'Review game module',
+    notes: ['No test summary supplied'],
+  });
+  const result = spawnSync('node', [REVIEW, inPath], { encoding: 'utf-8' });
+  assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+  const report = JSON.parse(result.stdout);
+  assert.ok(typeof report.summary === 'string');
+  assert.ok(report.summary.includes('game'));
+  assert.ok(Array.isArray(report.findings));
+  assert.equal(report.findings[0].severity, 'info');
+  assert.equal(report.findings[0].category, 'architecture');
+  assert.ok(Array.isArray(report.suggestedNextSteps));
+  assert.ok(typeof report.markdown === 'string');
+  assert.ok(report.markdown.includes('# Structured Review Report'));
+});
+
+test('cli review: saves structured ReviewReport artifacts when output dir is provided', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'perf-review-input-'));
+  const outputDir = mkdtempSync(join(tmpdir(), 'perf-review-output-'));
+  const inPath = writeTmp(dir, 'review-input.json', {
+    moduleName: 'tests',
+    userQuestion: 'Review test coverage',
+  });
+
+  const result = spawnSync('node', [REVIEW, inPath, '--out', outputDir], { encoding: 'utf-8' });
+
+  assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+  const metadata = JSON.parse(result.stdout);
+  assert.equal(metadata.saved, true);
+  assert.ok(metadata.paths.jsonPath.endsWith('review_report.json'));
+  assert.ok(metadata.paths.markdownPath.endsWith('review_report.md'));
+  assert.ok(existsSync(metadata.paths.jsonPath));
+  assert.ok(existsSync(metadata.paths.markdownPath));
+
+  const parsed = JSON.parse(readFileSync(metadata.paths.jsonPath, 'utf-8'));
+  assert.ok(typeof parsed.summary === 'string');
+  assert.ok(parsed.summary.includes('tests'));
+  assert.ok(Array.isArray(parsed.findings));
+  assert.ok(Array.isArray(parsed.suggestedNextSteps));
+
+  const markdown = readFileSync(metadata.paths.markdownPath, 'utf-8');
+  assert.ok(markdown.includes('# Structured Review Report'));
+  assert.ok(markdown.includes('## Summary'));
+  assert.ok(markdown.includes('## Findings'));
+  assert.ok(markdown.includes('## Suggested Next Steps'));
 });
 
 test('cli review: exits 0 with default provider selection', () => {
@@ -359,6 +512,19 @@ test('cli review: exits 1 for invalid PerformanceReport file', () => {
   assert.ok(result.stderr.includes('Invalid PerformanceReport'));
   assert.ok(result.stderr.includes('summary.p95_latency must be a number'));
   assert.ok(result.stderr.includes('evidence must be an array'));
+});
+
+test('cli review: exits 1 for invalid ReviewInput file', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'perf-review-input-'));
+  const inPath = writeTmp(dir, 'invalid-review-input.json', {
+    moduleName: 123,
+    notes: ['ok', 42],
+  });
+  const result = spawnSync('node', [REVIEW, inPath], { encoding: 'utf-8' });
+  assert.equal(result.status, 1);
+  assert.ok(result.stderr.includes('Invalid ReviewInput'));
+  assert.ok(result.stderr.includes('moduleName must be a string when provided'));
+  assert.ok(result.stderr.includes('notes must be an array of strings when provided'));
 });
 
 test('cli review: exits 1 for invalid PerformanceComparisonReport file', () => {
