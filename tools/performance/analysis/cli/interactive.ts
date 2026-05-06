@@ -2,8 +2,9 @@ import { readFileSync } from 'node:fs';
 import { runEnvironmentCheck } from './doctor/environmentCheck';
 import { runK6ReportAsync, type K6Phase, type K6ReportProgressEvent, type K6TestName, type RunK6ReportOptions } from '../application/runK6Report';
 import { runK6SuiteAsync, type K6SuiteProgressEvent, type RunK6SuiteOptions } from '../application/runK6Suite';
-import { runGatlingReportAsync, type GatlingReportProgressEvent, type GatlingTestName, type RunGatlingReportOptions } from '../application/runGatlingReport';
+import { runGatlingReportAsync, type GatlingPattern, type GatlingReportProgressEvent, type GatlingTestName, type RunGatlingReportOptions } from '../application/runGatlingReport';
 import { jmhProfileOptions, runJmhReportAsync, type JmhReportProgressEvent, type JmhWorkbenchProfile, type RunJmhReportOptions } from '../application/runJmhReport';
+import { DEFAULT_GATLING_SCENARIO_PATTERN_ID, findGatlingScenarioPattern, listGatlingScenarioPatterns } from '../application/gatlingScenarioPatterns';
 import { DEFAULT_JMH_GROUP_ID, findJmhBenchmarkGroup, listJmhBenchmarkGroups, resolveJmhPattern, type JmhBenchmarkGroupId } from '../application/jmhBenchmarkGroups';
 import { createInteractiveRunOutDir } from './artifacts/interactiveRunArtifacts';
 import { loadPerformanceConfig, resolvePerformanceOutputDir, type PerformanceCliConfig } from './config';
@@ -12,9 +13,15 @@ import {
   generateAIReviewForRun,
   selectAIReviewMarkdown,
 } from './reports/aiReviewArtifacts';
+import {
+  generateStructuredReviewForRun,
+  runPreviewStructuredReviewWorkbenchFlow,
+  runStructuredReviewWorkbenchFlow,
+  selectStructuredReviewMarkdown,
+} from './reports/structuredReviewWorkbench';
 import { findRunHistory, type RunHistoryItem } from './reports/runHistory';
 import { buildWorkbenchSettingsView } from './settings/settingsView';
-import { inputPrompt, selectPrompt } from './ui/prompts';
+import { inputPrompt, selectPrompt, type SelectPromptChoice } from './ui/prompts';
 import { startSpinner, type CliSpinner } from './ui/spinner';
 import * as theme from './ui/theme';
 import {
@@ -47,8 +54,8 @@ type WorkbenchArea = 'k6' | 'gatling' | 'jmh' | 'reports' | 'settings' | 'doctor
 type K6WorkbenchAction = 'baseline' | 'load' | 'spike' | 'stress' | 'suite' | 'back';
 type GatlingWorkbenchAction = GatlingTestName | 'back';
 type JmhWorkbenchAction = JmhWorkbenchProfile | 'back';
-type ReportsAction = 'browse-runs' | 'latest-suite-report' | 'back';
-type RunDetailAction = 'preview' | 'paths' | 'generate-ai' | 'preview-ai' | 'back';
+type ReportsAction = 'browse-runs' | 'latest-suite-report' | 'structured-review' | 'preview-structured-review' | 'back';
+type RunDetailAction = 'preview' | 'paths' | 'generate-ai' | 'preview-ai' | 'generate-structured-review' | 'preview-structured-review' | 'back';
 
 type InteractiveK6CommonOptions = Pick<RunK6SuiteOptions, 'baseUrl' | 'cpu' | 'memory' | 'phase' | 'out'>;
 interface InteractiveK6RunOptions extends InteractiveK6CommonOptions {
@@ -97,6 +104,28 @@ export function parsePhaseAnswer(value: string | undefined): K6Phase {
     throw new Error('Phase must be baseline or optimized');
   }
   return value;
+}
+
+export function reportActionChoices(): SelectPromptChoice<ReportsAction>[] {
+  return [
+    { name: 'Browse recent runs', value: 'browse-runs' },
+    { name: 'Show latest suite report', value: 'latest-suite-report' },
+    { name: 'Generate structured review', value: 'structured-review' },
+    { name: 'Preview last structured review', value: 'preview-structured-review' },
+    { name: 'Back', value: 'back' },
+  ];
+}
+
+export function runDetailActionChoices(): SelectPromptChoice<RunDetailAction>[] {
+  return [
+    { name: 'Preview Markdown report', value: 'preview' },
+    { name: 'Show artifact paths', value: 'paths' },
+    { name: 'Generate AI review', value: 'generate-ai' },
+    { name: 'Preview AI review', value: 'preview-ai' },
+    { name: 'Generate structured review for this run', value: 'generate-structured-review' },
+    { name: 'Preview structured review for this run', value: 'preview-structured-review' },
+    { name: 'Back', value: 'back' },
+  ];
 }
 
 export function defaultOutputDirectory(config: PerformanceCliConfig, phase: K6Phase): string | undefined {
@@ -237,6 +266,17 @@ export function buildInteractiveGatlingReportOptions(test: GatlingTestName, comm
     ...commonOptions,
     test,
     outputMode: 'log',
+  };
+}
+
+export function buildInteractiveGatlingReportOptionsWithPattern(
+  test: GatlingTestName,
+  pattern: GatlingPattern,
+  commonOptions: InteractiveK6CommonOptions,
+): RunGatlingReportOptions {
+  return {
+    ...buildInteractiveGatlingReportOptions(test, commonOptions),
+    gatlingPattern: pattern,
   };
 }
 
@@ -477,13 +517,7 @@ async function browseRunDetailFlow(item: RunHistoryItem, config: PerformanceCliC
 
     const action = await selectPrompt<RunDetailAction>({
       message: 'Run Actions',
-      choices: [
-        { name: 'Preview Markdown report', value: 'preview' },
-        { name: 'Show artifact paths', value: 'paths' },
-        { name: 'Generate AI review', value: 'generate-ai' },
-        { name: 'Preview AI review', value: 'preview-ai' },
-        { name: 'Back', value: 'back' },
-      ],
+      choices: runDetailActionChoices(),
     });
 
     if (action === 'back') return 0;
@@ -540,6 +574,33 @@ async function browseRunDetailFlow(item: RunHistoryItem, config: PerformanceCliC
       continue;
     }
 
+    if (action === 'generate-structured-review') {
+      try {
+        await generateStructuredReviewForRun(item);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        process.stdout.write(`${theme.warning(message)}\n`);
+      }
+      continue;
+    }
+
+    if (action === 'preview-structured-review') {
+      const reviewPath = selectStructuredReviewMarkdown(item);
+      if (!reviewPath) {
+        process.stdout.write(`${theme.muted('No structured review found for this run. Generate one first.')}\n`);
+        continue;
+      }
+      let content: string;
+      try {
+        content = readFileSync(reviewPath, 'utf-8');
+      } catch {
+        process.stdout.write(`${theme.muted(`Could not read structured review: ${reviewPath}`)}\n`);
+        continue;
+      }
+      process.stdout.write(`\n${renderMarkdownPreview(reviewPath, content)}\n`);
+      continue;
+    }
+
     process.stdout.write(`\n${renderRunArtifactPaths(item)}\n`);
   }
 }
@@ -570,17 +631,21 @@ export async function runReportsWorkbenchFlow(config: PerformanceCliConfig): Pro
   process.stdout.write(`\n${theme.section('Reports & History')}\n`);
   const action = await selectPrompt<ReportsAction>({
     message: 'Select report action',
-    choices: [
-      { name: 'Browse recent runs', value: 'browse-runs' },
-      { name: 'Show latest suite report', value: 'latest-suite-report' },
-      { name: 'Back', value: 'back' },
-    ],
+    choices: reportActionChoices(),
   });
 
   if (action === 'back') return 0;
 
   if (action === 'browse-runs') {
     return browseRecentRunsFlow(config);
+  }
+
+  if (action === 'structured-review') {
+    return runStructuredReviewWorkbenchFlow(config);
+  }
+
+  if (action === 'preview-structured-review') {
+    return runPreviewStructuredReviewWorkbenchFlow(config);
   }
 
   const history = findRunHistory(config.outputRoot);
@@ -694,9 +759,9 @@ export async function runGatlingWorkbenchFlow(config: PerformanceCliConfig): Pro
     const action = await selectPrompt<GatlingWorkbenchAction>({
       message: 'Select Gatling action',
       choices: [
-        { name: 'Run smoke simulation', value: 'smoke' },
-        { name: 'Run load simulation', value: 'load' },
-        { name: 'Run stress simulation', value: 'stress' },
+        { name: 'Run smoke Gatling simulation', value: 'smoke' },
+        { name: 'Run load Gatling simulation', value: 'load' },
+        { name: 'Run stress Gatling simulation', value: 'stress' },
         { name: 'Back', value: 'back' },
       ],
     });
@@ -706,16 +771,26 @@ export async function runGatlingWorkbenchFlow(config: PerformanceCliConfig): Pro
     }
 
     const commonOptions = await promptCommonK6Options(config, 'gatling', action);
+    const gatlingPattern = await selectPrompt<GatlingPattern>({
+      message: 'Gatling pattern',
+      choices: listGatlingScenarioPatterns().map((pattern) => ({
+        name: `${pattern.label} - ${pattern.description}`,
+        value: pattern.id,
+      })),
+      default: DEFAULT_GATLING_SCENARIO_PATTERN_ID,
+    });
+    const gatlingPatternLabel = findGatlingScenarioPattern(gatlingPattern).label;
     process.stdout.write(`${renderRunMetadata({
       tool: 'gatling',
       workload: action,
+      pattern: gatlingPatternLabel,
       phase: commonOptions.phase,
       runId: commonOptions.runId,
     })}\n\n`);
     process.stdout.write(`${theme.section('Progress')}\n`);
 
     const options: RunGatlingReportOptions = {
-      ...buildInteractiveGatlingReportOptions(action, commonOptions),
+      ...buildInteractiveGatlingReportOptionsWithPattern(action, gatlingPattern, commonOptions),
       onProgress: (event) => {
         activeSpinner = applySpinnerAction(gatlingReportSpinnerAction(event), activeSpinner);
         printProgress(formatGatlingReportProgressEvent(event));

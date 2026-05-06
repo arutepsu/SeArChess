@@ -194,6 +194,19 @@ test('renderRunMetadata omits Group line when group is not provided', () => {
   assert.doesNotMatch(output, /Group/);
 });
 
+test('renderRunMetadata includes Pattern when pattern is provided', () => {
+  const output = renderRunMetadata({
+    tool: 'gatling',
+    workload: 'smoke',
+    pattern: 'Gameplay flow',
+    phase: 'baseline',
+    runId: 'run-002b',
+  });
+
+  assert.match(output, /Pattern/);
+  assert.match(output, /Gameplay flow/);
+});
+
 test('renderRunMetadata always shows Tool, Workload, Phase, and Run ID', () => {
   const output = renderRunMetadata({
     tool: 'gatling',

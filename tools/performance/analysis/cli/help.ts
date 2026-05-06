@@ -17,9 +17,9 @@ export const TOP_LEVEL_HELP = [
   '  perf start',
   '  perf k6-suite',
   '  perf k6-suite --phase optimized',
-  '  perf gatling --test smoke --base-url http://localhost:8080 --cpu 72 --memory 61 --phase baseline',
-  '  perf gatling --test load --base-url http://localhost:8080 --cpu 72 --memory 61 --phase baseline',
-  '  perf gatling --test stress --base-url http://localhost:8080 --cpu 72 --memory 61 --phase baseline',
+  '  perf gatling --test smoke --gatling-pattern gameplay --base-url http://localhost:8080 --cpu 72 --memory 61 --phase baseline',
+  '  perf gatling --test load --gatling-pattern legalMoves --base-url http://localhost:8080 --cpu 72 --memory 61 --phase baseline',
+  '  perf gatling --test stress --gatling-pattern writeHeavy --base-url http://localhost:8080 --cpu 72 --memory 61 --phase baseline',
   '  perf k6 --test load --base-url http://localhost:10000/api --cpu 72 --memory 61 --phase baseline',
 ].join('\n');
 

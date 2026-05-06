@@ -153,7 +153,7 @@ Gatling Enterprise is commercial. It adds hosted or self-hosted dashboards, coll
 The Searchess simulation lives at:
 
 ```text
-tools/performance/gatling/src/test/scala/searchess/SearchessGameplaySimulation.scala
+tools/performance/gatling/src/test/scala/searchess/simulations/SearchessGameplaySimulation.scala
 ```
 
 Because the test is Scala code, it can use IDE navigation, compiler checks, refactoring, comments, constants, functions, and reusable chain builders. The current simulation is intentionally small, but it still shows the minimal Gatling structure:
@@ -179,9 +179,9 @@ npm run perf -- gatling
 With explicit settings:
 
 ```powershell
-npm run perf -- gatling --test smoke --base-url http://localhost:8080 --cpu 72 --memory 61 --phase baseline
-npm run perf -- gatling --test load --base-url http://localhost:8080 --cpu 72 --memory 61 --phase baseline
-npm run perf -- gatling --test stress --base-url http://localhost:8080 --cpu 72 --memory 61 --phase baseline
+npm run perf -- gatling --test smoke --gatling-pattern gameplay --base-url http://localhost:8080 --cpu 72 --memory 61 --phase baseline
+npm run perf -- gatling --test load --gatling-pattern legalMoves --base-url http://localhost:8080 --cpu 72 --memory 61 --phase baseline
+npm run perf -- gatling --test stress --gatling-pattern writeHeavy --base-url http://localhost:8080 --cpu 72 --memory 61 --phase baseline
 npm run perf -- start
 ```
 
@@ -201,7 +201,8 @@ http://localhost:10000/api
 
 Supported options:
 
-- `--test`       Workload profile: `smoke`, `load`, or `stress` (default: `load`)
+- `--test`       Gatling workload profile: `smoke`, `load`, or `stress` (default: `load`)
+- `--gatling-pattern` Scenario pattern: `all`, `gameplay`, `session`, `legalMoves`, `moveSubmission`, `readHeavy`, or `writeHeavy` (default: `gameplay`)
 - `--base-url`   Target base URL
 - `--cpu`        CPU usage % (0–100)
 - `--memory`     Memory usage % (0–100)
@@ -210,7 +211,7 @@ Supported options:
 
 ### Run from Interactive Workbench
 
-Select **Gatling Simulations** → **Run load simulation** from the workbench menu.
+Select **Gatling Simulations** -> **Run load Gatling simulation** from the workbench menu, then choose the Gatling scenario pattern.
 
 Interactive Gatling runs:
 
@@ -219,15 +220,49 @@ Interactive Gatling runs:
 - produce the same deterministic report format as k6 runs
 - appear in Reports & History as `gatling-single` runs
 
-### Workload Profiles
+### Gatling Workloads and Scenario Patterns
 
-The Gatling simulation reads `GATLING_WORKLOAD`, and the workbench passes the selected `--test` profile through to that environment variable. If no profile is provided, Gatling defaults to `load`.
+The Gatling integration keeps two concepts separate:
 
-Profiles:
+- `searchess.gatling.workload`: injection profile, one of `smoke`, `load`, or `stress`. Default: `load`.
+- `searchess.gatling.pattern`: scenario/workflow pattern, one of `all`, `gameplay`, `session`, `legalMoves`, `moveSubmission`, `readHeavy`, or `writeHeavy`. Default: `gameplay`.
+
+The workbench passes both values through to sbt as JVM system properties.
+
+Direct sbt examples:
+
+```bash
+sbt \
+  -Dsearchess.gatling.workload=smoke \
+  -Dsearchess.gatling.pattern=gameplay \
+  "gatlingPerf / Gatling / testOnly searchess.simulations.SearchessGameplaySimulation"
+
+sbt \
+  -Dsearchess.gatling.workload=load \
+  -Dsearchess.gatling.pattern=legalMoves \
+  "gatlingPerf / Gatling / testOnly searchess.simulations.SearchessGameplaySimulation"
+
+sbt \
+  -Dsearchess.gatling.workload=stress \
+  -Dsearchess.gatling.pattern=writeHeavy \
+  "gatlingPerf / Gatling / testOnly searchess.simulations.SearchessGameplaySimulation"
+```
+
+Workload profiles:
 
 - `smoke`: `rampUsers(3).during(3.seconds)` for a very small, fast validation run.
 - `load`: `rampUsers(50).during(10.seconds)` plus `constantUsersPerSec(5).during(50.seconds)`. This is the normal benchmark profile and preserves the original Gatling behavior.
 - `stress`: `rampUsers(100).during(15.seconds)` plus `constantUsersPerSec(10).during(60.seconds)` for bottleneck exploration.
+
+Scenario patterns:
+
+- `all`: run the full Gatling suite available in the current simulation class.
+- `gameplay`: create session, fetch legal moves, submit moves, and fetch updated state.
+- `session`: only session creation.
+- `legalMoves`: create session, then repeatedly fetch legal moves.
+- `moveSubmission`: create session, fetch legal moves, and submit moves.
+- `readHeavy`: mostly read operations such as legal moves and state.
+- `writeHeavy`: mostly move submission operations.
 
 Use `load` for normal before/after comparisons. Use `smoke` to confirm the scenario, feeder, groups, semantic JSON checks, and assertions still work. Use `stress` to explore pressure points; it may fail Gatling quality gates if the service crosses the configured error-rate or p95 latency limits, and its results should not be compared directly to `load`.
 
@@ -658,13 +693,13 @@ run ids, session ids, and game ids cannot create high-cardinality time series.
 The direct local backend URL remains preferred for observability correlation:
 
 ```powershell
-npm run perf -- gatling --test load --base-url http://localhost:8080 --cpu 72 --memory 61 --phase baseline
+npm run perf -- gatling --test load --gatling-pattern gameplay --base-url http://localhost:8080 --cpu 72 --memory 61 --phase baseline
 ```
 
 The Envoy path can still be used when the goal is to test the public edge:
 
 ```powershell
-npm run perf -- gatling --test load --base-url http://localhost:10000/api --cpu 72 --memory 61 --phase baseline
+npm run perf -- gatling --test load --gatling-pattern gameplay --base-url http://localhost:10000/api --cpu 72 --memory 61 --phase baseline
 ```
 
 ### Correlating with k6 and Gatling Results

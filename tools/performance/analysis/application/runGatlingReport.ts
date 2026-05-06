@@ -7,8 +7,11 @@ import type { NormalizerContext } from '../normalization/normalizerModels';
 import { analyze } from './analyzePerformance';
 import { renderPerformanceReview } from './renderPerformanceReview';
 import { renderPerformanceReviewHtml } from './renderPerformanceReviewHtml';
+import { DEFAULT_GATLING_SCENARIO_PATTERN_ID, type GatlingScenarioPatternId } from './gatlingScenarioPatterns';
 
-export type GatlingTestName = 'smoke' | 'load' | 'stress';
+export type GatlingWorkloadProfile = 'smoke' | 'load' | 'stress';
+export type GatlingTestName = GatlingWorkloadProfile;
+export type GatlingPattern = GatlingScenarioPatternId;
 export type GatlingPhase = 'baseline' | 'optimized';
 export type GatlingOutputMode = 'inherit' | 'log';
 
@@ -30,6 +33,7 @@ export interface GatlingReportProgressEvent {
 
 export interface RunGatlingReportOptions {
   test: GatlingTestName;
+  gatlingPattern?: GatlingPattern;
   baseUrl: string;
   cpu: number;
   memory: number;
@@ -77,12 +81,16 @@ function emitProgress(options: RunGatlingReportOptions, step: GatlingProgressSte
   options.onProgress?.({ step, test: options.test, message, path });
 }
 
+export function selectedGatlingPattern(options: RunGatlingReportOptions): GatlingPattern {
+  return options.gatlingPattern ?? DEFAULT_GATLING_SCENARIO_PATTERN_ID;
+}
+
 export function getGatlingTestConfig(test: GatlingTestName): GatlingTestConfig {
   switch (test) {
     case 'smoke':
       return {
         test,
-        simulationClass: 'searchess.SearchessGameplaySimulation',
+        simulationClass: 'searchess.simulations.SearchessGameplaySimulation',
         maxUsers: 3,
         duration: '3s',
         rampUpPattern: 'linear',
@@ -90,7 +98,7 @@ export function getGatlingTestConfig(test: GatlingTestName): GatlingTestConfig {
     case 'load':
       return {
         test,
-        simulationClass: 'searchess.SearchessGameplaySimulation',
+        simulationClass: 'searchess.simulations.SearchessGameplaySimulation',
         maxUsers: 50,
         duration: '1m',
         rampUpPattern: 'linear',
@@ -98,7 +106,7 @@ export function getGatlingTestConfig(test: GatlingTestName): GatlingTestConfig {
     case 'stress':
       return {
         test,
-        simulationClass: 'searchess.SearchessGameplaySimulation',
+        simulationClass: 'searchess.simulations.SearchessGameplaySimulation',
         maxUsers: 100,
         duration: '75s',
         rampUpPattern: 'linear',
@@ -163,17 +171,21 @@ function writeJson(path: string, value: unknown): void {
   writeFileSync(path, JSON.stringify(value, null, 2) + '\n');
 }
 
-function buildSbtSpawnArgs(): { cmd: string; args: string[]; useShell: boolean } {
+function buildSbtSpawnArgs(options: RunGatlingReportOptions, config: GatlingTestConfig): { cmd: string; args: string[]; useShell: boolean } {
+  const pattern = selectedGatlingPattern(options);
+  const workloadProperty = `-Dsearchess.gatling.workload=${options.test}`;
+  const patternProperty = `-Dsearchess.gatling.pattern=${pattern}`;
+  const testOnly = `Gatling/testOnly ${config.simulationClass}`;
   if (process.platform === 'win32') {
     return {
-      cmd: 'sbt "project gatlingPerf" "Gatling/test"',
+      cmd: `sbt ${workloadProperty} ${patternProperty} "project gatlingPerf" "${testOnly}"`,
       args: [],
       useShell: true,
     };
   }
   return {
     cmd: 'sbt',
-    args: ['project gatlingPerf', 'Gatling/test'],
+    args: [workloadProperty, patternProperty, 'project gatlingPerf', testOnly],
     useShell: false,
   };
 }
@@ -186,6 +198,7 @@ export function buildGatlingProcessEnv(options: RunGatlingReportOptions): NodeJS
     GATLING_RUN_ID: runIdFromOutputDirectory(options.out),
     GATLING_TOOL: 'gatling',
     GATLING_WORKLOAD: options.test,
+    GATLING_PATTERN: selectedGatlingPattern(options),
     GATLING_PHASE: options.phase ?? 'local',
   };
 }
@@ -264,12 +277,13 @@ function prepareGatlingRun(options: RunGatlingReportOptions): {
 
 function runGatlingProcessAsync(
   options: RunGatlingReportOptions,
+  config: GatlingTestConfig,
   outputMode: GatlingOutputMode,
   logFileDescriptor: number | undefined,
 ): Promise<{ status: number | null; error?: Error }> {
   return new Promise((resolveProcess) => {
     let resolved = false;
-    const { cmd, args, useShell } = buildSbtSpawnArgs();
+    const { cmd, args, useShell } = buildSbtSpawnArgs(options, config);
     const stdio: 'inherit' | ['ignore', number, number] =
       outputMode === 'log' && logFileDescriptor !== undefined
         ? ['ignore', logFileDescriptor, logFileDescriptor]
@@ -298,7 +312,7 @@ export function runGatlingReport(options: RunGatlingReportOptions): RunGatlingRe
       logFileDescriptor = openSync(artifactPaths.logPath, 'w');
     }
     emitProgress(options, 'gatling:start', `Starting Gatling ${options.test}.`, artifactPaths.logPath);
-    const { cmd, args, useShell } = buildSbtSpawnArgs();
+    const { cmd, args, useShell } = buildSbtSpawnArgs(options, config);
     const stdio: 'inherit' | ['ignore', number, number] =
       outputMode === 'log' && logFileDescriptor !== undefined
         ? ['ignore', logFileDescriptor, logFileDescriptor]
@@ -328,7 +342,7 @@ export async function runGatlingReportAsync(options: RunGatlingReportOptions): P
       logFileDescriptor = openSync(artifactPaths.logPath, 'w');
     }
     emitProgress(options, 'gatling:start', `Starting Gatling ${options.test}.`, artifactPaths.logPath);
-    const result = await runGatlingProcessAsync(options, outputMode, logFileDescriptor);
+    const result = await runGatlingProcessAsync(options, config, outputMode, logFileDescriptor);
     emitProgress(options, 'gatling:complete', `Gatling ${options.test} execution completed.`);
     return completeGatlingReport(options, config, artifactPaths, result.status);
   } finally {
