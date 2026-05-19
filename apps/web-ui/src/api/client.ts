@@ -88,10 +88,22 @@ export async function exportPgn(gameId: string): Promise<NotationTextResponse> {
 export async function createGame(
   payload: CreateGameRequest
 ): Promise<CreateGameResponse> {
-  return fetchJson<CreateGameResponse>("/api/sessions", {
+  return fetchJson<CreateGameResponse>(createGamePathForMode(payload.mode), {
     method: "POST",
     body: JSON.stringify(payload)
   });
+}
+
+function createGamePathForMode(mode?: CreateGameRequest["mode"]): string {
+  switch (mode) {
+    case "HumanVsAI":
+      return "/api/sessions/human-vs-ai";
+    case "AIVsAI":
+      return "/api/sessions/ai-vs-ai";
+    case "HumanVsHuman":
+    default:
+      return "/api/sessions/human-vs-human";
+  }
 }
 
 export async function importGameFromNotation(

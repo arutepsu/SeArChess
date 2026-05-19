@@ -1,0 +1,135 @@
+{
+    "root_group": {
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {
+            "setup: create independent session": {
+                "checks": {
+                    "create session status is 201": {
+                        "path": "::setup: create independent session::create session status is 201",
+                        "id": "fbe328f1e88ae084d5928cdd16ab41a1",
+                        "passes": 0,
+                        "fails": 29163,
+                        "name": "create session status is 201"
+                    },
+                    "create session body is not empty": {
+                        "fails": 29163,
+                        "name": "create session body is not empty",
+                        "path": "::setup: create independent session::create session body is not empty",
+                        "id": "ce5ebf0c0034425897b61de29405adb6",
+                        "passes": 0
+                    },
+                    "create session body is valid JSON": {
+                        "name": "create session body is valid JSON",
+                        "path": "::setup: create independent session::create session body is valid JSON",
+                        "id": "8e68424d04390f892ebe6d6ac6705a55",
+                        "passes": 0,
+                        "fails": 29163
+                    },
+                    "create session returns sessionId and gameId": {
+                        "name": "create session returns sessionId and gameId",
+                        "path": "::setup: create independent session::create session returns sessionId and gameId",
+                        "id": "2fda6ce137c9c27aa3710534b66b6678",
+                        "passes": 0,
+                        "fails": 29163
+                    }
+                },
+                "name": "setup: create independent session",
+                "path": "::setup: create independent session",
+                "id": "a109d8fb05710035f8af3254e6814ecf",
+                "groups": {}
+            }
+        },
+        "checks": {},
+        "name": "",
+        "path": ""
+    },
+    "metrics": {
+        "http_req_connecting": {
+            "p(99)": 0,
+            "med": 0,
+            "p(95)": 0
+        },
+        "data_sent": {
+            "count": 0,
+            "rate": 0
+        },
+        "data_received": {
+            "count": 0,
+            "rate": 0
+        },
+        "vus": {
+            "max": 50,
+            "value": 43,
+            "min": 43
+        },
+        "checks": {
+            "passes": 0,
+            "fails": 116652,
+            "value": 0
+        },
+        "http_req_receiving": {
+            "med": 0,
+            "p(95)": 0,
+            "p(99)": 0
+        },
+        "vus_max": {
+            "min": 50,
+            "max": 50,
+            "value": 50
+        },
+        "iterations": {
+            "count": 29163,
+            "rate": 485.08611287332246
+        },
+        "http_req_sending": {
+            "p(95)": 0,
+            "p(99)": 0,
+            "med": 0
+        },
+        "group_duration": {
+            "med": 102.2989,
+            "p(95)": 105.40440999999998,
+            "p(99)": 111.30332000000001
+        },
+        "http_reqs": {
+            "rate": 485.08611287332246,
+            "count": 29163
+        },
+        "http_req_failed": {
+            "passes": 29163,
+            "fails": 0,
+            "thresholds": {
+                "rate<0.01": true
+            },
+            "value": 1
+        },
+        "http_req_blocked": {
+            "med": 0,
+            "p(95)": 0,
+            "p(99)": 0
+        },
+        "http_req_tls_handshaking": {
+            "med": 0,
+            "p(95)": 0,
+            "p(99)": 0
+        },
+        "http_req_waiting": {
+            "p(95)": 0,
+            "p(99)": 0,
+            "med": 0
+        },
+        "iteration_duration": {
+            "p(99)": 111.38776000000001,
+            "med": 102.319,
+            "p(95)": 105.48687000000001
+        },
+        "http_req_duration": {
+            "med": 0,
+            "p(95)": 0,
+            "p(99)": 0,
+            "thresholds": {
+                "p(95)<500": false
+            }
+        }
+    }
+}

@@ -13,6 +13,7 @@ import chess.adapter.rest.contract.dto.{
 }
 import chess.application.GameServiceApi
 import chess.application.query.game.GameView
+import chess.application.session.model.SessionMode
 import chess.application.session.model.SessionIds.SessionId
 import chess.application.session.service.{
   PersistentSessionError,
@@ -47,7 +48,16 @@ class Http4sSessionRoutes(
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
 
     case req @ POST -> Root / "sessions" =>
-      req.bodyText.compile.string.flatMap(handleCreate)
+      req.bodyText.compile.string.flatMap(handleCreate(None, _))
+
+    case req @ POST -> Root / "sessions" / "human-vs-human" =>
+      req.bodyText.compile.string.flatMap(handleCreate(Some(SessionMode.HumanVsHuman), _))
+
+    case req @ POST -> Root / "sessions" / "human-vs-ai" =>
+      req.bodyText.compile.string.flatMap(handleCreate(Some(SessionMode.HumanVsAI), _))
+
+    case req @ POST -> Root / "sessions" / "ai-vs-ai" =>
+      req.bodyText.compile.string.flatMap(handleCreate(Some(SessionMode.AIVsAI), _))
 
     case GET -> Root / "sessions" =>
       handleList()
@@ -71,11 +81,19 @@ class Http4sSessionRoutes(
       handleCancel(id)
   }
 
-  private def handleCreate(body: String): IO[Response[IO]] =
+  private def handleCreate(fixedMode: Option[SessionMode], body: String): IO[Response[IO]] =
     val result =
       for
         req <- CreateSessionRequest.fromJson(body)
-        mode <- SessionMapper.parseMode(req.mode)
+        mode <- fixedMode match
+          case Some(expectedMode) =>
+            req.mode match
+              case Some(rawMode) if rawMode != expectedMode.toString =>
+                Left(
+                  s"Mode mismatch for this endpoint: expected ${expectedMode.toString}, got $rawMode"
+                )
+              case _ => Right(expectedMode)
+          case None => SessionMapper.parseMode(req.mode)
         controllers <- SessionMapper.resolveCreateControllers(
           mode,
           req.whiteController,
@@ -157,7 +175,10 @@ class Http4sSessionRoutes(
       case Left((status, code, message)) =>
         jsonError(status, code, message)
       case Right(saved) =>
-        jsonResponse(Status.Ok, SessionStateResponse.toJson(SessionMapper.toSessionStateResponse(saved)))
+        jsonResponse(
+          Status.Ok,
+          SessionStateResponse.toJson(SessionMapper.toSessionStateResponse(saved))
+        )
 
   private def handleExport(idStr: String): IO[Response[IO]] =
     parseUUID(idStr) match

@@ -1,0 +1,37 @@
+{
+  "metadata": {
+    "test_type": "spike",
+    "scenario_name": "k6-spike-baseline",
+    "timestamp": "2026-05-05T20:42:27.084Z"
+  },
+  "summary": {
+    "p95_latency": 4066.167279999999,
+    "error_rate": 0,
+    "throughput": 50.89200023865351
+  },
+  "observations": [
+    "p50 latency is 1435.8754ms",
+    "p95 latency is 4066.167279999999ms",
+    "p99 latency is 5430.298892000002ms",
+    "error rate is 0 (0 total errors)",
+    "throughput is 50.89200023865351 requests/second",
+    "CPU usage is 72%",
+    "memory usage is 61%",
+    "max concurrent users is 150"
+  ],
+  "bottleneck": {
+    "type": "SCALABILITY",
+    "confidence": "MEDIUM"
+  },
+  "evidence": [
+    "p95 latency is 4066.167279999999ms, exceeding the 500ms threshold",
+    "max concurrent users is 150, at or above the 100-user threshold"
+  ],
+  "suggestions": [
+    "Improve architecture to support async and batching patterns",
+    "Reduce synchronous dependencies"
+  ],
+  "notes": [
+    "db_pool_usage_percent not provided; database connection pressure is unknown"
+  ]
+}

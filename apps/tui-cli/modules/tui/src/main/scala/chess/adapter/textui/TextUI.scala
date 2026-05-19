@@ -5,7 +5,7 @@ import chess.application.ChessCommand.MakeMove
 import chess.application.session.model.{DesktopSessionContext, SideController}
 import chess.application.session.service.{GameSessionCommands, SessionMoveError}
 import chess.domain.error.DomainError
-import chess.domain.model.{Move, Position}
+import chess.domain.model.{Move, Position, Color}
 import chess.domain.state.GameState
 import scala.annotation.tailrec
 
@@ -14,9 +14,9 @@ import scala.annotation.tailrec
   * Operates in two distinct modes:
   *
   * ===Local mode (default)===
-  * No session parameters supplied. Moves go through [[GameStateCommandService]] directly (pure domain path).
-  * No persistence, no event publication. Intended for standalone demo use, testing without
-  * infrastructure, and the existing convenience constructors in the companion object.
+  * No session parameters supplied. Moves go through [[GameStateCommandService]] directly (pure
+  * domain path). No persistence, no event publication. Intended for standalone demo use, testing
+  * without infrastructure, and the existing convenience constructors in the companion object.
   *
   * ===Session-aware mode===
   * `commands` and `sessionContext` supplied. Moves go through [[GameSessionCommands.submitMove]] —
@@ -155,7 +155,7 @@ final class TextUI(
                   case Right((newState, newSess)) =>
                     ctx.setSession(newSess)
                     game.updateState(newState)
-                    loop(pendingMove = None)
+                    processAiMovesIfNeeded(newState, Some(ctx))
               case _ =>
                 // ── Local mode ──────────────────────────────────────────────
                 // Pure domain path: no persistence, no events.
@@ -169,7 +169,7 @@ final class TextUI(
                     loop(pendingMove)
                   case Right(newState) =>
                     game.updateState(newState)
-                    loop(pendingMove = None)
+                    processAiMovesIfNeeded(newState)
 
       case Right(TextUiCommand.PromoteCmd(pieceType)) =>
         pendingMove match
@@ -196,7 +196,7 @@ final class TextUI(
                   case Right((newState, newSess)) =>
                     ctx.setSession(newSess)
                     game.updateState(newState)
-                    loop(pendingMove = None)
+                    processAiMovesIfNeeded(newState, Some(ctx))
               case _ =>
                 // ── Local mode ──────────────────────────────────────────────
                 // $COVERAGE-OFF$ promotion with q/r/b/n on a valid board cannot fail
@@ -211,9 +211,91 @@ final class TextUI(
                   // $COVERAGE-ON$
                   case Right(newState) =>
                     game.updateState(newState)
-                    loop(pendingMove = None)
+                    processAiMovesIfNeeded(newState)
 
   // ── Session-mode helpers ────────────────────────────────────────────────────
+
+  /** Process AI moves if the current player is controlled by AI.
+    *
+    * This recursively processes AI turns until it's a human player's turn again.
+    */
+  private def processAiMovesIfNeeded(
+      currentState: GameState,
+      sessionOpt: Option[DesktopSessionContext] = None
+  ): TuiExitReason =
+    val nextPlayerColor = currentState.currentPlayer
+    val isAiTurn = sessionOpt match
+      case Some(ctx) =>
+        val session = ctx.getSession
+        val controller =
+          if nextPlayerColor == chess.domain.model.Color.White then session.whiteController
+          else session.blackController
+        controller match
+          case SideController.AI(_) => true
+          case _                    => false
+      case None => false
+
+    if !isAiTurn then
+      console.printLine("")
+      console.printLine(ConsoleRenderer.renderBoard(currentState))
+      console.printLine(ConsoleRenderer.renderStatus(currentState))
+      console.print("> ")
+      loop(pendingMove = None)
+    else
+      // AI's turn
+      console.printLine("")
+      console.printLine("[AI is thinking...]")
+
+      LocalAiPlayer.selectMove(currentState, nextPlayerColor) match
+        case None =>
+          // Should not happen in a valid game state
+          console.printLine("ERROR: AI could not find a legal move.")
+          console.printLine("")
+          console.printLine(ConsoleRenderer.renderBoard(currentState))
+          console.printLine(ConsoleRenderer.renderStatus(currentState))
+          console.print("> ")
+          loop(pendingMove = None)
+
+        case Some(aiMove) =>
+          if sessionOpt.isDefined && commands.isDefined then
+            // Session-aware path: submit through unified boundary
+            val ctx = sessionOpt.get
+            val gameCommands = commands.get
+            gameCommands.submitMove(
+              ctx.getSession,
+              currentState,
+              aiMove,
+              SideController.AI()
+            ) match
+              case Left(err) =>
+                console.printLine(s"ERROR executing AI move: ${renderSessionMoveError(err)}")
+                console.printLine("")
+                console.printLine(ConsoleRenderer.renderBoard(currentState))
+                console.printLine(ConsoleRenderer.renderStatus(currentState))
+                console.print("> ")
+                loop(pendingMove = None)
+              case Right((newState, newSess)) =>
+                ctx.setSession(newSess)
+                game.updateState(newState)
+                console.printLine(s"AI played: ${aiMove.from} to ${aiMove.to}")
+                // Recursively process AI turns if needed
+                processAiMovesIfNeeded(newState, Some(ctx))
+          else
+            // Local mode: no session context
+            GameStateCommandService.handleCommand(currentState, MakeMove(aiMove)) match
+              case Left(err) =>
+                console.printLine(
+                  s"ERROR executing AI move: ${ConsoleRenderer.renderApplicationError(err)}"
+                )
+                console.printLine("")
+                console.printLine(ConsoleRenderer.renderBoard(currentState))
+                console.printLine(ConsoleRenderer.renderStatus(currentState))
+                console.print("> ")
+                loop(pendingMove = None)
+              case Right(newState) =>
+                game.updateState(newState)
+                console.printLine(s"AI played: ${aiMove.from} to ${aiMove.to}")
+                processAiMovesIfNeeded(newState)
 
   private def isPromotionRequired(err: SessionMoveError): Boolean = err match
     case SessionMoveError.DomainRejection(

@@ -37,6 +37,13 @@ export default function Homepage({ hasActiveGame, busy, onStart, onContinueActiv
           >
             Mensch vs AI
           </button>
+          <button
+            type="button"
+            className={`mode-btn ${mode === "AIVsAI" ? "is-active" : ""}`}
+            onClick={() => setMode("AIVsAI")}
+          >
+            AI vs AI
+          </button>
         </div>
 
         <button

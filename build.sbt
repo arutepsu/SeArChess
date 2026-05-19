@@ -426,7 +426,7 @@ lazy val aiService = project
       ".*chess.aiservice.*"
     )
   )
-  .dependsOn(aiContract, observability)
+  .dependsOn(aiContract, observability, domain, notation)
 
 // Module: load-tests
 lazy val loadTests = project

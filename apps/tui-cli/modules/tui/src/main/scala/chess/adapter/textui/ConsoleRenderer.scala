@@ -45,6 +45,17 @@ object ConsoleRenderer:
        |  help         - show this help
        |  quit         - exit the game""".stripMargin
 
+  def renderModeMenu(): String =
+    """|Select game mode:
+       |  1 - Human vs Human (two players)
+       |  2 - Human vs AI (you play as White)
+       |  3 - AI vs AI (watch the engines play)
+       |
+       |Enter your choice (1-3):""".stripMargin
+
+  def renderInvalidModeChoice(input: String): String =
+    s"Invalid choice: '$input'. Please enter 1, 2, or 3."
+
   def renderParseError(err: InputParseError): String = err match
     case InputParseError.EmptyInput          => "Please enter a command."
     case InputParseError.UnknownCommand(cmd) => s"Unknown command: '$cmd'. Type 'help' for options."

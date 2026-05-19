@@ -18,7 +18,7 @@ object ConfigLoader:
   private val DefaultHistoryTimeout: String = "2000"
   private val DefaultAiMode: String = "remote"
   private val DefaultAiRemoteBaseUrl: String = "http://ai-service:8765"
-  private val DefaultAiTimeoutMillis: String = "2000"
+  private val DefaultAiTimeoutMillis: String = "15000"
   private val DefaultMigrationAdminEnabled: String = "false"
 
   def load(): Either[String, AppConfig] =

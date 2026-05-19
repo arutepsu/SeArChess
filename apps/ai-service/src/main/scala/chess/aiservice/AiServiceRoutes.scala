@@ -60,7 +60,19 @@ class AiServiceRoutes(config: AiServiceConfig):
       case Right(request) =>
         val started = Instant.now()
         logInfo("ai_request_received", request, "legalMoveCount" -> request.legalMoves.size)
-        val selected = request.legalMoves.head
+
+        val selected = chess.notation.fen.FenNotationFacade.parseAndImport(
+          chess.notation.api.NotationFormat.FEN,
+          request.fen,
+          chess.notation.api.ImportTarget.PositionTarget
+        ) match
+          case Right(res: chess.notation.api.ImportResult.PositionImportResult[chess.domain.state.GameState]) =>
+            chess.aiservice.engine.MinimaxEngine.selectBestMove(res.data, request.legalMoves, 3).getOrElse(request.legalMoves.head)
+          case Right(res: chess.notation.api.ImportResult.GameImportResult[chess.domain.state.GameState]) =>
+            chess.aiservice.engine.MinimaxEngine.selectBestMove(res.data, request.legalMoves, 3).getOrElse(request.legalMoves.head)
+          case _ =>
+            request.legalMoves.head
+
         val elapsed =
           math.max(0L, java.time.Duration.between(started, Instant.now()).toMillis).toInt
         logInfo(

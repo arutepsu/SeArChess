@@ -329,48 +329,42 @@ export function useGameState(): UseGameStateReturn {
     }
   }, [runRefreshFromServer]);
 
-  const applyAiMoveIfNeeded = useCallback(
-    async (
-      gameId: string,
-      sessionSnapshot: SessionContext | null,
-      currentGame: GameState,
-      thisGen: number
-    ): Promise<void> => {
-      if (!isAiTurn(sessionSnapshot, currentGame)) return;
+  const lastAiRequestedTurn = useRef<string>("");
 
-      setMessageState(`AI is thinking for ${currentGame.activeColor}...`);
+  useEffect(() => {
+    if (!game || !session || !game.id) return;
+
+    if (isAiTurn(session, game)) {
+      const turnKey = `${game.id}-${game.fullMove}-${game.activeColor}`;
+      if (lastAiRequestedTurn.current === turnKey) return;
+      lastAiRequestedTurn.current = turnKey;
+
+      setMessageState(`AI is thinking for ${game.activeColor}...`);
       setBusyState(true);
 
-      const previousBoard = currentGame.board;
-
-      try {
-        const response = await requestAiMove(gameId);
-
-        if (thisGen !== generation.current) return;
-
-        commitGameSnapshot(response.game, { previousBoard });
-        void refreshNotation(gameId, thisGen);
-
-        if (sessionSnapshot) {
-          setSession({
-            ...sessionSnapshot,
-            lifecycle: response.sessionLifecycle
-          });
-        }
-
-        setMessageState(undefined);
-      } catch (error) {
-        if (thisGen !== generation.current) return;
-
-        setMessageState(
-          error instanceof Error
-            ? `AI move failed. ${error.message}`
-            : "AI move failed."
-        );
-      }
-    },
-    [commitGameSnapshot, refreshNotation, setSession]
-  );
+      const thisGen = generation.current;
+      
+      requestAiMove(game.id)
+        .then(response => {
+          if (thisGen !== generation.current) return;
+          commitGameSnapshot(response.game);
+          void refreshNotation(game.id, thisGen);
+          setSession(prev => prev ? { ...prev, lifecycle: response.sessionLifecycle } : null);
+          setMessageState(undefined);
+        })
+        .catch(error => {
+          if (thisGen !== generation.current) return;
+          setMessageState(
+            error instanceof Error ? `AI move failed. ${error.message}` : "AI move failed."
+          );
+        })
+        .finally(() => {
+          if (thisGen === generation.current) {
+            setBusyState(false);
+          }
+        });
+    }
+  }, [game, session, commitGameSnapshot, refreshNotation, setSession]);
 
   const handleSelect = useCallback(
     async (square: string): Promise<void> => {
@@ -475,7 +469,6 @@ export function useGameState(): UseGameStateReturn {
         }
 
         setMessageState(undefined);
-        await applyAiMoveIfNeeded(gameId, session, nextGame, thisGen);
       } catch (error) {
         if (thisGen !== generation.current) return;
 
@@ -513,7 +506,6 @@ export function useGameState(): UseGameStateReturn {
             }
 
             setMessageState(undefined);
-            await applyAiMoveIfNeeded(gameId, session, nextGame, thisGen);
           } catch (retryError) {
             if (thisGen !== generation.current) return;
 
@@ -535,7 +527,6 @@ export function useGameState(): UseGameStateReturn {
       }
     },
     [
-      applyAiMoveIfNeeded,
       busy,
       commitGameSnapshot,
       game,

@@ -1,0 +1,28 @@
+{
+  "metadata": {
+    "test_type": "stress",
+    "scenario_name": "k6-stress-baseline",
+    "timestamp": "2026-05-05T20:52:05.664Z"
+  },
+  "load_profile": {
+    "max_users": 1000,
+    "duration": "3m",
+    "ramp_up_pattern": "staged-ramp"
+  },
+  "latency": {
+    "p50": 2731.5254,
+    "p95": 15029.7806,
+    "p99": 15091.94172
+  },
+  "throughput": {
+    "requests_per_second": 87.58050768398265
+  },
+  "errors": {
+    "error_rate": 0.28456652733293525,
+    "total_errors": 5242
+  },
+  "system": {
+    "cpu_usage_percent": 72,
+    "memory_usage_percent": 61
+  }
+}

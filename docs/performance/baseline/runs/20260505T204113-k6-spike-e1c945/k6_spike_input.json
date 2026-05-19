@@ -1,0 +1,28 @@
+{
+  "metadata": {
+    "test_type": "spike",
+    "scenario_name": "k6-spike-baseline",
+    "timestamp": "2026-05-05T20:42:27.084Z"
+  },
+  "load_profile": {
+    "max_users": 150,
+    "duration": "1m",
+    "ramp_up_pattern": "spike"
+  },
+  "latency": {
+    "p50": 1435.8754,
+    "p95": 4066.167279999999,
+    "p99": 5430.298892000002
+  },
+  "throughput": {
+    "requests_per_second": 50.89200023865351
+  },
+  "errors": {
+    "error_rate": 0,
+    "total_errors": 0
+  },
+  "system": {
+    "cpu_usage_percent": 72,
+    "memory_usage_percent": 61
+  }
+}

@@ -1,0 +1,233 @@
+{
+    "root_group": {
+        "checks": {},
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {
+                "setup: create independent session": {
+                    "groups": {
+                        "gameplay loop: legal moves -> move -> state": {
+                            "groups": {},
+                            "checks": {
+                                    "fetch legal moves status is 200": {
+                                        "name": "fetch legal moves status is 200",
+                                        "path": "::setup: create independent session::gameplay loop: legal moves -> move -> state::fetch legal moves status is 200",
+                                        "id": "91bafa50dda2a814e67cc7b78972c07c",
+                                        "passes": 4647,
+                                        "fails": 58
+                                    },
+                                    "fetch legal moves body is not empty": {
+                                        "path": "::setup: create independent session::gameplay loop: legal moves -> move -> state::fetch legal moves body is not empty",
+                                        "id": "ff9aa2872eb733a86dc88a3e42f29b90",
+                                        "passes": 4705,
+                                        "fails": 0,
+                                        "name": "fetch legal moves body is not empty"
+                                    },
+                                    "fetch legal moves body is valid JSON": {
+                                        "path": "::setup: create independent session::gameplay loop: legal moves -> move -> state::fetch legal moves body is valid JSON",
+                                        "id": "b00005d08739e2b619560f67a49566e2",
+                                        "passes": 4648,
+                                        "fails": 57,
+                                        "name": "fetch legal moves body is valid JSON"
+                                    },
+                                    "legal moves response has moves array": {
+                                        "name": "legal moves response has moves array",
+                                        "path": "::setup: create independent session::gameplay loop: legal moves -> move -> state::legal moves response has moves array",
+                                        "id": "81799ffca1d278a9e5f021655316e5ea",
+                                        "passes": 4647,
+                                        "fails": 58
+                                    },
+                                    "submit move status is 200": {
+                                        "path": "::setup: create independent session::gameplay loop: legal moves -> move -> state::submit move status is 200",
+                                        "id": "61047ffca7aad30376181d657ff1b5c0",
+                                        "passes": 3340,
+                                        "fails": 1012,
+                                        "name": "submit move status is 200"
+                                    },
+                                    "submit move body is not empty": {
+                                        "name": "submit move body is not empty",
+                                        "path": "::setup: create independent session::gameplay loop: legal moves -> move -> state::submit move body is not empty",
+                                        "id": "e31c9e34feccf56cca4fbd08b9df2489",
+                                        "passes": 4350,
+                                        "fails": 2
+                                    },
+                                    "submit move body is valid JSON": {
+                                        "name": "submit move body is valid JSON",
+                                        "path": "::setup: create independent session::gameplay loop: legal moves -> move -> state::submit move body is valid JSON",
+                                        "id": "8d2288a3c3e251fa82da48e92462f888",
+                                        "passes": 3343,
+                                        "fails": 1009
+                                    },
+                                    "fetch updated state status is 200": {
+                                        "name": "fetch updated state status is 200",
+                                        "path": "::setup: create independent session::gameplay loop: legal moves -> move -> state::fetch updated state status is 200",
+                                        "id": "8b170167fc4b991a073f273e172fe09e",
+                                        "passes": 2983,
+                                        "fails": 357
+                                    },
+                                    "fetch updated state body is not empty": {
+                                        "name": "fetch updated state body is not empty",
+                                        "path": "::setup: create independent session::gameplay loop: legal moves -> move -> state::fetch updated state body is not empty",
+                                        "id": "cfaf64c49f462e17777a7b7b7d0eee9b",
+                                        "passes": 3339,
+                                        "fails": 1
+                                    },
+                                    "fetch updated state body is valid JSON": {
+                                        "id": "2edb037507c33cd00a2466b6e6f2cb5c",
+                                        "passes": 2990,
+                                        "fails": 350,
+                                        "name": "fetch updated state body is valid JSON",
+                                        "path": "::setup: create independent session::gameplay loop: legal moves -> move -> state::fetch updated state body is valid JSON"
+                                    },
+                                    "updated state belongs to session and game": {
+                                        "name": "updated state belongs to session and game",
+                                        "path": "::setup: create independent session::gameplay loop: legal moves -> move -> state::updated state belongs to session and game",
+                                        "id": "82ae9db55944f8b94707aa7a39520ad9",
+                                        "passes": 2983,
+                                        "fails": 357
+                                    },
+                                    "deterministic move exists": {
+                                        "name": "deterministic move exists",
+                                        "path": "::setup: create independent session::gameplay loop: legal moves -> move -> state::deterministic move exists",
+                                        "id": "e30a7733c039309d200e4baf5a7a832d",
+                                        "passes": 0,
+                                        "fails": 58
+                                    }
+                                },
+                            "name": "gameplay loop: legal moves -> move -> state",
+                            "path": "::setup: create independent session::gameplay loop: legal moves -> move -> state",
+                            "id": "e941f78f3909fcbf5099451c3bf10190"
+                        }
+                    },
+                    "checks": {
+                        "create session status is 201": {
+                            "path": "::setup: create independent session::create session status is 201",
+                            "id": "fbe328f1e88ae084d5928cdd16ab41a1",
+                            "passes": 2209,
+                            "fails": 3815,
+                            "name": "create session status is 201"
+                        },
+                        "create session body is not empty": {
+                            "name": "create session body is not empty",
+                            "path": "::setup: create independent session::create session body is not empty",
+                            "id": "ce5ebf0c0034425897b61de29405adb6",
+                            "passes": 6019,
+                            "fails": 5
+                        },
+                        "create session body is valid JSON": {
+                            "passes": 2262,
+                            "fails": 3762,
+                            "name": "create session body is valid JSON",
+                            "path": "::setup: create independent session::create session body is valid JSON",
+                            "id": "8e68424d04390f892ebe6d6ac6705a55"
+                        },
+                        "create session returns sessionId and gameId": {
+                            "name": "create session returns sessionId and gameId",
+                            "path": "::setup: create independent session::create session returns sessionId and gameId",
+                            "id": "2fda6ce137c9c27aa3710534b66b6678",
+                            "passes": 2209,
+                            "fails": 3815
+                        }
+                    },
+                    "name": "setup: create independent session",
+                    "path": "::setup: create independent session",
+                    "id": "a109d8fb05710035f8af3254e6814ecf"
+                }
+            }
+    },
+    "metrics": {
+        "http_reqs": {
+            "count": 18421,
+            "rate": 87.58050768398265
+        },
+        "http_req_blocked": {
+            "p(95)": 1.5869,
+            "p(99)": 5.053239999999964,
+            "med": 0
+        },
+        "http_req_waiting": {
+            "med": 2701.0863,
+            "p(95)": 15028.3548,
+            "p(99)": 15078.95786
+        },
+        "checks": {
+            "passes": 54674,
+            "fails": 14716,
+            "value": 0.7879233318922035
+        },
+        "data_sent": {
+            "count": 3789665,
+            "rate": 18017.522645470934
+        },
+        "iteration_duration": {
+            "med": 516.647,
+            "p(95)": 68604.39687999997,
+            "p(99)": 72270.621608
+        },
+        "iterations": {
+            "count": 5629,
+            "rate": 26.7624275421062
+        },
+        "http_req_receiving": {
+            "med": 14.9859,
+            "p(95)": 87.6,
+            "p(99)": 183.51533999999995
+        },
+        "http_req_connecting": {
+            "med": 0,
+            "p(95)": 1.3125,
+            "p(99)": 4.54003999999997
+        },
+        "group_duration": {
+            "p(99)": 72088.09075999999,
+            "med": 5048.3958,
+            "p(95)": 63018.05387
+        },
+        "vus_max": {
+            "value": 1000,
+            "min": 1000,
+            "max": 1000
+        },
+        "http_req_duration{expected_response:true}": {
+            "med": 3971.0313,
+            "p(95)": 13614.151509999994,
+            "p(99)": 14779.439439999998
+        },
+        "http_req_sending": {
+            "med": 0,
+            "p(95)": 0.6486,
+            "p(99)": 1.4576999999999924
+        },
+        "vus": {
+            "value": 184,
+            "min": 1,
+            "max": 994
+        },
+        "http_req_duration": {
+            "p(95)": 15029.7806,
+            "p(99)": 15091.94172,
+            "med": 2731.5254,
+            "thresholds": {
+                "p(95)<1000": true
+            }
+        },
+        "http_req_tls_handshaking": {
+            "p(99)": 0,
+            "med": 0,
+            "p(95)": 0
+        },
+        "data_received": {
+            "count": 29409415,
+            "rate": 139823.6521572626
+        },
+        "http_req_failed": {
+            "passes": 5242,
+            "fails": 13179,
+            "thresholds": {
+                "rate<0.05": true
+            },
+            "value": 0.28456652733293525
+        }
+    }
+}
