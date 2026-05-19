@@ -324,6 +324,9 @@ export async function createGame(
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 97d0df0b (added ai for lichess)
 function createGamePathForMode(mode?: CreateGameRequest["mode"]): string {
   switch (mode) {
     case "HumanVsAI":

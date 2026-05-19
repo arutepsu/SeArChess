@@ -529,6 +529,7 @@ lazy val aiService = project
   )
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   .dependsOn(aiContract, observability, domain, notation)
 
 // App: lichess-bot
@@ -564,6 +565,9 @@ lazy val chessStreaming = project
     )
   )
   .dependsOn(domain)
+=======
+  .dependsOn(aiContract, observability, domain, notation)
+>>>>>>> 97d0df0b (added ai for lichess)
 
 // Module: load-tests
 lazy val loadTests = project

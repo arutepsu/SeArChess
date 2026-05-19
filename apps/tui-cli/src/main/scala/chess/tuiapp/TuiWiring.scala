@@ -64,6 +64,9 @@ object TuiWiring:
 =======
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
 
+    // ── Mode selection ───────────────────────────────────────────────────────
+    val (mode, whiteController, blackController) = promptForMode()
+
     // ── TUI-local session ────────────────────────────────────────────────────
     val session = ctx.sessionLifecycleService
       .createSession(

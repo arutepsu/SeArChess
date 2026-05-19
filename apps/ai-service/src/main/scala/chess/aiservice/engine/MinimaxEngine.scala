@@ -8,6 +8,7 @@ import chess.domain.state.GameState
 
 object MinimaxEngine:
 
+<<<<<<< HEAD
   // Piece-Square Tables (PSTs) from White's perspective
   // Index = rank * 8 + file (rank 0 = White's back rank, rank 7 = White's front rank/Black's back rank)
   private val pawnPST = Array(
@@ -59,6 +60,8 @@ object MinimaxEngine:
     0.0, 0.0, -1.0, -3.0, -5.0, -3.0, -3.0, -3.0, -3.0, -3.0, -3.0, -5.0
   )
 
+=======
+>>>>>>> 97d0df0b (added ai for lichess)
   /** Selects the best move using Minimax with Alpha-Beta pruning up to `depth`. */
   def selectBestMove(
       state: GameState,
@@ -68,16 +71,26 @@ object MinimaxEngine:
     val colorToMove = state.currentPlayer
     val isMaximizing = colorToMove == Color.White
 
+<<<<<<< HEAD
     val domainLegalMoves = GameStateRules.legalMoves(state).toSet
 
     // Parse and filter valid moves, sorting them for root-level pruning
     val sortedMoves = legalMovesDto
       .flatMap { dto =>
+=======
+    val initialBest = if isMaximizing then Double.NegativeInfinity else Double.PositiveInfinity
+
+    val domainLegalMoves = GameStateRules.legalMoves(state).toSet
+
+    val (_, bestMoveOption) = legalMovesDto.foldLeft((initialBest, Option.empty[RemoteAiMoveDto])) {
+      case ((currentBestValue, currentBestMove), dto) =>
+>>>>>>> 97d0df0b (added ai for lichess)
         val fromPos = parsePos(dto.from)
         val toPos = parsePos(dto.to)
         val promotionType = dto.promotion.flatMap(parsePieceType)
         val move = Move(fromPos, toPos, promotionType)
 
+<<<<<<< HEAD
         if domainLegalMoves.contains(move) then Some((dto, move, scoreMove(state.board, move)))
         else None
       }
@@ -194,17 +207,60 @@ object MinimaxEngine:
       isMaximizing: Boolean,
       currentBest: Double
   ): Double =
+=======
+        if domainLegalMoves.contains(move) then
+          MoveApplier.applyMove(state.board, move, state.castlingRights, state.enPassantState) match
+            case Right(MoveResult.Applied(nextBoard)) =>
+              val nextState = state.copy(board = nextBoard, currentPlayer = colorToMove.opposite)
+              val value = minimax(nextState, depth - 1, Double.NegativeInfinity, Double.PositiveInfinity, !isMaximizing)
+              
+              if isMaximizing && value > currentBestValue then
+                (value, Some(dto))
+              else if !isMaximizing && value < currentBestValue then
+                (value, Some(dto))
+              else
+                (currentBestValue, currentBestMove)
+            case _ => (currentBestValue, currentBestMove)
+        else
+          (currentBestValue, currentBestMove)
+    }
+
+    bestMoveOption.orElse(legalMovesDto.headOption)
+
+  private def minimax(state: GameState, depth: Int, alpha: Double, beta: Double, isMaximizing: Boolean): Double =
+    if depth == 0 then
+      evaluateBoard(state.board)
+    else
+      val moves = GameStateRules.legalMoves(state).toList
+      if moves.isEmpty then
+        // Could be checkmate or stalemate
+        val inCheck = chess.domain.rules.validation.CheckValidator.isKingInCheck(state.board, state.currentPlayer)
+        if inCheck then
+          if isMaximizing then -99999.0 else 99999.0
+        else
+          0.0 // Stalemate
+      else
+        evaluateMoves(state, moves, depth, alpha, beta, isMaximizing, if isMaximizing then Double.NegativeInfinity else Double.PositiveInfinity)
+
+  @scala.annotation.tailrec
+  private def evaluateMoves(state: GameState, moves: List[Move], depth: Int, alpha: Double, beta: Double, isMaximizing: Boolean, currentBest: Double): Double =
+>>>>>>> 97d0df0b (added ai for lichess)
     moves match
       case Nil => currentBest
       case move :: rest =>
         MoveApplier.applyMove(state.board, move, state.castlingRights, state.enPassantState) match
           case Right(MoveResult.Applied(nextBoard)) =>
+<<<<<<< HEAD
             val nextState =
               state.copy(board = nextBoard, currentPlayer = state.currentPlayer.opposite)
+=======
+            val nextState = state.copy(board = nextBoard, currentPlayer = state.currentPlayer.opposite)
+>>>>>>> 97d0df0b (added ai for lichess)
             val eval = minimax(nextState, depth - 1, alpha, beta, !isMaximizing)
             if isMaximizing then
               val maxEval = math.max(currentBest, eval)
               val a = math.max(alpha, eval)
+<<<<<<< HEAD
               if beta <= a then maxEval
               else evaluateMoves(state, rest, depth, a, beta, isMaximizing, maxEval)
             else
@@ -219,10 +275,23 @@ object MinimaxEngine:
               case Right(promotedBoard) =>
                 val nextState =
                   state.copy(board = promotedBoard, currentPlayer = state.currentPlayer.opposite)
+=======
+              if beta <= a then maxEval else evaluateMoves(state, rest, depth, a, beta, isMaximizing, maxEval)
+            else
+              val minEval = math.min(currentBest, eval)
+              val b = math.min(beta, eval)
+              if b <= alpha then minEval else evaluateMoves(state, rest, depth, alpha, b, isMaximizing, minEval)
+
+          case Right(MoveResult.PromotionRequired(nextBoard, sq, color)) =>
+            chess.domain.rules.application.PromotionApplier.applyPromotion(nextBoard, sq, color, PieceType.Queen) match
+              case Right(promotedBoard) =>
+                val nextState = state.copy(board = promotedBoard, currentPlayer = state.currentPlayer.opposite)
+>>>>>>> 97d0df0b (added ai for lichess)
                 val eval = minimax(nextState, depth - 1, alpha, beta, !isMaximizing)
                 if isMaximizing then
                   val maxEval = math.max(currentBest, eval)
                   val a = math.max(alpha, eval)
+<<<<<<< HEAD
                   if beta <= a then maxEval
                   else evaluateMoves(state, rest, depth, a, beta, isMaximizing, maxEval)
                 else
@@ -230,12 +299,20 @@ object MinimaxEngine:
                   val b = math.min(beta, eval)
                   if b <= alpha then minEval
                   else evaluateMoves(state, rest, depth, alpha, b, isMaximizing, minEval)
+=======
+                  if beta <= a then maxEval else evaluateMoves(state, rest, depth, a, beta, isMaximizing, maxEval)
+                else
+                  val minEval = math.min(currentBest, eval)
+                  val b = math.min(beta, eval)
+                  if b <= alpha then minEval else evaluateMoves(state, rest, depth, alpha, b, isMaximizing, minEval)
+>>>>>>> 97d0df0b (added ai for lichess)
               case Left(_) =>
                 evaluateMoves(state, rest, depth, alpha, beta, isMaximizing, currentBest)
 
           case Left(_) =>
             evaluateMoves(state, rest, depth, alpha, beta, isMaximizing, currentBest)
 
+<<<<<<< HEAD
   private def scoreMove(board: Board, move: Move): Double =
     val attacker = board.pieceAt(move.from).map(_.pieceType).getOrElse(PieceType.Pawn)
     val victimOpt = board.pieceAt(move.to).map(_.pieceType)
@@ -344,6 +421,13 @@ object MinimaxEngine:
         blackKingPosOpt.map(kp => kingShieldPenalty(board, kp, Color.Black)).getOrElse(0.0)
       structureScore - whiteShieldPenalty + blackShieldPenalty
     else structureScore
+=======
+  private def evaluateBoard(board: Board): Double =
+    board.piecesIterator.map { case (_, piece) =>
+      val value = pieceValue(piece.pieceType)
+      if piece.color == Color.White then value else -value
+    }.sum
+>>>>>>> 97d0df0b (added ai for lichess)
 
   private def pieceValue(pieceType: PieceType): Double =
     pieceType match
@@ -355,13 +439,21 @@ object MinimaxEngine:
       case PieceType.King   => 900.0
 
   private def parsePos(s: String): Position =
+<<<<<<< HEAD
+=======
+    // e.g., "e2"
+>>>>>>> 97d0df0b (added ai for lichess)
     val file = s.charAt(0) - 'a'
     val rank = s.charAt(1) - '1'
     Position.from(file, rank) match
       case Right(p) => p
+<<<<<<< HEAD
       case Left(_) =>
         val Right(p) = Position.from(0, 0): @unchecked
         p
+=======
+      case Left(_) => throw new RuntimeException(s"Invalid position string: $s")
+>>>>>>> 97d0df0b (added ai for lichess)
 
   private def parsePieceType(s: String): Option[PieceType] =
     s.toLowerCase match

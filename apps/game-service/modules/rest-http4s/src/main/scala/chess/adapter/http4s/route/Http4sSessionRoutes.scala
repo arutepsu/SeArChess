@@ -62,9 +62,12 @@ class Http4sSessionRoutes(
 
     case req @ POST -> Root / "sessions" / "ai-vs-ai" =>
       req.bodyText.compile.string.flatMap(handleCreate(Some(SessionMode.AIVsAI), _))
+<<<<<<< HEAD
 
     case req @ POST -> Root / "sessions" / "import" =>
       req.bodyText.compile.string.flatMap(handleImport)
+=======
+>>>>>>> 97d0df0b (added ai for lichess)
 
     case GET -> Root / "sessions" =>
       handleList()

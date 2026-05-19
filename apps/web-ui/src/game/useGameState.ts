@@ -443,6 +443,7 @@ export function useGameState(): UseGameStateReturn {
   }, [runRefreshFromServer]);
 
   const lastAiRequestedTurn = useRef<string>("");
+<<<<<<< HEAD
 
   useEffect(() => {
     if (!game || !session || !game.id) return;
@@ -537,9 +538,20 @@ export function useGameState(): UseGameStateReturn {
       thisGen: number
     ): Promise<void> => {
       if (!isAiTurn(sessionSnapshot, currentGame)) return;
+=======
+>>>>>>> 97d0df0b (added ai for lichess)
 
-      setMessageState(`AI is thinking for ${currentGame.activeColor}...`);
+  useEffect(() => {
+    if (!game || !session || !game.id) return;
+
+    if (isAiTurn(session, game)) {
+      const turnKey = `${game.id}-${game.fullMove}-${game.activeColor}`;
+      if (lastAiRequestedTurn.current === turnKey) return;
+      lastAiRequestedTurn.current = turnKey;
+
+      setMessageState(`AI is thinking for ${game.activeColor}...`);
       setBusyState(true);
+<<<<<<< HEAD
       const previousBoard = currentGame.board;
       try {
         const { game: aiGame, lifecycle } = await requestAiMove(gameId);
@@ -561,6 +573,32 @@ export function useGameState(): UseGameStateReturn {
     },
     [setSession]
   );
+=======
+
+      const thisGen = generation.current;
+      
+      requestAiMove(game.id)
+        .then(response => {
+          if (thisGen !== generation.current) return;
+          commitGameSnapshot(response.game);
+          void refreshNotation(game.id, thisGen);
+          setSession(prev => prev ? { ...prev, lifecycle: response.sessionLifecycle } : null);
+          setMessageState(undefined);
+        })
+        .catch(error => {
+          if (thisGen !== generation.current) return;
+          setMessageState(
+            error instanceof Error ? `AI move failed. ${error.message}` : "AI move failed."
+          );
+        })
+        .finally(() => {
+          if (thisGen === generation.current) {
+            setBusyState(false);
+          }
+        });
+    }
+  }, [game, session, commitGameSnapshot, refreshNotation, setSession]);
+>>>>>>> 97d0df0b (added ai for lichess)
 
   const handleSelect = useCallback(
     async (square: string): Promise<void> => {
@@ -775,7 +813,6 @@ export function useGameState(): UseGameStateReturn {
               planAnimation(prevBoard, nextGame, ++animationCounter.current)
             );
             setMessageState(undefined);
-            await applyAiMoveIfNeeded(gameId, session, nextGame, thisGen);
           } catch (retryError) {
             if (thisGen !== generation.current) return;
             setMessageState(

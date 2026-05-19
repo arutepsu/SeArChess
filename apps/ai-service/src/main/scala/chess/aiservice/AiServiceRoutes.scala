@@ -98,6 +98,7 @@ class AiServiceRoutes(config: AiServiceConfig):
       case Right(request) =>
         val started = Instant.now()
         logInfo("ai_request_received", request, "legalMoveCount" -> request.legalMoves.size)
+<<<<<<< HEAD
         config.pythonAiBaseUrl match
           case Some(baseUrl) => proxyWithFallback(request, body, baseUrl, started)
           case None          => selectLocal(request, started)
@@ -123,6 +124,23 @@ class AiServiceRoutes(config: AiServiceConfig):
     }.flatMap { response =>
       if response.statusCode() >= 200 && response.statusCode() < 300 then
         val elapsedMs = elapsed(started)
+=======
+
+        val selected = chess.notation.fen.FenNotationFacade.parseAndImport(
+          chess.notation.api.NotationFormat.FEN,
+          request.fen,
+          chess.notation.api.ImportTarget.PositionTarget
+        ) match
+          case Right(res: chess.notation.api.ImportResult.PositionImportResult[chess.domain.state.GameState]) =>
+            chess.aiservice.engine.MinimaxEngine.selectBestMove(res.data, request.legalMoves, 3).getOrElse(request.legalMoves.head)
+          case Right(res: chess.notation.api.ImportResult.GameImportResult[chess.domain.state.GameState]) =>
+            chess.aiservice.engine.MinimaxEngine.selectBestMove(res.data, request.legalMoves, 3).getOrElse(request.legalMoves.head)
+          case _ =>
+            request.legalMoves.head
+
+        val elapsed =
+          math.max(0L, java.time.Duration.between(started, Instant.now()).toMillis).toInt
+>>>>>>> 97d0df0b (added ai for lichess)
         logInfo(
           "ai_proxy_succeeded",
           request,

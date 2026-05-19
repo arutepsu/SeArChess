@@ -56,7 +56,11 @@ ENV HTTP_HOST=0.0.0.0 \
     EVENT_MODE=in-process \
     AI_PROVIDER_MODE=remote \
     AI_REMOTE_BASE_URL=http://ai-service:8765 \
+<<<<<<< HEAD
     AI_TIMEOUT_MILLIS=2000
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
+=======
+    AI_TIMEOUT_MILLIS=15000
+>>>>>>> 97d0df0b (added ai for lichess)
 
 CMD ["bin/searchess-game-service"]
