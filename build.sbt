@@ -428,6 +428,22 @@ lazy val aiService = project
   )
   .dependsOn(aiContract, observability, domain, notation)
 
+// App: lichess-bot
+lazy val lichessBot = project
+  .in(file("apps/lichess-bot"))
+  .settings(
+    commonSettings,
+    name := "searchess-lichess-bot",
+    Compile / mainClass := Some("chess.lichessbot.LichessBotMain"),
+    run / mainClass     := Some("chess.lichessbot.LichessBotMain"),
+    run / fork          := true,
+    libraryDependencies ++= Seq(
+      "com.softwaremill.sttp.client3" %% "core" % "3.9.7",
+      "com.lihaoyi" %% "ujson" % "4.0.2"
+    )
+  )
+  .dependsOn(domain, notation)
+
 // Module: load-tests
 lazy val loadTests = project
   .in(file("modules/load-tests"))
@@ -574,5 +590,6 @@ lazy val root = project
     adapterPersistence, migration, adapterAi, adapterEvent, gameEventContract, gameHistoryDelivery,
     adapterRestContract, adapterRestHttp4s,
     adapterWebsocket, adapterGui, adapterTui,
-    startupShared, gameService, historyService, aiService, desktopGui, tuiCli, loadTests, benchmarks
+    startupShared, gameService, historyService, aiService, desktopGui, tuiCli, loadTests, benchmarks,
+    lichessBot
   )
