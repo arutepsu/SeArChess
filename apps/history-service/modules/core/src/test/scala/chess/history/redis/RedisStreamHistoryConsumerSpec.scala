@@ -1,5 +1,6 @@
 package chess.history.redis
 
+import chess.adapter.event.HistoryArchiveStreamEvent
 import chess.application.query.game.GameClosure
 import chess.application.session.model.{SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
@@ -57,11 +58,16 @@ class RedisStreamHistoryConsumerSpec extends AnyFlatSpec with Matchers with Befo
   private val nonTerminalPayload: String =
     """{"type":"game.session.created.v1","sessionId":"00000000-0000-0000-0000-000000000002","gameId":"00000000-0000-0000-0000-000000000001","mode":"HumanVsHuman","whiteController":"HumanLocal","blackController":"HumanLocal"}"""
 
-  private def xadd(jedis: Jedis, streamKey: String, eventType: String, payload: String): StreamEntryID =
-    val fields = new java.util.HashMap[String, String]()
-    fields.put("eventType", eventType)
-    fields.put("payload", payload)
-    jedis.xadd(streamKey, StreamEntryID.NEW_ENTRY, fields)
+  private def xadd(jedis: Jedis, streamKey: String, payload: String): StreamEntryID =
+    val envelope = HistoryArchiveStreamEvent(
+      eventId      = UUID.randomUUID().toString,
+      eventType    = HistoryArchiveStreamEvent.EventType,
+      eventVersion = HistoryArchiveStreamEvent.EventVersion,
+      occurredAt   = Instant.parse("2026-05-22T10:03:00Z"),
+      gameId       = sampleRecord.gameId,
+      payloadJson  = payload
+    )
+    jedis.xadd(streamKey, StreamEntryID.NEW_ENTRY, HistoryArchiveStreamEvent.toFields(envelope))
 
   // ACK with the given ID; returns how many entries were acknowledged (0 = already ACKed)
   private def tryAck(jedis: Jedis, streamKey: String, id: StreamEntryID): Long =
@@ -75,18 +81,18 @@ class RedisStreamHistoryConsumerSpec extends AnyFlatSpec with Matchers with Befo
     if result == null then 0
     else result.asScala.map(_.getValue.size()).sum
 
-  private def uniqueStream(): String = s"test:game-events-${UUID.randomUUID()}"
+  private def uniqueStream(): String = s"test:history-archives-${UUID.randomUUID()}"
 
   "RedisStreamHistoryConsumer" should "ACK a terminal event after successful ingest" in {
     val streamKey = uniqueStream()
     val results   = new ArrayBlockingQueue[Either[HistoryIngestionError, ArchiveRecord]](4)
     val ingest    = (json: String) => { val r = Right(sampleRecord); results.offer(r); r }
     val jedis     = new Jedis(redisHost, redisPort)
-    val consumer  = RedisStreamHistoryConsumer(redisHost, redisPort, ingest, streamName = streamKey)
+    val consumer  = RedisStreamHistoryConsumer(redisHost, redisPort, ingest, streamName = streamKey, groupName = GroupName, consumerName = ConsumerName)
 
     try
       consumer.start()
-      val id = xadd(jedis, streamKey, "game.finished.v1", terminalPayload)
+      val id = xadd(jedis, streamKey, terminalPayload)
 
       results.poll(5, TimeUnit.SECONDS) should not be null
       eventually { tryAck(jedis, streamKey, id) shouldBe 0L }
@@ -95,25 +101,30 @@ class RedisStreamHistoryConsumerSpec extends AnyFlatSpec with Matchers with Befo
       jedis.close()
   }
 
-  it should "ACK a non-terminal event without calling ingest" in {
+  it should "leave an unsupported envelope in the PEL without calling ingest" in {
     val streamKey   = uniqueStream()
     val ingestCalls = new ArrayBlockingQueue[String](4)
     val ingest      = (json: String) => { ingestCalls.offer(json); Right(sampleRecord) }
     val jedis       = new Jedis(redisHost, redisPort)
-    val consumer    = RedisStreamHistoryConsumer(redisHost, redisPort, ingest, streamName = streamKey)
+    val consumer    = RedisStreamHistoryConsumer(redisHost, redisPort, ingest, streamName = streamKey, groupName = GroupName, consumerName = ConsumerName)
 
     try
       consumer.start()
-      val id = xadd(jedis, streamKey, "game.session.created.v1", nonTerminalPayload)
+      val fields = new java.util.HashMap[String, String]()
+      fields.put("eventType", "game.session.created.v1")
+      fields.put("payload", nonTerminalPayload)
+      val id = jedis.xadd(streamKey, StreamEntryID.NEW_ENTRY, fields)
 
-      eventually { tryAck(jedis, streamKey, id) shouldBe 0L }
+      Thread.sleep(300)
+      pelSize(jedis, streamKey) shouldBe 1
+      tryAck(jedis, streamKey, id) shouldBe 1L
       ingestCalls.poll() shouldBe null
     finally
       consumer.stop()
       jedis.close()
   }
 
-  it should "ACK a terminal event even when ingest returns InvalidEvent" in {
+  it should "leave a terminal event in the PEL when ingest returns InvalidEvent" in {
     val streamKey = uniqueStream()
     val results   = new ArrayBlockingQueue[Either[HistoryIngestionError, ArchiveRecord]](4)
     val ingest    = (json: String) => {
@@ -122,14 +133,16 @@ class RedisStreamHistoryConsumerSpec extends AnyFlatSpec with Matchers with Befo
       r
     }
     val jedis    = new Jedis(redisHost, redisPort)
-    val consumer = RedisStreamHistoryConsumer(redisHost, redisPort, ingest, streamName = streamKey)
+    val consumer = RedisStreamHistoryConsumer(redisHost, redisPort, ingest, streamName = streamKey, groupName = GroupName, consumerName = ConsumerName)
 
     try
       consumer.start()
-      val id = xadd(jedis, streamKey, "game.finished.v1", terminalPayload)
+      val id = xadd(jedis, streamKey, terminalPayload)
 
       results.poll(5, TimeUnit.SECONDS) should not be null
-      eventually { tryAck(jedis, streamKey, id) shouldBe 0L }
+      Thread.sleep(300)
+      pelSize(jedis, streamKey) shouldBe 1
+      tryAck(jedis, streamKey, id) shouldBe 1L
     finally
       consumer.stop()
       jedis.close()
@@ -148,11 +161,11 @@ class RedisStreamHistoryConsumerSpec extends AnyFlatSpec with Matchers with Befo
       r
     }
     val jedis    = new Jedis(redisHost, redisPort)
-    val consumer = RedisStreamHistoryConsumer(redisHost, redisPort, ingest, streamName = streamKey)
+    val consumer = RedisStreamHistoryConsumer(redisHost, redisPort, ingest, streamName = streamKey, groupName = GroupName, consumerName = ConsumerName)
 
     try
       consumer.start()
-      xadd(jedis, streamKey, "game.resigned.v1", terminalPayload)
+      xadd(jedis, streamKey, terminalPayload)
 
       results.poll(5, TimeUnit.SECONDS) should not be null
       Thread.sleep(300)

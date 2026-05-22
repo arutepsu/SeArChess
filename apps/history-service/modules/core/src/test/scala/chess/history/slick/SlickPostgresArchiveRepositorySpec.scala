@@ -26,6 +26,7 @@ class SlickPostgresArchiveRepositorySpec extends AnyFlatSpec with Matchers with 
 
   override def beforeAll(): Unit =
     container.start()
+    Class.forName("org.postgresql.Driver")
     val conn = DriverManager.getConnection(container.getJdbcUrl, container.getUsername, container.getPassword)
     try
       conn.createStatement().execute("create table public.game_service_marker (id int primary key)")

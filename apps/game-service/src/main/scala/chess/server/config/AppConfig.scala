@@ -11,7 +11,8 @@ final case class SqliteConfig(path: String)
 final case class PostgresConfig(
     url: String,
     user: String,
-    password: String
+    password: String,
+    schema: Option[String] = None
 )
 
 final case class MongoConfig(
@@ -30,8 +31,10 @@ final case class HistoryForwardingConfig(
     baseUrl: Option[String],
     timeoutMillis: Int,
     deliveryMode: HistoryDeliveryMode = HistoryDeliveryMode.Http,
+    redisUrl: Option[String] = None,
     redisHost: Option[String] = None,
     redisPort: Int = 6379,
+    redisStream: String = "searchess.history.archives",
     interaction: ServiceInteraction = ServiceInteraction.DownstreamAsynchronousHttp,
     startupPolicy: DependencyStartupPolicy = DependencyStartupPolicy.NotRequired,
     failureBehaviour: DependencyFailureBehaviour = DependencyFailureBehaviour.LogAndContinue

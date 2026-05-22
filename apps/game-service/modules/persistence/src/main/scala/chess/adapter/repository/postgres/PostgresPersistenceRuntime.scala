@@ -21,13 +21,15 @@ object PostgresPersistenceRuntime:
       url: String,
       user: String,
       password: String,
+      schema: Option[String] = None,
       timeout: Duration = Duration.Inf
   ): Either[String, Components] =
     try
       PostgresFlywaySchemaInitializer.migrate(
         url = url,
         user = user,
-        password = password
+        password = password,
+        schema = schema
       )
 
       val db =
@@ -40,10 +42,10 @@ object PostgresPersistenceRuntime:
 
       Right(
         Components(
-          reader = PostgresSessionMigrationReader(db, timeout),
-          sessionRepository = PostgresSessionRepository(db, timeout),
-          gameRepository = PostgresGameRepository(db, timeout),
-          store = PostgresSessionGameStore(db, timeout),
+          reader = PostgresSessionMigrationReader(db, timeout, schema),
+          sessionRepository = PostgresSessionRepository(db, timeout, schema),
+          gameRepository = PostgresGameRepository(db, timeout, schema),
+          store = PostgresSessionGameStore(db, timeout, schema),
           close = () => db.close()
         )
       )

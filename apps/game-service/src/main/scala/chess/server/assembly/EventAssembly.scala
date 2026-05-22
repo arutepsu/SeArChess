@@ -100,7 +100,9 @@ object EventAssembly:
     else
       config.history.deliveryMode match
         case HistoryDeliveryMode.RedisStream =>
-          val host  = config.history.redisHost.getOrElse("redis")
+          val host  = config.history.redisHost.getOrElse(
+            throw IllegalArgumentException("History Redis delivery enabled but HISTORY_REDIS_URL/REDIS_HOST is not configured")
+          )
           val port  = config.history.redisPort
           val jedis = JedisPooled(host, port)
           StructuredLog.info(
@@ -108,10 +110,10 @@ object EventAssembly:
             "history_stream_delivery_configured",
             "redisHost" -> host,
             "redisPort" -> port,
-            "stream"    -> GameStreamEvent.StreamName
+            "stream"    -> config.history.redisStream
           )
           (
-            Seq(RedisStreamHistoryPublisher(jedis)),
+            Seq(RedisStreamHistoryPublisher(jedis, config.history.redisStream)),
             NoOpTerminalEventJsonSerializer,
             None,
             () => jedis.close()

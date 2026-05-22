@@ -7,11 +7,12 @@ import scala.concurrent.duration.Duration
 
 class PostgresSessionGameStore(
     db: Database,
-    timeout: Duration = Duration.Inf
+    timeout: Duration = Duration.Inf,
+    schema: Option[String] = None
 ) extends SlickSessionGameStore(
       PostgresSlickSupport.profile
     )(
       db,
-      PostgresSlickSupport.tables,
+      PostgresSlickSupport.tablesFor(schema),
       timeout
     )

@@ -15,6 +15,8 @@ object HistoryServiceMain:
       "storage" -> "postgres-slick",
       "postgresSchema" -> config.postgresSchema,
       "deliveryMode" -> config.deliveryMode.toString,
+      "redisStream" -> config.redisStream,
+      "redisGroup" -> config.redisGroup,
       "acceptLegacyIngestionPath" -> config.acceptLegacyIngestionPath
     )
 

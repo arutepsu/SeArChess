@@ -53,8 +53,17 @@ object HistoryServiceWiring:
     config.deliveryMode match
       case HistoryDeliveryMode.Http => () => ()
       case HistoryDeliveryMode.RedisStream =>
-        val host     = config.redisHost.getOrElse("redis")
-        val consumer = RedisStreamHistoryConsumer(host, config.redisPort, ingestion.ingestEventJson)
+        val host = config.redisHost.getOrElse(
+          throw RuntimeException("History Redis ingestion enabled but HISTORY_REDIS_URL/REDIS_HOST is not configured")
+        )
+        val consumer = RedisStreamHistoryConsumer(
+          host         = host,
+          port         = config.redisPort,
+          ingest       = ingestion.ingestEventJson,
+          streamName   = config.redisStream,
+          groupName    = config.redisGroup,
+          consumerName = config.redisConsumerName
+        )
         consumer.start()
         () => consumer.stop()
 

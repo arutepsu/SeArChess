@@ -46,8 +46,11 @@ class RedisStreamHistoryPublisherSpec extends AnyFlatSpec with Matchers with Bef
 
       probe.xlen(streamKey) shouldBe 1L
       val fields = readAll(probe, streamKey).head
-      fields.get("eventType") shouldBe "game.finished.v1"
-      fields.get("payload") should include("game.finished.v1")
+      fields.get("eventType") shouldBe "history.archive.requested"
+      fields.get("eventVersion") shouldBe "1"
+      fields.get("gameId") shouldBe gid.value.toString
+      fields.get("payloadJson") should include("game.finished.v1")
+      fields.get("sourceEventType") shouldBe "game.finished.v1"
     finally
       jedisPooled.close()
       probe.close()
@@ -62,13 +65,15 @@ class RedisStreamHistoryPublisherSpec extends AnyFlatSpec with Matchers with Bef
         .publish(AppEvent.GameResigned(sid, gid, Color.White))
 
       probe.xlen(streamKey) shouldBe 1L
-      readAll(probe, streamKey).head.get("eventType") shouldBe "game.resigned.v1"
+      val fields = readAll(probe, streamKey).head
+      fields.get("eventType") shouldBe "history.archive.requested"
+      fields.get("sourceEventType") shouldBe "game.resigned.v1"
     finally
       jedisPooled.close()
       probe.close()
   }
 
-  it should "publish a SessionCreated event" in {
+  it should "not publish a SessionCreated event" in {
     val jedisPooled = JedisPooled(host, port)
     val probe       = new Jedis(host, port)
     val streamKey   = s"test:created-${gid.value}"
@@ -76,8 +81,7 @@ class RedisStreamHistoryPublisherSpec extends AnyFlatSpec with Matchers with Bef
       RedisStreamHistoryPublisher(jedisPooled, streamKey)
         .publish(AppEvent.SessionCreated(sid, gid, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal))
 
-      probe.xlen(streamKey) shouldBe 1L
-      readAll(probe, streamKey).head.get("eventType") shouldBe "game.session.created.v1"
+      probe.xlen(streamKey) shouldBe 0L
     finally
       jedisPooled.close()
       probe.close()

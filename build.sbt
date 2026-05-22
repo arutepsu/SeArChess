@@ -132,7 +132,7 @@ lazy val history = project
   )
   // adapterPersistence and adapterEvent are only needed for legacy test fixtures
   // (InMemoryGameRepository, CollectingEventPublisher, etc.).
-  .dependsOn(gameContract, notation, observability, adapterPersistence % Test, adapterEvent % Test)
+  .dependsOn(gameContract, gameEventContract, notation, observability, adapterPersistence % Test, adapterEvent % Test)
 
 // Module: adapter-persistence
 

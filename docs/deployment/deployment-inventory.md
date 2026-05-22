@@ -101,7 +101,7 @@ Grafana dashboards (pre-provisioned from `tools/performance/observability/grafan
 
 | Volume name | Used by | Contents |
 |-------------|---------|---------|
-| `searchess_postgres_data` | postgres | Postgres data directory; game-service uses `public`, history-service uses schema `history` |
+| `searchess_postgres_data` | postgres | Postgres data directory; game-service uses schema `game`, history-service uses schema `history` |
 | `searchess_mongo_data` | mongo | MongoDB data files |
 | `searchess_redis_data` | redis | Redis RDB/AOF persistence |
 | `searchess_prometheus_data` | prometheus | TSDB (7-day retention) |
@@ -117,6 +117,7 @@ All variables documented in `.env.example` at the repo root.
 |----------|---------|-------|
 | `SEARCHESS_POSTGRES_PASSWORD` | `searchess` | **Change before any shared deployment** |
 | `SEARCHESS_POSTGRES_USER` | `searchess` | Must match `POSTGRES_USER` in postgres service |
+| `SEARCHESS_POSTGRES_SCHEMA` | `game` | Dedicated game-service schema for Flyway and Slick runtime persistence |
 | `PERSISTENCE_MODE` | `postgres` | `postgres \| mongo \| sqlite \| in-memory` |
 | `CORS_ALLOWED_ORIGIN` | `http://localhost:5173` | Frontend origin |
 | `AI_ENGINE_ID` | `random-legal` | AI move provider |
@@ -124,8 +125,12 @@ All variables documented in `.env.example` at the repo root.
 | `MIGRATION_ADMIN_ENABLED` | `false` | Enable schema migration endpoint |
 | `MIGRATION_ADMIN_TOKEN` | *(empty)* | Required when migration endpoint is on |
 | `HISTORY_POSTGRES_URL` | — | **Required** for history-service; JDBC URL to Postgres |
-| `HISTORY_POSTGRES_SCHEMA` | `history` | Dedicated history-service schema; keeps Flyway/Slick out of game-service `public` schema |
-| `HISTORY_DELIVERY_MODE` | `redis-stream` | `redis-stream \| http` |
+| `HISTORY_POSTGRES_SCHEMA` | `history` | Dedicated history-service schema; keeps Flyway/Slick isolated from game-service schema |
+| `HISTORY_DELIVERY_MODE` | `redis-stream` | game-service delivery mode: `redis-stream \| http` |
+| `HISTORY_INGESTION_MODE` | `redis-stream` | history-service ingestion mode: `redis-stream \| http` |
+| `HISTORY_REDIS_URL` | `redis://redis:6379` | Redis endpoint for async archive delivery |
+| `HISTORY_REDIS_STREAM` | `searchess.history.archives` | Redis Stream carrying archive request envelopes |
+| `HISTORY_REDIS_GROUP` | `history-service` | history-service consumer group |
 | `GRAFANA_ADMIN_PASSWORD` | `admin` | **Change before sharing** |
 
 ---
@@ -205,7 +210,7 @@ Both exit 0 as of last validation (2026-05-19).
 | history-service Postgres backend | ✅ Slick + Flyway; table `history.history_archives` in shared Postgres; SQLite removed |
 | Envoy admin port scraping by Prometheus | ⚠️ admin on 127.0.0.1:9901, not reachable cross-container |
 | Keycloak / auth layer | ❌ deferred |
-| Redis Streams event wiring | ✅ game-service publishes; history-service consumes via consumer group |
+| Redis Streams archive delivery | ✅ game-service publishes `history.archive.requested`; history-service consumes via consumer group |
 
 ---
 

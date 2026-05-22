@@ -70,7 +70,7 @@ object PersistenceAssembly:
     PersistenceWiring(sessionRepo, gameRepo, store)
 
   private def assemblePostgres(cfg: PostgresConfig): PersistenceWiring =
-    PostgresPersistenceRuntime.open(cfg.url, cfg.user, cfg.password) match
+    PostgresPersistenceRuntime.open(cfg.url, cfg.user, cfg.password, schema = cfg.schema) match
       case Left(error) => throw IllegalArgumentException(s"Postgres persistence initialization failed: $error")
       case Right(runtime) =>
         PersistenceWiring(

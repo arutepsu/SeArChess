@@ -25,7 +25,8 @@ object PostgresConfigLoader:
       password <-
         if requireCredentials then required(env, "SEARCHESS_POSTGRES_PASSWORD", contextMessage)
         else Right(env("SEARCHESS_POSTGRES_PASSWORD").filter(_.nonEmpty).getOrElse(defaultPassword))
-    yield PostgresConfig(url = url, user = user, password = password)
+      schema = env("SEARCHESS_POSTGRES_SCHEMA").map(_.trim).filter(_.nonEmpty)
+    yield PostgresConfig(url = url, user = user, password = password, schema = schema)
 
   private def required(
       env: String => Option[String],

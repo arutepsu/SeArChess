@@ -7,7 +7,7 @@ import chess.application.session.model.SessionIds.GameId
 import chess.history.{ArchiveMaterializer, ArchiveRecord, ArchiveRepository, ArchiveRepositoryError, HistoryIngestionService, RemoteGameArchiveClient}
 import fs2.Stream
 import org.http4s.{HttpApp, Method, Request, Status, Uri}
-import org.scalatest.EitherValues
+import org.scalatest.{EitherValues, OptionValues}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -15,7 +15,7 @@ import scala.collection.mutable
 
 import scala.collection.mutable
 
-class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherValues:
+class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherValues with OptionValues:
 
   private val minimalEnv: Map[String, String] = Map(
     "HISTORY_POSTGRES_URL" -> "jdbc:postgresql://localhost/test"
@@ -47,6 +47,35 @@ class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherV
       .load(_ => None)
       .left
       .value should include("HISTORY_POSTGRES_URL is required")
+  }
+
+  it should "parse Redis Streams ingestion config" in {
+    val config = HistoryServiceConfig
+      .load(
+        withEnv(
+          "HISTORY_INGESTION_MODE" -> "redis-stream",
+          "HISTORY_REDIS_URL" -> "redis://redis:6379",
+          "HISTORY_REDIS_STREAM" -> "searchess.history.archives",
+          "HISTORY_REDIS_GROUP" -> "history-service",
+          "HISTORY_REDIS_CONSUMER_NAME" -> "history-service-test"
+        )
+      )
+      .value
+
+    config.deliveryMode shouldBe HistoryDeliveryMode.RedisStream
+    config.redisUrl.value shouldBe "redis://redis:6379"
+    config.redisHost.value shouldBe "redis"
+    config.redisPort shouldBe 6379
+    config.redisStream shouldBe "searchess.history.archives"
+    config.redisGroup shouldBe "history-service"
+    config.redisConsumerName shouldBe "history-service-test"
+  }
+
+  it should "reject Redis Streams ingestion without Redis config" in {
+    HistoryServiceConfig
+      .load(withEnv("HISTORY_INGESTION_MODE" -> "redis-stream"))
+      .left
+      .value should include("HISTORY_REDIS_URL or REDIS_HOST is required")
   }
 
   "HistoryRoutes" should "keep the legacy ingestion alias disabled by default" in {

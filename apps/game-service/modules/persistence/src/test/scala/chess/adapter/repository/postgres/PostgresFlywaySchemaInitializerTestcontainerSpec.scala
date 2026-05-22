@@ -46,3 +46,54 @@ class PostgresFlywaySchemaInitializerTestcontainerSpec
       tables should contain("game_states")
     }
   }
+
+  it should "initialize the configured schema when public is non-empty" in {
+    postgres.withDatabase { db =>
+      Await.result(
+        db.run(
+          sqlu"""
+            create table if not exists public.legacy_public_table (
+              id integer primary key
+            )
+          """
+        ),
+        10.seconds
+      )
+    }
+
+    postgres.resetWithFlyway(Some("game"))
+
+    postgres.withDatabase { db =>
+      val gameTables =
+        Await.result(
+          db.run(
+            sql"""
+              select table_name
+              from information_schema.tables
+              where table_schema = 'game'
+              order by table_name
+            """.as[String]
+          ),
+          10.seconds
+        ).toSet
+
+      val publicTables =
+        Await.result(
+          db.run(
+            sql"""
+              select table_name
+              from information_schema.tables
+              where table_schema = 'public'
+              order by table_name
+            """.as[String]
+          ),
+          10.seconds
+        ).toSet
+
+      gameTables should contain("flyway_schema_history")
+      gameTables should contain("sessions")
+      gameTables should contain("game_states")
+      publicTables should contain("legacy_public_table")
+      publicTables should not contain "flyway_schema_history"
+    }
+  }

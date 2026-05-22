@@ -16,8 +16,12 @@ final case class HistoryServiceConfig(
     timeoutMillis: Int,
     acceptLegacyIngestionPath: Boolean,
     deliveryMode: HistoryDeliveryMode = HistoryDeliveryMode.Http,
+    redisUrl: Option[String] = None,
     redisHost: Option[String] = None,
-    redisPort: Int = 6379
+    redisPort: Int = 6379,
+    redisStream: String = "searchess.history.archives",
+    redisGroup: String = "history-service",
+    redisConsumerName: String = defaultConsumerName()
 )
 
 object HistoryServiceConfig:
@@ -44,10 +48,19 @@ object HistoryServiceConfig:
         env("HISTORY_ACCEPT_LEGACY_INGESTION_PATH").getOrElse("false")
       )
       deliveryMode <- parseDeliveryMode(
-        "HISTORY_DELIVERY_MODE",
-        env("HISTORY_DELIVERY_MODE").getOrElse("http")
+        env("HISTORY_INGESTION_MODE").map(_ -> "HISTORY_INGESTION_MODE").orElse(
+          env("HISTORY_DELIVERY_MODE").map(_ -> "HISTORY_DELIVERY_MODE")
+        ).getOrElse("http" -> "HISTORY_INGESTION_MODE")
       )
-      redisPort   <- parsePort("REDIS_PORT", env("REDIS_PORT").getOrElse("6379"))
+      redisEndpoint <- parseRedisEndpoint(
+        env("HISTORY_REDIS_URL"),
+        env("REDIS_HOST"),
+        env("REDIS_PORT").getOrElse("6379")
+      )
+      redisStream = env("HISTORY_REDIS_STREAM").getOrElse("searchess.history.archives").trim
+      redisGroup = env("HISTORY_REDIS_GROUP").getOrElse("history-service").trim
+      redisConsumer = env("HISTORY_REDIS_CONSUMER_NAME").getOrElse(defaultConsumerName()).trim
+      _ <- validateRedisConfig(deliveryMode, redisEndpoint, redisStream, redisGroup, redisConsumer)
       postgresUrl <- env("HISTORY_POSTGRES_URL").toRight("HISTORY_POSTGRES_URL is required")
       baseUrl = env("GAME_SERVICE_BASE_URL").getOrElse("http://127.0.0.1:8080")
     yield HistoryServiceConfig(
@@ -61,15 +74,60 @@ object HistoryServiceConfig:
       timeoutMillis             = timeout,
       acceptLegacyIngestionPath = legacy,
       deliveryMode              = deliveryMode,
-      redisHost                 = env("REDIS_HOST"),
-      redisPort                 = redisPort
+      redisUrl                  = redisEndpoint.map(_.url),
+      redisHost                 = redisEndpoint.map(_.host),
+      redisPort                 = redisEndpoint.map(_.port).getOrElse(6379),
+      redisStream               = redisStream,
+      redisGroup                = redisGroup,
+      redisConsumerName         = redisConsumer
     )
 
-  private def parseDeliveryMode(name: String, value: String): Either[String, HistoryDeliveryMode] =
+  private def parseDeliveryMode(raw: (String, String)): Either[String, HistoryDeliveryMode] =
+    val (value, name) = raw
     value.trim.toLowerCase match
       case "http"                         => Right(HistoryDeliveryMode.Http)
       case "redis-stream" | "redisstream" => Right(HistoryDeliveryMode.RedisStream)
       case other                          => Left(s"$name must be 'http' or 'redis-stream', got: '$other'")
+
+  private final case class RedisEndpoint(url: String, host: String, port: Int)
+
+  private def parseRedisEndpoint(
+      url: Option[String],
+      host: Option[String],
+      rawPort: String
+  ): Either[String, Option[RedisEndpoint]] =
+    url.map(_.trim).filter(_.nonEmpty) match
+      case Some(value) =>
+        try
+          val uri  = java.net.URI(value)
+          val port = if uri.getPort == -1 then 6379 else uri.getPort
+          Option(uri.getHost).filter(_.nonEmpty) match
+            case Some(h) => Right(Some(RedisEndpoint(value, h, port)))
+            case None    => Left(s"HISTORY_REDIS_URL must include a host, got: '$value'")
+        catch case _: java.net.URISyntaxException => Left(s"HISTORY_REDIS_URL is invalid: '$value'")
+      case None =>
+        host.map(_.trim).filter(_.nonEmpty) match
+          case Some(h) => parsePort("REDIS_PORT", rawPort).map(p => Some(RedisEndpoint(s"redis://$h:$p", h, p)))
+          case None    => Right(None)
+
+  private def validateRedisConfig(
+      mode: HistoryDeliveryMode,
+      endpoint: Option[RedisEndpoint],
+      stream: String,
+      group: String,
+      consumer: String
+  ): Either[String, Unit] =
+    mode match
+      case HistoryDeliveryMode.Http => Right(())
+      case HistoryDeliveryMode.RedisStream =>
+        if endpoint.isEmpty then Left("HISTORY_REDIS_URL or REDIS_HOST is required when HISTORY_INGESTION_MODE=redis-stream")
+        else if stream.isEmpty then Left("HISTORY_REDIS_STREAM is required when HISTORY_INGESTION_MODE=redis-stream")
+        else if group.isEmpty then Left("HISTORY_REDIS_GROUP is required when HISTORY_INGESTION_MODE=redis-stream")
+        else if consumer.isEmpty then Left("HISTORY_REDIS_CONSUMER_NAME must not be blank when HISTORY_INGESTION_MODE=redis-stream")
+        else Right(())
+
+  private def defaultConsumerName(): String =
+    Option(System.getenv("HOSTNAME")).map(_.trim).filter(_.nonEmpty).getOrElse("history-service-1")
 
   private def parsePort(name: String, value: String): Either[String, Int] =
     value.toIntOption match

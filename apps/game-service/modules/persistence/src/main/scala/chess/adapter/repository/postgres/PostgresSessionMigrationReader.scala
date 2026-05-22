@@ -7,12 +7,13 @@ import scala.concurrent.duration.Duration
 
 class PostgresSessionMigrationReader(
     db: Database,
-    timeout: Duration = Duration.Inf
+    timeout: Duration = Duration.Inf,
+    schema: Option[String] = None
 ) extends SlickSessionMigrationReader(
       PostgresSlickSupport.profile
     )(
       db,
-      PostgresSlickSupport.tables,
+      PostgresSlickSupport.tablesFor(schema),
       timeout,
       cursorStoreName = "Postgres"
     )
@@ -20,6 +21,7 @@ class PostgresSessionMigrationReader(
 object PostgresSessionMigrationReader:
   def apply(
       db: Database,
-      timeout: Duration = Duration.Inf
+      timeout: Duration = Duration.Inf,
+      schema: Option[String] = None
   ): PostgresSessionMigrationReader =
-    new PostgresSessionMigrationReader(db, timeout)
+    new PostgresSessionMigrationReader(db, timeout, schema)

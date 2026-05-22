@@ -18,6 +18,7 @@ object ConfigLoader:
   private val DefaultHistoryTimeout: String      = "2000"
   private val DefaultHistoryDeliveryMode: String = "http"
   private val DefaultRedisPort: String           = "6379"
+  private val DefaultHistoryRedisStream: String  = "searchess.history.archives"
   private val DefaultAiMode: String = "remote"
   private val DefaultAiRemoteBaseUrl: String = "http://ai-service:8765"
   private val DefaultAiTimeoutMillis: String = "2000"
@@ -50,15 +51,19 @@ object ConfigLoader:
       histDeliveryMode <- parseHistoryDeliveryMode(
         env("HISTORY_DELIVERY_MODE").getOrElse(DefaultHistoryDeliveryMode)
       )
-      redisHost = env("REDIS_HOST")
-      redisPort <- parsePort("REDIS_PORT", env("REDIS_PORT").getOrElse(DefaultRedisPort))
+      redisEndpoint <- parseRedisEndpoint(
+        env("HISTORY_REDIS_URL"),
+        env("REDIS_HOST"),
+        env("REDIS_PORT").getOrElse(DefaultRedisPort)
+      )
+      redisStream = env("HISTORY_REDIS_STREAM").getOrElse(DefaultHistoryRedisStream)
       history <- parseHistoryForwardingConfig(
         histEnabled,
         env("HISTORY_SERVICE_BASE_URL"),
         histTimeout,
         histDeliveryMode,
-        redisHost,
-        redisPort
+        redisEndpoint,
+        redisStream
       )
       aiMode <- parseAiProviderMode(env("AI_PROVIDER_MODE").getOrElse(DefaultAiMode))
       aiTimeout <- parsePositiveInt(
@@ -218,20 +223,62 @@ object ConfigLoader:
       baseUrl: Option[String],
       timeoutMillis: Int,
       deliveryMode: HistoryDeliveryMode,
-      redisHost: Option[String],
-      redisPort: Int
+      redisEndpoint: Option[RedisEndpoint],
+      redisStream: String
   ): Either[String, HistoryForwardingConfig] =
     val cleanUrl = baseUrl.map(_.trim).filter(_.nonEmpty)
+    val cleanStream = redisStream.trim
     if !enabled then
-      Right(HistoryForwardingConfig(false, cleanUrl, timeoutMillis, deliveryMode, redisHost, redisPort))
+      Right(
+        HistoryForwardingConfig(
+          enabled      = false,
+          baseUrl      = cleanUrl,
+          timeoutMillis = timeoutMillis,
+          deliveryMode = deliveryMode,
+          redisUrl     = redisEndpoint.map(_.url),
+          redisHost    = redisEndpoint.map(_.host),
+          redisPort    = redisEndpoint.map(_.port).getOrElse(DefaultRedisPort.toInt),
+          redisStream  = cleanStream
+        )
+      )
     else
       deliveryMode match
         case HistoryDeliveryMode.RedisStream =>
-          Right(HistoryForwardingConfig(true, None, timeoutMillis, HistoryDeliveryMode.RedisStream, redisHost, redisPort))
+          redisEndpoint match
+            case Some(endpoint) if cleanStream.nonEmpty =>
+              Right(
+                HistoryForwardingConfig(
+                  enabled      = true,
+                  baseUrl      = cleanUrl,
+                  timeoutMillis = timeoutMillis,
+                  deliveryMode = HistoryDeliveryMode.RedisStream,
+                  redisUrl     = Some(endpoint.url),
+                  redisHost    = Some(endpoint.host),
+                  redisPort    = endpoint.port,
+                  redisStream  = cleanStream
+                )
+              )
+            case Some(_) =>
+              Left("HISTORY_REDIS_STREAM is required when HISTORY_DELIVERY_MODE=redis-stream")
+            case None =>
+              Left(
+                "HISTORY_REDIS_URL or REDIS_HOST is required when HISTORY_FORWARDING_ENABLED=true and HISTORY_DELIVERY_MODE=redis-stream"
+              )
         case HistoryDeliveryMode.Http =>
           cleanUrl match
             case Some(url) =>
-              Right(HistoryForwardingConfig(true, Some(url), timeoutMillis, HistoryDeliveryMode.Http, redisHost, redisPort))
+              Right(
+                HistoryForwardingConfig(
+                  enabled      = true,
+                  baseUrl      = Some(url),
+                  timeoutMillis = timeoutMillis,
+                  deliveryMode = HistoryDeliveryMode.Http,
+                  redisUrl     = redisEndpoint.map(_.url),
+                  redisHost    = redisEndpoint.map(_.host),
+                  redisPort    = redisEndpoint.map(_.port).getOrElse(DefaultRedisPort.toInt),
+                  redisStream  = cleanStream
+                )
+              )
             case None =>
               Left(
                 "HISTORY_SERVICE_BASE_URL is required when HISTORY_FORWARDING_ENABLED=true and HISTORY_DELIVERY_MODE=http"
@@ -243,3 +290,25 @@ object ConfigLoader:
       case "redis-stream" | "redisstream" => Right(HistoryDeliveryMode.RedisStream)
       case _ =>
         Left(s"HISTORY_DELIVERY_MODE must be 'http' or 'redis-stream', got: '$value'")
+
+  private final case class RedisEndpoint(url: String, host: String, port: Int)
+
+  private def parseRedisEndpoint(
+      url: Option[String],
+      host: Option[String],
+      rawPort: String
+  ): Either[String, Option[RedisEndpoint]] =
+    url.map(_.trim).filter(_.nonEmpty) match
+      case Some(value) =>
+        try
+          val uri  = java.net.URI(value)
+          val port = if uri.getPort == -1 then 6379 else uri.getPort
+          Option(uri.getHost).filter(_.nonEmpty) match
+            case Some(h) => Right(Some(RedisEndpoint(value, h, port)))
+            case None    => Left(s"HISTORY_REDIS_URL must include a host, got: '$value'")
+        catch case _: java.net.URISyntaxException => Left(s"HISTORY_REDIS_URL is invalid: '$value'")
+      case None =>
+        host.map(_.trim).filter(_.nonEmpty) match
+          case Some(h) =>
+            parsePort("REDIS_PORT", rawPort).map(p => Some(RedisEndpoint(s"redis://$h:$p", h, p)))
+          case None => Right(None)

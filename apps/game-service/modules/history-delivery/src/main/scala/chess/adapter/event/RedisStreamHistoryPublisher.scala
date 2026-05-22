@@ -13,17 +13,16 @@ class RedisStreamHistoryPublisher(
 ) extends EventPublisher:
 
   override def publish(event: AppEvent): Unit =
-    GameStreamEvent.eventTypeTag(event).foreach { tag =>
-      AppEventSerializer.serialize(event).foreach { json =>
-        val fields = new java.util.HashMap[String, String]()
-        fields.put("eventType", tag)
-        fields.put("payload", json)
+    HistoryArchiveStreamEvent.fromAppEvent(event).foreach { envelope =>
+      GameStreamEvent.eventTypeTag(event).foreach { tag =>
         try
-          jedis.xadd(streamName, StreamEntryID.NEW_ENTRY, fields)
+          jedis.xadd(streamName, StreamEntryID.NEW_ENTRY, HistoryArchiveStreamEvent.toFields(envelope))
           StructuredLog.info(
             "game-service",
             "history_stream_published",
-            "eventType" -> tag,
+            "eventId"   -> envelope.eventId,
+            "eventType" -> envelope.eventType,
+            "sourceEventType" -> tag,
             "gameId"    -> event.gameId.value.toString,
             "sessionId" -> event.sessionId.value.toString
           )
@@ -32,7 +31,9 @@ class RedisStreamHistoryPublisher(
             StructuredLog.warn(
               "game-service",
               "history_stream_publish_failed",
-              "eventType" -> tag,
+              "eventId"   -> envelope.eventId,
+              "eventType" -> envelope.eventType,
+              "sourceEventType" -> tag,
               "gameId"    -> event.gameId.value.toString,
               "sessionId" -> event.sessionId.value.toString,
               "error"     -> e.getMessage

@@ -15,14 +15,14 @@ class GameStreamEventSpec extends AnyFlatSpec with Matchers:
   private val e2 = Position.from(4, 1).toOption.getOrElse(fail("invalid position (4,1)"))
   private val e4 = Position.from(4, 3).toOption.getOrElse(fail("invalid position (4,3)"))
 
-  "GameStreamEvent.eventTypeTag" should "tag SessionCreated" in {
+  "GameStreamEvent.eventTypeTag" should "return None for SessionCreated" in {
     val event = AppEvent.SessionCreated(sid, gid, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal)
-    GameStreamEvent.eventTypeTag(event) shouldBe Some("game.session.created.v1")
+    GameStreamEvent.eventTypeTag(event) shouldBe None
   }
 
-  it should "tag MoveApplied" in {
+  it should "return None for MoveApplied" in {
     val event = AppEvent.MoveApplied(sid, gid, Move(e2, e4), Color.White)
-    GameStreamEvent.eventTypeTag(event) shouldBe Some("game.move.applied.v1")
+    GameStreamEvent.eventTypeTag(event) shouldBe None
   }
 
   it should "tag GameFinished (checkmate)" in {
