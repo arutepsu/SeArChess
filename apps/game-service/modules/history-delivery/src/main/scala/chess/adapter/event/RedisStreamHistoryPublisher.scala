@@ -13,6 +13,7 @@ class RedisStreamHistoryPublisher(
 ) extends EventPublisher:
 
   override def publish(event: AppEvent): Unit =
+<<<<<<< HEAD
     HistoryArchiveStreamEvent.fromAppEvent(event).foreach { envelope =>
       GameStreamEvent.eventTypeTag(event).foreach { tag =>
         try
@@ -23,6 +24,19 @@ class RedisStreamHistoryPublisher(
             "eventId"   -> envelope.eventId,
             "eventType" -> envelope.eventType,
             "sourceEventType" -> tag,
+=======
+    GameStreamEvent.eventTypeTag(event).foreach { tag =>
+      AppEventSerializer.serialize(event).foreach { json =>
+        val fields = new java.util.HashMap[String, String]()
+        fields.put("eventType", tag)
+        fields.put("payload", json)
+        try
+          jedis.xadd(streamName, StreamEntryID.NEW_ENTRY, fields)
+          StructuredLog.info(
+            "game-service",
+            "history_stream_published",
+            "eventType" -> tag,
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
             "gameId"    -> event.gameId.value.toString,
             "sessionId" -> event.sessionId.value.toString
           )
@@ -31,9 +45,13 @@ class RedisStreamHistoryPublisher(
             StructuredLog.warn(
               "game-service",
               "history_stream_publish_failed",
+<<<<<<< HEAD
               "eventId"   -> envelope.eventId,
               "eventType" -> envelope.eventType,
               "sourceEventType" -> tag,
+=======
+              "eventType" -> tag,
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
               "gameId"    -> event.gameId.value.toString,
               "sessionId" -> event.sessionId.value.toString,
               "error"     -> e.getMessage

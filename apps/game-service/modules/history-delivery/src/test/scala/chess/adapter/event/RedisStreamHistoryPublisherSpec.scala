@@ -4,12 +4,18 @@ import chess.application.event.AppEvent
 import chess.application.session.model.{SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import chess.domain.model.{Color, DrawReason, GameStatus}
+<<<<<<< HEAD
 import org.scalatest.Assertions.cancel
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.Outcome
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.testcontainers.DockerClientFactory
+=======
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 import org.testcontainers.containers.GenericContainer
 import redis.clients.jedis.{Jedis, JedisPooled, StreamEntryID}
 import redis.clients.jedis.params.XReadParams
@@ -21,6 +27,7 @@ class RedisStreamHistoryPublisherSpec extends AnyFlatSpec with Matchers with Bef
     withExposedPorts(6379)
 
   private val container = new RedisC
+<<<<<<< HEAD
   private var started = false
 
   override protected def withFixture(test: NoArgTest): Outcome =
@@ -41,6 +48,11 @@ class RedisStreamHistoryPublisherSpec extends AnyFlatSpec with Matchers with Bef
     if started then
       container.stop()
       started = false
+=======
+
+  override def beforeAll(): Unit = container.start()
+  override def afterAll(): Unit  = container.stop()
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 
   private def host = container.getHost
   private def port = container.getMappedPort(6379)
@@ -66,11 +78,16 @@ class RedisStreamHistoryPublisherSpec extends AnyFlatSpec with Matchers with Bef
 
       probe.xlen(streamKey) shouldBe 1L
       val fields = readAll(probe, streamKey).head
+<<<<<<< HEAD
       fields.get("eventType") shouldBe "history.archive.requested"
       fields.get("eventVersion") shouldBe "1"
       fields.get("gameId") shouldBe gid.value.toString
       fields.get("payloadJson") should include("game.finished.v1")
       fields.get("sourceEventType") shouldBe "game.finished.v1"
+=======
+      fields.get("eventType") shouldBe "game.finished.v1"
+      fields.get("payload") should include("game.finished.v1")
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
     finally
       jedisPooled.close()
       probe.close()
@@ -85,15 +102,23 @@ class RedisStreamHistoryPublisherSpec extends AnyFlatSpec with Matchers with Bef
         .publish(AppEvent.GameResigned(sid, gid, Color.White))
 
       probe.xlen(streamKey) shouldBe 1L
+<<<<<<< HEAD
       val fields = readAll(probe, streamKey).head
       fields.get("eventType") shouldBe "history.archive.requested"
       fields.get("sourceEventType") shouldBe "game.resigned.v1"
+=======
+      readAll(probe, streamKey).head.get("eventType") shouldBe "game.resigned.v1"
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
     finally
       jedisPooled.close()
       probe.close()
   }
 
+<<<<<<< HEAD
   it should "not publish a SessionCreated event" in {
+=======
+  it should "publish a SessionCreated event" in {
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
     val jedisPooled = JedisPooled(host, port)
     val probe       = new Jedis(host, port)
     val streamKey   = s"test:created-${gid.value}"
@@ -101,7 +126,12 @@ class RedisStreamHistoryPublisherSpec extends AnyFlatSpec with Matchers with Bef
       RedisStreamHistoryPublisher(jedisPooled, streamKey)
         .publish(AppEvent.SessionCreated(sid, gid, SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal))
 
+<<<<<<< HEAD
       probe.xlen(streamKey) shouldBe 0L
+=======
+      probe.xlen(streamKey) shouldBe 1L
+      readAll(probe, streamKey).head.get("eventType") shouldBe "game.session.created.v1"
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
     finally
       jedisPooled.close()
       probe.close()

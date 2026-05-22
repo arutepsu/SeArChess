@@ -19,7 +19,10 @@ object ConfigLoader:
   private val DefaultHistoryTimeout: String      = "2000"
   private val DefaultHistoryDeliveryMode: String = "http"
   private val DefaultRedisPort: String           = "6379"
+<<<<<<< HEAD
   private val DefaultHistoryRedisStream: String  = "searchess.history.archives"
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
   private val DefaultAiMode: String = "remote"
   private val DefaultAiRemoteBaseUrl: String = "http://ai-service:8765"
   private val DefaultAiTimeoutMillis: String = "15000"
@@ -76,19 +79,29 @@ object ConfigLoader:
       histDeliveryMode <- parseHistoryDeliveryMode(
         env("HISTORY_DELIVERY_MODE").getOrElse(DefaultHistoryDeliveryMode)
       )
+<<<<<<< HEAD
       redisEndpoint <- parseRedisEndpoint(
         env("HISTORY_REDIS_URL"),
         env("REDIS_HOST"),
         env("REDIS_PORT").getOrElse(DefaultRedisPort)
       )
       redisStream = env("HISTORY_REDIS_STREAM").getOrElse(DefaultHistoryRedisStream)
+=======
+      redisHost = env("REDIS_HOST")
+      redisPort <- parsePort("REDIS_PORT", env("REDIS_PORT").getOrElse(DefaultRedisPort))
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
       history <- parseHistoryForwardingConfig(
         histEnabled,
         env("HISTORY_SERVICE_BASE_URL"),
         histTimeout,
         histDeliveryMode,
+<<<<<<< HEAD
         redisEndpoint,
         redisStream
+=======
+        redisHost,
+        redisPort
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
       )
       aiMode <- parseAiProviderMode(env("AI_PROVIDER_MODE").getOrElse(DefaultAiMode))
       aiTimeout <- parsePositiveInt(
@@ -322,6 +335,7 @@ object ConfigLoader:
       baseUrl: Option[String],
       timeoutMillis: Int,
       deliveryMode: HistoryDeliveryMode,
+<<<<<<< HEAD
       redisEndpoint: Option[RedisEndpoint],
       redisStream: String
 <<<<<<< HEAD
@@ -485,6 +499,22 @@ object ConfigLoader:
                   redisStream  = cleanStream
                 )
               )
+=======
+      redisHost: Option[String],
+      redisPort: Int
+  ): Either[String, HistoryForwardingConfig] =
+    val cleanUrl = baseUrl.map(_.trim).filter(_.nonEmpty)
+    if !enabled then
+      Right(HistoryForwardingConfig(false, cleanUrl, timeoutMillis, deliveryMode, redisHost, redisPort))
+    else
+      deliveryMode match
+        case HistoryDeliveryMode.RedisStream =>
+          Right(HistoryForwardingConfig(true, None, timeoutMillis, HistoryDeliveryMode.RedisStream, redisHost, redisPort))
+        case HistoryDeliveryMode.Http =>
+          cleanUrl match
+            case Some(url) =>
+              Right(HistoryForwardingConfig(true, Some(url), timeoutMillis, HistoryDeliveryMode.Http, redisHost, redisPort))
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
             case None =>
               Left(
                 "HISTORY_SERVICE_BASE_URL is required when HISTORY_FORWARDING_ENABLED=true and HISTORY_DELIVERY_MODE=http"
@@ -496,6 +526,7 @@ object ConfigLoader:
       case "redis-stream" | "redisstream" => Right(HistoryDeliveryMode.RedisStream)
       case _ =>
         Left(s"HISTORY_DELIVERY_MODE must be 'http' or 'redis-stream', got: '$value'")
+<<<<<<< HEAD
 
   private final case class RedisEndpoint(url: String, host: String, port: Int)
 
@@ -519,3 +550,5 @@ object ConfigLoader:
             parsePort("REDIS_PORT", rawPort).map(p => Some(RedisEndpoint(s"redis://$h:$p", h, p)))
           case None => Right(None)
 >>>>>>> 966317ea (added bot container)
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)

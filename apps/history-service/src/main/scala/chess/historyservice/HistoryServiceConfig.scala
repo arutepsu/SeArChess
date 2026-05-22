@@ -17,6 +17,7 @@ final case class HistoryServiceConfig(
     timeoutMillis: Int,
     acceptLegacyIngestionPath: Boolean,
     deliveryMode: HistoryDeliveryMode = HistoryDeliveryMode.Http,
+<<<<<<< HEAD
     redisUrl: Option[String] = None,
     redisHost: Option[String] = None,
     redisPort: Int = 6379,
@@ -43,6 +44,10 @@ final case class HistoryServiceConfig(
 >>>>>>> ce08c01e (local microservices)
 =======
 >>>>>>> 966317ea (added bot container)
+=======
+    redisHost: Option[String] = None,
+    redisPort: Int = 6379
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 )
 
 object HistoryServiceConfig:
@@ -70,6 +75,7 @@ object HistoryServiceConfig:
         env("HISTORY_ACCEPT_LEGACY_INGESTION_PATH").getOrElse("false")
       )
       deliveryMode <- parseDeliveryMode(
+<<<<<<< HEAD
         env("HISTORY_INGESTION_MODE").map(_ -> "HISTORY_INGESTION_MODE").orElse(
           env("HISTORY_DELIVERY_MODE").map(_ -> "HISTORY_DELIVERY_MODE")
         ).getOrElse("http" -> "HISTORY_INGESTION_MODE")
@@ -83,6 +89,12 @@ object HistoryServiceConfig:
       redisGroup = env("HISTORY_REDIS_GROUP").getOrElse("history-service").trim
       redisConsumer = env("HISTORY_REDIS_CONSUMER_NAME").getOrElse(defaultConsumerName()).trim
       _ <- validateRedisConfig(deliveryMode, redisEndpoint, redisStream, redisGroup, redisConsumer)
+=======
+        "HISTORY_DELIVERY_MODE",
+        env("HISTORY_DELIVERY_MODE").getOrElse("http")
+      )
+      redisPort   <- parsePort("REDIS_PORT", env("REDIS_PORT").getOrElse("6379"))
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
       postgresUrl <- env("HISTORY_POSTGRES_URL").toRight("HISTORY_POSTGRES_URL is required")
       baseUrl = env("GAME_SERVICE_BASE_URL").getOrElse("http://127.0.0.1:8080")
     yield HistoryServiceConfig(
@@ -96,6 +108,7 @@ object HistoryServiceConfig:
       timeoutMillis             = timeout,
       acceptLegacyIngestionPath = legacy,
       deliveryMode              = deliveryMode,
+<<<<<<< HEAD
       redisUrl                  = redisEndpoint.map(_.url),
       redisHost                 = redisEndpoint.map(_.host),
       redisPort                 = redisEndpoint.map(_.port).getOrElse(6379),
@@ -107,11 +120,19 @@ object HistoryServiceConfig:
 
   private def parseDeliveryMode(raw: (String, String)): Either[String, HistoryDeliveryMode] =
     val (value, name) = raw
+=======
+      redisHost                 = env("REDIS_HOST"),
+      redisPort                 = redisPort
+    )
+
+  private def parseDeliveryMode(name: String, value: String): Either[String, HistoryDeliveryMode] =
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
     value.trim.toLowerCase match
       case "http"                         => Right(HistoryDeliveryMode.Http)
       case "redis-stream" | "redisstream" => Right(HistoryDeliveryMode.RedisStream)
       case other                          => Left(s"$name must be 'http' or 'redis-stream', got: '$other'")
 
+<<<<<<< HEAD
   private final case class RedisEndpoint(url: String, host: String, port: Int)
 
   private def parseRedisEndpoint(
@@ -152,11 +173,14 @@ object HistoryServiceConfig:
   private def defaultConsumerName(): String =
     Option(System.getenv("HOSTNAME")).map(_.trim).filter(_.nonEmpty).getOrElse("history-service-1")
 
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
   private def parsePort(name: String, value: String): Either[String, Int] =
     value.toIntOption match
       case Some(p) if p >= 1 && p <= 65535 => Right(p)
       case Some(p)                          => Left(s"$name must be between 1 and 65535, got: $p")
       case None                             => Left(s"$name must be an integer, got: '$value'")
+<<<<<<< HEAD
 =======
       err => { System.err.println(s"[history] Configuration error: $err"); sys.exit(1) },
       identity
@@ -241,6 +265,8 @@ object HistoryServiceConfig:
       case Some(p)                          => Left(s"$name must be between 1 and 65535, got: $p")
       case None                             => Left(s"$name must be an integer, got: '$value'")
 >>>>>>> 966317ea (added bot container)
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 
   private def parsePositiveInt(name: String, value: String): Either[String, Int] =
     value.toIntOption match

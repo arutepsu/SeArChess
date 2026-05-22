@@ -142,6 +142,7 @@ object EventAssembly:
     else
       config.history.deliveryMode match
         case HistoryDeliveryMode.RedisStream =>
+<<<<<<< HEAD
           val host  = config.history.redisHost.getOrElse(
             throw IllegalArgumentException("History Redis delivery enabled but HISTORY_REDIS_URL/REDIS_HOST is not configured")
           )
@@ -156,10 +157,25 @@ object EventAssembly:
           )
           (
             Seq(RedisStreamHistoryPublisher(jedis, config.history.redisStream)),
+=======
+          val host  = config.history.redisHost.getOrElse("redis")
+          val port  = config.history.redisPort
+          val jedis = JedisPooled(host, port)
+          StructuredLog.info(
+            "game-service",
+            "history_stream_delivery_configured",
+            "redisHost" -> host,
+            "redisPort" -> port,
+            "stream"    -> GameStreamEvent.StreamName
+          )
+          (
+            Seq(RedisStreamHistoryPublisher(jedis)),
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
             NoOpTerminalEventJsonSerializer,
             None,
             () => jedis.close()
           )
+<<<<<<< HEAD
 <<<<<<< HEAD
 
         case HistoryDeliveryMode.Http =>
@@ -232,6 +248,42 @@ object EventAssembly:
               (Seq(HistoryHttpEventPublisher(url, config.history.timeoutMillis)), NoOpTerminalEventJsonSerializer, None, () => ())
 
 >>>>>>> 966317ea (added bot container)
+=======
+
+        case HistoryDeliveryMode.Http =>
+          val url = config.history.baseUrl.getOrElse(
+            throw IllegalArgumentException("History delivery enabled but HISTORY_BASE_URL is not configured")
+          )
+          config.persistence match
+            case PersistenceMode.SQLite =>
+              val outbox = SqliteHistoryEventOutbox(
+                config.sqlite
+                  .getOrElse(
+                    throw IllegalArgumentException(
+                      "SQLite persistence required for history outbox but sqlite config is missing"
+                    )
+                  )
+                  .path
+              )
+              val forwarder = HistoryOutboxForwarder(
+                outbox         = outbox,
+                historyBaseUrl = url,
+                timeoutMillis  = config.history.timeoutMillis
+              )
+              forwarder.start()
+              (Seq.empty, AppEventSerializer, Some(outbox), () => { forwarder.stop(); outbox.close() })
+
+            case PersistenceMode.InMemory =>
+              StructuredLog.warn(
+                "game-service",
+                "history_forwarding_best_effort",
+                "reason"      -> "PERSISTENCE_MODE is not sqlite",
+                "persistence" -> config.persistence.toString,
+                "historyBaseUrl" -> url
+              )
+              (Seq(HistoryHttpEventPublisher(url, config.history.timeoutMillis)), NoOpTerminalEventJsonSerializer, None, () => ())
+
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
             case PersistenceMode.Postgres =>
               StructuredLog.warn(
                 "game-service",
@@ -241,6 +293,7 @@ object EventAssembly:
                 "historyBaseUrl" -> url
               )
               (Seq(HistoryHttpEventPublisher(url, config.history.timeoutMillis)), NoOpTerminalEventJsonSerializer, None, () => ())
+<<<<<<< HEAD
 <<<<<<< HEAD
 
             case PersistenceMode.Mongo =>
@@ -285,6 +338,9 @@ object EventAssembly:
 >>>>>>> 2b1aa125 (real migration ok)
 =======
 
+=======
+
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
             case PersistenceMode.Mongo =>
               StructuredLog.warn(
                 "game-service",
@@ -294,4 +350,7 @@ object EventAssembly:
                 "historyBaseUrl" -> url
               )
               (Seq(HistoryHttpEventPublisher(url, config.history.timeoutMillis)), NoOpTerminalEventJsonSerializer, None, () => ())
+<<<<<<< HEAD
 >>>>>>> 966317ea (added bot container)
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)

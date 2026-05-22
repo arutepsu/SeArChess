@@ -12,6 +12,7 @@ data:
   HISTORY_POSTGRES_SCHEMA: "history"
   HISTORY_GAME_SERVICE_TIMEOUT_MILLIS: "2000"
   HISTORY_ACCEPT_LEGACY_INGESTION_PATH: "false"
+<<<<<<< HEAD
   HISTORY_INGESTION_MODE: "redis-stream"
   HISTORY_REDIS_URL: "redis://redis:6379"
   HISTORY_REDIS_STREAM: "searchess.history.archives"
@@ -23,3 +24,8 @@ data:
   OTEL_LOGS_EXPORTER: "none"
   OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
   OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+=======
+  HISTORY_DELIVERY_MODE: "redis-stream"
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)

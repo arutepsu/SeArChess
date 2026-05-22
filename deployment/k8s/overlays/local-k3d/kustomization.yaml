@@ -14,8 +14,11 @@ images:
     newTag: local
   - name: searchess/ai-service
     newTag: local
+<<<<<<< HEAD
   - name: searchess/python-ai-service
     newTag: local
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 
 patches:
   # Expose Envoy and Grafana as LoadBalancer — k3d servicelb forwards
@@ -57,6 +60,7 @@ patches:
     target:
       kind: Deployment
       name: ai-service
+<<<<<<< HEAD
   - patch: |-
       - op: replace
         path: /spec/template/spec/containers/0/imagePullPolicy
@@ -64,3 +68,5 @@ patches:
     target:
       kind: Deployment
       name: python-ai-service
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)

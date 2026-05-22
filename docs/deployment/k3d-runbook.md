@@ -86,6 +86,7 @@ Check the output for:
 - `type: LoadBalancer` for envoy and grafana Services
 - 3 StatefulSets (postgres, mongo, redis)
 - StatefulSet-owned PVCs for postgres, mongo, and redis
+<<<<<<< HEAD
 - `SEARCHESS_POSTGRES_SCHEMA: game` for game-service. This keeps active gameplay
   tables and the game-service Flyway history table out of `public`.
 - `HISTORY_POSTGRES_SCHEMA: history` for history-service. This keeps Flyway's
@@ -93,6 +94,11 @@ Check the output for:
   avoids Flyway's non-empty-schema startup guard.
 - `HISTORY_REDIS_STREAM: searchess.history.archives`, `HISTORY_DELIVERY_MODE:
   redis-stream`, and `HISTORY_INGESTION_MODE: redis-stream`.
+=======
+- `HISTORY_POSTGRES_SCHEMA: history` for history-service. This keeps Flyway's
+  history tables and archive tables out of the game-service `public` schema and
+  avoids Flyway's non-empty-schema startup guard.
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 
 ---
 
@@ -280,6 +286,7 @@ and the service will crash. Wait for postgres to be `1/1 Running` before trouble
 kubectl get pods -n searchess -l app=postgres
 ```
 
+<<<<<<< HEAD
 ### game-service fails to start - public schema has existing tables
 
 game-service uses schema isolation rather than `baselineOnMigrate`. The
@@ -301,6 +308,8 @@ kubectl exec -n searchess postgres-0 -- psql -U searchess -d searchess -c "\dt g
 kubectl exec -n searchess postgres-0 -- psql -U searchess -d searchess -c "\dt history.*"
 ```
 
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 ### `mongo-0` CrashLoopBackOff — probe timeout
 
 **Symptom:** `kubectl describe pod -n searchess mongo-0` shows probe failures:
@@ -342,17 +351,27 @@ After applying the fix, `mongo-0` should reach `1/1 Running` within ~40 s of the
 
 **Symptom:** Game sessions complete but no archive records are created in history-service.
 
+<<<<<<< HEAD
 **Check 1 — stream and consumer group exist:**
 ```bash
 kubectl exec -n searchess -it redis-0 -- redis-cli XINFO STREAM searchess.history.archives
 kubectl exec -n searchess -it redis-0 -- redis-cli XINFO GROUPS searchess.history.archives
+=======
+**Check 1 — consumer group exists:**
+```bash
+kubectl exec -n searchess -it redis-0 -- redis-cli XINFO GROUPS searchess:game-events
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 ```
 Expect a group named `history-service`. If absent, history-service either never started its consumer
 or failed to connect.
 
 **Check 2 — pending entries (messages not yet ACKed):**
 ```bash
+<<<<<<< HEAD
 kubectl exec -n searchess -it redis-0 -- redis-cli XPENDING searchess.history.archives history-service - + 10
+=======
+kubectl exec -n searchess -it redis-0 -- redis-cli XPENDING searchess:game-events history-service - + 10
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 ```
 Empty output is healthy. Non-zero entries indicate the consumer received messages but failed to process them (archive fetch or persistence failure).
 
@@ -363,6 +382,7 @@ kubectl logs -n searchess -l app=history-service --tail=50
 Look for `redis_consumer_started` (startup), `redis_consumer_ingested` (successful ingest), or
 `redis_consumer_left_in_pel` / `redis_consumer_loop_error` (failures).
 
+<<<<<<< HEAD
 **Check 4 — Redis mode config:**
 ```bash
 kubectl describe configmap game-service-env -n searchess | grep HISTORY_DELIVERY_MODE
@@ -372,6 +392,13 @@ kubectl describe configmap history-service-env -n searchess | grep HISTORY_REDIS
 Both modes should be `redis-stream` and the stream should be
 `searchess.history.archives`. If the mode is `http`, direct HTTP delivery is in
 use as the fallback.
+=======
+**Check 4 — HISTORY_DELIVERY_MODE:**
+```bash
+kubectl describe configmap history-service-env -n searchess | grep HISTORY_DELIVERY_MODE
+```
+Must be `redis-stream`. If it shows `http`, the service uses direct HTTP instead of Redis Streams.
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 
 ---
 

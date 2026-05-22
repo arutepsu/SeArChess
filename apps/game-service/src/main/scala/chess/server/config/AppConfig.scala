@@ -38,10 +38,15 @@ final case class HistoryForwardingConfig(
     baseUrl: Option[String],
     timeoutMillis: Int,
     deliveryMode: HistoryDeliveryMode = HistoryDeliveryMode.Http,
+<<<<<<< HEAD
     redisUrl: Option[String] = None,
     redisHost: Option[String] = None,
     redisPort: Int = 6379,
     redisStream: String = "searchess.history.archives",
+=======
+    redisHost: Option[String] = None,
+    redisPort: Int = 6379,
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
     interaction: ServiceInteraction = ServiceInteraction.DownstreamAsynchronousHttp,
     startupPolicy: DependencyStartupPolicy = DependencyStartupPolicy.NotRequired,
     failureBehaviour: DependencyFailureBehaviour = DependencyFailureBehaviour.LogAndContinue

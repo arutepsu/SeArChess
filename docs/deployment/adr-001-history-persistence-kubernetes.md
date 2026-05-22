@@ -27,8 +27,12 @@ This decision was always marked as temporary; migration to Postgres was the plan
 
 history-service stores archive records in the same Postgres instance used by game-service,
 but owns a dedicated schema (`postgres:5432/searchess`, schema `history`, table
+<<<<<<< HEAD
 `history_archives`). game-service owns a separate `game` schema for active gameplay
 tables and its Flyway history.
+=======
+`history_archives`). game-service continues to use the `public` schema.
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 
 SQLite is no longer a supported runtime option. `HISTORY_STORAGE_MODE` has been removed.
 
@@ -104,6 +108,7 @@ migration step is required. `baselineOnMigrate` is intentionally not used; the d
 `replicas: 1` is kept for initial validation. The Postgres backend enables safe horizontal
 scaling; increase after load-testing confirms end-to-end idempotency of the ingestion flow.
 
+<<<<<<< HEAD
 ### Delivery update
 
 Archive delivery is asynchronous through Redis Streams in the validated local/k3d path.
@@ -112,6 +117,8 @@ game-service publishes `history.archive.requested` envelopes to
 consumer group and acknowledges only after the existing ingestion path has written the archive
 through Slick. Direct HTTP ingestion remains as a fallback mode.
 
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 ---
 
 ## References

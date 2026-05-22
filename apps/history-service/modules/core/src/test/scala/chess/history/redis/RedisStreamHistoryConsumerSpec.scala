@@ -1,19 +1,29 @@
 package chess.history.redis
 
+<<<<<<< HEAD
 import chess.adapter.event.HistoryArchiveStreamEvent
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 import chess.application.query.game.GameClosure
 import chess.application.session.model.{SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import chess.domain.model.Color
 import chess.history.{ArchiveRecord, GameArchiveClientError, HistoryIngestionError}
+<<<<<<< HEAD
 import org.scalatest.Assertions.cancel
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.Outcome
+=======
+import org.scalatest.BeforeAndAfterAll
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Millis, Seconds, Span}
+<<<<<<< HEAD
 import org.testcontainers.DockerClientFactory
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 import org.testcontainers.containers.GenericContainer
 import redis.clients.jedis.{Jedis, StreamEntryID}
 import redis.clients.jedis.params.XReadGroupParams
@@ -31,6 +41,7 @@ class RedisStreamHistoryConsumerSpec extends AnyFlatSpec with Matchers with Befo
     withExposedPorts(6379)
 
   private val container = new RedisC
+<<<<<<< HEAD
   private var started = false
 
   override protected def withFixture(test: NoArgTest): Outcome =
@@ -48,6 +59,11 @@ class RedisStreamHistoryConsumerSpec extends AnyFlatSpec with Matchers with Befo
     if started then
       container.stop()
       started = false
+=======
+
+  override def beforeAll(): Unit = container.start()
+  override def afterAll(): Unit  = container.stop()
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 
   private def redisHost = container.getHost
   private def redisPort = container.getMappedPort(6379)
@@ -75,6 +91,7 @@ class RedisStreamHistoryConsumerSpec extends AnyFlatSpec with Matchers with Befo
   private val nonTerminalPayload: String =
     """{"type":"game.session.created.v1","sessionId":"00000000-0000-0000-0000-000000000002","gameId":"00000000-0000-0000-0000-000000000001","mode":"HumanVsHuman","whiteController":"HumanLocal","blackController":"HumanLocal"}"""
 
+<<<<<<< HEAD
   private def xadd(jedis: Jedis, streamKey: String, payload: String): StreamEntryID =
     val envelope = HistoryArchiveStreamEvent(
       eventId      = UUID.randomUUID().toString,
@@ -85,6 +102,13 @@ class RedisStreamHistoryConsumerSpec extends AnyFlatSpec with Matchers with Befo
       payloadJson  = payload
     )
     jedis.xadd(streamKey, StreamEntryID.NEW_ENTRY, HistoryArchiveStreamEvent.toFields(envelope))
+=======
+  private def xadd(jedis: Jedis, streamKey: String, eventType: String, payload: String): StreamEntryID =
+    val fields = new java.util.HashMap[String, String]()
+    fields.put("eventType", eventType)
+    fields.put("payload", payload)
+    jedis.xadd(streamKey, StreamEntryID.NEW_ENTRY, fields)
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 
   // ACK with the given ID; returns how many entries were acknowledged (0 = already ACKed)
   private def tryAck(jedis: Jedis, streamKey: String, id: StreamEntryID): Long =
@@ -98,18 +122,30 @@ class RedisStreamHistoryConsumerSpec extends AnyFlatSpec with Matchers with Befo
     if result == null then 0
     else result.asScala.map(_.getValue.size()).sum
 
+<<<<<<< HEAD
   private def uniqueStream(): String = s"test:history-archives-${UUID.randomUUID()}"
+=======
+  private def uniqueStream(): String = s"test:game-events-${UUID.randomUUID()}"
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 
   "RedisStreamHistoryConsumer" should "ACK a terminal event after successful ingest" in {
     val streamKey = uniqueStream()
     val results   = new ArrayBlockingQueue[Either[HistoryIngestionError, ArchiveRecord]](4)
     val ingest    = (json: String) => { val r = Right(sampleRecord); results.offer(r); r }
     val jedis     = new Jedis(redisHost, redisPort)
+<<<<<<< HEAD
     val consumer  = RedisStreamHistoryConsumer(redisHost, redisPort, ingest, streamName = streamKey, groupName = GroupName, consumerName = ConsumerName)
 
     try
       consumer.start()
       val id = xadd(jedis, streamKey, terminalPayload)
+=======
+    val consumer  = RedisStreamHistoryConsumer(redisHost, redisPort, ingest, streamName = streamKey)
+
+    try
+      consumer.start()
+      val id = xadd(jedis, streamKey, "game.finished.v1", terminalPayload)
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 
       results.poll(5, TimeUnit.SECONDS) should not be null
       eventually { tryAck(jedis, streamKey, id) shouldBe 0L }
@@ -118,11 +154,16 @@ class RedisStreamHistoryConsumerSpec extends AnyFlatSpec with Matchers with Befo
       jedis.close()
   }
 
+<<<<<<< HEAD
   it should "leave an unsupported envelope in the PEL without calling ingest" in {
+=======
+  it should "ACK a non-terminal event without calling ingest" in {
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
     val streamKey   = uniqueStream()
     val ingestCalls = new ArrayBlockingQueue[String](4)
     val ingest      = (json: String) => { ingestCalls.offer(json); Right(sampleRecord) }
     val jedis       = new Jedis(redisHost, redisPort)
+<<<<<<< HEAD
     val consumer    = RedisStreamHistoryConsumer(redisHost, redisPort, ingest, streamName = streamKey, groupName = GroupName, consumerName = ConsumerName)
 
     try
@@ -135,13 +176,26 @@ class RedisStreamHistoryConsumerSpec extends AnyFlatSpec with Matchers with Befo
       Thread.sleep(300)
       pelSize(jedis, streamKey) shouldBe 1
       tryAck(jedis, streamKey, id) shouldBe 1L
+=======
+    val consumer    = RedisStreamHistoryConsumer(redisHost, redisPort, ingest, streamName = streamKey)
+
+    try
+      consumer.start()
+      val id = xadd(jedis, streamKey, "game.session.created.v1", nonTerminalPayload)
+
+      eventually { tryAck(jedis, streamKey, id) shouldBe 0L }
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
       ingestCalls.poll() shouldBe null
     finally
       consumer.stop()
       jedis.close()
   }
 
+<<<<<<< HEAD
   it should "leave a terminal event in the PEL when ingest returns InvalidEvent" in {
+=======
+  it should "ACK a terminal event even when ingest returns InvalidEvent" in {
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
     val streamKey = uniqueStream()
     val results   = new ArrayBlockingQueue[Either[HistoryIngestionError, ArchiveRecord]](4)
     val ingest    = (json: String) => {
@@ -150,6 +204,7 @@ class RedisStreamHistoryConsumerSpec extends AnyFlatSpec with Matchers with Befo
       r
     }
     val jedis    = new Jedis(redisHost, redisPort)
+<<<<<<< HEAD
     val consumer = RedisStreamHistoryConsumer(redisHost, redisPort, ingest, streamName = streamKey, groupName = GroupName, consumerName = ConsumerName)
 
     try
@@ -160,6 +215,16 @@ class RedisStreamHistoryConsumerSpec extends AnyFlatSpec with Matchers with Befo
       Thread.sleep(300)
       pelSize(jedis, streamKey) shouldBe 1
       tryAck(jedis, streamKey, id) shouldBe 1L
+=======
+    val consumer = RedisStreamHistoryConsumer(redisHost, redisPort, ingest, streamName = streamKey)
+
+    try
+      consumer.start()
+      val id = xadd(jedis, streamKey, "game.finished.v1", terminalPayload)
+
+      results.poll(5, TimeUnit.SECONDS) should not be null
+      eventually { tryAck(jedis, streamKey, id) shouldBe 0L }
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
     finally
       consumer.stop()
       jedis.close()
@@ -178,11 +243,19 @@ class RedisStreamHistoryConsumerSpec extends AnyFlatSpec with Matchers with Befo
       r
     }
     val jedis    = new Jedis(redisHost, redisPort)
+<<<<<<< HEAD
     val consumer = RedisStreamHistoryConsumer(redisHost, redisPort, ingest, streamName = streamKey, groupName = GroupName, consumerName = ConsumerName)
 
     try
       consumer.start()
       xadd(jedis, streamKey, terminalPayload)
+=======
+    val consumer = RedisStreamHistoryConsumer(redisHost, redisPort, ingest, streamName = streamKey)
+
+    try
+      consumer.start()
+      xadd(jedis, streamKey, "game.resigned.v1", terminalPayload)
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 
       results.poll(5, TimeUnit.SECONDS) should not be null
       Thread.sleep(300)

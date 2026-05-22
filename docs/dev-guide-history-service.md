@@ -70,8 +70,11 @@ History Service environment:
 | `GAME_SERVICE_BASE_URL` | `http://game-service:8080` |
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 966317ea (added bot container)
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 | `HISTORY_GAME_SERVICE_TIMEOUT_MILLIS` | `2000` |
 | `HISTORY_ACCEPT_LEGACY_INGESTION_PATH` | `false` |
 =======
@@ -99,6 +102,7 @@ Game Service must also run with SQLite persistence for durable forwarding:
 | `PERSISTENCE_MODE` | `sqlite` |
 | `CHESS_DB_PATH` | `/data/searchess.sqlite` |
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 History persistence is mounted separately from Game Service:
 
@@ -108,6 +112,8 @@ history-service-data:/history-data
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
 =======
 >>>>>>> 966317ea (added bot container)
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 
 ## Archive Read Contract
 
@@ -178,8 +184,11 @@ History automatically. Verify History owns a stored archive:
 docker compose exec history-service curl -s "http://127.0.0.1:8081/archives/$GAME_ID"
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 966317ea (added bot container)
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 ```
 
 The History record is stored in History Service Postgres tables, not in the Game

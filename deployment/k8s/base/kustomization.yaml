@@ -2,18 +2,25 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 namespace: searchess
+<<<<<<< HEAD
 generatorOptions:
   annotations:
     argocd.argoproj.io/compare-options: IgnoreExtraneous
+=======
+
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 resources:
   - namespace.yaml
   - secret-searchess.yaml
   # Edge
   - envoy/deployment.yaml
   - envoy/service.yaml
+<<<<<<< HEAD
   # Web UI (SPA — served through Envoy at /)
   - web-ui/deployment.yaml
   - web-ui/service.yaml
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
   # Application services
   - game-service/configmap.yaml
   - game-service/deployment.yaml
@@ -24,6 +31,7 @@ resources:
   - ai-service/configmap.yaml
   - ai-service/deployment.yaml
   - ai-service/service.yaml
+<<<<<<< HEAD
   # Python AI service (internal only — proxied by Scala ai-service)
   - python-ai-service/configmap.yaml
   - python-ai-service/deployment.yaml
@@ -32,19 +40,28 @@ resources:
   - postgres/statefulset.yaml
   - postgres/service.yaml
   - postgres/job-keycloak-db-init.yaml
+=======
+  # Data stores
+  - postgres/statefulset.yaml
+  - postgres/service.yaml
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
   - mongo/statefulset.yaml
   - mongo/service.yaml
   - redis/statefulset.yaml
   - redis/service.yaml
+<<<<<<< HEAD
   # Auth
   - keycloak/secret.yaml
   - keycloak/deployment.yaml
   - keycloak/service.yaml
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
   # Observability
   - prometheus/deployment.yaml
   - prometheus/service.yaml
   - grafana/deployment.yaml
   - grafana/service.yaml
+<<<<<<< HEAD
   # Distributed tracing
   - tempo/configmap.yaml
   - tempo/deployment.yaml
@@ -52,16 +69,21 @@ resources:
   - otel-collector/configmap.yaml
   - otel-collector/deployment.yaml
   - otel-collector/service.yaml
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 
 configMapGenerator:
   - name: envoy-config
     files:
       - envoy/envoy.yaml
 
+<<<<<<< HEAD
   - name: keycloak-realm
     files:
       - realm-searchess.json=keycloak/realm-searchess.json
 
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
   - name: prometheus-config
     files:
       - prometheus/prometheus.yml
@@ -69,7 +91,10 @@ configMapGenerator:
   - name: grafana-datasources
     files:
       - grafana/provisioning/datasources/prometheus.yml
+<<<<<<< HEAD
       - grafana/provisioning/datasources/tempo.yml
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 
   - name: grafana-dashboard-providers
     files:

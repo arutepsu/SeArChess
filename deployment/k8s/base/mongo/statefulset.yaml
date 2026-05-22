@@ -8,12 +8,15 @@ metadata:
 spec:
   serviceName: mongo
   replicas: 1
+<<<<<<< HEAD
   podManagementPolicy: OrderedReady
   revisionHistoryLimit: 10
   updateStrategy:
     type: RollingUpdate
     rollingUpdate:
       partition: 0
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
   selector:
     matchLabels:
       app: mongo
@@ -52,6 +55,7 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
+<<<<<<< HEAD
   persistentVolumeClaimRetentionPolicy:
     whenDeleted: Retain
     whenScaled: Retain
@@ -61,10 +65,18 @@ spec:
       metadata:
         name: mongo-data
         creationTimestamp: null
+=======
+  volumeClaimTemplates:
+    - metadata:
+        name: mongo-data
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
       spec:
         accessModes:
           - ReadWriteOnce
         resources:
           requests:
             storage: 2Gi
+<<<<<<< HEAD
         volumeMode: Filesystem
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)

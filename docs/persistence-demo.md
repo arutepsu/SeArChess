@@ -86,6 +86,7 @@ added later.
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 History Service remains in the main stack and stores its archive data in
 Postgres via its own Slick repository. That history persistence is not part of
 the Game Service Postgres/Mongo migration demo.
@@ -99,6 +100,11 @@ History Service remains in the main stack and stores its archive data in
 Postgres via its own Slick repository. That history persistence is not part of
 the Game Service Postgres/Mongo migration demo.
 >>>>>>> 966317ea (added bot container)
+=======
+History Service remains in the main stack and stores its archive data in
+Postgres via its own Slick repository. That history persistence is not part of
+the Game Service Postgres/Mongo migration demo.
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 
 Use SQLite explicitly when you want the lightweight Game Service container
 mode:
@@ -339,6 +345,7 @@ The data volumes are:
 - Mongo data: `searchess_mongo_data`
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 - Redis data: `searchess_redis_data`
 =======
 - History Service data: `history-service-data`
@@ -346,3 +353,6 @@ The data volumes are:
 =======
 - Redis data: `searchess_redis_data`
 >>>>>>> 966317ea (added bot container)
+=======
+- Redis data: `searchess_redis_data`
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)

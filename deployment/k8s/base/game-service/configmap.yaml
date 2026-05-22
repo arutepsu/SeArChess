@@ -13,20 +13,29 @@ data:
   PERSISTENCE_MODE: "postgres"
   SEARCHESS_POSTGRES_URL: "jdbc:postgresql://postgres:5432/searchess"
   SEARCHESS_POSTGRES_USER: "searchess"
+<<<<<<< HEAD
   SEARCHESS_POSTGRES_SCHEMA: "game"
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
   SEARCHESS_MONGO_URI: "mongodb://mongo:27017/searchess"
   EVENT_MODE: "in-process"
   HISTORY_FORWARDING_ENABLED: "true"
   HISTORY_SERVICE_BASE_URL: "http://history-service:8081"
   HISTORY_FORWARDING_TIMEOUT_MILLIS: "2000"
   HISTORY_DELIVERY_MODE: "redis-stream"
+<<<<<<< HEAD
   HISTORY_REDIS_URL: "redis://redis:6379"
   HISTORY_REDIS_STREAM: "searchess.history.archives"
+=======
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
   AI_PROVIDER_MODE: "remote"
   AI_REMOTE_BASE_URL: "http://ai-service:8765"
   AI_TIMEOUT_MILLIS: "2000"
   AI_REMOTE_TEST_MODE: ""
   MIGRATION_ADMIN_ENABLED: "false"
+<<<<<<< HEAD
   JAVA_TOOL_OPTIONS: "-javaagent:/app/opentelemetry-javaagent.jar"
   OTEL_SERVICE_NAME: "searchess-game-service"
   OTEL_TRACES_EXPORTER: "otlp"
@@ -34,3 +43,5 @@ data:
   OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
   OTEL_METRICS_EXPORTER: none
   OTEL_LOGS_EXPORTER: none
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)

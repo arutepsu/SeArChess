@@ -48,10 +48,14 @@ services:
       game-service:
         condition: service_healthy
     ports:
+<<<<<<< HEAD
       # 11000 avoids collision with the k3d-searchess-serverlb container on host port 10000.
       # k3d API:    http://localhost:10000  (k3d load balancer — untouched)
       # Compose API: http://localhost:11000 (this Envoy — local auth stack)
       - "11000:10000"
+=======
+      - "10000:10000"
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
     volumes:
       - ../../config/envoy/envoy.yaml:/etc/envoy/envoy.yaml:ro
     healthcheck:
@@ -97,15 +101,23 @@ services:
       SEARCHESS_POSTGRES_URL: jdbc:postgresql://postgres:5432/searchess
       SEARCHESS_POSTGRES_USER: ${SEARCHESS_POSTGRES_USER:-searchess}
       SEARCHESS_POSTGRES_PASSWORD: ${SEARCHESS_POSTGRES_PASSWORD:-searchess}
+<<<<<<< HEAD
       SEARCHESS_POSTGRES_SCHEMA: ${SEARCHESS_POSTGRES_SCHEMA:-game}
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
       SEARCHESS_MONGO_URI: mongodb://mongo:27017/searchess
       EVENT_MODE: in-process
       HISTORY_FORWARDING_ENABLED: "true"
       HISTORY_SERVICE_BASE_URL: http://history-service:8081
       HISTORY_FORWARDING_TIMEOUT_MILLIS: 2000
       HISTORY_DELIVERY_MODE: ${HISTORY_DELIVERY_MODE:-redis-stream}
+<<<<<<< HEAD
       HISTORY_REDIS_URL: ${HISTORY_REDIS_URL:-redis://redis:6379}
       HISTORY_REDIS_STREAM: ${HISTORY_REDIS_STREAM:-searchess.history.archives}
+=======
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
       AI_PROVIDER_MODE: remote
       AI_REMOTE_BASE_URL: http://ai-service:8765
       AI_TIMEOUT_MILLIS: 2000
@@ -142,10 +154,16 @@ services:
       HISTORY_POSTGRES_SCHEMA: ${HISTORY_POSTGRES_SCHEMA:-history}
       HISTORY_GAME_SERVICE_TIMEOUT_MILLIS: 2000
       HISTORY_ACCEPT_LEGACY_INGESTION_PATH: "false"
+<<<<<<< HEAD
       HISTORY_INGESTION_MODE: ${HISTORY_INGESTION_MODE:-redis-stream}
       HISTORY_REDIS_URL: ${HISTORY_REDIS_URL:-redis://redis:6379}
       HISTORY_REDIS_STREAM: ${HISTORY_REDIS_STREAM:-searchess.history.archives}
       HISTORY_REDIS_GROUP: ${HISTORY_REDIS_GROUP:-history-service}
+=======
+      HISTORY_DELIVERY_MODE: ${HISTORY_DELIVERY_MODE:-redis-stream}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8081/health"]
       interval: 5s
@@ -154,6 +172,7 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+<<<<<<< HEAD
   python-ai-service:
     # Build from the sibling searchess-ai-service repo before running compose:
     #   docker build -t searchess/python-ai-service:local ../searchess-ai-service
@@ -178,6 +197,8 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
   ai-service:
     build:
       context: ../..
@@ -185,17 +206,23 @@ services:
     networks:
       - internal
       - observability
+<<<<<<< HEAD
     depends_on:
       python-ai-service:
         condition: service_healthy
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
     expose:
       - "8765"
     environment:
       AI_HTTP_HOST: 0.0.0.0
       AI_HTTP_PORT: 8765
       AI_ENGINE_ID: ${AI_ENGINE_ID:-random-legal}
+<<<<<<< HEAD
       PYTHON_AI_BASE_URL: http://python-ai-service:8765
       PYTHON_AI_TIMEOUT_MILLIS: ${PYTHON_AI_TIMEOUT_MILLIS:-5000}
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8765/health"]
       interval: 5s
@@ -307,6 +334,7 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+<<<<<<< HEAD
   # --- Auth (local Docker Compose only — NOT part of the Kubernetes deployment) ---
   #
   # Start standalone:  docker compose -f deployment/compose/docker-compose.yml up keycloak
@@ -334,6 +362,8 @@ services:
       start_period: 40s
     restart: unless-stopped
 
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 # ---------------------------------------------------------------------------
 # Volumes
 # ---------------------------------------------------------------------------

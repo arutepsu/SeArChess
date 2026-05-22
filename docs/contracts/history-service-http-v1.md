@@ -155,6 +155,7 @@ Errors:
 | `502` | `GAME_SERVICE_FETCH_FAILED` | Game archive fetch failed due to transport or unexpected Game response |
 | `500` | `PERSISTENCE_FAILED` | History Postgres write failed |
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 ### POST /events/game
 
@@ -165,6 +166,8 @@ This path is disabled by default. It is available only when
 the public edge. New callers must use `POST /internal/events/game`.
 =======
 >>>>>>> 966317ea (added bot container)
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 
 ### POST /events/game
 

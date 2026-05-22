@@ -27,6 +27,7 @@ object HistoryServiceMain:
       "gameServiceArchiveBaseUrl" -> config.gameServiceBaseUrl,
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 966317ea (added bot container)
       "storage" -> "postgres-slick",
@@ -40,6 +41,11 @@ object HistoryServiceMain:
 >>>>>>> ce08c01e (local microservices)
 =======
 >>>>>>> 966317ea (added bot container)
+=======
+      "storage" -> "postgres-slick",
+      "postgresSchema" -> config.postgresSchema,
+      "deliveryMode" -> config.deliveryMode.toString,
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
       "acceptLegacyIngestionPath" -> config.acceptLegacyIngestionPath
     )
 

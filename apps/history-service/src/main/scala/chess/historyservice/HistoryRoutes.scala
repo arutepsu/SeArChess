@@ -8,6 +8,7 @@ import chess.adapter.event.GameHistoryIngestionContract
 import chess.application.session.model.SessionIds.GameId
 import chess.history.*
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 =======
 import cats.syntax.semigroupk.*
@@ -19,6 +20,8 @@ import chess.history.sqlite.SqliteArchiveRepository
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
 =======
 >>>>>>> 966317ea (added bot container)
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 import fs2.Stream
 import org.http4s.*
 import org.http4s.dsl.io.*
@@ -169,8 +172,11 @@ class HistoryRoutes(
       case Right(gameId) =>
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 966317ea (added bot container)
+=======
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
         repository.findByGameId(gameId) match
           case Right(Some(record)) => json(Status.Ok, ArchiveRecordJson.toJson(record))
           case Right(None) =>

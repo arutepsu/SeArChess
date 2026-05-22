@@ -7,6 +7,7 @@ import chess.domain.model.Color
 import chess.history.ArchiveRecord
 import chess.history.postgres.HistoryFlywaySchemaInitializer
 import org.scalatest.BeforeAndAfterAll
+<<<<<<< HEAD
 import org.scalatest.Assertions.cancel
 import org.scalatest.EitherValues.*
 import org.scalatest.OptionValues.*
@@ -14,6 +15,12 @@ import org.scalatest.Outcome
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.testcontainers.DockerClientFactory
+=======
+import org.scalatest.EitherValues.*
+import org.scalatest.OptionValues.*
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 import org.testcontainers.containers.PostgreSQLContainer
 import slick.jdbc.PostgresProfile.api.Database
 import java.time.Instant
@@ -26,6 +33,7 @@ class SlickPostgresArchiveRepositorySpec extends AnyFlatSpec with Matchers with 
   private val container = new PostgreSQLContainer("postgres:16")
   private var db: Database                            = scala.compiletime.uninitialized
   private var repo: SlickPostgresArchiveRepository    = scala.compiletime.uninitialized
+<<<<<<< HEAD
   private var started: Boolean                        = false
 
   override protected def withFixture(test: NoArgTest): Outcome =
@@ -43,6 +51,11 @@ class SlickPostgresArchiveRepositorySpec extends AnyFlatSpec with Matchers with 
 
   private def initializeRepository(): Unit =
     Class.forName("org.postgresql.Driver")
+=======
+
+  override def beforeAll(): Unit =
+    container.start()
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
     val conn = DriverManager.getConnection(container.getJdbcUrl, container.getUsername, container.getPassword)
     try
       conn.createStatement().execute("create table public.game_service_marker (id int primary key)")
@@ -62,10 +75,15 @@ class SlickPostgresArchiveRepositorySpec extends AnyFlatSpec with Matchers with 
     repo = SlickPostgresArchiveRepository(db, Some(HistorySchema))
 
   override def afterAll(): Unit =
+<<<<<<< HEAD
     if started then
       db.close()
       container.stop()
       started = false
+=======
+    db.close()
+    container.stop()
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 
   private def sampleRecord(gameId: GameId): ArchiveRecord = ArchiveRecord(
     gameId          = gameId,

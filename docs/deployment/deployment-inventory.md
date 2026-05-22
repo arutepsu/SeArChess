@@ -10,12 +10,18 @@ Dev overlay: `deployment/compose/docker-compose.dev-ports.yml`
 | Network | Services | Purpose |
 |---------|----------|---------|
 | `edge` | envoy, game-service | Public-facing traffic (Envoy → game-service HTTP/WS) |
+<<<<<<< HEAD
 | `internal` | game-service, history-service, ai-service, python-ai-service, postgres, mongo, redis | Service mesh and data stores; no host exposure |
 | `observability` | game-service, history-service, ai-service, prometheus, grafana | Prometheus scrape lane |
 
 `python-ai-service` is on `internal` only — it is not on `observability` (no Prometheus endpoint).
 The Scala `ai-service` proxies to it; no other service has a direct path.
 
+=======
+| `internal` | game-service, history-service, ai-service, postgres, mongo, redis | Service mesh and data stores; no host exposure |
+| `observability` | game-service, history-service, ai-service, prometheus, grafana | Prometheus scrape lane |
+
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 Data stores (postgres, mongo, redis) are on `internal` only — they have no path to `edge` or `observability`.
 
 ---
@@ -27,8 +33,12 @@ Data stores (postgres, mongo, redis) are on `internal` only — they have no pat
 | **envoy** | `envoyproxy/envoy:v1.32-latest` | edge | 10000 | **10000** | game-service healthy | `GET 127.0.0.1:9901/ready` |
 | **game-service** | `Dockerfile` (sbt stage) | edge, internal, observability | 8080, 9090 | — | postgres, mongo, redis, ai-service, history-service | `GET 127.0.0.1:8080/health` |
 | **history-service** | `Dockerfile.history` (sbt stage) | internal, observability | 8081 | — | postgres healthy | `GET 127.0.0.1:8081/health` |
+<<<<<<< HEAD
 | **ai-service** | `Dockerfile.ai` (sbt stage) | internal, observability | 8765 | — | python-ai-service healthy | `GET 127.0.0.1:8765/health` |
 | **python-ai-service** | `searchess/python-ai-service:local` (pre-built from sibling repo) | internal | 8765 | — | — | `GET 127.0.0.1:8765/health` |
+=======
+| **ai-service** | `Dockerfile.ai` (sbt stage) | internal, observability | 8765 | — | — | `GET 127.0.0.1:8765/health` |
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 | **postgres** | `postgres:16` | internal | 5432 | — ¹ | — | `pg_isready -U searchess -d searchess` |
 | **mongo** | `mongo:7.0` | internal | 27017 | — ¹ | — | Compose: `mongosh --eval "db.adminCommand('ping').ok"` / k3d: `tcpSocket :27017` ² |
 | **redis** | `redis:7.4-alpine` | internal | 6379 | — ¹ | — | `redis-cli ping` |
@@ -105,7 +115,11 @@ Grafana dashboards (pre-provisioned from `tools/performance/observability/grafan
 
 | Volume name | Used by | Contents |
 |-------------|---------|---------|
+<<<<<<< HEAD
 | `searchess_postgres_data` | postgres | Postgres data directory; game-service uses schema `game`, history-service uses schema `history` |
+=======
+| `searchess_postgres_data` | postgres | Postgres data directory; game-service uses `public`, history-service uses schema `history` |
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 | `searchess_mongo_data` | mongo | MongoDB data files |
 | `searchess_redis_data` | redis | Redis RDB/AOF persistence |
 | `searchess_prometheus_data` | prometheus | TSDB (7-day retention) |
@@ -121,6 +135,7 @@ All variables documented in `.env.example` at the repo root.
 |----------|---------|-------|
 | `SEARCHESS_POSTGRES_PASSWORD` | `searchess` | **Change before any shared deployment** |
 | `SEARCHESS_POSTGRES_USER` | `searchess` | Must match `POSTGRES_USER` in postgres service |
+<<<<<<< HEAD
 | `SEARCHESS_POSTGRES_SCHEMA` | `game` | Dedicated game-service schema for Flyway and Slick runtime persistence |
 | `PERSISTENCE_MODE` | `postgres` | `postgres \| mongo \| sqlite \| in-memory` |
 | `CORS_ALLOWED_ORIGIN` | `http://localhost:5173` | Frontend origin |
@@ -128,16 +143,26 @@ All variables documented in `.env.example` at the repo root.
 | `PYTHON_AI_BASE_URL` | `http://python-ai-service:8765` | Python AI proxy target (Scala ai-service) |
 | `PYTHON_AI_TIMEOUT_MILLIS` | `5000` | Proxy call timeout; failure triggers local fallback |
 | `PYTHON_INFERENCE_BACKEND` | `fake` | Python AI backend: `fake` / `random` / `supervised` |
+=======
+| `PERSISTENCE_MODE` | `postgres` | `postgres \| mongo \| sqlite \| in-memory` |
+| `CORS_ALLOWED_ORIGIN` | `http://localhost:5173` | Frontend origin |
+| `AI_ENGINE_ID` | `random-legal` | AI move provider |
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 | `AI_REMOTE_TEST_MODE` | *(empty)* | Leave blank for normal operation |
 | `MIGRATION_ADMIN_ENABLED` | `false` | Enable schema migration endpoint |
 | `MIGRATION_ADMIN_TOKEN` | *(empty)* | Required when migration endpoint is on |
 | `HISTORY_POSTGRES_URL` | — | **Required** for history-service; JDBC URL to Postgres |
+<<<<<<< HEAD
 | `HISTORY_POSTGRES_SCHEMA` | `history` | Dedicated history-service schema; keeps Flyway/Slick isolated from game-service schema |
 | `HISTORY_DELIVERY_MODE` | `redis-stream` | game-service delivery mode: `redis-stream \| http` |
 | `HISTORY_INGESTION_MODE` | `redis-stream` | history-service ingestion mode: `redis-stream \| http` |
 | `HISTORY_REDIS_URL` | `redis://redis:6379` | Redis endpoint for async archive delivery |
 | `HISTORY_REDIS_STREAM` | `searchess.history.archives` | Redis Stream carrying archive request envelopes |
 | `HISTORY_REDIS_GROUP` | `history-service` | history-service consumer group |
+=======
+| `HISTORY_POSTGRES_SCHEMA` | `history` | Dedicated history-service schema; keeps Flyway/Slick out of game-service `public` schema |
+| `HISTORY_DELIVERY_MODE` | `redis-stream` | `redis-stream \| http` |
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 | `GRAFANA_ADMIN_PASSWORD` | `admin` | **Change before sharing** |
 
 ---
@@ -217,6 +242,7 @@ Both exit 0 as of last validation (2026-05-19).
 | history-service Postgres backend | ✅ Slick + Flyway; table `history.history_archives` in shared Postgres; SQLite removed |
 | Envoy admin port scraping by Prometheus | ⚠️ admin on 127.0.0.1:9901, not reachable cross-container |
 | Keycloak / auth layer | ❌ deferred |
+<<<<<<< HEAD
 | Redis Streams archive delivery | ✅ game-service publishes `history.archive.requested`; history-service consumes via consumer group |
 
 ---
@@ -255,6 +281,9 @@ It manages Searchess resources in the `searchess` namespace via the
 
 Manifests: `deployment/argocd/`
 Bootstrap script: `deployment/server/deploy-server-argocd.sh`
+=======
+| Redis Streams event wiring | ✅ game-service publishes; history-service consumes via consumer group |
+>>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 
 ---
 
