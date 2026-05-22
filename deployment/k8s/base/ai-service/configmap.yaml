@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-service-env
+  namespace: searchess
+data:
+  AI_HTTP_HOST: "0.0.0.0"
+  AI_HTTP_PORT: "8765"
+  AI_ENGINE_ID: "random-legal"

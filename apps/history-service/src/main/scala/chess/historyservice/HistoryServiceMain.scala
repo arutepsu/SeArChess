@@ -12,7 +12,9 @@ object HistoryServiceMain:
       "httpHost" -> config.host,
       "httpPort" -> config.port,
       "gameServiceArchiveBaseUrl" -> config.gameServiceBaseUrl,
-      "dbPath" -> config.dbPath,
+      "storage" -> "postgres-slick",
+      "postgresSchema" -> config.postgresSchema,
+      "deliveryMode" -> config.deliveryMode.toString,
       "acceptLegacyIngestionPath" -> config.acceptLegacyIngestionPath
     )
 

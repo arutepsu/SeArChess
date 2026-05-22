@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: envoy
+  namespace: searchess
+  labels:
+    app: envoy
+spec:
+  # Overridden to LoadBalancer in local-k3d overlay.
+  type: ClusterIP
+  selector:
+    app: envoy
+  ports:
+    - name: edge
+      port: 10000
+      targetPort: edge
+      protocol: TCP

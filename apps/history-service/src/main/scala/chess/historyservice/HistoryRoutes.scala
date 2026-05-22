@@ -5,7 +5,6 @@ import cats.syntax.semigroupk.*
 import chess.adapter.event.GameHistoryIngestionContract
 import chess.application.session.model.SessionIds.GameId
 import chess.history.*
-import chess.history.sqlite.SqliteArchiveRepository
 import fs2.Stream
 import org.http4s.*
 import org.http4s.dsl.io.*
@@ -14,7 +13,7 @@ import java.util.UUID
 
 class HistoryRoutes(
     ingestion: HistoryIngestionService,
-    repository: SqliteArchiveRepository,
+    repository: ArchiveRepository,
     acceptLegacyIngestionPath: Boolean = false
 ):
 
@@ -87,8 +86,8 @@ class HistoryRoutes(
     parseGameId(gameIdStr) match
       case Left(msg) => error(Status.BadRequest, "BAD_REQUEST", msg)
       case Right(gameId) =>
-        repository.findRecordJson(gameId) match
-          case Right(Some(record)) => json(Status.Ok, record)
+        repository.findByGameId(gameId) match
+          case Right(Some(record)) => json(Status.Ok, ArchiveRecordJson.toJson(record))
           case Right(None) =>
             error(
               Status.NotFound,

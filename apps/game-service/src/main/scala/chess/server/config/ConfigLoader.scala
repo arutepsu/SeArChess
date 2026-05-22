@@ -14,8 +14,10 @@ object ConfigLoader:
   private val DefaultEventMode: String = "in-process"
   private val DefaultCorsEnabled: String = "false"
   private val DefaultCorsAllowOrigin: String = "*"
-  private val DefaultHistoryEnabled: String = "false"
-  private val DefaultHistoryTimeout: String = "2000"
+  private val DefaultHistoryEnabled: String      = "false"
+  private val DefaultHistoryTimeout: String      = "2000"
+  private val DefaultHistoryDeliveryMode: String = "http"
+  private val DefaultRedisPort: String           = "6379"
   private val DefaultAiMode: String = "remote"
   private val DefaultAiRemoteBaseUrl: String = "http://ai-service:8765"
   private val DefaultAiTimeoutMillis: String = "2000"
@@ -45,10 +47,18 @@ object ConfigLoader:
         "HISTORY_FORWARDING_TIMEOUT_MILLIS",
         env("HISTORY_FORWARDING_TIMEOUT_MILLIS").getOrElse(DefaultHistoryTimeout)
       )
+      histDeliveryMode <- parseHistoryDeliveryMode(
+        env("HISTORY_DELIVERY_MODE").getOrElse(DefaultHistoryDeliveryMode)
+      )
+      redisHost = env("REDIS_HOST")
+      redisPort <- parsePort("REDIS_PORT", env("REDIS_PORT").getOrElse(DefaultRedisPort))
       history <- parseHistoryForwardingConfig(
         histEnabled,
         env("HISTORY_SERVICE_BASE_URL"),
-        histTimeout
+        histTimeout,
+        histDeliveryMode,
+        redisHost,
+        redisPort
       )
       aiMode <- parseAiProviderMode(env("AI_PROVIDER_MODE").getOrElse(DefaultAiMode))
       aiTimeout <- parsePositiveInt(
@@ -206,12 +216,30 @@ object ConfigLoader:
   private def parseHistoryForwardingConfig(
       enabled: Boolean,
       baseUrl: Option[String],
-      timeoutMillis: Int
+      timeoutMillis: Int,
+      deliveryMode: HistoryDeliveryMode,
+      redisHost: Option[String],
+      redisPort: Int
   ): Either[String, HistoryForwardingConfig] =
-    if enabled then
-      baseUrl.map(_.trim).filter(_.nonEmpty) match
-        case Some(url) => Right(HistoryForwardingConfig(true, Some(url), timeoutMillis))
-        case None =>
-          Left("HISTORY_SERVICE_BASE_URL is required when HISTORY_FORWARDING_ENABLED is true")
+    val cleanUrl = baseUrl.map(_.trim).filter(_.nonEmpty)
+    if !enabled then
+      Right(HistoryForwardingConfig(false, cleanUrl, timeoutMillis, deliveryMode, redisHost, redisPort))
     else
-      Right(HistoryForwardingConfig(false, baseUrl.map(_.trim).filter(_.nonEmpty), timeoutMillis))
+      deliveryMode match
+        case HistoryDeliveryMode.RedisStream =>
+          Right(HistoryForwardingConfig(true, None, timeoutMillis, HistoryDeliveryMode.RedisStream, redisHost, redisPort))
+        case HistoryDeliveryMode.Http =>
+          cleanUrl match
+            case Some(url) =>
+              Right(HistoryForwardingConfig(true, Some(url), timeoutMillis, HistoryDeliveryMode.Http, redisHost, redisPort))
+            case None =>
+              Left(
+                "HISTORY_SERVICE_BASE_URL is required when HISTORY_FORWARDING_ENABLED=true and HISTORY_DELIVERY_MODE=http"
+              )
+
+  private def parseHistoryDeliveryMode(value: String): Either[String, HistoryDeliveryMode] =
+    value.trim.toLowerCase match
+      case "http"                        => Right(HistoryDeliveryMode.Http)
+      case "redis-stream" | "redisstream" => Right(HistoryDeliveryMode.RedisStream)
+      case _ =>
+        Left(s"HISTORY_DELIVERY_MODE must be 'http' or 'redis-stream', got: '$value'")

@@ -1,0 +1,26 @@
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: searchess
+
+servers: 1
+agents: 0
+
+# Port-forward Envoy and Grafana from host to the k3d load-balancer.
+# Grafana uses host port 3001 (not 3000) to avoid conflict with the
+# Docker Compose Grafana, which binds host port 3000.
+ports:
+  - port: 10000:10000
+    nodeFilters:
+      - loadbalancer
+  - port: 3001:3000
+    nodeFilters:
+      - loadbalancer
+
+options:
+  k3s:
+    extraArgs:
+      # Disable the default Traefik ingress controller — Envoy is our edge proxy.
+      - arg: --disable=traefik
+        nodeFilters:
+          - server:*

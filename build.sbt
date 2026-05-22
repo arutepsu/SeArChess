@@ -110,8 +110,24 @@ lazy val history = project
   .settings(
     commonSettings,
     libraryDependencies ++= Seq(
-      "com.lihaoyi" %% "ujson"       % "4.0.2",
-      "org.xerial"   % "sqlite-jdbc" % "3.46.1.3"
+      "com.lihaoyi" %% "ujson" % "4.0.2",
+
+      // Slick / PostgreSQL (history persistence adapter)
+      "com.typesafe.slick" %% "slick"          % slickVersion,
+      "com.typesafe.slick" %% "slick-hikaricp" % slickVersion,
+      "org.postgresql"      % "postgresql"     % postgresVersion,
+      "org.flywaydb"        % "flyway-core"                % flywayVersion,
+      "org.flywaydb"        % "flyway-database-postgresql" % flywayVersion,
+
+      // Redis Streams consumer
+      "redis.clients" % "jedis" % jedisVersion,
+
+      // Testcontainers for SlickPostgresArchiveRepositorySpec and RedisStreamHistoryConsumerSpec
+      "org.testcontainers" % "testcontainers" % testcontainersVersion % Test,
+      "org.testcontainers" % "postgresql"     % testcontainersVersion % Test
+    ),
+    excludeFromCoverage(
+      ".*chess.history.postgres.HistoryFlywaySchemaInitializer.*"
     )
   )
   // adapterPersistence and adapterEvent are only needed for legacy test fixtures
@@ -124,6 +140,7 @@ val slickVersion           = "3.6.1"
 val mongoDriverVersion     = "5.7.0"
 val flywayVersion          = "12.5.0"
 val postgresVersion        = "42.7.11"
+val jedisVersion           = "5.1.0"
 val testcontainersVersion  = "1.21.4"
 
 lazy val adapterPersistence = project
@@ -199,8 +216,10 @@ lazy val gameHistoryDelivery = project
   .settings(
     commonSettings,
     libraryDependencies ++= Seq(
-      "com.lihaoyi" %% "ujson"       % "4.0.2",
-      "org.xerial"   % "sqlite-jdbc" % "3.46.1.3"
+      "com.lihaoyi"        %% "ujson"       % "4.0.2",
+      "org.xerial"          % "sqlite-jdbc" % "3.46.1.3",
+      "redis.clients"       % "jedis"       % jedisVersion,
+      "org.testcontainers"  % "testcontainers" % testcontainersVersion % Test
     )
   )
   .dependsOn(gameContract, gameEventContract, observability)

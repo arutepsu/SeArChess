@@ -22,10 +22,16 @@ final case class MongoConfig(
 
 final case class CorsConfig(enabled: Boolean, allowedOrigin: String)
 
+enum HistoryDeliveryMode:
+  case Http, RedisStream
+
 final case class HistoryForwardingConfig(
     enabled: Boolean,
     baseUrl: Option[String],
     timeoutMillis: Int,
+    deliveryMode: HistoryDeliveryMode = HistoryDeliveryMode.Http,
+    redisHost: Option[String] = None,
+    redisPort: Int = 6379,
     interaction: ServiceInteraction = ServiceInteraction.DownstreamAsynchronousHttp,
     startupPolicy: DependencyStartupPolicy = DependencyStartupPolicy.NotRequired,
     failureBehaviour: DependencyFailureBehaviour = DependencyFailureBehaviour.LogAndContinue
