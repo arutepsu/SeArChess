@@ -230,6 +230,35 @@ See `deployment/argocd/README.md` for the full Argo CD directory reference.
 
 ---
 
+## Argo CD drift — StatefulSet PVC retention policy
+
+After the first Argo CD sync, `StatefulSet/mongo`, `StatefulSet/postgres`, and
+`StatefulSet/redis` remained `OutOfSync` despite the sync operation succeeding and
+all pods being `Healthy`.
+
+**Root cause:** Kubernetes 1.27+ defaults
+`spec.persistentVolumeClaimRetentionPolicy` to `{whenDeleted: Retain, whenScaled: Retain}`
+on every StatefulSet. The live objects contained this field; the Kustomize-rendered
+manifests did not. Argo CD diff detected the gap and reported persistent drift.
+
+**Fix:** Added the field explicitly to all three base StatefulSet manifests so the
+rendered output matches the live state exactly:
+
+```yaml
+persistentVolumeClaimRetentionPolicy:
+  whenDeleted: Retain
+  whenScaled: Retain
+```
+
+Files updated: `deployment/k8s/base/mongo/statefulset.yaml`,
+`deployment/k8s/base/postgres/statefulset.yaml`,
+`deployment/k8s/base/redis/statefulset.yaml`.
+
+The fix flows through all overlays (`local-k3d`, `uni-server-k3d`,
+`uni-server-registry`) because it is in the base.
+
+---
+
 ## Mongo 4.4 note
 
 Same constraint as `uni-server-k3d`: the university VM does not expose AVX CPU

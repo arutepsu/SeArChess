@@ -64,6 +64,9 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
   volumeClaimTemplates:
     - metadata:
         name: postgres-data

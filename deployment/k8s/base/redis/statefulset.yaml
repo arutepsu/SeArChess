@@ -48,6 +48,9 @@ spec:
             limits:
               memory: "256Mi"
               cpu: "200m"
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
   volumeClaimTemplates:
     - metadata:
         name: redis-data
