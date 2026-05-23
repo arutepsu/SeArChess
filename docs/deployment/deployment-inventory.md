@@ -10,8 +10,11 @@ Dev overlay: `deployment/compose/docker-compose.dev-ports.yml`
 | Network | Services | Purpose |
 |---------|----------|---------|
 | `edge` | envoy, game-service | Public-facing traffic (Envoy → game-service HTTP/WS) |
-| `internal` | game-service, history-service, ai-service, postgres, mongo, redis | Service mesh and data stores; no host exposure |
+| `internal` | game-service, history-service, ai-service, python-ai-service, postgres, mongo, redis | Service mesh and data stores; no host exposure |
 | `observability` | game-service, history-service, ai-service, prometheus, grafana | Prometheus scrape lane |
+
+`python-ai-service` is on `internal` only — it is not on `observability` (no Prometheus endpoint).
+The Scala `ai-service` proxies to it; no other service has a direct path.
 
 Data stores (postgres, mongo, redis) are on `internal` only — they have no path to `edge` or `observability`.
 
@@ -24,7 +27,8 @@ Data stores (postgres, mongo, redis) are on `internal` only — they have no pat
 | **envoy** | `envoyproxy/envoy:v1.32-latest` | edge | 10000 | **10000** | game-service healthy | `GET 127.0.0.1:9901/ready` |
 | **game-service** | `Dockerfile` (sbt stage) | edge, internal, observability | 8080, 9090 | — | postgres, mongo, redis, ai-service, history-service | `GET 127.0.0.1:8080/health` |
 | **history-service** | `Dockerfile.history` (sbt stage) | internal, observability | 8081 | — | postgres healthy | `GET 127.0.0.1:8081/health` |
-| **ai-service** | `Dockerfile.ai` (sbt stage) | internal, observability | 8765 | — | — | `GET 127.0.0.1:8765/health` |
+| **ai-service** | `Dockerfile.ai` (sbt stage) | internal, observability | 8765 | — | python-ai-service healthy | `GET 127.0.0.1:8765/health` |
+| **python-ai-service** | `searchess/python-ai-service:local` (pre-built from sibling repo) | internal | 8765 | — | — | `GET 127.0.0.1:8765/health` |
 | **postgres** | `postgres:16` | internal | 5432 | — ¹ | — | `pg_isready -U searchess -d searchess` |
 | **mongo** | `mongo:7.0` | internal | 27017 | — ¹ | — | Compose: `mongosh --eval "db.adminCommand('ping').ok"` / k3d: `tcpSocket :27017` ² |
 | **redis** | `redis:7.4-alpine` | internal | 6379 | — ¹ | — | `redis-cli ping` |
@@ -120,7 +124,10 @@ All variables documented in `.env.example` at the repo root.
 | `SEARCHESS_POSTGRES_SCHEMA` | `game` | Dedicated game-service schema for Flyway and Slick runtime persistence |
 | `PERSISTENCE_MODE` | `postgres` | `postgres \| mongo \| sqlite \| in-memory` |
 | `CORS_ALLOWED_ORIGIN` | `http://localhost:5173` | Frontend origin |
-| `AI_ENGINE_ID` | `random-legal` | AI move provider |
+| `AI_ENGINE_ID` | `random-legal` | AI move provider label (Scala ai-service) |
+| `PYTHON_AI_BASE_URL` | `http://python-ai-service:8765` | Python AI proxy target (Scala ai-service) |
+| `PYTHON_AI_TIMEOUT_MILLIS` | `5000` | Proxy call timeout; failure triggers local fallback |
+| `PYTHON_INFERENCE_BACKEND` | `fake` | Python AI backend: `fake` / `random` / `supervised` |
 | `AI_REMOTE_TEST_MODE` | *(empty)* | Leave blank for normal operation |
 | `MIGRATION_ADMIN_ENABLED` | `false` | Enable schema migration endpoint |
 | `MIGRATION_ADMIN_TOKEN` | *(empty)* | Required when migration endpoint is on |

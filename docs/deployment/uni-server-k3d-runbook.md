@@ -86,8 +86,13 @@ docker build -t searchess/game-service:local .
 # History service
 docker build -t searchess/history-service:local -f Dockerfile.history .
 
-# AI service (Scala random-legal engine)
+# Scala AI service (random-legal facade)
 docker build -t searchess/ai-service:local -f Dockerfile.ai .
+
+# Python AI service (build from the sibling searchess-ai-service repo)
+docker build -t searchess/python-ai-service:local \
+  -f ../searchess-ai-service/Dockerfile \
+  ../searchess-ai-service
 ```
 
 Third-party images (Envoy, Postgres, Mongo, Redis, Prometheus, Grafana) are pulled
@@ -97,16 +102,20 @@ from Docker Hub automatically when pods start.
 
 ```bash
 # On build machine:
-docker save searchess/game-service:local   | gzip > game-service.tar.gz
-docker save searchess/history-service:local | gzip > history-service.tar.gz
-docker save searchess/ai-service:local      | gzip > ai-service.tar.gz
+docker save searchess/game-service:local      | gzip > game-service.tar.gz
+docker save searchess/history-service:local   | gzip > history-service.tar.gz
+docker save searchess/ai-service:local        | gzip > ai-service.tar.gz
+docker save searchess/python-ai-service:local | gzip > python-ai-service.tar.gz
 
-scp game-service.tar.gz history-service.tar.gz ai-service.tar.gz chess@141.37.74.145:~/
+scp game-service.tar.gz history-service.tar.gz \
+    ai-service.tar.gz python-ai-service.tar.gz \
+    chess@141.37.74.145:~/
 
 # On server:
 docker load < ~/game-service.tar.gz
 docker load < ~/history-service.tar.gz
 docker load < ~/ai-service.tar.gz
+docker load < ~/python-ai-service.tar.gz
 ```
 
 ---

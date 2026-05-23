@@ -7,3 +7,7 @@ data:
   AI_HTTP_HOST: "0.0.0.0"
   AI_HTTP_PORT: "8765"
   AI_ENGINE_ID: "random-legal"
+  # Proxy move-suggestion requests to the Python AI service.
+  # Remove or leave empty to use local first-legal-move selection.
+  PYTHON_AI_BASE_URL: "http://python-ai-service:8765"
+  PYTHON_AI_TIMEOUT_MILLIS: "5000"

@@ -29,7 +29,7 @@ echo "==> Pod status"
 kubectl get pods -n searchess -o wide
 echo ""
 
-for app in game-service history-service ai-service envoy; do
+for app in game-service history-service ai-service python-ai-service envoy; do
   STATUS=$(kubectl get pods -n searchess -l "app=$app" \
     -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "NotFound")
   check "pod/$app phase=Running" "$STATUS" "Running"

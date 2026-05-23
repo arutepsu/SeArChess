@@ -151,6 +151,30 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  python-ai-service:
+    # Build from the sibling searchess-ai-service repo before running compose:
+    #   docker build -t searchess/python-ai-service:local ../searchess-ai-service
+    image: searchess/python-ai-service:local
+    networks:
+      - internal
+    expose:
+      - "8765"
+    environment:
+      # "fake" requires no artifacts. Set to "supervised" and mount MODEL_ARTIFACT_DIR
+      # (see searchess-ai-service/docker-compose.yml) for the neural-network backend.
+      INFERENCE_BACKEND: ${PYTHON_INFERENCE_BACKEND:-fake}
+    healthcheck:
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/health')"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
   ai-service:
     build:
       context: ../..
@@ -158,12 +182,17 @@ services:
     networks:
       - internal
       - observability
+    depends_on:
+      python-ai-service:
+        condition: service_healthy
     expose:
       - "8765"
     environment:
       AI_HTTP_HOST: 0.0.0.0
       AI_HTTP_PORT: 8765
       AI_ENGINE_ID: ${AI_ENGINE_ID:-random-legal}
+      PYTHON_AI_BASE_URL: http://python-ai-service:8765
+      PYTHON_AI_TIMEOUT_MILLIS: ${PYTHON_AI_TIMEOUT_MILLIS:-5000}
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8765/health"]
       interval: 5s

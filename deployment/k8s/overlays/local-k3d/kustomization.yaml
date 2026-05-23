@@ -14,6 +14,8 @@ images:
     newTag: local
   - name: searchess/ai-service
     newTag: local
+  - name: searchess/python-ai-service
+    newTag: local
 
 patches:
   # Expose Envoy and Grafana as LoadBalancer — k3d servicelb forwards
@@ -55,3 +57,10 @@ patches:
     target:
       kind: Deployment
       name: ai-service
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never
+    target:
+      kind: Deployment
+      name: python-ai-service

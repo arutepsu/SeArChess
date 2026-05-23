@@ -15,6 +15,8 @@ images:
     newTag: local
   - name: searchess/ai-service
     newTag: local
+  - name: searchess/python-ai-service
+    newTag: local
   # mongo:7.0 requires AVX CPU instructions which are not available on the
   # university VM. mongo:4.4 is the last release that does not require AVX.
   - name: mongo
@@ -60,3 +62,10 @@ patches:
     target:
       kind: Deployment
       name: ai-service
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never
+    target:
+      kind: Deployment
+      name: python-ai-service

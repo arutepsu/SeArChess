@@ -4,6 +4,7 @@ import cats.effect.IO
 import chess.adapter.ai.remote.{
   RemoteAiErrorResponse,
   RemoteAiJson,
+  RemoteAiMoveSuggestionRequest,
   RemoteAiMoveSuggestionResponse,
   RemoteAiServiceContract
 }
@@ -13,25 +14,36 @@ import org.http4s.*
 import org.http4s.dsl.io.*
 import org.http4s.headers.`Content-Type`
 
-import java.time.Instant
+import java.net.URI
+import java.net.http.{HttpClient, HttpRequest, HttpResponse}
+import java.time.{Duration, Instant}
 
 /** Internal-only AI HTTP surface.
   *
   * Game Service is the intended caller for `/v1/move-suggestions`; clients and the public edge
   * should not route directly to this service.
+  *
+  * When PYTHON_AI_BASE_URL is set, move-suggestion requests are proxied to the Python AI service.
+  * On any proxy failure (connection error, timeout, non-2xx response) the service falls back to
+  * local selection (first legal move) and logs `ai_proxy_fallback`.
   */
 class AiServiceRoutes(config: AiServiceConfig):
+
+  private val httpClient: HttpClient = HttpClient.newBuilder()
+    .connectTimeout(Duration.ofMillis(config.pythonAiTimeoutMillis.toLong))
+    .build()
 
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
     case GET -> Root / "health" =>
       json(
         Status.Ok,
         ujson.Obj(
-          "status" -> "ok",
-          "service" -> "searchess-ai-service",
-          "engine" -> config.engineId,
-          "audience" -> RemoteAiServiceContract.Audience,
-          "check" -> "process-liveness"
+          "status"    -> "ok",
+          "service"   -> "searchess-ai-service",
+          "engine"    -> config.engineId,
+          "pythonAi"  -> config.pythonAiBaseUrl.getOrElse("disabled"),
+          "audience"  -> RemoteAiServiceContract.Audience,
+          "check"     -> "process-liveness"
         )
       )
 
@@ -60,31 +72,86 @@ class AiServiceRoutes(config: AiServiceConfig):
       case Right(request) =>
         val started = Instant.now()
         logInfo("ai_request_received", request, "legalMoveCount" -> request.legalMoves.size)
-        val selected = request.legalMoves.head
-        val elapsed =
-          math.max(0L, java.time.Duration.between(started, Instant.now()).toMillis).toInt
+        config.pythonAiBaseUrl match
+          case Some(baseUrl) => proxyToPython(body, request, baseUrl, started)
+          case None          => selectLocal(request, started)
+
+  private def proxyToPython(
+      body: String,
+      request: RemoteAiMoveSuggestionRequest,
+      baseUrl: String,
+      started: Instant
+  ): IO[Response[IO]] =
+    IO.blocking {
+      val httpRequest = HttpRequest.newBuilder()
+        .uri(URI.create(s"$baseUrl/v1/move-suggestions"))
+        .header("Content-Type", "application/json")
+        .timeout(Duration.ofMillis(config.pythonAiTimeoutMillis.toLong))
+        .POST(HttpRequest.BodyPublishers.ofString(body))
+        .build()
+      httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString())
+    }.flatMap { response =>
+      val status       = response.statusCode()
+      val responseBody = response.body()
+      if status >= 200 && status < 300 then
+        val elapsedMs = elapsed(started)
         logInfo(
-          "ai_request_succeeded",
+          "ai_proxy_succeeded",
           request,
-          "elapsedMillis" -> elapsed,
-          "selectedMove" -> s"${selected.from}${selected.to}",
-          "engineId" -> request.engine.engineId.getOrElse(config.engineId)
+          "elapsedMillis" -> elapsedMs,
+          "upstreamUrl"   -> baseUrl,
+          "upstreamStatus" -> status
         )
-        json(
-          Status.Ok,
-          ujson.read(
-            RemoteAiJson.responseToJson(
-              RemoteAiMoveSuggestionResponse(
-                requestId = request.requestId,
-                move = selected,
-                engineId = Some(request.engine.engineId.getOrElse(config.engineId)),
-                engineVersion = Some("0.1.0"),
-                elapsedMillis = Some(elapsed),
-                confidence = Some(1.0)
-              )
-            )
+        json(Status.Ok, ujson.read(responseBody))
+      else
+        StructuredLog.warn(
+          "ai-service",
+          "ai_proxy_upstream_error",
+          "requestId"      -> request.requestId,
+          "upstreamUrl"    -> baseUrl,
+          "upstreamStatus" -> status
+        )
+        selectLocal(request, started)
+    }.handleErrorWith { err =>
+      StructuredLog.warn(
+        "ai-service",
+        "ai_proxy_fallback",
+        "requestId" -> request.requestId,
+        "upstreamUrl" -> baseUrl,
+        "reason"    -> err.getClass.getSimpleName,
+        "message"   -> Option(err.getMessage).getOrElse("")
+      )
+      selectLocal(request, started)
+    }
+
+  private def selectLocal(request: RemoteAiMoveSuggestionRequest, started: Instant): IO[Response[IO]] =
+    val selected  = request.legalMoves.head
+    val elapsedMs = elapsed(started)
+    logInfo(
+      "ai_request_succeeded",
+      request,
+      "elapsedMillis" -> elapsedMs,
+      "selectedMove"  -> s"${selected.from}${selected.to}",
+      "engineId"      -> request.engine.engineId.getOrElse(config.engineId)
+    )
+    json(
+      Status.Ok,
+      ujson.read(
+        RemoteAiJson.responseToJson(
+          RemoteAiMoveSuggestionResponse(
+            requestId     = request.requestId,
+            move          = selected,
+            engineId      = Some(request.engine.engineId.getOrElse(config.engineId)),
+            engineVersion = Some("0.1.0"),
+            elapsedMillis = Some(elapsedMs),
+            confidence    = Some(1.0)
           )
         )
+      )
+    )
+
+  private def elapsed(started: Instant): Int =
+    math.max(0L, Duration.between(started, Instant.now()).toMillis).toInt
 
   private def json(status: Status, body: ujson.Value): IO[Response[IO]] =
     IO.pure(
