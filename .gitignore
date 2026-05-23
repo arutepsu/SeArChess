@@ -36,7 +36,11 @@ docs/performance/**/logs/
 docs/performance/**/runs/
 
 # Local environment overrides — never commit real values
+<<<<<<< HEAD
 .env
 
 # Docker image archives
 *.tar
+=======
+.env
+>>>>>>> 712fd9e1 (add ai service)
