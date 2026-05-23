@@ -34,3 +34,6 @@ docs/performance/**/*.json
 docs/performance/**/*.md
 docs/performance/**/logs/
 docs/performance/**/runs/
+
+# Local environment overrides — never commit real values
+.env
