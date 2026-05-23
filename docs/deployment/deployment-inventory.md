@@ -237,6 +237,25 @@ branch; pushes short-SHA tag and `performance-latest` to GHCR.
 
 ---
 
+## Argo CD GitOps
+
+Argo CD is installed in the `argocd` namespace of the `searchess-server` k3d cluster.
+It manages Searchess resources in the `searchess` namespace via the
+`uni-server-registry` overlay.
+
+| Property | Value |
+|---|---|
+| Namespace | `argocd` |
+| AppProject | `searchess` — restricts source to SeArChess repo, destination to `searchess` namespace |
+| Application | `searchess` — branch `performance`, path `deployment/k8s/overlays/uni-server-registry` |
+| Sync | Manual only (no auto-sync, no prune in phase 1) |
+| Access | `kubectl port-forward svc/argocd-server 8080:443` + SSH tunnel from Windows |
+
+Manifests: `deployment/argocd/`
+Bootstrap script: `deployment/server/deploy-server-argocd.sh`
+
+---
+
 ## Known risks
 
 | Risk | Severity | Mitigation |

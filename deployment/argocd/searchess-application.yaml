@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: searchess
+  namespace: argocd
+  # Cascade-delete app resources when this Application object is deleted.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: searchess
+
+  source:
+    repoURL: https://github.com/arutepsu/SeArChess.git
+    targetRevision: performance
+    # Kustomize is detected automatically from the presence of kustomization.yaml.
+    path: deployment/k8s/overlays/uni-server-registry
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: searchess
+
+  syncPolicy:
+    syncOptions:
+      # Create the searchess namespace if it does not exist.
+      - CreateNamespace=true
+      # Apply server-side to avoid annotation size limits on large ConfigMaps.
+      - ServerSideApply=true
+
+    # No automated sync block — sync is initiated manually via the UI or argocd CLI.
+    # Enable automated sync later with:
+    #   automated:
+    #     prune: false
+    #     selfHeal: false

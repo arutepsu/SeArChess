@@ -172,6 +172,64 @@ recreating the cluster — just apply a different overlay.
 
 ---
 
+## Argo CD GitOps integration
+
+Argo CD provides a GitOps control loop over the `uni-server-registry` overlay.
+It runs inside the same k3d cluster in namespace `argocd` and syncs resources
+into namespace `searchess` on demand.
+
+| Property | Value |
+|---|---|
+| Source repo | `https://github.com/arutepsu/SeArChess.git` |
+| Branch | `performance` |
+| Path | `deployment/k8s/overlays/uni-server-registry` |
+| Destination | `https://kubernetes.default.svc`, namespace `searchess` |
+| Sync | **Manual** — no auto-sync in this phase |
+| Prune | Disabled |
+| Exposure | `kubectl port-forward` only — not via LoadBalancer |
+
+### Bootstrap Argo CD
+
+```bash
+# From repo root on the server (cluster must already exist):
+bash deployment/server/deploy-server-argocd.sh
+```
+
+### Access the UI
+
+```bash
+# On the server (keep this terminal open):
+bash deployment/argocd/port-forward-argocd.sh
+# → https://localhost:8080
+
+# From Windows, SSH-tunnel first:
+ssh -L 8080:localhost:8080 chess@141.37.74.145
+```
+
+### Trigger a manual sync
+
+```bash
+# argocd CLI (if installed):
+argocd app sync searchess
+
+# Or use the Argo CD web UI → Applications → searchess → Sync
+```
+
+### Relationship to the manual workflow
+
+The manual deploy scripts (`deploy-server-registry.sh`, `deploy-server-k3d.sh`) are
+**not removed**. They remain as:
+- Fallback if Argo CD is not installed or is unhealthy.
+- The mechanism for the initial cluster and registry bootstrap (Argo CD is installed
+  on top of an already-working registry deployment).
+
+Secrets remain plain Kubernetes Secret patches (`patches/secret-dev.yaml`) until
+Sealed Secrets is introduced in a later phase.
+
+See `deployment/argocd/README.md` for the full Argo CD directory reference.
+
+---
+
 ## Mongo 4.4 note
 
 Same constraint as `uni-server-k3d`: the university VM does not expose AVX CPU

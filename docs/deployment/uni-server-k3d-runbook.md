@@ -298,6 +298,61 @@ The SSH tunnel forwards both HTTP and WebSocket traffic transparently.
 
 ---
 
+## GitOps with Argo CD
+
+Argo CD runs inside the k3d cluster in namespace `argocd` and manages Searchess
+resources from the `uni-server-registry` overlay. Sync is **manual** in this phase.
+
+### Install Argo CD and register the application
+
+```bash
+# From repo root on the server (cluster must exist and registry overlay applied):
+bash deployment/server/deploy-server-argocd.sh
+```
+
+This installs Argo CD, waits for it to be ready, and applies the AppProject and
+Application manifests from `deployment/argocd/`.
+
+### Access the Argo CD UI
+
+```bash
+# Terminal on the server (keep open):
+bash deployment/argocd/port-forward-argocd.sh
+# → https://localhost:8080
+
+# From Windows, SSH tunnel first (then browse to https://localhost:8080):
+ssh -L 8080:localhost:8080 chess@141.37.74.145
+```
+
+Retrieve the initial admin password:
+```bash
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath='{.data.password}' | base64 -d && echo
+```
+
+### Trigger a manual sync
+
+After Argo CD is installed the application shows `OutOfSync` until the first sync:
+
+```bash
+# From the UI → Applications → searchess → Sync
+# Or via CLI:
+argocd app sync searchess
+```
+
+### Check Argo CD status
+
+```bash
+kubectl -n argocd get pods
+kubectl -n argocd get applications
+kubectl describe application searchess -n argocd
+```
+
+The manual registry scripts (`deploy-server-registry.sh`, `deploy-server-k3d.sh`)
+remain as fallbacks and are not removed.
+
+---
+
 ## Switching to registry-based deployment
 
 Once CI images are available on GHCR, you can switch the running cluster from the
