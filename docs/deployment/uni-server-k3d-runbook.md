@@ -298,6 +298,35 @@ The SSH tunnel forwards both HTTP and WebSocket traffic transparently.
 
 ---
 
+## Switching to registry-based deployment
+
+Once CI images are available on GHCR, you can switch the running cluster from the
+manual-import overlay to the registry overlay without recreating the cluster:
+
+```bash
+export PATH="$HOME/bin:$PATH"
+
+# Apply the registry overlay (uses 'performance-latest' tag by default):
+bash deployment/server/deploy-server-registry.sh
+
+# Or pin to a specific git SHA:
+bash deployment/server/deploy-server-registry.sh abc1234
+
+# Verify:
+bash deployment/server/verify-server-registry.sh
+```
+
+To switch back to the manual-import workflow:
+
+```bash
+bash deployment/server/import-images.sh
+bash deployment/server/deploy-server-k3d.sh
+```
+
+See `docs/deployment/registry-deployment.md` for the full registry workflow.
+
+---
+
 ## Rebuilding and redeploying a service
 
 After changing application code:

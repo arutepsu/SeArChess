@@ -1,0 +1,51 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: searchess
+
+resources:
+  - ../../base
+
+# Images are pulled from GHCR. The default tag 'performance-latest' is a
+# floating tag updated on every push to the performance branch.
+# To pin to a specific commit before deploying, run:
+#   bash deployment/server/deploy-server-registry.sh <git-sha>
+images:
+  - name: searchess/game-service
+    newName: ghcr.io/arutepsu/searchess-game-service
+    newTag: performance-latest
+  - name: searchess/history-service
+    newName: ghcr.io/arutepsu/searchess-history-service
+    newTag: performance-latest
+  - name: searchess/ai-service
+    newName: ghcr.io/arutepsu/searchess-ai-service
+    newTag: performance-latest
+  - name: searchess/python-ai-service
+    newName: ghcr.io/arutepsu/searchess-python-ai-service
+    newTag: performance-latest
+  # mongo:7.0 requires AVX CPU instructions not available on the university VM.
+  # mongo:4.4 is the last release that does not require AVX.
+  - name: mongo
+    newTag: "4.4"
+
+patches:
+  # Expose Envoy and Grafana as LoadBalancer — k3d servicelb forwards these
+  # through the port mappings in deployment/k3d/server-cluster.yaml.
+  - path: patches/envoy-loadbalancer.yaml
+    target:
+      kind: Service
+      name: envoy
+  - path: patches/grafana-loadbalancer.yaml
+    target:
+      kind: Service
+      name: grafana
+
+  # Dev-friendly secret values (mirrors Compose defaults).
+  - path: patches/secret-dev.yaml
+    target:
+      kind: Secret
+      name: searchess-secrets
+
+  # imagePullPolicy is already IfNotPresent in the base Deployments.
+  # GHCR images are pulled on first use; subsequent pod restarts use the
+  # cached image unless the tag resolves to a new digest.

@@ -221,6 +221,22 @@ Both exit 0 as of last validation (2026-05-19).
 
 ---
 
+## Kustomize overlays
+
+| Overlay | Purpose | Image source | imagePullPolicy |
+|---|---|---|---|
+| `local-k3d` | Developer laptop k3d | `searchess/*:local` (k3d import) | `Never` |
+| `uni-server-k3d` | University VM — manual image import | `searchess/*:local` (k3d import) | `Never` |
+| `uni-server-registry` | University VM — CI-built images | `ghcr.io/arutepsu/searchess-*:performance-latest` | `IfNotPresent` |
+
+All overlays pin Mongo to `4.4` on the university VM overlays (AVX constraint).
+The `local-k3d` overlay uses `mongo:7.0` (developer machines have AVX).
+
+CI workflow: `.github/workflows/build-images.yml` — triggers on push to `performance`
+branch; pushes short-SHA tag and `performance-latest` to GHCR.
+
+---
+
 ## Known risks
 
 | Risk | Severity | Mitigation |

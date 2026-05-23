@@ -1,0 +1,123 @@
+name: Build and Push Docker Images
+
+on:
+  push:
+    branches:
+      - performance
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Additional image tag to apply (e.g. a release label). SHA tag is always applied."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  ORG: arutepsu
+
+jobs:
+  build-scala-services:
+    name: Build Scala services
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: game-service
+            dockerfile: Dockerfile
+            context: .
+          - service: history-service
+            dockerfile: Dockerfile.history
+            context: .
+          - service: ai-service
+            dockerfile: Dockerfile.ai
+            context: .
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.ORG }}/searchess-${{ matrix.service }}
+          tags: |
+            type=sha,prefix=,format=short
+            type=raw,value=performance-latest,enable=true
+            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push ${{ matrix.service }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  build-python-ai-service:
+    name: Build Python AI service
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout searchess (for workflow context)
+        uses: actions/checkout@v6
+        with:
+          path: searchess
+
+      - name: Checkout searchess-ai-service
+        uses: actions/checkout@v6
+        with:
+          repository: arutepsu/searchess-ai-service
+          path: searchess-ai-service
+          # Use GITHUB_TOKEN for public repos; add a PAT secret for private repos:
+          # token: ${{ secrets.AI_SERVICE_PAT }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.ORG }}/searchess-python-ai-service
+          tags: |
+            type=sha,prefix=,format=short
+            type=raw,value=performance-latest,enable=true
+            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push python-ai-service
+        uses: docker/build-push-action@v6
+        with:
+          context: searchess-ai-service
+          file: searchess-ai-service/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=python-ai-service
+          cache-to: type=gha,mode=max,scope=python-ai-service
