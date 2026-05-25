@@ -11,7 +11,7 @@ spec:
 
   source:
     repoURL: https://github.com/arutepsu/SeArChess.git
-    targetRevision: performance
+    targetRevision: main
     # Kustomize is detected automatically from the presence of kustomization.yaml.
     path: deployment/k8s/overlays/uni-server-registry
 
