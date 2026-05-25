@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: game-service-env
+  namespace: searchess
+data:
+  HTTP_HOST: "0.0.0.0"
+  HTTP_PORT: "8080"
+  CORS_ENABLED: "true"
+  CORS_ALLOWED_ORIGIN: "http://localhost:5173"
+  WS_ENABLED: "true"
+  WS_PORT: "9090"
+  PERSISTENCE_MODE: "postgres"
+  SEARCHESS_POSTGRES_URL: "jdbc:postgresql://postgres:5432/searchess"
+  SEARCHESS_POSTGRES_USER: "searchess"
+  SEARCHESS_POSTGRES_SCHEMA: "game"
+  SEARCHESS_MONGO_URI: "mongodb://mongo:27017/searchess"
+  EVENT_MODE: "in-process"
+  HISTORY_FORWARDING_ENABLED: "true"
+  HISTORY_SERVICE_BASE_URL: "http://history-service:8081"
+  HISTORY_FORWARDING_TIMEOUT_MILLIS: "2000"
+  HISTORY_DELIVERY_MODE: "redis-stream"
+  HISTORY_REDIS_URL: "redis://redis:6379"
+  HISTORY_REDIS_STREAM: "searchess.history.archives"
+  AI_PROVIDER_MODE: "remote"
+  AI_REMOTE_BASE_URL: "http://ai-service:8765"
+  AI_TIMEOUT_MILLIS: "2000"
+  AI_REMOTE_TEST_MODE: ""
+  MIGRATION_ADMIN_ENABLED: "false"

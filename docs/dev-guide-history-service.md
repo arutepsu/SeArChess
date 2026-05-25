@@ -15,7 +15,7 @@ Contract reference: `docs/contracts/history-service-http-v1.md`.
 - The event is only a trigger. History then pulls the archive snapshot from Game
   Service over HTTP.
 - History materializes PGN/FEN with the existing notation path and stores its
-  own archive record in its own SQLite database.
+  own archive record in its own Postgres database.
 - In SQLite mode, Game Service writes terminal History-facing events to a small
   SQLite outbox before a background forwarder POSTs them to History.
 
@@ -39,7 +39,6 @@ History Service environment:
 | `HISTORY_HTTP_HOST` | `0.0.0.0` |
 | `HISTORY_HTTP_PORT` | `8081` |
 | `GAME_SERVICE_BASE_URL` | `http://game-service:8080` |
-| `HISTORY_DB_PATH` | `/history-data/history.sqlite` |
 | `HISTORY_GAME_SERVICE_TIMEOUT_MILLIS` | `2000` |
 | `HISTORY_ACCEPT_LEGACY_INGESTION_PATH` | `false` |
 
@@ -57,12 +56,6 @@ Game Service must also run with SQLite persistence for durable forwarding:
 |---|---|
 | `PERSISTENCE_MODE` | `sqlite` |
 | `CHESS_DB_PATH` | `/data/searchess.sqlite` |
-
-History persistence is mounted separately from Game Service:
-
-```yaml
-history-service-data:/history-data
-```
 
 ## Archive Read Contract
 
@@ -111,10 +104,9 @@ History automatically. Verify History owns a stored archive:
 
 ```bash
 docker compose exec history-service curl -s "http://127.0.0.1:8081/archives/$GAME_ID"
-docker compose exec history-service ls -l /history-data
 ```
 
-The History record is stored in `/history-data/history.sqlite`, not in the Game
+The History record is stored in History Service Postgres tables, not in the Game
 Service SQLite file.
 
 The Game Service outbox is stored in its own table, `history_event_outbox`,

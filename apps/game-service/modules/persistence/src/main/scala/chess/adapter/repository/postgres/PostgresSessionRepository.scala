@@ -7,12 +7,13 @@ import scala.concurrent.duration.Duration
 
 class PostgresSessionRepository(
     db: Database,
-    timeout: Duration = Duration.Inf
+    timeout: Duration = Duration.Inf,
+    schema: Option[String] = None
 ) extends SlickSessionRepository(
       PostgresSlickSupport.profile
     )(
       db,
-      PostgresSlickSupport.tables,
+      PostgresSlickSupport.tablesFor(schema),
       timeout
     )
 

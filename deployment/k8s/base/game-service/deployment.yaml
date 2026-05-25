@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: game-service
+  namespace: searchess
+  labels:
+    app: game-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: game-service
+  template:
+    metadata:
+      labels:
+        app: game-service
+    spec:
+      containers:
+        - name: game-service
+          image: searchess/game-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: ws
+              containerPort: 9090
+          envFrom:
+            - configMapRef:
+                name: game-service-env
+          env:
+            - name: SEARCHESS_POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: searchess-secrets
+                  key: postgres-password
+            - name: MIGRATION_ADMIN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: searchess-secrets
+                  key: migration-admin-token
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"

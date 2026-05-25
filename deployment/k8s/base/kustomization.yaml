@@ -1,0 +1,60 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: searchess
+
+resources:
+  - namespace.yaml
+  - secret-searchess.yaml
+  # Edge
+  - envoy/deployment.yaml
+  - envoy/service.yaml
+  # Application services
+  - game-service/configmap.yaml
+  - game-service/deployment.yaml
+  - game-service/service.yaml
+  - history-service/configmap.yaml
+  - history-service/deployment.yaml
+  - history-service/service.yaml
+  - ai-service/configmap.yaml
+  - ai-service/deployment.yaml
+  - ai-service/service.yaml
+  # Python AI service (internal only — proxied by Scala ai-service)
+  - python-ai-service/configmap.yaml
+  - python-ai-service/deployment.yaml
+  - python-ai-service/service.yaml
+  # Data stores
+  - postgres/statefulset.yaml
+  - postgres/service.yaml
+  - mongo/statefulset.yaml
+  - mongo/service.yaml
+  - redis/statefulset.yaml
+  - redis/service.yaml
+  # Observability
+  - prometheus/deployment.yaml
+  - prometheus/service.yaml
+  - grafana/deployment.yaml
+  - grafana/service.yaml
+
+configMapGenerator:
+  - name: envoy-config
+    files:
+      - envoy/envoy.yaml
+
+  - name: prometheus-config
+    files:
+      - prometheus/prometheus.yml
+
+  - name: grafana-datasources
+    files:
+      - grafana/provisioning/datasources/prometheus.yml
+
+  - name: grafana-dashboard-providers
+    files:
+      - grafana/provisioning/dashboards/dashboard.yml
+
+  - name: grafana-dashboards
+    files:
+      - grafana/dashboards/searchess-domain.json
+      - grafana/dashboards/searchess-http.json
+      - grafana/dashboards/searchess-jvm.json

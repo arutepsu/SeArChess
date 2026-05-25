@@ -13,14 +13,25 @@ object PostgresFlywaySchemaInitializer:
   def migrate(
       url: String,
       user: String,
-      password: String
+      password: String,
+      schema: Option[String] = None
   ): Result =
-    val flyway =
+    val builder =
       Flyway
         .configure()
         .dataSource(url, user, password)
         .locations(MigrationResourcePath)
-        .load()
+
+    val flyway =
+      schema.map(_.trim).filter(_.nonEmpty) match
+        case Some(value) =>
+          builder
+            .schemas(value)
+            .defaultSchema(value)
+            .createSchemas(true)
+            .load()
+        case None =>
+          builder.load()
 
     val result = flyway.migrate()
     Result(

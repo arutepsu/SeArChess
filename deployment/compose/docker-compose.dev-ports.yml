@@ -1,0 +1,30 @@
+# Development overlay — exposes data-store and observability ports to the host.
+# Use this alongside the canonical Compose file:
+#
+#   docker compose -f deployment/compose/docker-compose.yml \
+#                  -f deployment/compose/docker-compose.dev-ports.yml up -d
+#
+# Ports opened by this overlay:
+#   5432  — Postgres  (psql, DBeaver, etc.)
+#   27017 — MongoDB   (mongosh, Compass, etc.)
+#   6379  — Redis     (redis-cli, RedisInsight, etc.)
+#   9090  — Prometheus UI
+
+name: searchess
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  mongo:
+    ports:
+      - "27017:27017"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  prometheus:
+    ports:
+      - "9090:9090"

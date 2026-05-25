@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: searchess
+  namespace: argocd
+spec:
+  description: "Searchess chess application — university server deployment"
+
+  sourceRepos:
+    - https://github.com/arutepsu/SeArChess.git
+
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: searchess
+
+  # Allow Argo CD to manage the searchess Namespace object (from base/namespace.yaml).
+  # All other cluster-scoped resources are denied.
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+
+  # Allow all namespace-scoped resource types used by Searchess.
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+
+  # Prevent resources from other namespaces leaking into this project.
+  namespaceResourceBlacklist: []
+
+  orphanedResources:
+    warn: true

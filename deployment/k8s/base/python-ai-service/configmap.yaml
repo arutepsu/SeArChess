@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: python-ai-service-env
+  namespace: searchess
+data:
+  # INFERENCE_BACKEND controls the move-selection engine:
+  #   "fake"       — always returns legalMoves[0]; default for k3d (no artifact volume needed)
+  #   "random"     — uniform random selection
+  #   "supervised" — neural-network policy; MODEL_ARTIFACT_DIR must be set and mounted
+  INFERENCE_BACKEND: "fake"

@@ -1,0 +1,12 @@
+name
+history-service
+consumers
+1
+pending
+0
+last-delivered-id
+0-0
+entries-read
+
+lag
+0

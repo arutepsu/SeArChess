@@ -3,11 +3,14 @@ package chess.server.assembly
 import chess.adapter.event.{
   AppEventSerializer,
   FanOutEventPublisher,
+  GameStreamEvent,
   HistoryEventOutbox,
   HistoryHttpEventPublisher,
   HistoryOutboxForwarder,
+  RedisStreamHistoryPublisher,
   SqliteHistoryEventOutbox
 }
+import redis.clients.jedis.JedisPooled
 import chess.adapter.websocket.{
   ChessWebSocketServer,
   WebSocketConnectionRegistry,
@@ -19,7 +22,7 @@ import chess.application.port.event.{
   TerminalEventJsonSerializer
 }
 import chess.observability.StructuredLog
-import chess.server.config.{AppConfig, EventMode, PersistenceMode}
+import chess.server.config.{AppConfig, EventMode, HistoryDeliveryMode, PersistenceMode}
 
 /** Game Service event runtime produced by [[EventAssembly.assemble]].
   *
@@ -95,72 +98,76 @@ object EventAssembly:
   ): (Seq[EventPublisher], TerminalEventJsonSerializer, Option[HistoryEventOutbox], () => Unit) =
     if !config.history.enabled then (Seq.empty, NoOpTerminalEventJsonSerializer, None, () => ())
     else
-      val url = config.history.baseUrl
-        .getOrElse(
-          throw IllegalArgumentException(
-            "History delivery enabled but HISTORY_BASE_URL is not configured"
+      config.history.deliveryMode match
+        case HistoryDeliveryMode.RedisStream =>
+          val host  = config.history.redisHost.getOrElse(
+            throw IllegalArgumentException("History Redis delivery enabled but HISTORY_REDIS_URL/REDIS_HOST is not configured")
           )
-        )
-      config.persistence match
-        case PersistenceMode.SQLite =>
-          val outbox = SqliteHistoryEventOutbox(
-            config.sqlite
-              .getOrElse(
-                throw IllegalArgumentException(
-                  "SQLite persistence required for history outbox but sqlite config is missing"
-                )
+          val port  = config.history.redisPort
+          val jedis = JedisPooled(host, port)
+          StructuredLog.info(
+            "game-service",
+            "history_stream_delivery_configured",
+            "redisHost" -> host,
+            "redisPort" -> port,
+            "stream"    -> config.history.redisStream
+          )
+          (
+            Seq(RedisStreamHistoryPublisher(jedis, config.history.redisStream)),
+            NoOpTerminalEventJsonSerializer,
+            None,
+            () => jedis.close()
+          )
+
+        case HistoryDeliveryMode.Http =>
+          val url = config.history.baseUrl.getOrElse(
+            throw IllegalArgumentException("History delivery enabled but HISTORY_BASE_URL is not configured")
+          )
+          config.persistence match
+            case PersistenceMode.SQLite =>
+              val outbox = SqliteHistoryEventOutbox(
+                config.sqlite
+                  .getOrElse(
+                    throw IllegalArgumentException(
+                      "SQLite persistence required for history outbox but sqlite config is missing"
+                    )
+                  )
+                  .path
               )
-              .path
-          )
-          val forwarder = HistoryOutboxForwarder(
-            outbox = outbox,
-            historyBaseUrl = url,
-            timeoutMillis = config.history.timeoutMillis
-          )
-          forwarder.start()
-          (Seq.empty, AppEventSerializer, Some(outbox), () => { forwarder.stop(); outbox.close() })
+              val forwarder = HistoryOutboxForwarder(
+                outbox         = outbox,
+                historyBaseUrl = url,
+                timeoutMillis  = config.history.timeoutMillis
+              )
+              forwarder.start()
+              (Seq.empty, AppEventSerializer, Some(outbox), () => { forwarder.stop(); outbox.close() })
 
-        case PersistenceMode.InMemory =>
-          StructuredLog.warn(
-            "game-service",
-            "history_forwarding_best_effort",
-            "reason" -> "PERSISTENCE_MODE is not sqlite",
-            "persistence" -> config.persistence.toString,
-            "historyBaseUrl" -> url
-          )
-          (
-            Seq(HistoryHttpEventPublisher(url, config.history.timeoutMillis)),
-            NoOpTerminalEventJsonSerializer,
-            None,
-            () => ()
-          )
+            case PersistenceMode.InMemory =>
+              StructuredLog.warn(
+                "game-service",
+                "history_forwarding_best_effort",
+                "reason"      -> "PERSISTENCE_MODE is not sqlite",
+                "persistence" -> config.persistence.toString,
+                "historyBaseUrl" -> url
+              )
+              (Seq(HistoryHttpEventPublisher(url, config.history.timeoutMillis)), NoOpTerminalEventJsonSerializer, None, () => ())
 
-        case PersistenceMode.Postgres =>
-          StructuredLog.warn(
-            "game-service",
-            "history_forwarding_best_effort",
-            "reason" -> "durable history outbox is currently sqlite-only",
-            "persistence" -> config.persistence.toString,
-            "historyBaseUrl" -> url
-          )
-          (
-            Seq(HistoryHttpEventPublisher(url, config.history.timeoutMillis)),
-            NoOpTerminalEventJsonSerializer,
-            None,
-            () => ()
-          )
+            case PersistenceMode.Postgres =>
+              StructuredLog.warn(
+                "game-service",
+                "history_forwarding_best_effort",
+                "reason"      -> "durable history outbox is currently sqlite-only",
+                "persistence" -> config.persistence.toString,
+                "historyBaseUrl" -> url
+              )
+              (Seq(HistoryHttpEventPublisher(url, config.history.timeoutMillis)), NoOpTerminalEventJsonSerializer, None, () => ())
 
-        case PersistenceMode.Mongo =>
-          StructuredLog.warn(
-            "game-service",
-            "history_forwarding_best_effort",
-            "reason" -> "durable history outbox is currently sqlite-only",
-            "persistence" -> config.persistence.toString,
-            "historyBaseUrl" -> url
-          )
-          (
-            Seq(HistoryHttpEventPublisher(url, config.history.timeoutMillis)),
-            NoOpTerminalEventJsonSerializer,
-            None,
-            () => ()
-          )
+            case PersistenceMode.Mongo =>
+              StructuredLog.warn(
+                "game-service",
+                "history_forwarding_best_effort",
+                "reason"      -> "durable history outbox is currently sqlite-only",
+                "persistence" -> config.persistence.toString,
+                "historyBaseUrl" -> url
+              )
+              (Seq(HistoryHttpEventPublisher(url, config.history.timeoutMillis)), NoOpTerminalEventJsonSerializer, None, () => ())

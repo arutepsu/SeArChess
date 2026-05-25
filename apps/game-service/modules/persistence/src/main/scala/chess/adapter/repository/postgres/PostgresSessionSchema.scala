@@ -7,18 +7,18 @@ import scala.concurrent.duration.Duration
 
 object PostgresSessionSchema:
 
-  def createIfNotExists(db: Database, timeout: Duration = Duration.Inf): Unit =
+  def createIfNotExists(db: Database, timeout: Duration = Duration.Inf, schema: Option[String] = None): Unit =
     SlickSchema.createSessionsIfNotExists(
       PostgresSlickSupport.profile,
       db,
-      PostgresSlickSupport.tables,
+      PostgresSlickSupport.tablesFor(schema),
       timeout
     )
 
-  def recreate(db: Database, timeout: Duration = Duration.Inf): Unit =
+  def recreate(db: Database, timeout: Duration = Duration.Inf, schema: Option[String] = None): Unit =
     SlickSchema.recreateSessions(
       PostgresSlickSupport.profile,
       db,
-      PostgresSlickSupport.tables,
+      PostgresSlickSupport.tablesFor(schema),
       timeout
     )

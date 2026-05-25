@@ -10,7 +10,7 @@ object PostgresMigrationRuntimeFactory:
   )(
       use: MigrationRuntimeFactory.BackendRuntime => A
   ): Either[String, A] =
-    PostgresPersistenceRuntime.open(config.url, config.user, config.password).flatMap { runtime =>
+    PostgresPersistenceRuntime.open(config.url, config.user, config.password, schema = config.schema).flatMap { runtime =>
       try
         Right(
           use(

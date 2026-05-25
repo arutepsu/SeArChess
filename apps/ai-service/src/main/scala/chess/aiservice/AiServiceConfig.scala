@@ -5,7 +5,13 @@ import chess.observability.StructuredLog
 final case class AiServiceConfig(
     host: String,
     port: Int,
-    engineId: String
+    engineId: String,
+    /** Base URL of the Python AI service (e.g. http://python-ai-service:8765).
+      * When set, move-suggestion requests are proxied there with fallback to local selection.
+      * Controlled by the PYTHON_AI_BASE_URL environment variable.
+      */
+    pythonAiBaseUrl: Option[String],
+    pythonAiTimeoutMillis: Int
 )
 
 object AiServiceConfig:
@@ -25,7 +31,11 @@ object AiServiceConfig:
     yield AiServiceConfig(
       host = env("AI_HTTP_HOST").getOrElse("0.0.0.0"),
       port = port,
-      engineId = env("AI_ENGINE_ID").getOrElse("random-legal")
+      engineId = env("AI_ENGINE_ID").getOrElse("random-legal"),
+      pythonAiBaseUrl = env("PYTHON_AI_BASE_URL"),
+      pythonAiTimeoutMillis = env("PYTHON_AI_TIMEOUT_MILLIS")
+        .flatMap(_.toIntOption)
+        .getOrElse(5000)
     )
 
   private def parsePort(name: String, value: String): Either[String, Int] =
