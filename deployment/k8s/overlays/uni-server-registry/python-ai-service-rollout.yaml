@@ -22,8 +22,9 @@ spec:
           image: searchess/python-ai-service:latest
           imagePullPolicy: IfNotPresent
           ports:
-            - name: http
+            - name: http 
               containerPort: 8765
+              protocol: TCP
           envFrom:
             - configMapRef:
                 name: python-ai-service-env
