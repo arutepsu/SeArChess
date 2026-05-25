@@ -1,6 +1,6 @@
 # Searchess — Release, Branching, and GitOps Strategy
 
-**Status:** Draft — pre-migration  
+**Status:** Migration complete — auto-sync enabled  
 **Date:** 2026-05-25  
 **Scope:** University server deployment; local environments as supporting context.
 
@@ -59,14 +59,23 @@ pipeline is proven on the university server.
 
 ---
 
-## 3. Current state (as of 2026-05-25)
+## 3. Current state (post-migration, as of 2026-05-25)
+
+> **Historical note:** The initial deployment targeted the `performance` branch and used
+> manual Argo CD sync. The migration described in section 7 is complete. The state below
+> reflects the live platform after all phases were applied.
 
 - Argo CD Application `searchess` watches:
   - **repo:** `https://github.com/arutepsu/SeArChess.git`
-  - **targetRevision:** `performance`
+  - **targetRevision:** `main`
   - **path:** `deployment/k8s/overlays/uni-server-registry`
-- GHCR registry push and pull works end-to-end.
-- Manual Argo CD sync succeeds; Application reached `Synced + Healthy`.
+- GHCR registry push and pull works end-to-end with immutable `sha-<7-char-commit>` tags.
+- Argo CD auto-sync is **enabled** (`automated: {selfHeal: true, prune: false}`).
+  Applications are synced automatically; `prune` remains false (no resources are auto-deleted).
+- `python-ai-service` Rollout promotion remains **manual** — Argo CD syncs the Rollout
+  object, but the operator must promote through canary stages.
+- CI image builds run **only** when app code, build files, or Dockerfiles change.
+  Docs and infrastructure commits do not trigger image rebuilds.
 - StatefulSet drift from k3s-defaulted fields is fully resolved:
   - Kubernetes-defaulted `spec.*` fields declared explicitly in base manifests.
   - `volumeClaimTemplates` embedded PVC fields (`apiVersion`, `kind`,
@@ -76,16 +85,16 @@ pipeline is proven on the university server.
   ```sh
   ssh -L 10000:localhost:10000 chess@<university-server>
   ```
-- Auto-sync is **disabled**. All syncs are initiated manually.
 
 ---
 
-## 4. Target state
+## 4. Target state — achieved
+
+> All items in this section are now in place. The section is kept for reference.
 
 ### Branch
 
-Argo CD `targetRevision` must be changed from `performance` to `main` once the
-migration in section 7 is complete.
+Argo CD `targetRevision` was changed from `performance` to `main` as part of Phase 5.
 
 ### Image tags
 
@@ -137,18 +146,21 @@ CI (GitHub Actions) on push to main
 
 Argo CD
   └─ detects OutOfSync (kustomization.yaml changed)
-
-Operator
-  └─ manually syncs via Argo CD UI or CLI:
-       argocd app sync searchess
+  └─ auto-syncs (selfHeal: true, prune: false)
+  └─ python-ai-service Rollout enters canary progression (paused at 20%)
 ```
 
-No auto-sync. No auto-prune. The operator has a deliberate gate before the university
-server is updated.
+Auto-sync is **enabled** (`selfHeal: true`). Resources removed from Git are **not**
+auto-deleted (`prune: false`). The operator's manual gate is the Rollout promotion
+for `python-ai-service`, not the Argo CD sync:
+
+```sh
+kubectl argo rollouts promote python-ai-service -n searchess
+```
 
 ---
 
-## 6. Continuous deployment flow (later)
+## 6. Continuous deployment flow (active)
 
 Continuous deployment removes the manual sync gate. It is appropriate after:
 
@@ -257,9 +269,10 @@ Verify the Application remains `Synced + Healthy` and the live image tags match 
 
 `.github/workflows/build-images.yml` was updated to:
 
-1. Trigger on `push` to `main` (not `performance`), with `paths-ignore` on
-   `deployment/k8s/overlays/uni-server-registry/kustomization.yaml` to prevent the
-   overlay update commit from re-triggering the workflow.
+1. Trigger on `push` to `main` (not `performance`), using a `paths` allowlist
+   (app code, build files, Dockerfiles only) so infrastructure and doc commits do not
+   trigger image rebuilds. `kustomization.yaml` is not in the allowlist, preventing
+   the overlay update commit from re-triggering the workflow.
 2. Build and push images tagged `sha-<7-char-git-sha>` (immutable, deployment tag)
    and `main-latest` (floating convenience tag) for all four services.
 3. Run an `update-overlay` job that installs kustomize, calls
@@ -267,8 +280,9 @@ Verify the Application remains `Synced + Healthy` and the live image tags match 
    `sha-<7-char-git-sha>`, and commits only `kustomization.yaml` back to `main`
    with message `Deploy images sha-<SHORT_SHA> [skip ci]`.
 4. Three independent layers prevent the overlay commit from triggering an infinite
-   build loop: `GITHUB_TOKEN` push protection (GitHub built-in), `paths-ignore`, and
-   `[skip ci]` in the commit message.
+   build loop: `GITHUB_TOKEN` push protection (GitHub built-in), the `paths` allowlist
+   filter (kustomization.yaml is not a listed app-code path), and `[skip ci]` in the
+   commit message.
 
 Key files changed in Phase 6:
 - `.github/workflows/build-images.yml`
@@ -277,15 +291,17 @@ Key files changed in Phase 6:
 - `docs/deployment/registry-deployment.md`
 - `deployment/argocd/README.md`
 
-### Phase 7 — Keep manual sync
+### Phase 7 — Validate delivery cycles — complete
 
-Run at least five deployment cycles (code change → image push → tag update commit →
-manual sync → verify healthy) before considering auto-sync. Document each cycle.
+Five or more delivery cycles (code change → image push → tag update commit → auto-sync
+→ verify healthy) were run successfully. Manual Rollout promotion was exercised each
+cycle. No issues were found that warranted blocking Phase 8.
 
-### Phase 8 — Optionally enable auto-sync
+### Phase 8 — Enable auto-sync — complete
 
-After Phase 7 is validated, enable `automated.selfHeal: true` in the Application.
-Leave `prune: false` until resource lifecycle is well understood.
+`automated: {selfHeal: true, prune: false}` is active in
+`deployment/argocd/searchess-application.yaml`. Resources removed from Git are **not**
+auto-deleted (`prune: false`). `python-ai-service` Rollout promotion remains manual.
 
 ---
 
@@ -305,25 +321,28 @@ These rules hold until explicitly superseded by a documented decision.
 
 ---
 
-## 9. Recommended next work (in order)
+## 9. Completed work and remaining roadmap
 
-1. **Merge `performance` into `main`** (Phase 2–3 above). This is a prerequisite for
-   everything else.
+All migration phases (1–8) are complete. The following items were completed:
 
-2. **Retarget Argo CD to `main`** (Phase 5). Do this immediately after the merge so
-   there is no period where `main` is ahead of what Argo CD watches.
+- ~~Merge `performance` into `main`~~ — done (Phase 2–3)
+- ~~Retarget Argo CD to `main`~~ — done (Phase 5)
+- ~~Immutable SHA image tag CI workflow~~ — done (Phase 6)
+- ~~Sealed Secrets~~ — done; `SealedSecret/searchess-secrets` active in `uni-server-registry`
+- ~~Argo Rollouts canary for `python-ai-service`~~ — done; 5 replicas, 20/50% stages
+- ~~Auto-sync enabled~~ — done (Phase 8)
 
-3. **Implement immutable SHA image tag update workflow** (Phase 6). Without this, the
-   overlay image tags must be bumped manually for every deployment, which is error-prone
-   and does not scale.
+**Remaining planned work:**
 
-4. **Sealed Secrets.** Once the delivery pipeline is stable, replace manually managed
-   Kubernetes Secrets with Sealed Secrets so that encrypted secrets can be stored safely
-   in Git.
+1. **Instrument services with OpenTelemetry.** The Tempo and OTel Collector
+   infrastructure is deployed. Service spans require SDK instrumentation:
+   game-service first (Java agent), then history-service and ai-service, then
+   python-ai-service last (separate repo, ML dependencies). See
+   `docs/deployment/opentelemetry-tempo.md` §6.
 
-5. **Argo Rollouts for `python-ai-service`.** The AI service is the component most
-   likely to benefit from canary or blue/green strategies because it has external
-   inference latency and is independently deployable.
+2. **Exact L7 traffic splitting (optional).** The current canary is replica-based.
+   Exact per-request splitting would require Istio, Linkerd/SMI, NGINX Ingress, or
+   Envoy traffic routing. Only needed if replica-based canary control is insufficient.
 
 ---
 

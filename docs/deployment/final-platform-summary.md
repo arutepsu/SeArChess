@@ -391,8 +391,8 @@ moment auto-sync was first activated.
 - [x] GitHub Actions: build, push `sha-*` + `main-latest`, update overlay, commit `[skip ci]`
 - [x] Argo CD: watches `main`, auto-sync enabled (`selfHeal: true`, `prune: false`)
 - [x] Immutable `sha-<commit>` image tags as deployment source of truth
-- [x] Infinite-loop prevention: `GITHUB_TOKEN` protection + `paths-ignore` + `[skip ci]`
-- [ ] Helm / Ansible — intentionally not required for the baseline; Kustomize is sufficient
+- [x] Infinite-loop prevention: `GITHUB_TOKEN` protection + `paths` allowlist filter + `[skip ci]`
+- [x] CI/CD boundary: image builds triggered only by app code / Dockerfile changes; infra and docs commits do not rebuild images
 
 ### Priority 3 — Observability and messaging
 - [x] Prometheus metrics collection (namespace-scoped)
@@ -408,11 +408,35 @@ moment auto-sync was first activated.
 - [x] Manual promotion gate with `kubectl argo rollouts promote`
 - [x] Abort and undo procedures documented and tested
 
-### Priority 5 — Advanced platform additions (intentionally deferred)
-- [ ] Keycloak — identity provider and OAuth2; deferred pending stable baseline
-- [ ] cert-manager — TLS automation; deferred (no public domain yet)
-- [ ] Linkerd / Istio — service mesh and L7 traffic splitting; deferred (adds operational complexity)
-- [ ] AnalysisTemplate — automated canary health gating; deferred until L7 routing is in place
+### Remaining work
+
+The baseline platform is complete. The only planned remaining items are service-level
+OpenTelemetry instrumentation. The Tempo and OTel Collector infrastructure is deployed
+and ready to receive spans; nothing will appear in Grafana Explore until services emit
+traces.
+
+| # | Task | Notes |
+|---|---|---|
+| F1 | Instrument **game-service** with OTel SDK | First — Scala/http4s; Java agent auto-instruments JDBC, Redis, and HTTP clients |
+| F2 | Instrument **history-service** with OTel SDK | Scala; Java agent covers JDBC and Redis Streams |
+| F3 | Instrument **ai-service** with OTel SDK | Scala; Java agent covers outbound HTTP to python-ai-service |
+| F4 | Instrument **python-ai-service** with OTel SDK | Last — separate repo (`arutepsu/searchess-ai-service`); Python SDK; ML dependencies may add image size |
+| F5 | Exact L7 traffic splitting (optional) | Current canary is replica-based. Exact per-request splitting requires Istio, Linkerd/SMI, NGINX Ingress, or Envoy routing. Only needed if replica-based control is insufficient. |
+
+See [docs/deployment/opentelemetry-tempo.md](opentelemetry-tempo.md) §6 for the
+per-service instrumentation steps.
+
+### Optional future tools — not missing baseline work
+
+The following capabilities are not part of the completed baseline and are not required
+unless specific new requirements emerge. They are recorded here for completeness, not
+as a deficiency.
+
+- **Helm / Ansible** — Kustomize covers the full deployment lifecycle. Not needed.
+- **Keycloak** — OAuth2/OIDC identity provider. Only relevant if user authentication is added.
+- **cert-manager** — TLS automation. Only relevant if a public domain is registered.
+- **Linkerd / Istio** — Service mesh and exact L7 traffic splitting. Only relevant if F5 is pursued.
+- **AnalysisTemplate** — Automated canary health gating via Prometheus metrics. Only relevant if Rollout promotion gates are automated.
 
 ---
 

@@ -189,20 +189,23 @@ confirms `mongo` is pinned to `4.4`, and runs the Envoy and Grafana health endpo
 After a merge/push to `main`, the full GitOps flow is:
 
 ```
-push/merge to main
+push/merge to main (app code / Dockerfile change)
   → GitHub Actions builds images
   → pushes sha-<git-sha> + main-latest to GHCR
   → commits kustomization.yaml update (sha-<git-sha> tag) to main
-  → Argo CD detects OutOfSync
-  → operator manually syncs:
+  → Argo CD detects OutOfSync → auto-syncs (selfHeal: true, prune: false)
+  → python-ai-service Rollout enters canary progression (paused at 20%)
+  → operator promotes Rollout when ready:
 
-      argocd app sync searchess
-      # or: Argo CD UI → Applications → searchess → Sync
+      kubectl argo rollouts promote python-ai-service -n searchess
 
   → verify Synced + Healthy:
       kubectl get application searchess -n argocd
       curl http://localhost:10000/health   # (via SSH tunnel)
 ```
+
+For pure infrastructure changes (`deployment/k8s/**`), Argo CD detects and auto-syncs
+the manifest change without a CI image build. No Rollout is triggered.
 
 Do not use `kubectl rollout restart` on the floating `main-latest` tag — that bypasses
 the GitOps audit trail. Always deploy via Argo CD sync after CI updates the overlay.
@@ -220,7 +223,7 @@ git log --oneline deployment/k8s/overlays/uni-server-registry/kustomization.yaml
 # Revert it:
 git revert <image-tag-update-commit>
 git push origin main
-# Argo CD detects OutOfSync; operator manually syncs
+# Argo CD detects OutOfSync and auto-syncs (selfHeal: true)
 ```
 
 **Rollback to a release tag:**
@@ -271,8 +274,8 @@ into namespace `searchess` on demand.
 | Branch | `main` |
 | Path | `deployment/k8s/overlays/uni-server-registry` |
 | Destination | `https://kubernetes.default.svc`, namespace `searchess` |
-| Sync | **Manual** — no auto-sync in this phase |
-| Prune | Disabled |
+| Sync | **Auto** — `selfHeal: true` (Argo CD applies GitOps state automatically); Rollout promotion remains manual |
+| Prune | **Disabled** (`prune: false`) — removed resources are not auto-deleted |
 | Exposure | `kubectl port-forward` only — not via LoadBalancer |
 
 ### Bootstrap Argo CD
