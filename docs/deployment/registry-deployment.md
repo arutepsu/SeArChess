@@ -56,9 +56,9 @@ operating the deployment pipeline without unnecessary canary promotions.
 
 | Commit type | Image rebuild? | Argo CD action |
 |---|---|---|
-| Application code change (`apps/**`, `modules/**`) | **Yes** — all four images rebuilt | Detects OutOfSync (new sha-* tag in overlay); auto-syncs |
-| Dockerfile change | **Yes** | Same as above |
-| `build.sbt` / `project/**` change | **Yes** | Same as above |
+| App-specific code (`apps/<service>/**`, `Dockerfile[.<service>]`) | **Yes — that service only** | Detects OutOfSync (new sha-* tag for that service); auto-syncs |
+| Shared Scala input (`modules/**`, `build.sbt`, `project/**`) | **Yes — all three Scala services** | Detects OutOfSync (new sha-* tags for game, history, ai); auto-syncs |
+| `python-ai-service` (code in sibling repo) | **Never on push** — `workflow_dispatch rebuild_python_ai=true` only | Rollout enters canary only when its image tag changes |
 | Kubernetes manifest change (`deployment/k8s/**`) | **No** | Detects OutOfSync (manifest changed in Git); auto-syncs |
 | Argo CD config change (`deployment/argocd/**`) | **No** | No sync needed (not managed by Argo CD Application) |
 | Documentation change (`docs/**`) | **No** | Nothing |
@@ -67,15 +67,19 @@ operating the deployment pipeline without unnecessary canary promotions.
 
 **Consequence for Argo Rollouts:**  
 `python-ai-service` enters a canary pause **only when its image tag changes** — i.e.,
-only after an application code change triggers a build and CI writes a new `sha-*` tag
-into the overlay. A pure infrastructure commit (adding a new ConfigMap, tweaking a
-Grafana dashboard) causes Argo CD to sync the changed manifest with no Rollout
-triggered, because the `Rollout` object's image tag does not change.
+only when `workflow_dispatch` is triggered with `rebuild_python_ai=true` and CI writes
+a new `sha-*` tag into the overlay. Scala service changes do not touch the
+`python-ai-service` tag; the Rollout is not triggered. A pure infrastructure commit
+(adding a new ConfigMap, tweaking a Grafana dashboard) causes Argo CD to sync the
+changed manifest with no Rollout triggered, because the `Rollout` object's image tag
+does not change.
 
 **Manual override:**  
-`workflow_dispatch` triggers the full image rebuild regardless of what files changed.
-Use this when you need to force a rebuild without a code change (e.g. to pick up a
-base-image security patch).
+`workflow_dispatch` rebuilds all three Scala services. It also accepts a
+`rebuild_python_ai` boolean input (default `false`) — set it to `true` to also rebuild
+`python-ai-service` from the sibling `arutepsu/searchess-ai-service` repo. Use this
+when you need to force a rebuild without a code change (e.g. to pick up a base-image
+security patch).
 
 ---
 
@@ -100,17 +104,29 @@ All other paths — including `docs/**`, `deployment/k8s/**`, `deployment/argocd
 `deployment/server/**` — do **not** trigger the workflow.
 
 Jobs:
-- **build-scala-services** — matrix build for `game-service`, `history-service`,
-  `ai-service` using their respective Dockerfiles in the `searchess` repo.
-- **build-python-ai-service** — checks out the sibling `arutepsu/searchess-ai-service`
-  repository and builds from its `Dockerfile`.
-- **update-overlay** — runs after both build jobs succeed. Installs kustomize, updates
-  the four service image `newTag` fields in
-  `deployment/k8s/overlays/uni-server-registry/kustomization.yaml` to
-  `sha-<SHORT_SHA>`, validates the rendered overlay, and commits the change back to
-  `main`. Argo CD then detects `OutOfSync` and auto-syncs.
+- **determine-changes** — reads `git diff --name-only` between the before/after SHAs
+  to compute per-service boolean flags (`build_game`, `build_history`, `build_ai`,
+  `build_python_ai`). Shared Scala inputs (`modules/**`, `build.sbt`, `project/**`,
+  `.github/workflows/build-images.yml`) set all three Scala service flags to `true`.
+  `build_python_ai` is always `false` on `push`; it is `true` only via
+  `workflow_dispatch` with `rebuild_python_ai=true`.
+- **build-game-service** — runs only when `build_game=true`. Builds and pushes
+  `ghcr.io/arutepsu/searchess-game-service` using the repo-root `Dockerfile`.
+- **build-history-service** — runs only when `build_history=true`. Builds and pushes
+  `ghcr.io/arutepsu/searchess-history-service` using `Dockerfile.history`.
+- **build-ai-service** — runs only when `build_ai=true`. Builds and pushes
+  `ghcr.io/arutepsu/searchess-ai-service` using `Dockerfile.ai`.
+- **build-python-ai-service** — runs only on `workflow_dispatch` with
+  `rebuild_python_ai=true`. Checks out the sibling `arutepsu/searchess-ai-service`
+  repository and builds from its `Dockerfile`. Never triggered on `push` — the Python
+  service code lives in a separate repo not tracked in this workspace.
+- **update-overlay** — runs after the build jobs using `always()` so that skipped
+  builds do not block it. Updates only the `newTag` fields for services that were
+  successfully built. Validates the rendered overlay with `kubectl kustomize`, then
+  commits `kustomization.yaml` back to `main` with the rebuilt service names in the
+  commit message. No commit is made if no tags changed.
 
-All images are pushed with `sha-<7-char-git-sha>` (deployment tag) and `main-latest`
+Built images are pushed with `sha-<7-char-git-sha>` (deployment tag) and `main-latest`
 (convenience tag).
 
 ### Infinite loop prevention
@@ -160,12 +176,16 @@ automatically.
 ```bash
 export PATH="$HOME/bin:$PATH"
 
-# Option A — use the floating 'performance-latest' tag:
+# Normal case — applies the sha-* tags currently committed in kustomization.yaml:
 bash deployment/server/deploy-server-registry.sh
 
-# Option B — pin to a specific git SHA:
+# Pinned fallback — explicitly deploy a specific git SHA:
 bash deployment/server/deploy-server-registry.sh abc1234
 ```
+
+Do not deploy `performance-latest` or `main-latest` as the server state. Both are
+floating convenience tags. The overlay always references the immutable `sha-*` tag
+written by CI. The `performance` branch is retired; do not target it.
 
 The script will:
 1. Create the `searchess-server` k3d cluster if it does not already exist.
@@ -403,8 +423,10 @@ rollout completes or is manually promoted.
 Do not force-sync mid-rollout unless you intend to re-apply the manifest (this restarts
 the rollout from step 1).
 
-Secrets remain plain Kubernetes Secret patches (`patches/secret-dev.yaml`) until
-Sealed Secrets is introduced in a later phase.
+The `uni-server-registry` overlay uses `SealedSecret/searchess-secrets` — encrypted
+at rest in Git, decrypted to `Secret/searchess-secrets` by the Sealed Secrets
+controller. The plain `patches/secret-dev.yaml` patch applies only to local and
+uni-server-k3d overlays; it is not present in the registry overlay.
 
 See `deployment/argocd/README.md` for the full Argo CD directory reference.
 

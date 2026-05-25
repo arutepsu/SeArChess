@@ -12,9 +12,11 @@ resources:
 - python-ai-service-rollout.yaml
 
 # Image tags are managed by CI (.github/workflows/build-images.yml).
-# On every push to main, the workflow updates newTag to sha-<7-char-git-sha>,
-# commits only this file back to main, and Argo CD detects OutOfSync.
-# The operator then manually syncs Argo CD to apply the new tags.
+# Only services whose app-code paths changed are rebuilt and have their tag updated
+# in this file. Services not rebuilt in a given push retain their existing sha-* tag.
+# Argo CD detects OutOfSync when this file changes and auto-syncs (selfHeal: true).
+# python-ai-service is only rebuilt via workflow_dispatch (rebuild_python_ai=true);
+# it is never rebuilt automatically because its code lives in a separate repo.
 #
 # Tag meaning:
 #   sha-<7-char-git-sha>  immutable — deployment source of truth (written by CI)

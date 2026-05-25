@@ -34,7 +34,7 @@ progressive canary delivery, with a manual promotion gate before full rollout.
 - No service mesh. Traffic splitting is replica-based, not L7-weighted.
 - Sealed Secrets uses a self-managed cluster key, not a KMS-backed key.
 - `prune: false` — old resources are not auto-deleted.
-- No distributed tracing in services yet (OTel/Tempo infrastructure deployed; service instrumentation is Phase 2).
+- Partial distributed tracing: game-service emits spans (F1 complete); history-service, ai-service, and python-ai-service are not yet instrumented (F2–F4).
 - No automated canary analysis (AnalysisTemplate not wired).
 - Mongo is pinned to 4.4 due to AVX CPU limitations on the university VM.
 
@@ -49,8 +49,8 @@ GitHub (main)
   │
   ▼
 GitHub Actions (.github/workflows/build-images.yml)
-  │  builds 4 GHCR images with sha-<7-char-commit> tag
-  │  commits updated kustomization.yaml [skip ci] back to main
+  │  builds only changed services; pushes sha-<7-char-commit> tag per service
+  │  commits updated kustomization.yaml [skip ci] back to main (only rebuilt tags)
   │
   ▼
 GitHub Container Registry (ghcr.io/arutepsu/)
@@ -112,7 +112,9 @@ triggers — Argo CD syncs them directly.
 
 | Change type | Triggers image build? | Argo CD action |
 |---|---|---|
-| `apps/**`, `modules/**`, `build.sbt`, Dockerfile | **Yes** | Sync with new sha-* image tags |
+| `apps/<service>/**`, `Dockerfile[.<service>]` | **Yes — that service only** | Sync with updated sha-* tag for that service |
+| `modules/**`, `build.sbt`, `project/**` | **Yes — all three Scala services** | Sync with new sha-* tags for game, history, ai |
+| `python-ai-service` (code in sibling repo) | **Never on push** — `workflow_dispatch rebuild_python_ai=true` only | Rollout canary triggered only when its tag changes |
 | `deployment/k8s/**` (manifests, overlays) | No | Sync changed manifest directly |
 | `docs/**`, evidence files | No | Nothing |
 | Overlay `kustomization.yaml` (written by CI) | No | Sync updated image tags |
@@ -127,10 +129,13 @@ Developer merges PR to main (app code / Dockerfile change)
   │
   ▼
 GitHub Actions: build-images.yml  (triggered by paths: apps/**, modules/**, etc.)
-  ├─ builds searchess-{game,history,ai,python-ai}-service
+  ├─ determine-changes: git diff → per-service build flags
+  ├─ builds only services whose tracked paths changed
+  │    shared Scala inputs (modules/**, build.sbt, project/**) → all three Scala services
+  │    python-ai-service: never on push; workflow_dispatch rebuild_python_ai=true only
   ├─ pushes sha-<git-sha> tag to GHCR      ← immutable, deployment source of truth
   ├─ pushes main-latest tag to GHCR        ← convenience only, never deployed
-  ├─ runs kustomize edit set image         ← updates newTag in overlay kustomization.yaml
+  ├─ runs kustomize edit set image         ← updates newTag only for rebuilt services
   ├─ validates: kubectl kustomize ...      ← fails fast if render breaks
   └─ commits kustomization.yaml [skip ci]  ← paths filter + GITHUB_TOKEN prevent loop
   │
@@ -139,8 +144,10 @@ Argo CD detects OutOfSync (kustomization.yaml changed in main)
   │
   ▼ auto-sync (selfHeal: true)
 Argo CD applies updated manifests via ServerSideApply
-  ├─ Deployments rollout new sha-* pods (game-service, history-service, ai-service)
-  └─ Rollout/python-ai-service enters canary progression
+  ├─ Deployments rollout new sha-* pods for each rebuilt Scala service
+  └─ Rollout/python-ai-service:
+       if its image tag changed (workflow_dispatch rebuild_python_ai=true) → enters canary
+       otherwise → remains stable; no canary progression triggered
   │
   ▼
 Argo Rollouts controller drives python-ai-service canary:
@@ -400,7 +407,10 @@ moment auto-sync was first activated.
 - [x] Redis Streams history delivery with `history-service` consumer group
 - [x] Postgres schema isolation (`game` / `history`)
 - [x] OpenTelemetry Collector + Tempo — infrastructure deployed; Grafana datasource provisioned
-- [ ] OpenTelemetry SDK instrumentation in services — Phase 2 (no spans emitted yet)
+- [x] game-service — OTel Java agent auto-instrumentation (F1 complete; spans visible in Grafana Tempo)
+- [ ] history-service — OTel Java agent instrumentation (F2, pending)
+- [ ] ai-service — OTel Java agent instrumentation (F3, pending)
+- [ ] python-ai-service — OTel Python SDK instrumentation (F4, pending; separate repo)
 
 ### Priority 4 — Security and progressive delivery
 - [x] Sealed Secrets — `SealedSecret/searchess-secrets` in uni-server-registry overlay
@@ -415,12 +425,14 @@ OpenTelemetry instrumentation. The Tempo and OTel Collector infrastructure is de
 and ready to receive spans; nothing will appear in Grafana Explore until services emit
 traces.
 
+**F1 is complete.** game-service emits spans to Grafana Tempo via Java agent auto-instrumentation.
+Remaining instrumentation tasks:
+
 | # | Task | Notes |
 |---|---|---|
-| F1 | Instrument **game-service** with OTel SDK | First — Scala/http4s; Java agent auto-instruments JDBC, Redis, and HTTP clients |
-| F2 | Instrument **history-service** with OTel SDK | Scala; Java agent covers JDBC and Redis Streams |
-| F3 | Instrument **ai-service** with OTel SDK | Scala; Java agent covers outbound HTTP to python-ai-service |
-| F4 | Instrument **python-ai-service** with OTel SDK | Last — separate repo (`arutepsu/searchess-ai-service`); Python SDK; ML dependencies may add image size |
+| F2 | Instrument **history-service** with OTel Java agent | Same pattern as F1 — `Dockerfile.history` + `history-service/configmap.yaml`; agent covers JDBC and Redis Streams |
+| F3 | Instrument **ai-service** with OTel Java agent | Same pattern as F1 — `Dockerfile.ai` + `ai-service/configmap.yaml`; agent covers outbound HTTP to python-ai-service |
+| F4 | Instrument **python-ai-service** with OTel Python SDK | Separate repo (`arutepsu/searchess-ai-service`); Python SDK; rebuilt via `workflow_dispatch rebuild_python_ai=true` only |
 | F5 | Exact L7 traffic splitting (optional) | Current canary is replica-based. Exact per-request splitting requires Istio, Linkerd/SMI, NGINX Ingress, or Envoy routing. Only needed if replica-based control is insufficient. |
 
 See [docs/deployment/opentelemetry-tempo.md](opentelemetry-tempo.md) §6 for the
@@ -449,7 +461,7 @@ as a deficiency.
 | No service mesh | Traffic splitting is pod-count-based, not L7-weighted | Istio, Linkerd, or Envoy Gateway |
 | No exact canary traffic splitting | 20% weight ≈ 1 pod, not 20% of requests | Service mesh with traffic routing |
 | `prune: false` | Orphaned resources accumulate unless manually deleted | Enable after operators are confident in lifecycle |
-| No service span emission | Grafana Tempo shows empty results — infrastructure deployed but services not yet instrumented | Add OTel SDK (Java agent for Scala services; opentelemetry-sdk for Python) — see docs/deployment/opentelemetry-tempo.md Phase 2 |
+| Partial service span emission | game-service emits spans (F1); history-service, ai-service, python-ai-service have no spans yet (F2–F4) — cross-service traces are incomplete | Instrument remaining services — see docs/deployment/opentelemetry-tempo.md §6 |
 | No automated canary analysis | Canary health is assessed manually | Add AnalysisTemplate + Prometheus metrics gate |
 | No production secret rotation | Sealed Secrets key is static; rotation requires re-sealing | KMS-backed key, automated re-sealing pipeline |
 | Mongo 4.4 (not 7.0) | Missing features and security fixes in Mongo 5+ | Move to a VM or node with AVX support |
