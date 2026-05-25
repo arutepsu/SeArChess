@@ -227,13 +227,15 @@ Both exit 0 as of last validation (2026-05-19).
 |---|---|---|---|
 | `local-k3d` | Developer laptop k3d | `searchess/*:local` (k3d import) | `Never` |
 | `uni-server-k3d` | University VM — manual image import | `searchess/*:local` (k3d import) | `Never` |
-| `uni-server-registry` | University VM — CI-built images | `ghcr.io/arutepsu/searchess-*:performance-latest` | `IfNotPresent` |
+| `uni-server-registry` | University VM — CI-built images | `ghcr.io/arutepsu/searchess-*:sha-<git-sha>` (written by CI) | `IfNotPresent` |
 
 All overlays pin Mongo to `4.4` on the university VM overlays (AVX constraint).
 The `local-k3d` overlay uses `mongo:7.0` (developer machines have AVX).
 
-CI workflow: `.github/workflows/build-images.yml` — triggers on push to `performance`
-branch; pushes short-SHA tag and `performance-latest` to GHCR.
+CI workflow: `.github/workflows/build-images.yml` — triggers on push to `main` when
+app code, build files, or Dockerfiles change; pushes `sha-<7-char-git-sha>` (deployment
+tag) and `main-latest` (convenience tag) to GHCR. Infrastructure and docs commits do
+not trigger image rebuilds.
 
 ---
 
@@ -247,8 +249,8 @@ It manages Searchess resources in the `searchess` namespace via the
 |---|---|
 | Namespace | `argocd` |
 | AppProject | `searchess` — restricts source to SeArChess repo, destination to `searchess` namespace |
-| Application | `searchess` — branch `performance`, path `deployment/k8s/overlays/uni-server-registry` |
-| Sync | Manual only (no auto-sync, no prune in phase 1) |
+| Application | `searchess` — branch `main`, path `deployment/k8s/overlays/uni-server-registry` |
+| Sync | **Auto** — `selfHeal: true`, `prune: false`; Rollout promotion for `python-ai-service` remains manual |
 | Access | `kubectl port-forward svc/argocd-server 8080:443` + SSH tunnel from Windows |
 
 Manifests: `deployment/argocd/`
