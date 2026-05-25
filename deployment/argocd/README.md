@@ -68,6 +68,42 @@ across several cycles.
 
 ---
 
+## Argo Rollouts — python-ai-service
+
+`python-ai-service` is managed by an Argo Rollouts canary `Rollout` (not a
+`Deployment`) in `uni-server-registry`. It runs **5 replicas** with replica-based
+weight approximation — no service mesh required.
+
+After Argo CD syncs a new image tag the Rollout controller drives:
+
+```
+setWeight 20 → 1 canary / 4 stable pods  (~20% traffic via kube-proxy)
+pause {}     → wait for operator
+setWeight 50 → 3 canary / 3 stable pods  (~50% traffic)
+pause {}     → wait for operator
+100%         → all 5 pods on the new image
+```
+
+Argo CD health shows `Progressing` during an active rollout. This is expected.
+Traffic split is proportional to pod counts, not exact L7 percentages.
+
+```bash
+# Watch rollout progress:
+kubectl argo rollouts get rollout python-ai-service -n searchess --watch
+
+# Advance past the current pause:
+kubectl argo rollouts promote python-ai-service -n searchess
+
+# Abort and roll back to stable:
+kubectl argo rollouts abort python-ai-service -n searchess
+```
+
+The Argo Rollouts controller must be installed in the `argo-rollouts` namespace on the
+server before Argo CD syncs the Rollout resource. See
+`docs/deployment/registry-deployment.md` for the installation command.
+
+---
+
 ## Design notes
 
 - Argo CD is **not** exposed via LoadBalancer — access is through `kubectl port-forward`

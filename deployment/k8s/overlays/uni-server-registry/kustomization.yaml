@@ -6,6 +6,10 @@ namespace: searchess
 resources:
 - ../../base
 - sealed-secret.yaml
+# python-ai-service uses an Argo Rollouts canary Rollout in this overlay only.
+# The base Deployment/python-ai-service is removed via the delete patch below.
+# local-k3d and uni-server-k3d continue to use the base Deployment unchanged.
+- python-ai-service-rollout.yaml
 
 # Image tags are managed by CI (.github/workflows/build-images.yml).
 # On every push to main, the workflow updates newTag to sha-<7-char-git-sha>,
@@ -18,8 +22,8 @@ resources:
 #
 # Do not manually set newTag to 'main-latest' or any other floating tag.
 # mongo is intentionally pinned to 4.4 and is not managed by the image workflow.
-  # mongo:7.0 requires AVX CPU instructions not available on the university VM.
-  # mongo:4.4 is the last release that does not require AVX.
+# mongo:7.0 requires AVX CPU instructions not available on the university VM.
+# mongo:4.4 is the last release that does not require AVX.
 images:
 - name: mongo
   newTag: "4.4"
@@ -36,10 +40,8 @@ images:
   newName: ghcr.io/arutepsu/searchess-python-ai-service
   newTag: sha-bb5ef46
 
-  # Expose Envoy and Grafana as LoadBalancer — k3d servicelb forwards these
-  # through the port mappings in deployment/k3d/server-cluster.yaml.
-
-  # Dev-friendly secret values (mirrors Compose defaults).
+# Expose Envoy and Grafana as LoadBalancer — k3d servicelb forwards these
+# through the port mappings in deployment/k3d/server-cluster.yaml.
 patches:
 - path: patches/envoy-loadbalancer.yaml
   target:
@@ -53,3 +55,12 @@ patches:
   target:
     kind: Secret
     name: searchess-secrets
+# Remove the base apps/v1 Deployment for python-ai-service from this overlay.
+# The Rollout above takes over pod management. Without this patch both resources
+# would coexist and fight over the same pods.
+- path: patches/delete-python-ai-deployment.yaml
+  target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: python-ai-service

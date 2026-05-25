@@ -1,0 +1,72 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: python-ai-service
+  namespace: searchess
+  labels:
+    app: python-ai-service
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: python-ai-service
+  template:
+    metadata:
+      labels:
+        app: python-ai-service
+    spec:
+      containers:
+        - name: python-ai-service
+          # kustomize images: searchess/python-ai-service transforms this to
+          # ghcr.io/arutepsu/searchess-python-ai-service:sha-<git-sha>
+          image: searchess/python-ai-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8765
+          envFrom:
+            - configMapRef:
+                name: python-ai-service-env
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              # torch CPU wheel adds ~700 MB RSS even without a loaded model.
+              # Raise to 2000Mi in the overlay if using supervised backend.
+              memory: "1000Mi"
+              cpu: "500m"
+  strategy:
+    canary:
+      # Replica-based canary: weight percentages are approximated by scaling
+      # the number of canary and stable pods. With replicas: 5:
+      #   setWeight 20 → ~1 canary pod, 4 stable pods  (actual: ceil(5*0.2) = 1)
+      #   setWeight 50 → ~3 canary pods, 3 stable pods  (actual: ceil(5*0.5) = 3)
+      # This is not true L7 traffic splitting — the Service selector (app=python-ai-service)
+      # covers both stable and canary pods equally. Traffic distribution depends on
+      # kube-proxy load balancing across all ready pods. A traffic router or service
+      # mesh is required for exact percentage-based L7 splitting.
+      # Each pause: {} is indefinite — the operator must manually promote or abort.
+      maxSurge: 1
+      maxUnavailable: 0
+      steps:
+        - setWeight: 20
+        - pause: {}
+        - setWeight: 50
+        - pause: {}
