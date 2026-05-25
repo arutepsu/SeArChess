@@ -3,12 +3,12 @@ kind: Kustomization
 
 namespace: searchess
 
-resources:
-- ../../base
-- sealed-secret.yaml
 # python-ai-service uses an Argo Rollouts canary Rollout in this overlay only.
 # The base Deployment/python-ai-service is removed via the delete patch below.
 # local-k3d and uni-server-k3d continue to use the base Deployment unchanged.
+resources:
+- ../../base
+- sealed-secret.yaml
 - python-ai-service-rollout.yaml
 
 # Image tags are managed by CI (.github/workflows/build-images.yml).
@@ -29,19 +29,22 @@ images:
   newTag: "4.4"
 - name: searchess/ai-service
   newName: ghcr.io/arutepsu/searchess-ai-service
-  newTag: sha-bb5ef46
+  newTag: sha-3c400ab
 - name: searchess/game-service
   newName: ghcr.io/arutepsu/searchess-game-service
-  newTag: sha-bb5ef46
+  newTag: sha-3c400ab
 - name: searchess/history-service
   newName: ghcr.io/arutepsu/searchess-history-service
-  newTag: sha-bb5ef46
+  newTag: sha-3c400ab
 - name: searchess/python-ai-service
   newName: ghcr.io/arutepsu/searchess-python-ai-service
-  newTag: sha-bb5ef46
+  newTag: sha-3c400ab
 
 # Expose Envoy and Grafana as LoadBalancer — k3d servicelb forwards these
 # through the port mappings in deployment/k3d/server-cluster.yaml.
+# Remove the base apps/v1 Deployment for python-ai-service from this overlay.
+# The Rollout above takes over pod management. Without this patch both resources
+# would coexist and fight over the same pods.
 patches:
 - path: patches/envoy-loadbalancer.yaml
   target:
@@ -55,12 +58,9 @@ patches:
   target:
     kind: Secret
     name: searchess-secrets
-# Remove the base apps/v1 Deployment for python-ai-service from this overlay.
-# The Rollout above takes over pod management. Without this patch both resources
-# would coexist and fight over the same pods.
 - path: patches/delete-python-ai-deployment.yaml
   target:
     group: apps
-    version: v1
     kind: Deployment
     name: python-ai-service
+    version: v1
