@@ -1,6 +1,6 @@
 # Searchess — OpenTelemetry and Tempo Distributed Tracing
 
-**Status:** Infrastructure deployed; service instrumentation is Phase 2  
+**Status:** Infrastructure deployed; game-service instrumented (F1 complete); history-service, ai-service, python-ai-service are F2–F4  
 **Date:** 2026-05-25  
 **Scope:** All Kubernetes environments (base); university server GitOps overlay
 
@@ -117,62 +117,120 @@ No application code changed. No overlay-specific changes required. All three ove
 
 | Capability | Status |
 |---|---|
-| Tempo pod running | Active (once synced) |
-| OTel Collector pod running | Active (once synced) |
+| Tempo pod running | Active |
+| OTel Collector pod running | Active |
 | Grafana Tempo datasource provisioned | Active |
-| Trace data in Grafana | **Inactive** — no service emits spans yet |
-| game-service traces | **Phase 2** — requires OTel SDK |
-| history-service traces | **Phase 2** — requires OTel SDK |
-| ai-service traces | **Phase 2** — requires OTel SDK |
-| python-ai-service traces | **Phase 2** — requires OTel SDK |
+| Trace data in Grafana | **Active** — game-service emits spans; search service `searchess-game-service` |
+| game-service traces | **Active (F1)** — Java agent auto-instrumentation; JDBC, Redis, HTTP auto-instrumented |
+| history-service traces | **F2** — not yet instrumented |
+| ai-service traces | **F3** — not yet instrumented |
+| python-ai-service traces | **F4** — not yet instrumented |
 
-Opening Grafana → Explore → Tempo will show an empty trace list. This is expected.
-The infrastructure is ready to receive spans the moment any service starts emitting them.
+Grafana → Explore → Tempo → service name `searchess-game-service` will show spans once
+game-service has handled at least one request. history-service, ai-service, and
+python-ai-service do not appear in Tempo yet.
 
 ---
 
-## 6. Phase 2 — Instrumenting services
+## 6. Service instrumentation — per-service status
 
-When ready to add trace data, each service needs:
+### 6.1 game-service — F1 (complete)
 
-### Environment variables (same for all services)
+**Approach:** OpenTelemetry Java agent auto-instrumentation. No application code changes.
+The agent intercepts http4s server/client, PostgreSQL JDBC, and Redis at runtime.
 
-```
-OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-OTEL_TRACES_EXPORTER=otlp
-```
-
-Per-service values:
-
-| Service | OTEL_SERVICE_NAME |
-|---|---|
-| game-service | `searchess-game-service` |
-| history-service | `searchess-history-service` |
-| ai-service | `searchess-ai-service` |
-| python-ai-service | `searchess-python-ai-service` |
-
-Add these to the respective `configmap.yaml` under `deployment/k8s/base/<service>/`.
-
-### SDK dependencies
-
-**Scala services (game-service, history-service, ai-service):**
-
-Add the OpenTelemetry Java agent as a JVM argument. No application code changes needed
-for auto-instrumentation of http4s, JDBC, and Redis clients:
+**Dockerfile change** (`Dockerfile` — repo root, game-service):
 
 ```dockerfile
-# In the service Dockerfile, download the agent:
-ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.10.0/opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
+FROM eclipse-temurin:21-jre AS otel-agent
+ARG OTEL_AGENT_VERSION=2.10.0
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -fsSL -o /opentelemetry-javaagent.jar \
+       "https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v${OTEL_AGENT_VERSION}/opentelemetry-javaagent.jar"
 
-# Add to JVM args:
-ENV JAVA_TOOL_OPTIONS="-javaagent:/app/opentelemetry-javaagent.jar"
+# In the runtime stage:
+COPY --from=otel-agent /opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
 ```
 
-Or use `sbt-native-packager` scriptClasspath to include the agent. The Java agent
-auto-instruments http4s server/client, PostgreSQL JDBC, and Redis at runtime without
-any code changes to the application.
+**Kubernetes config** (`deployment/k8s/base/game-service/configmap.yaml`):
 
-**Python AI service:**
+```yaml
+JAVA_TOOL_OPTIONS: "-javaagent:/app/opentelemetry-javaagent.jar"
+OTEL_SERVICE_NAME: "searchess-game-service"
+OTEL_TRACES_EXPORTER: "otlp"
+OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+```
+
+The game-service Deployment already uses `envFrom: configMapRef: game-service-env`,
+so these values are picked up without any Deployment manifest change.
+
+**What is auto-instrumented (no manual spans needed):**
+
+| Instrumentation | Auto-detected |
+|---|---|
+| Incoming HTTP requests | http4s server routes — each request becomes a root span |
+| Outgoing HTTP calls | ai-service proxy call, history-service forward |
+| PostgreSQL JDBC | All game schema reads and writes |
+| Redis | `history.archives` Redis Streams publish |
+
+**Validation:**
+
+```bash
+# After deploy, generate a request:
+curl http://localhost:10000/health
+# or start a game move through the API
+
+# Then in Grafana → Explore → Tempo:
+# Select service: searchess-game-service
+# Traces should appear within a few seconds
+```
+
+**No manual spans were added.** The agent auto-instruments all framework and client
+calls. Custom spans for business logic (e.g., move validation, check detection) are
+a later, optional step.
+
+---
+
+### 6.2 history-service — F2 (pending)
+
+Same approach as F1: add the Java agent download stage to `Dockerfile.history`, add
+OTel env vars to `deployment/k8s/base/history-service/configmap.yaml`.
+
+```yaml
+JAVA_TOOL_OPTIONS: "-javaagent:/app/opentelemetry-javaagent.jar"
+OTEL_SERVICE_NAME: "searchess-history-service"
+OTEL_TRACES_EXPORTER: "otlp"
+OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+```
+
+The Java agent will auto-instrument Postgres JDBC and Redis Streams consumption.
+
+---
+
+### 6.3 ai-service — F3 (pending)
+
+Same approach: `Dockerfile.ai` + `deployment/k8s/base/ai-service/configmap.yaml`.
+
+```yaml
+JAVA_TOOL_OPTIONS: "-javaagent:/app/opentelemetry-javaagent.jar"
+OTEL_SERVICE_NAME: "searchess-ai-service"
+OTEL_TRACES_EXPORTER: "otlp"
+OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+```
+
+The agent will auto-instrument the outbound HTTP call to python-ai-service.
+
+---
+
+### 6.4 python-ai-service — F4 (pending)
+
+The Python service lives in a separate repo (`arutepsu/searchess-ai-service`) and uses
+the Python OTel SDK rather than the Java agent.
 
 ```python
 # requirements.txt additions:
@@ -196,15 +254,23 @@ provider.add_span_processor(
 trace.set_tracer_provider(provider)
 ```
 
-With `OTEL_EXPORTER_OTLP_ENDPOINT` set in the environment, the exporter resolves the
-endpoint automatically.
+Set `OTEL_SERVICE_NAME=searchess-python-ai-service` and
+`OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317` in the service's Kubernetes
+ConfigMap. Because this service code lives in a separate repo, its image is only rebuilt
+via `workflow_dispatch` with `rebuild_python_ai=true`.
 
-### Validation after Phase 2
+---
 
-1. Trigger a chess game request.
-2. Open Grafana → Explore → select **Tempo** datasource.
-3. Search by service name (`searchess-game-service`).
-4. A trace should appear showing spans across game-service, history-service, and redis.
+### 6.5 Validation after each service is instrumented
+
+1. Rebuild and deploy the service (CI push or `workflow_dispatch`).
+2. Trigger at least one chess game request through Envoy.
+3. Open Grafana → Explore → select **Tempo** datasource.
+4. Search by service name (e.g., `searchess-game-service`).
+5. A trace should appear within a few seconds showing spans for each instrumented hop.
+
+As more services are instrumented (F2, F3), traces will show cross-service call chains:
+game-service → history-service, game-service → ai-service → python-ai-service.
 
 ---
 
@@ -213,7 +279,8 @@ endpoint automatically.
 | Limitation | Impact | Resolution |
 |---|---|---|
 | Tempo uses `emptyDir` storage | Traces lost on Tempo pod restart | Add a PersistentVolume when trace durability is needed |
-| No service emits spans yet | Grafana Tempo shows empty results | Phase 2 instrumentation required |
+| Only game-service emits spans | Cross-service traces incomplete; history-service, ai-service, python-ai-service not yet instrumented | F2–F4 instrumentation |
+| No manual business-logic spans | Agent auto-instruments framework calls only; move validation, AI decision spans are absent | Add manual spans with OTel SDK after auto-instrumentation is validated |
 | Retention set to 24h | Old traces expire automatically | Increase `block_retention` in tempo-config ConfigMap |
 | Local k3d images must be imported | `grafana/tempo:2.6.1` and `otel/opentelemetry-collector-contrib:0.114.0` must be pulled or imported for local-k3d | `k3d image import grafana/tempo:2.6.1 otel/opentelemetry-collector-contrib:0.114.0` |
 
