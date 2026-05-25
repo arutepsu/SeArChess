@@ -49,8 +49,8 @@ GitHub (main)
   │
   ▼
 GitHub Actions (.github/workflows/build-images.yml)
-  │  builds 4 GHCR images with sha-<7-char-commit> tag
-  │  commits updated kustomization.yaml [skip ci] back to main
+  │  builds only changed services; pushes sha-<7-char-commit> tag per service
+  │  commits updated kustomization.yaml [skip ci] back to main (only rebuilt tags)
   │
   ▼
 GitHub Container Registry (ghcr.io/arutepsu/)
@@ -112,7 +112,9 @@ triggers — Argo CD syncs them directly.
 
 | Change type | Triggers image build? | Argo CD action |
 |---|---|---|
-| `apps/**`, `modules/**`, `build.sbt`, Dockerfile | **Yes** | Sync with new sha-* image tags |
+| `apps/<service>/**`, `Dockerfile[.<service>]` | **Yes — that service only** | Sync with updated sha-* tag for that service |
+| `modules/**`, `build.sbt`, `project/**` | **Yes — all three Scala services** | Sync with new sha-* tags for game, history, ai |
+| `python-ai-service` (code in sibling repo) | **Never on push** — `workflow_dispatch rebuild_python_ai=true` only | Rollout canary triggered only when its tag changes |
 | `deployment/k8s/**` (manifests, overlays) | No | Sync changed manifest directly |
 | `docs/**`, evidence files | No | Nothing |
 | Overlay `kustomization.yaml` (written by CI) | No | Sync updated image tags |
@@ -127,10 +129,13 @@ Developer merges PR to main (app code / Dockerfile change)
   │
   ▼
 GitHub Actions: build-images.yml  (triggered by paths: apps/**, modules/**, etc.)
-  ├─ builds searchess-{game,history,ai,python-ai}-service
+  ├─ determine-changes: git diff → per-service build flags
+  ├─ builds only services whose tracked paths changed
+  │    shared Scala inputs (modules/**, build.sbt, project/**) → all three Scala services
+  │    python-ai-service: never on push; workflow_dispatch rebuild_python_ai=true only
   ├─ pushes sha-<git-sha> tag to GHCR      ← immutable, deployment source of truth
   ├─ pushes main-latest tag to GHCR        ← convenience only, never deployed
-  ├─ runs kustomize edit set image         ← updates newTag in overlay kustomization.yaml
+  ├─ runs kustomize edit set image         ← updates newTag only for rebuilt services
   ├─ validates: kubectl kustomize ...      ← fails fast if render breaks
   └─ commits kustomization.yaml [skip ci]  ← paths filter + GITHUB_TOKEN prevent loop
   │
@@ -139,8 +144,10 @@ Argo CD detects OutOfSync (kustomization.yaml changed in main)
   │
   ▼ auto-sync (selfHeal: true)
 Argo CD applies updated manifests via ServerSideApply
-  ├─ Deployments rollout new sha-* pods (game-service, history-service, ai-service)
-  └─ Rollout/python-ai-service enters canary progression
+  ├─ Deployments rollout new sha-* pods for each rebuilt Scala service
+  └─ Rollout/python-ai-service:
+       if its image tag changed (workflow_dispatch rebuild_python_ai=true) → enters canary
+       otherwise → remains stable; no canary progression triggered
   │
   ▼
 Argo Rollouts controller drives python-ai-service canary:
