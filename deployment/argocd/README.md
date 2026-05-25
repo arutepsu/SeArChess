@@ -13,7 +13,7 @@ into the `searchess` namespace on demand (manual sync — no auto-sync yet).
 | `install-argocd.sh` | Install Argo CD into the `argocd` namespace |
 | `port-forward-argocd.sh` | Forward the Argo CD server to `localhost:8080` for UI access |
 | `searchess-project.yaml` | AppProject restricting the repo, cluster, and namespace scope |
-| `searchess-application.yaml` | Application pointing at `deployment/k8s/overlays/uni-server-registry` on the `performance` branch |
+| `searchess-application.yaml` | Application pointing at `deployment/k8s/overlays/uni-server-registry` on the `main` branch |
 
 ---
 
@@ -40,16 +40,31 @@ kubectl -n argocd get secret argocd-initial-admin-secret \
 
 ---
 
-## Sync
+## Operator workflow — deploying after a CI image push
 
-Sync is **manual** in this initial setup. Trigger from the UI or argocd CLI:
+After a merge to `main`, CI builds images, pushes them with an immutable
+`sha-<7-char-git-sha>` tag, and commits the updated
+`deployment/k8s/overlays/uni-server-registry/kustomization.yaml` back to `main`.
+Argo CD then shows the Application as `OutOfSync`.
+
+To deploy:
 
 ```bash
-# CLI (if installed):
-argocd app sync searchess
+# 1. Confirm which commit updated the overlay:
+git log --oneline deployment/k8s/overlays/uni-server-registry/kustomization.yaml
 
-# Or trigger from the Argo CD UI → Applications → searchess → Sync
+# 2. Sync via CLI:
+argocd app sync searchess
+# Or: Argo CD UI → Applications → searchess → Sync
+
+# 3. Verify:
+kubectl get application searchess -n argocd
+kubectl get pods -n searchess
+curl http://localhost:10000/health   # via SSH tunnel
 ```
+
+Sync is **manual**. Auto-sync is disabled until the SHA-tag workflow has proven stable
+across several cycles.
 
 ---
 
