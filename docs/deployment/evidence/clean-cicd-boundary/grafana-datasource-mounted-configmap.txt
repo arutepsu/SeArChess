@@ -1,0 +1,16 @@
+          name: grafana-dashboards
+          readOnly: true
+        - mountPath: /etc/grafana/provisioning/datasources
+          name: grafana-datasources
+          readOnly: true
+        - mountPath: /etc/grafana/provisioning/dashboards
+          name: grafana-dashboard-providers
+--
+        name: grafana-dashboards
+      - configMap:
+          defaultMode: 420
+          name: grafana-datasources-g9c8gdcd4g
+        name: grafana-datasources
+      - configMap:
+          defaultMode: 420
+          name: grafana-dashboard-providers-9dm46ffd4f
