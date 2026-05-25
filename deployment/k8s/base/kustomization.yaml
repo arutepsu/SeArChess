@@ -35,6 +35,13 @@ resources:
   - prometheus/service.yaml
   - grafana/deployment.yaml
   - grafana/service.yaml
+  # Distributed tracing
+  - tempo/configmap.yaml
+  - tempo/deployment.yaml
+  - tempo/service.yaml
+  - otel-collector/configmap.yaml
+  - otel-collector/deployment.yaml
+  - otel-collector/service.yaml
 
 configMapGenerator:
   - name: envoy-config
@@ -48,6 +55,7 @@ configMapGenerator:
   - name: grafana-datasources
     files:
       - grafana/provisioning/datasources/prometheus.yml
+      - grafana/provisioning/datasources/tempo.yml
 
   - name: grafana-dashboard-providers
     files:

@@ -34,7 +34,7 @@ progressive canary delivery, with a manual promotion gate before full rollout.
 - No service mesh. Traffic splitting is replica-based, not L7-weighted.
 - Sealed Secrets uses a self-managed cluster key, not a KMS-backed key.
 - `prune: false` — old resources are not auto-deleted.
-- No distributed tracing (OpenTelemetry/Tempo not implemented).
+- No distributed tracing in services yet (OTel/Tempo infrastructure deployed; service instrumentation is Phase 2).
 - No automated canary analysis (AnalysisTemplate not wired).
 - Mongo is pinned to 4.4 due to AVX CPU limitations on the university VM.
 
@@ -75,7 +75,7 @@ k3d / k3s — university server
   │  namespace: searchess
   │
   ├─ Kubernetes Deployments: envoy, game-service, history-service, ai-service,
-  │                           grafana, prometheus
+  │                           grafana, prometheus, tempo, otel-collector
   ├─ StatefulSets:  postgres, mongo, redis
   ├─ Argo Rollout:  python-ai-service (canary, 5 replicas)
   └─ Sealed Secrets controller → Secret/searchess-secrets
@@ -96,7 +96,9 @@ k3d / k3s — university server
 | mongo | StatefulSet | `mongo:4.4` | 27017 | Document store (pinned 4.4 — no AVX on university VM) |
 | redis | StatefulSet | `redis:7.4-alpine` | 6379 | Redis Streams — history archive delivery channel |
 | prometheus | Deployment | `prom/prometheus:v2.55.1` | 9090 | Metrics scrape and storage |
-| grafana | Deployment | `grafana/grafana:11.4.0` | 3000 (→ 33001 ext) | Dashboard UI |
+| grafana | Deployment | `grafana/grafana:11.4.0` | 3000 (→ 33001 ext) | Dashboard UI — Prometheus + Tempo datasources |
+| tempo | Deployment | `grafana/tempo:2.6.1` | 3200 (query), 4317 (OTLP recv) | Trace storage — receives from otel-collector, queried by Grafana |
+| otel-collector | Deployment | `otel/opentelemetry-collector-contrib:0.114.0` | 4317 (gRPC), 4318 (HTTP) | Trace ingestion — receives OTLP from services, forwards to Tempo |
 
 ---
 
@@ -238,7 +240,8 @@ No plaintext secrets appear in any committed file under `uni-server-registry/`.
 | Metrics collection | Prometheus (namespace-scoped) | Operational |
 | Dashboard UI | Grafana (dashboards: domain, HTTP, JVM) | Operational |
 | Health endpoints | `/health` on Envoy (port 10000) and python-ai-service | Validated |
-| Distributed tracing | OpenTelemetry / Tempo | Not implemented |
+| Distributed tracing infrastructure | OpenTelemetry Collector + Tempo | Deployed (Tempo + otel-collector running; Grafana datasource provisioned) |
+| Distributed tracing — service spans | OpenTelemetry SDK in services | **Phase 2** — no spans emitted yet; Grafana Tempo will be empty until instrumented |
 | Alerting rules | Prometheus AlertManager | Not configured |
 | Log aggregation | (none) | Not implemented |
 
@@ -378,7 +381,8 @@ moment auto-sync was first activated.
 - [x] Grafana dashboards (domain, HTTP, JVM)
 - [x] Redis Streams history delivery with `history-service` consumer group
 - [x] Postgres schema isolation (`game` / `history`)
-- [ ] OpenTelemetry / Tempo distributed tracing — not implemented
+- [x] OpenTelemetry Collector + Tempo — infrastructure deployed; Grafana datasource provisioned
+- [ ] OpenTelemetry SDK instrumentation in services — Phase 2 (no spans emitted yet)
 
 ### Priority 4 — Security and progressive delivery
 - [x] Sealed Secrets — `SealedSecret/searchess-secrets` in uni-server-registry overlay
@@ -403,7 +407,7 @@ moment auto-sync was first activated.
 | No service mesh | Traffic splitting is pod-count-based, not L7-weighted | Istio, Linkerd, or Envoy Gateway |
 | No exact canary traffic splitting | 20% weight ≈ 1 pod, not 20% of requests | Service mesh with traffic routing |
 | `prune: false` | Orphaned resources accumulate unless manually deleted | Enable after operators are confident in lifecycle |
-| No OpenTelemetry tracing | Request flows cannot be traced across services | Add OTel SDK + Tempo collector |
+| No service span emission | Grafana Tempo shows empty results — infrastructure deployed but services not yet instrumented | Add OTel SDK (Java agent for Scala services; opentelemetry-sdk for Python) — see docs/deployment/opentelemetry-tempo.md Phase 2 |
 | No automated canary analysis | Canary health is assessed manually | Add AnalysisTemplate + Prometheus metrics gate |
 | No production secret rotation | Sealed Secrets key is static; rotation requires re-sealing | KMS-backed key, automated re-sealing pipeline |
 | Mongo 4.4 (not 7.0) | Missing features and security fixes in Mongo 5+ | Move to a VM or node with AVX support |
