@@ -266,6 +266,96 @@ The manual deploy scripts (`deploy-server-registry.sh`, `deploy-server-k3d.sh`) 
 - The mechanism for the initial cluster and registry bootstrap (Argo CD is installed
   on top of an already-working registry deployment).
 
+---
+
+## Argo Rollouts — python-ai-service canary
+
+`python-ai-service` uses an Argo Rollouts canary `Rollout` in the `uni-server-registry`
+overlay. `local-k3d` and `uni-server-k3d` continue to use the base `apps/v1 Deployment`
+unchanged.
+
+### Prerequisites (one-time server setup)
+
+```bash
+# Install Argo Rollouts controller into the argo-rollouts namespace:
+kubectl create namespace argo-rollouts
+kubectl apply -n argo-rollouts \
+  -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
+
+# Install the kubectl plugin (on the operator's machine):
+# macOS/Linux:
+curl -LO https://github.com/argoproj/argo-rollouts/releases/latest/download/kubectl-argo-rollouts-linux-amd64
+chmod +x kubectl-argo-rollouts-linux-amd64
+sudo mv kubectl-argo-rollouts-linux-amd64 /usr/local/bin/kubectl-argo-rollouts
+```
+
+### Canary strategy
+
+`python-ai-service` runs **5 replicas** and uses replica-based canary weighting.
+Weight percentages are approximated by scaling pod counts — there is no L7 traffic
+splitting. `kube-proxy` distributes connections across all ready pods (stable + canary)
+with equal weight; the effective traffic split tracks the pod ratio.
+
+```
+replicas: 5   maxSurge: 1   maxUnavailable: 0
+
+Stable pods: searchess/python-ai-service:<previous-sha>
+Canary pods: searchess/python-ai-service:<new-sha>
+
+Step 1: setWeight 20  → ceil(5 × 0.20) = 1 canary pod,  4 stable pods  (~20% traffic)
+Step 2: pause {}      → INDEFINITE — operator must promote or abort
+Step 3: setWeight 50  → ceil(5 × 0.50) = 3 canary pods, 3 stable pods  (~50% traffic)
+Step 4: pause {}      → INDEFINITE — operator must promote or abort
+Full:   100%          → all 5 pods running the new image, stable ReplicaSet winds down
+```
+
+`maxSurge: 1` allows at most one extra pod during the transition. `maxUnavailable: 0`
+keeps all current pods running while the new canary pod starts and passes its readiness
+probe. This prevents any capacity drop during promotion.
+
+This is not exact L7 traffic splitting. The Service selector (`app=python-ai-service`)
+covers both stable and canary pods. Traffic distribution depends on kube-proxy
+load-balancing across all ready pods and is proportional to pod counts, not measured
+at the request level. A traffic router or service mesh is required for precise
+percentage-based L7 splitting.
+
+**Resource note — university VM (4 GB RAM, shared):**
+5 replicas × 256 Mi request = 1280 Mi requested memory. Each pod may spike up to
+1000 Mi (torch limit). Running all 5 simultaneously during a canary step uses up to
+5 GB, which exceeds the VM's 4 GB. In practice the fake/random inference backend uses
+far less (~50–100 Mi per pod). Monitor with `kubectl top pods -n searchess` before
+increasing replicas or switching to the supervised backend.
+
+### Operator commands during a rollout
+
+```bash
+# Watch live status:
+kubectl argo rollouts get rollout python-ai-service -n searchess --watch
+
+# Promote to the next step (advance past the current pause):
+kubectl argo rollouts promote python-ai-service -n searchess
+
+# Skip all remaining steps and complete immediately:
+kubectl argo rollouts promote --full python-ai-service -n searchess
+
+# Abort the rollout (rolls back to the stable revision):
+kubectl argo rollouts abort python-ai-service -n searchess
+
+# Undo (sets desired image back to the previous stable):
+kubectl argo rollouts undo python-ai-service -n searchess
+```
+
+### Argo CD interaction
+
+Argo CD manages the `Rollout` object (image tag, replica count, strategy). It does NOT
+manage individual pod replica sets created by the Argo Rollouts controller — those are
+controller-owned. After Argo CD syncs a new image tag, the Rollout controller drives
+the canary progression automatically; Argo CD will show `Progressing` health until the
+rollout completes or is manually promoted.
+
+Do not force-sync mid-rollout unless you intend to re-apply the manifest (this restarts
+the rollout from step 1).
+
 Secrets remain plain Kubernetes Secret patches (`patches/secret-dev.yaml`) until
 Sealed Secrets is introduced in a later phase.
 
