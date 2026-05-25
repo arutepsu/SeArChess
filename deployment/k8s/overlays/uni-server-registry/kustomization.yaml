@@ -37,7 +37,7 @@ images:
   newTag: sha-a83a2b5
 - name: searchess/history-service
   newName: ghcr.io/arutepsu/searchess-history-service
-  newTag: sha-a83a2b5
+  newTag: sha-4662dc3
 - name: searchess/python-ai-service
   newName: ghcr.io/arutepsu/searchess-python-ai-service
   newTag: sha-defe26c
