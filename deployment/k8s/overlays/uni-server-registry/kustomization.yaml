@@ -4,7 +4,7 @@ kind: Kustomization
 namespace: searchess
 
 resources:
-  - ../../base
+- ../../base
 
 # Image tags are managed by CI (.github/workflows/build-images.yml).
 # On every push to main, the workflow updates newTag to sha-<7-char-git-sha>,
@@ -17,42 +17,38 @@ resources:
 #
 # Do not manually set newTag to 'main-latest' or any other floating tag.
 # mongo is intentionally pinned to 4.4 and is not managed by the image workflow.
-images:
-  - name: searchess/game-service
-    newName: ghcr.io/arutepsu/searchess-game-service
-    newTag: performance-latest
-  - name: searchess/history-service
-    newName: ghcr.io/arutepsu/searchess-history-service
-    newTag: performance-latest
-  - name: searchess/ai-service
-    newName: ghcr.io/arutepsu/searchess-ai-service
-    newTag: performance-latest
-  - name: searchess/python-ai-service
-    newName: ghcr.io/arutepsu/searchess-python-ai-service
-    newTag: performance-latest
   # mongo:7.0 requires AVX CPU instructions not available on the university VM.
   # mongo:4.4 is the last release that does not require AVX.
-  - name: mongo
-    newTag: "4.4"
+images:
+- name: mongo
+  newTag: "4.4"
+- name: searchess/ai-service
+  newName: ghcr.io/arutepsu/searchess-ai-service
+  newTag: sha-d9e8546
+- name: searchess/game-service
+  newName: ghcr.io/arutepsu/searchess-game-service
+  newTag: sha-d9e8546
+- name: searchess/history-service
+  newName: ghcr.io/arutepsu/searchess-history-service
+  newTag: sha-d9e8546
+- name: searchess/python-ai-service
+  newName: ghcr.io/arutepsu/searchess-python-ai-service
+  newTag: sha-d9e8546
 
-patches:
   # Expose Envoy and Grafana as LoadBalancer — k3d servicelb forwards these
   # through the port mappings in deployment/k3d/server-cluster.yaml.
-  - path: patches/envoy-loadbalancer.yaml
-    target:
-      kind: Service
-      name: envoy
-  - path: patches/grafana-loadbalancer.yaml
-    target:
-      kind: Service
-      name: grafana
 
   # Dev-friendly secret values (mirrors Compose defaults).
-  - path: patches/secret-dev.yaml
-    target:
-      kind: Secret
-      name: searchess-secrets
-
-  # imagePullPolicy is already IfNotPresent in the base Deployments.
-  # GHCR images are pulled on first use; subsequent pod restarts use the
-  # cached image unless the tag resolves to a new digest.
+patches:
+- path: patches/envoy-loadbalancer.yaml
+  target:
+    kind: Service
+    name: envoy
+- path: patches/grafana-loadbalancer.yaml
+  target:
+    kind: Service
+    name: grafana
+- path: patches/secret-dev.yaml
+  target:
+    kind: Secret
+    name: searchess-secrets
