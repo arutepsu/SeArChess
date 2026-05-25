@@ -285,36 +285,46 @@ revealed a second manager:
 own manager entry after `argocd-controller` applies the manifest. Argo CD detects the
 gap between what it applied and what k3s wrote back, and reports persistent drift.
 
-**Fix:** Added `ignoreDifferences` rules to `deployment/argocd/searchess-application.yaml`
-scoped to the three StatefulSets and the `k3s` manager only:
+**Fix (round 1):** Added `ignoreDifferences` rules to
+`deployment/argocd/searchess-application.yaml` scoped to the three StatefulSets and the
+`k3s` manager only — covering all k3s-managed fields tracked in `managedFields`.
+
+**Fix (round 2):** Comparing desired vs live `volumeClaimTemplates` revealed four
+additional fields written by k3s onto the embedded PVC templates that are not tracked
+in `managedFields` and therefore not covered by `managedFieldsManagers`:
+
+| Field | Where fixed |
+|---|---|
+| `apiVersion: v1` | added to desired manifest |
+| `kind: PersistentVolumeClaim` | added to desired manifest |
+| `metadata.creationTimestamp: null` | added to desired manifest |
+| `spec.volumeMode: Filesystem` | added to desired manifest |
+| `status.phase: Pending` | ignored via `jqPathExpressions` |
+
+`status` is a runtime field that Kubernetes writes onto embedded PVC templates after
+creation. It cannot be declared in a desired manifest and is not tracked in
+`managedFields`, so it must be excluded via a `jqPathExpression`.
+
+The complete `ignoreDifferences` block after both rounds:
 
 ```yaml
 ignoreDifferences:
   - group: apps
     kind: StatefulSet
-    name: mongo
+    name: mongo       # same shape for postgres and redis
     namespace: searchess
     managedFieldsManagers:
       - k3s
-  - group: apps
-    kind: StatefulSet
-    name: postgres
-    namespace: searchess
-    managedFieldsManagers:
-      - k3s
-  - group: apps
-    kind: StatefulSet
-    name: redis
-    namespace: searchess
-    managedFieldsManagers:
-      - k3s
+    jqPathExpressions:
+      - ".spec.volumeClaimTemplates[].status"
 ```
 
 **Scope limits:**
-- Only `mongo`, `postgres`, and `redis` StatefulSets are ignored — not all StatefulSets.
+- Only `mongo`, `postgres`, and `redis` StatefulSets are targeted — not all StatefulSets.
 - Only the `k3s` manager is ignored. `kubectl-set` is intentionally **not** ignored so
   that manual image overrides applied with `kubectl set image` remain visible as drift.
-- Deployments, Services, ConfigMaps, Secrets, and pod templates are unaffected.
+- The `jqPathExpressions` entry ignores only `volumeClaimTemplates[*].status`; no other
+  fields, pod templates, Deployments, Services, ConfigMaps, or Secrets are affected.
 - Auto-sync and prune remain disabled.
 
 ---

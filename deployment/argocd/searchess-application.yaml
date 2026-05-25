@@ -44,15 +44,23 @@ spec:
       namespace: searchess
       managedFieldsManagers:
         - k3s
+      # status.phase is a runtime field that Kubernetes sets on embedded PVC templates;
+      # it cannot be declared in desired manifests and is not tracked in managedFields.
+      jqPathExpressions:
+        - ".spec.volumeClaimTemplates[].status"
     - group: apps
       kind: StatefulSet
       name: postgres
       namespace: searchess
       managedFieldsManagers:
         - k3s
+      jqPathExpressions:
+        - ".spec.volumeClaimTemplates[].status"
     - group: apps
       kind: StatefulSet
       name: redis
       namespace: searchess
       managedFieldsManagers:
         - k3s
+      jqPathExpressions:
+        - ".spec.volumeClaimTemplates[].status"

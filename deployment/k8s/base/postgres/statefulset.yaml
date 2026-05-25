@@ -74,11 +74,15 @@ spec:
     whenDeleted: Retain
     whenScaled: Retain
   volumeClaimTemplates:
-    - metadata:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
         name: postgres-data
+        creationTimestamp: null
       spec:
         accessModes:
           - ReadWriteOnce
         resources:
           requests:
             storage: 2Gi
+        volumeMode: Filesystem
