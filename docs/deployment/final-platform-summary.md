@@ -178,6 +178,7 @@ Cluster: Synced + Healthy
 | `automated.prune` | **false** | Resources removed from Git are NOT auto-deleted; operator deletes manually |
 | `syncOptions` | `CreateNamespace=true`, `ServerSideApply=true` | Namespace is created if absent; SSA avoids annotation size limits on large ConfigMaps |
 | `ignoreDifferences` | StatefulSets mongo/postgres/redis — k3s manager + `volumeClaimTemplates[].status` | k3s writes default fields after apply; ignoring them prevents false drift |
+| `timeout.reconciliation` | `60s` + 15s jitter | Default is 3 min; 60s polling detects CI image-tag commits within ~1–2 min. GitHub webhooks would give instant detection but require Argo CD to be publicly reachable — not available on the university server. |
 
 **Why `prune: false`:**  
 Accidentally removing a resource from a Kustomize overlay (e.g. during a refactor)

@@ -1,8 +1,8 @@
 # Argo CD — Searchess GitOps
 
 Argo CD runs inside the `searchess-server` k3d cluster in the `argocd` namespace.
-It watches the `uni-server-registry` Kustomize overlay and syncs Searchess resources
-into the `searchess` namespace on demand (manual sync — no auto-sync yet).
+It watches the `uni-server-registry` Kustomize overlay and auto-syncs Searchess
+resources into the `searchess` namespace (`selfHeal: true`, `prune: false`).
 
 ---
 
@@ -10,7 +10,7 @@ into the `searchess` namespace on demand (manual sync — no auto-sync yet).
 
 | File | Purpose |
 |---|---|
-| `install-argocd.sh` | Install Argo CD into the `argocd` namespace |
+| `install-argocd.sh` | Install Argo CD, patch reconciliation interval, register app |
 | `port-forward-argocd.sh` | Forward the Argo CD server to `localhost:8080` for UI access |
 | `searchess-project.yaml` | AppProject restricting the repo, cluster, and namespace scope |
 | `searchess-application.yaml` | Application pointing at `deployment/k8s/overlays/uni-server-registry` on the `main` branch |
@@ -40,31 +40,85 @@ kubectl -n argocd get secret argocd-initial-admin-secret \
 
 ---
 
-## Operator workflow — deploying after a CI image push
+## Auto-sync policy
 
-After a merge to `main`, CI builds images, pushes them with an immutable
-`sha-<7-char-git-sha>` tag, and commits the updated
-`deployment/k8s/overlays/uni-server-registry/kustomization.yaml` back to `main`.
-Argo CD then shows the Application as `OutOfSync`.
+| Setting | Value |
+|---|---|
+| `automated.selfHeal` | `true` — Argo CD re-applies Git state if live state drifts |
+| `automated.prune` | `false` — resources removed from Git are NOT auto-deleted |
+| `syncOptions` | `CreateNamespace=true`, `ServerSideApply=true` |
+| `targetRevision` | `main` |
 
-To deploy:
+Argo CD detects `OutOfSync` when `kustomization.yaml` changes (CI commits a new
+`sha-*` image tag) and applies the change automatically. No operator action is required
+for Scala services. The `python-ai-service` Rollout promotion remains manual (see below).
+
+To force an immediate sync without waiting for polling:
 
 ```bash
-# 1. Confirm which commit updated the overlay:
-git log --oneline deployment/k8s/overlays/uni-server-registry/kustomization.yaml
-
-# 2. Sync via CLI:
 argocd app sync searchess
-# Or: Argo CD UI → Applications → searchess → Sync
-
-# 3. Verify:
-kubectl get application searchess -n argocd
-kubectl get pods -n searchess
-curl http://localhost:10000/health   # via SSH tunnel
+# or: Argo CD UI → Applications → searchess → Sync
 ```
 
-Sync is **manual**. Auto-sync is disabled until the SHA-tag workflow has proven stable
-across several cycles.
+---
+
+## Reconciliation interval
+
+Argo CD polls Git to detect changes. The default interval is 3 minutes. The install
+script patches `argocd-cm` to reduce this to approximately **60–75 seconds**:
+
+```
+timeout.reconciliation:       60s
+timeout.reconciliation.jitter: 15s
+```
+
+This setting is applied by `install-argocd.sh` step 4 via:
+
+```bash
+kubectl -n argocd patch configmap argocd-cm --type merge -p \
+  '{"data":{"timeout.reconciliation":"60s","timeout.reconciliation.jitter":"15s"}}'
+```
+
+The application controller is restarted immediately after to pick up the change.
+
+### Why not GitHub webhooks?
+
+GitHub webhooks to `/api/webhook` are the true instant-detection option — Argo CD
+processes a push event within seconds of the CI commit landing. However, webhooks
+require Argo CD to be reachable at a public URL. The university server does not expose
+Argo CD via LoadBalancer or public ingress; access is through SSH tunnel /
+`kubectl port-forward` only.
+
+Shorter polling is the correct approach for this setup. The 60s target means CI image
+commits are detected and applied within approximately 1–2 minutes of the push, which
+is acceptable for a university deployment.
+
+If a public URL ever becomes available for this server, the webhook approach is:
+
+```bash
+# On GitHub: Settings → Webhooks → Add webhook
+#   Payload URL: https://<public-argo-cd-url>/api/webhook
+#   Content type: application/json
+#   Events: Just the push event
+
+# In argocd-cm, remove or zero-out the timeout:
+kubectl -n argocd patch configmap argocd-cm --type merge -p \
+  '{"data":{"timeout.reconciliation":"0s"}}'
+```
+
+### To update the interval on an existing installation
+
+```bash
+kubectl -n argocd patch configmap argocd-cm --type merge -p \
+  '{"data":{"timeout.reconciliation":"60s","timeout.reconciliation.jitter":"15s"}}'
+
+# Restart the application controller to apply:
+if kubectl -n argocd get statefulset argocd-application-controller &>/dev/null; then
+  kubectl -n argocd rollout restart statefulset/argocd-application-controller
+else
+  kubectl -n argocd rollout restart deployment/argocd-application-controller
+fi
+```
 
 ---
 
@@ -74,7 +128,7 @@ across several cycles.
 `Deployment`) in `uni-server-registry`. It runs **5 replicas** with replica-based
 weight approximation — no service mesh required.
 
-After Argo CD syncs a new image tag the Rollout controller drives:
+After Argo CD syncs a new image tag, the Rollout controller drives:
 
 ```
 setWeight 20 → 1 canary / 4 stable pods  (~20% traffic via kube-proxy)
@@ -86,6 +140,11 @@ pause {}     → wait for operator
 
 Argo CD health shows `Progressing` during an active rollout. This is expected.
 Traffic split is proportional to pod counts, not exact L7 percentages.
+
+**The Rollout only enters canary progression when the `python-ai-service` image tag
+changes.** Because the python-ai-service code lives in a separate repo, its image is
+never rebuilt on a normal push to this repo — only via `workflow_dispatch` with
+`rebuild_python_ai=true`. Scala service changes do not trigger the Rollout.
 
 ```bash
 # Watch rollout progress:
@@ -106,13 +165,17 @@ server before Argo CD syncs the Rollout resource. See
 
 ## Design notes
 
-- Argo CD is **not** exposed via LoadBalancer — access is through `kubectl port-forward`
-  and optionally an SSH tunnel from Windows.
-- Secrets remain plain Kubernetes Secret patches in the overlay until Sealed Secrets
-  is introduced.
-- Auto-sync and prune are both disabled. Enable them explicitly once the deployment
-  is stable and the team is comfortable with Argo CD managing lifecycle.
+- Argo CD is **not** exposed via LoadBalancer or public ingress. Access is through
+  `kubectl port-forward` and an SSH tunnel from Windows. This is intentional — the
+  university server does not have a public URL for the Argo CD endpoint.
+- `SealedSecret/searchess-secrets` is active in `uni-server-registry`. No plaintext
+  secrets appear in any committed file under that overlay. Plain `secret-dev.yaml`
+  patches apply only to local and uni-server-k3d overlays.
+- `prune: false` — resources removed from Git are never auto-deleted. Operators
+  review and delete orphaned resources manually.
+- `kubectl-set` is NOT in `ignoreDifferences` — manual image overrides via
+  `kubectl set image` remain visible as drift, not silently hidden.
 - The `uni-server-k3d` manual-import workflow and `deploy-server-registry.sh` remain
-  available as fallbacks.
+  available as fallbacks if Argo CD is unavailable.
 
 See `docs/deployment/registry-deployment.md` for the full deployment context.
