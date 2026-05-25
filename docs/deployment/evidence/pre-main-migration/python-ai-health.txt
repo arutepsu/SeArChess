@@ -1,0 +1,1 @@
+{"status":"ok","service":"searchess-ai-service","version":"0.1.0"}pod "curl-test" deleted

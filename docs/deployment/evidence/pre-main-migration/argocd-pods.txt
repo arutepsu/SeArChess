@@ -1,0 +1,8 @@
+NAME                                               READY   STATUS    RESTARTS   AGE   IP           NODE                            NOMINATED NODE   READINESS GATES
+argocd-application-controller-0                    1/1     Running   0          42h   10.42.0.48   k3d-searchess-server-server-0   <none>           <none>
+argocd-applicationset-controller-b4965498f-hqswv   1/1     Running   0          42h   10.42.0.42   k3d-searchess-server-server-0   <none>           <none>
+argocd-dex-server-6ffc6fb7c5-72mlh                 1/1     Running   0          42h   10.42.0.43   k3d-searchess-server-server-0   <none>           <none>
+argocd-notifications-controller-59467f58dd-2lvh5   1/1     Running   0          42h   10.42.0.47   k3d-searchess-server-server-0   <none>           <none>
+argocd-redis-9476657f8-9grmz                       1/1     Running   0          42h   10.42.0.44   k3d-searchess-server-server-0   <none>           <none>
+argocd-repo-server-687c69f77-ks4dt                 1/1     Running   0          42h   10.42.0.49   k3d-searchess-server-server-0   <none>           <none>
+argocd-server-6f9dc946f7-gdz9r                     1/1     Running   0          42h   10.42.0.46   k3d-searchess-server-server-0   <none>           <none>
