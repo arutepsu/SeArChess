@@ -34,7 +34,7 @@ progressive canary delivery, with a manual promotion gate before full rollout.
 - No service mesh. Traffic splitting is replica-based, not L7-weighted.
 - Sealed Secrets uses a self-managed cluster key, not a KMS-backed key.
 - `prune: false` — old resources are not auto-deleted.
-- Partial distributed tracing: game-service (F1) and history-service (F2) emit spans; ai-service and python-ai-service are not yet instrumented (F3–F4).
+- Partial distributed tracing: game-service (F1), history-service (F2), and ai-service (F3) emit spans; python-ai-service is not yet instrumented (F4). The HTTP call chain game-service → ai-service is now a single linked trace.
 - No automated canary analysis (AnalysisTemplate not wired).
 - Mongo is pinned to 4.4 due to AVX CPU limitations on the university VM.
 
@@ -410,7 +410,7 @@ moment auto-sync was first activated.
 - [x] OpenTelemetry Collector + Tempo — infrastructure deployed; Grafana datasource provisioned
 - [x] game-service — OTel Java agent auto-instrumentation (F1 complete; spans visible in Grafana Tempo)
 - [x] history-service — OTel Java agent auto-instrumentation (F2 complete; spans visible in Grafana Tempo)
-- [ ] ai-service — OTel Java agent instrumentation (F3, pending)
+- [x] ai-service — OTel Java agent auto-instrumentation (F3 complete; HTTP call chain game-service → ai-service linked in Tempo)
 - [ ] python-ai-service — OTel Python SDK instrumentation (F4, pending; separate repo)
 
 ### Priority 4 — Security and progressive delivery
@@ -426,12 +426,9 @@ OpenTelemetry instrumentation. The Tempo and OTel Collector infrastructure is de
 and ready to receive spans; nothing will appear in Grafana Explore until services emit
 traces.
 
-**F1 and F2 are complete.** game-service and history-service emit spans to Grafana Tempo via Java agent auto-instrumentation.
+**F1, F2, and F3 are complete.** game-service, history-service, and ai-service emit spans to Grafana Tempo via Java agent auto-instrumentation. The game-service → ai-service HTTP call chain is a single linked trace.
 Remaining instrumentation tasks:
 
-| # | Task | Notes |
-|---|---|---|
-| F3 | Instrument **ai-service** with OTel Java agent | Same pattern as F1/F2 — `Dockerfile.ai` + `ai-service/configmap.yaml`; agent covers outbound HTTP to python-ai-service; completing this closes the HTTP call chain from game-service |
 | F4 | Instrument **python-ai-service** with OTel Python SDK | Separate repo (`arutepsu/searchess-ai-service`); Python SDK; rebuilt via `workflow_dispatch rebuild_python_ai=true` only |
 | F5 | Exact L7 traffic splitting (optional) | Current canary is replica-based. Exact per-request splitting requires Istio, Linkerd/SMI, NGINX Ingress, or Envoy routing. Only needed if replica-based control is insufficient. |
 
@@ -461,7 +458,7 @@ as a deficiency.
 | No service mesh | Traffic splitting is pod-count-based, not L7-weighted | Istio, Linkerd, or Envoy Gateway |
 | No exact canary traffic splitting | 20% weight ≈ 1 pod, not 20% of requests | Service mesh with traffic routing |
 | `prune: false` | Orphaned resources accumulate unless manually deleted | Enable after operators are confident in lifecycle |
-| Partial service span emission | game-service (F1) and history-service (F2) emit spans; ai-service and python-ai-service have no spans yet (F3–F4) — HTTP call chain traces are incomplete | Instrument remaining services — see docs/deployment/opentelemetry-tempo.md §6 |
+| Partial service span emission | game-service, history-service, and ai-service emit spans (F1–F3); python-ai-service has no spans yet (F4) — ai-service shows the outbound call to python-ai-service but Python internals are not visible | Instrument python-ai-service — see docs/deployment/opentelemetry-tempo.md §6.4 |
 | No automated canary analysis | Canary health is assessed manually | Add AnalysisTemplate + Prometheus metrics gate |
 | No production secret rotation | Sealed Secrets key is static; rotation requires re-sealing | KMS-backed key, automated re-sealing pipeline |
 | Mongo 4.4 (not 7.0) | Missing features and security fixes in Mongo 5+ | Move to a VM or node with AVX support |

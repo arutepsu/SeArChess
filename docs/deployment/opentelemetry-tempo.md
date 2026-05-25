@@ -1,6 +1,6 @@
 # Searchess — OpenTelemetry and Tempo Distributed Tracing
 
-**Status:** Infrastructure deployed; game-service (F1) and history-service (F2) instrumented; ai-service and python-ai-service are F3–F4  
+**Status:** Infrastructure deployed; game-service (F1), history-service (F2), and ai-service (F3) instrumented; python-ai-service is F4  
 **Date:** 2026-05-25  
 **Scope:** All Kubernetes environments (base); university server GitOps overlay
 
@@ -120,18 +120,19 @@ No application code changed. No overlay-specific changes required. All three ove
 | Tempo pod running | Active |
 | OTel Collector pod running | Active |
 | Grafana Tempo datasource provisioned | Active |
-| Trace data in Grafana | **Active** — game-service and history-service emit spans |
+| Trace data in Grafana | **Active** — game-service, history-service, and ai-service emit spans |
 | game-service traces | **Active (F1)** — Java agent auto-instrumentation; HTTP server, JDBC, Redis, outbound HTTP auto-instrumented |
 | history-service traces | **Active (F2)** — Java agent auto-instrumentation; JDBC and Redis Streams consumer auto-instrumented |
-| ai-service traces | **F3** — not yet instrumented |
+| ai-service traces | **Active (F3)** — Java agent auto-instrumentation; HTTP server and outbound HTTP to python-ai-service auto-instrumented |
 | python-ai-service traces | **F4** — not yet instrumented |
 
-Grafana → Explore → Tempo → service name `searchess-game-service` or
-`searchess-history-service` will show spans once each service has handled at least one
-request. Cross-service trace continuity (game-service → history-service span linkage)
-requires both sides to propagate the W3C `traceparent` header — the Java agent handles
-this automatically for HTTP calls, but the Redis Streams path does not carry trace
-context natively. ai-service and python-ai-service do not appear in Tempo yet.
+Grafana → Explore → Tempo shows spans for `searchess-game-service`,
+`searchess-history-service`, and `searchess-ai-service`. The HTTP call chain
+game-service → ai-service is now a single linked trace with W3C `traceparent`
+propagated automatically by the Java agent on both ends. The ai-service →
+python-ai-service hop appears as an outbound HTTP span in the ai-service trace, but
+python-ai-service internals are not visible until F4. python-ai-service does not appear
+in Tempo yet.
 
 ---
 
@@ -230,19 +231,38 @@ ai-service over HTTP) will show as a single linked trace once F3 is complete.
 
 ---
 
-### 6.3 ai-service — F3 (pending)
+### 6.3 ai-service — F3 (complete)
 
-Same approach: `Dockerfile.ai` + `deployment/k8s/base/ai-service/configmap.yaml`.
+Same pattern as F1/F2. `Dockerfile.ai` gets the `otel-agent` download stage (v2.10.0)
+and `COPY --from=otel-agent`. `deployment/k8s/base/ai-service/configmap.yaml` receives
+the OTel env vars.
 
 ```yaml
 JAVA_TOOL_OPTIONS: "-javaagent:/app/opentelemetry-javaagent.jar"
 OTEL_SERVICE_NAME: "searchess-ai-service"
 OTEL_TRACES_EXPORTER: "otlp"
+OTEL_METRICS_EXPORTER: "none"
+OTEL_LOGS_EXPORTER: "none"
 OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
 OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
 ```
 
-The agent will auto-instrument the outbound HTTP call to python-ai-service.
+**What is auto-instrumented:**
+
+| Instrumentation | Auto-detected |
+|---|---|
+| Incoming HTTP requests | http4s server endpoints (health, move suggestions) |
+| Outbound HTTP to python-ai-service | Proxy call — span includes HTTP method, URL, status |
+
+**Cross-service trace linkage:** With both game-service (F1) and ai-service (F3)
+instrumented, the game-service → ai-service HTTP call is now a single linked trace.
+The Java agent propagates W3C `traceparent` on the outbound call from game-service and
+reads it on the inbound request at ai-service, producing a parent-child span relationship.
+
+The ai-service → python-ai-service outbound HTTP span will appear in the ai-service
+trace tree, but python-ai-service internals (model inference, preprocessing) are not
+visible until F4. The span will show as an HTTP client span that ends when the response
+arrives, with no child spans from the Python side.
 
 ---
 
@@ -298,7 +318,7 @@ game-service → history-service, game-service → ai-service → python-ai-serv
 | Limitation | Impact | Resolution |
 |---|---|---|
 | Tempo uses `emptyDir` storage | Traces lost on Tempo pod restart | Add a PersistentVolume when trace durability is needed |
-| Partial service instrumentation | game-service and history-service emit spans; ai-service and python-ai-service not yet instrumented | F3–F4 instrumentation |
+| Partial service instrumentation | game-service, history-service, and ai-service emit spans; python-ai-service not yet instrumented | F4 instrumentation |
 | No manual business-logic spans | Agent auto-instruments framework calls only; move validation, AI decision spans are absent | Add manual spans with OTel SDK after auto-instrumentation is validated |
 | Retention set to 24h | Old traces expire automatically | Increase `block_retention` in tempo-config ConfigMap |
 | Local k3d images must be imported | `grafana/tempo:2.6.1` and `otel/opentelemetry-collector-contrib:0.114.0` must be pulled or imported for local-k3d | `k3d image import grafana/tempo:2.6.1 otel/opentelemetry-collector-contrib:0.114.0` |
