@@ -230,21 +230,31 @@ See `deployment/argocd/README.md` for the full Argo CD directory reference.
 
 ---
 
-## Argo CD drift — StatefulSet PVC retention policy
+## Argo CD drift — StatefulSet default fields
 
 After the first Argo CD sync, `StatefulSet/mongo`, `StatefulSet/postgres`, and
 `StatefulSet/redis` remained `OutOfSync` despite the sync operation succeeding and
 all pods being `Healthy`.
 
-**Root cause:** Kubernetes 1.27+ defaults
-`spec.persistentVolumeClaimRetentionPolicy` to `{whenDeleted: Retain, whenScaled: Retain}`
-on every StatefulSet. The live objects contained this field; the Kustomize-rendered
-manifests did not. Argo CD diff detected the gap and reported persistent drift.
+**Root cause:** Kubernetes defaults several fields on every StatefulSet that were
+absent from the Kustomize-rendered manifests. Argo CD diff detected the gap and
+reported persistent drift. The defaulted fields are:
 
-**Fix:** Added the field explicitly to all three base StatefulSet manifests so the
-rendered output matches the live state exactly:
+- `spec.persistentVolumeClaimRetentionPolicy` (Kubernetes 1.27+)
+- `spec.podManagementPolicy`
+- `spec.revisionHistoryLimit`
+- `spec.updateStrategy`
+
+**Fix:** Added all four fields explicitly to all three base StatefulSet manifests so
+the rendered output matches the live state exactly:
 
 ```yaml
+podManagementPolicy: OrderedReady
+revisionHistoryLimit: 10
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    partition: 0
 persistentVolumeClaimRetentionPolicy:
   whenDeleted: Retain
   whenScaled: Retain
