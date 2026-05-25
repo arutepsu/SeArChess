@@ -45,7 +45,26 @@ else
   kubectl -n argocd rollout status deployment/argocd-application-controller  --timeout=300s
 fi
 
-# ── 4. Print next steps ────────────────────────────────────────────────────────
+# ── 4. Tune reconciliation interval ───────────────────────────────────────────
+# GitHub webhooks (/api/webhook) are the instant-detection option, but require
+# Argo CD to be publicly reachable — not possible on the university server without
+# exposing a port. The next-best option is shorter Git polling.
+# Default: 3 minutes. Target: ~60–75 s (60s + up to 15s jitter).
+echo "==> Patching argocd-cm: timeout.reconciliation=60s jitter=15s"
+kubectl -n argocd patch configmap argocd-cm --type merge -p \
+  '{"data":{"timeout.reconciliation":"60s","timeout.reconciliation.jitter":"15s"}}'
+
+# ── 5. Restart application-controller to apply argocd-cm changes ──────────────
+echo "==> Restarting argocd-application-controller..."
+if kubectl -n argocd get statefulset argocd-application-controller &>/dev/null; then
+  kubectl -n argocd rollout restart statefulset/argocd-application-controller
+  kubectl -n argocd rollout status  statefulset/argocd-application-controller --timeout=120s
+else
+  kubectl -n argocd rollout restart deployment/argocd-application-controller
+  kubectl -n argocd rollout status  deployment/argocd-application-controller  --timeout=120s
+fi
+
+# ── 6. Print next steps ────────────────────────────────────────────────────────
 echo ""
 echo "==> Argo CD ${ARGOCD_VERSION} is ready."
 echo ""
