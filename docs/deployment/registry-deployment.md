@@ -49,11 +49,55 @@ not `main-latest`.
 
 ---
 
+## CI/CD workflow boundaries
+
+Understanding which commits trigger image builds and which do not is critical for
+operating the deployment pipeline without unnecessary canary promotions.
+
+| Commit type | Image rebuild? | Argo CD action |
+|---|---|---|
+| Application code change (`apps/**`, `modules/**`) | **Yes** — all four images rebuilt | Detects OutOfSync (new sha-* tag in overlay); auto-syncs |
+| Dockerfile change | **Yes** | Same as above |
+| `build.sbt` / `project/**` change | **Yes** | Same as above |
+| Kubernetes manifest change (`deployment/k8s/**`) | **No** | Detects OutOfSync (manifest changed in Git); auto-syncs |
+| Argo CD config change (`deployment/argocd/**`) | **No** | No sync needed (not managed by Argo CD Application) |
+| Documentation change (`docs/**`) | **No** | Nothing |
+| Evidence file change | **No** | Nothing |
+| Overlay kustomization.yaml (written by CI) | **No** | Detects OutOfSync; auto-syncs |
+
+**Consequence for Argo Rollouts:**  
+`python-ai-service` enters a canary pause **only when its image tag changes** — i.e.,
+only after an application code change triggers a build and CI writes a new `sha-*` tag
+into the overlay. A pure infrastructure commit (adding a new ConfigMap, tweaking a
+Grafana dashboard) causes Argo CD to sync the changed manifest with no Rollout
+triggered, because the `Rollout` object's image tag does not change.
+
+**Manual override:**  
+`workflow_dispatch` triggers the full image rebuild regardless of what files changed.
+Use this when you need to force a rebuild without a code change (e.g. to pick up a
+base-image security patch).
+
+---
+
 ## GitHub Actions workflow
 
-Trigger: push to `main` branch (excluding commits that touch only
-`deployment/k8s/overlays/uni-server-registry/kustomization.yaml`), or manual dispatch
-via `workflow_dispatch`.
+Trigger: push to `main` branch **only when app code, build files, or Dockerfiles
+change** (see paths filter below), or manual dispatch via `workflow_dispatch`.
+
+Paths that trigger an image build:
+
+```
+apps/**
+modules/**
+project/**
+build.sbt
+**/Dockerfile
+Dockerfile*
+.github/workflows/build-images.yml
+```
+
+All other paths — including `docs/**`, `deployment/k8s/**`, `deployment/argocd/**`,
+`deployment/server/**` — do **not** trigger the workflow.
 
 Jobs:
 - **build-scala-services** — matrix build for `game-service`, `history-service`,
@@ -63,8 +107,8 @@ Jobs:
 - **update-overlay** — runs after both build jobs succeed. Installs kustomize, updates
   the four service image `newTag` fields in
   `deployment/k8s/overlays/uni-server-registry/kustomization.yaml` to
-  `sha-<SHORT_SHA>`, and commits the change back to `main`. Argo CD then detects
-  `OutOfSync`; the operator manually syncs to deploy.
+  `sha-<SHORT_SHA>`, validates the rendered overlay, and commits the change back to
+  `main`. Argo CD then detects `OutOfSync` and auto-syncs.
 
 All images are pushed with `sha-<7-char-git-sha>` (deployment tag) and `main-latest`
 (convenience tag).
@@ -75,8 +119,8 @@ The overlay update commit targets only `kustomization.yaml`. Three independent l
 prevent it from re-triggering the build workflow:
 
 1. `GITHUB_TOKEN` pushes do not trigger `push` workflows (GitHub built-in protection).
-2. `paths-ignore` on `kustomization.yaml` suppresses the trigger for commits that touch
-   only that file.
+2. `kustomization.yaml` is not listed in the `paths` filter, so the commit never matches
+   the trigger condition.
 3. `[skip ci]` in the commit message signals CI systems to skip the run.
 
 ### GHCR authentication (workflow)
