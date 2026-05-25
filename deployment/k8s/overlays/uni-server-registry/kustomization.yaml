@@ -5,6 +5,7 @@ namespace: searchess
 
 resources:
 - ../../base
+- sealed-secret.yaml
 
 # Image tags are managed by CI (.github/workflows/build-images.yml).
 # On every push to main, the workflow updates newTag to sha-<7-char-git-sha>,
@@ -48,7 +49,7 @@ patches:
   target:
     kind: Service
     name: grafana
-- path: patches/secret-dev.yaml
+- path: patches/delete-plain-secret.yaml
   target:
     kind: Secret
     name: searchess-secrets
