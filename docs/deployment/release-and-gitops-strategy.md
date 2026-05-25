@@ -253,14 +253,29 @@ Verify the Application remains `Synced + Healthy` and the live image tags match 
 
 ### Phase 6 — Implement SHA image tag update workflow
 
-Update GitHub Actions to:
-1. Build and push images tagged `sha-<git-sha>` on every push to `main`.
-2. Run a post-build step that updates the `newTag` fields in
-   `deployment/k8s/overlays/uni-server-registry/kustomization.yaml` and commits the
-   result back to `main`.
+**Status: complete** — implemented on branch `feature/sha-image-tags`.
 
-Until this step is complete, image tags in the overlay must be updated manually before
-each deployment.
+`.github/workflows/build-images.yml` was updated to:
+
+1. Trigger on `push` to `main` (not `performance`), with `paths-ignore` on
+   `deployment/k8s/overlays/uni-server-registry/kustomization.yaml` to prevent the
+   overlay update commit from re-triggering the workflow.
+2. Build and push images tagged `sha-<7-char-git-sha>` (immutable, deployment tag)
+   and `main-latest` (floating convenience tag) for all four services.
+3. Run an `update-overlay` job that installs kustomize, calls
+   `kustomize edit set image` to update the four service `newTag` fields to
+   `sha-<7-char-git-sha>`, and commits only `kustomization.yaml` back to `main`
+   with message `Deploy images sha-<SHORT_SHA> [skip ci]`.
+4. Three independent layers prevent the overlay commit from triggering an infinite
+   build loop: `GITHUB_TOKEN` push protection (GitHub built-in), `paths-ignore`, and
+   `[skip ci]` in the commit message.
+
+Key files changed in Phase 6:
+- `.github/workflows/build-images.yml`
+- `deployment/k8s/overlays/uni-server-registry/kustomization.yaml` (comment only;
+  CI manages the `newTag` values)
+- `docs/deployment/registry-deployment.md`
+- `deployment/argocd/README.md`
 
 ### Phase 7 — Keep manual sync
 

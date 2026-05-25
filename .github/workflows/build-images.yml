@@ -1,18 +1,25 @@
-name: Build and Push Docker Images
+name: Build and push Docker images
 
 on:
   push:
     branches:
-      - performance
+      - main
+    # The update-overlay job commits only kustomization.yaml back to main.
+    # paths-ignore prevents that commit from re-triggering this workflow.
+    # GITHUB_TOKEN pushes also do not trigger workflows by default (GitHub
+    # built-in protection), and [skip ci] in the commit message adds a third
+    # guard. All three layers together prevent infinite loops.
+    paths-ignore:
+      - 'deployment/k8s/overlays/uni-server-registry/kustomization.yaml'
   workflow_dispatch:
     inputs:
       tag:
-        description: "Additional image tag to apply (e.g. a release label). SHA tag is always applied."
+        description: "Additional image tag (e.g. a release label). SHA tag is always applied."
         required: false
         default: ""
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 env:
@@ -23,6 +30,10 @@ jobs:
   build-scala-services:
     name: Build Scala services
     runs-on: ubuntu-latest
+    # Belt-and-suspenders guard: do not run if triggered by the bot commit
+    # that updates the overlay. paths-ignore above is the primary guard;
+    # this condition covers edge cases such as workflow_dispatch from the bot.
+    if: github.actor != 'github-actions[bot]'
 
     strategy:
       fail-fast: false
@@ -49,14 +60,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # SHORT_SHA is the first 7 characters of GITHUB_SHA.
+      # Tag format: sha-<SHORT_SHA>  e.g. sha-a1b2c3d
+      - name: Set short SHA
+        id: sha
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.ORG }}/searchess-${{ matrix.service }}
           tags: |
-            type=sha,prefix=,format=short
-            type=raw,value=performance-latest,enable=true
+            type=raw,value=sha-${{ steps.sha.outputs.SHORT_SHA }}
+            type=raw,value=main-latest
             type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
 
       - name: Set up Docker Buildx
@@ -76,6 +93,7 @@ jobs:
   build-python-ai-service:
     name: Build Python AI service
     runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
 
     steps:
       - name: Checkout searchess (for workflow context)
@@ -98,14 +116,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set short SHA
+        id: sha
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.ORG }}/searchess-python-ai-service
           tags: |
-            type=sha,prefix=,format=short
-            type=raw,value=performance-latest,enable=true
+            type=raw,value=sha-${{ steps.sha.outputs.SHORT_SHA }}
+            type=raw,value=main-latest
             type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
 
       - name: Set up Docker Buildx
@@ -121,3 +143,71 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=python-ai-service
           cache-to: type=gha,mode=max,scope=python-ai-service
+
+  update-overlay:
+    name: Update registry overlay image tags
+    runs-on: ubuntu-latest
+    needs: [build-scala-services, build-python-ai-service]
+    if: github.actor != 'github-actions[bot]'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set short SHA
+        id: sha
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      # Install kustomize so we can use `kustomize edit set image`.
+      # Pinned to a specific version for reproducibility.
+      - name: Install kustomize
+        run: |
+          VERSION=v5.4.3
+          curl -sLo kustomize.tar.gz \
+            "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${VERSION}/kustomize_${VERSION}_linux_amd64.tar.gz"
+          tar -xzf kustomize.tar.gz
+          chmod +x kustomize
+          sudo mv kustomize /usr/local/bin/kustomize
+
+      # Update the four GHCR service image tags to the immutable SHA tag.
+      # mongo is intentionally not touched — it is pinned to 4.4 in the overlay
+      # and is not managed by this workflow.
+      - name: Update image tags in registry overlay
+        run: |
+          SHORT_SHA=${{ steps.sha.outputs.SHORT_SHA }}
+          cd deployment/k8s/overlays/uni-server-registry
+          kustomize edit set image \
+            searchess/game-service=ghcr.io/arutepsu/searchess-game-service:sha-${SHORT_SHA} \
+            searchess/history-service=ghcr.io/arutepsu/searchess-history-service:sha-${SHORT_SHA} \
+            searchess/ai-service=ghcr.io/arutepsu/searchess-ai-service:sha-${SHORT_SHA} \
+            searchess/python-ai-service=ghcr.io/arutepsu/searchess-python-ai-service:sha-${SHORT_SHA}
+
+      # Render the overlay and assert all four GHCR app images resolve to the
+      # expected SHA tag before committing. Fails the job if kustomize cannot
+      # render valid YAML or if any image is still on a floating tag.
+      - name: Validate rendered overlay
+        run: |
+          SHORT_SHA=${{ steps.sha.outputs.SHORT_SHA }}
+          RENDERED=$(kubectl kustomize deployment/k8s/overlays/uni-server-registry)
+          echo "$RENDERED"
+          for SERVICE in game-service history-service ai-service python-ai-service; do
+            EXPECTED="ghcr.io/arutepsu/searchess-${SERVICE}:sha-${SHORT_SHA}"
+            if ! echo "$RENDERED" | grep -qF "$EXPECTED"; then
+              echo "ERROR: expected image not found in rendered output: $EXPECTED"
+              exit 1
+            fi
+          done
+          echo "Validation passed: all four app images reference sha-${SHORT_SHA}"
+
+      # Commit only kustomization.yaml.
+      # [skip ci] tells GitHub Actions to skip workflow runs for this commit
+      # (third loop-prevention layer after paths-ignore and GITHUB_TOKEN protection).
+      # git pull --rebase handles the rare case where another run pushed first.
+      - name: Commit and push tag update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add deployment/k8s/overlays/uni-server-registry/kustomization.yaml
+          git commit -m "Deploy images sha-${{ steps.sha.outputs.SHORT_SHA }} [skip ci]"
+          git pull --rebase origin main
+          git push origin main

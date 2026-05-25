@@ -38,32 +38,52 @@ pulled from Docker Hub.
 
 ## Tag strategy
 
-| Tag | Meaning | Stability |
-|---|---|---|
-| `<git-sha>` (7-char short SHA) | Immutable — exact commit | Stable, use for prod-like deploys |
-| `performance-latest` | Floating — latest passing build on `performance` branch | Convenient for rapid iteration |
+| Tag | Format | Stability | Role |
+|---|---|---|---|
+| Immutable SHA tag | `sha-<7-char-git-sha>` | Stable — exact commit | **Deployment source of truth.** Written into the Kustomize overlay by CI. |
+| Convenience tag | `main-latest` | Floating — latest build on `main` | Reference only. Never used as the deployment tag in the overlay. |
 
 The GitHub Actions workflow (`.github/workflows/build-images.yml`) pushes both tags on
-every push to the `performance` branch.
+every push to the `main` branch. The overlay always references `sha-<7-char-git-sha>`,
+not `main-latest`.
 
 ---
 
 ## GitHub Actions workflow
 
-Trigger: push to `performance` branch, or manual dispatch via `workflow_dispatch`.
+Trigger: push to `main` branch (excluding commits that touch only
+`deployment/k8s/overlays/uni-server-registry/kustomization.yaml`), or manual dispatch
+via `workflow_dispatch`.
 
 Jobs:
-- **build-scala-services** — matrix build for `game-service`, `history-service`, `ai-service`
-  using their respective Dockerfiles in the `searchess` repo.
+- **build-scala-services** — matrix build for `game-service`, `history-service`,
+  `ai-service` using their respective Dockerfiles in the `searchess` repo.
 - **build-python-ai-service** — checks out the sibling `arutepsu/searchess-ai-service`
   repository and builds from its `Dockerfile`.
+- **update-overlay** — runs after both build jobs succeed. Installs kustomize, updates
+  the four service image `newTag` fields in
+  `deployment/k8s/overlays/uni-server-registry/kustomization.yaml` to
+  `sha-<SHORT_SHA>`, and commits the change back to `main`. Argo CD then detects
+  `OutOfSync`; the operator manually syncs to deploy.
 
-All images are pushed with both the short SHA tag and `performance-latest`.
+All images are pushed with `sha-<7-char-git-sha>` (deployment tag) and `main-latest`
+(convenience tag).
+
+### Infinite loop prevention
+
+The overlay update commit targets only `kustomization.yaml`. Three independent layers
+prevent it from re-triggering the build workflow:
+
+1. `GITHUB_TOKEN` pushes do not trigger `push` workflows (GitHub built-in protection).
+2. `paths-ignore` on `kustomization.yaml` suppresses the trigger for commits that touch
+   only that file.
+3. `[skip ci]` in the commit message signals CI systems to skip the run.
 
 ### GHCR authentication (workflow)
 
 The workflow uses `GITHUB_TOKEN` (automatically provided by Actions) with
-`permissions: packages: write`. No additional secret is needed for public repos.
+`permissions: contents: write, packages: write`. No additional secret is needed for
+public repos.
 
 If `searchess-ai-service` is private, add a Personal Access Token (PAT) with
 `read:packages` scope as the repository secret `AI_SERVICE_PAT`, and uncomment the
@@ -120,34 +140,57 @@ confirms `mongo` is pinned to `4.4`, and runs the Envoy and Grafana health endpo
 
 ---
 
-## Rolling update after a new image push
+## Deploying after a CI image push (GitOps flow)
 
-After CI pushes new images to GHCR:
+After a merge/push to `main`, the full GitOps flow is:
 
-```bash
-# Restart deployments to pick up the new 'performance-latest' digest:
-kubectl rollout restart deployment/game-service deployment/history-service \
-  deployment/ai-service deployment/python-ai-service -n searchess
+```
+push/merge to main
+  → GitHub Actions builds images
+  → pushes sha-<git-sha> + main-latest to GHCR
+  → commits kustomization.yaml update (sha-<git-sha> tag) to main
+  → Argo CD detects OutOfSync
+  → operator manually syncs:
 
-# Watch rollout:
-kubectl rollout status deployment/game-service -n searchess
+      argocd app sync searchess
+      # or: Argo CD UI → Applications → searchess → Sync
+
+  → verify Synced + Healthy:
+      kubectl get application searchess -n argocd
+      curl http://localhost:10000/health   # (via SSH tunnel)
 ```
 
-To pin to a specific SHA instead of restarting on the floating tag:
-
-```bash
-bash deployment/server/deploy-server-registry.sh <sha>
-```
+Do not use `kubectl rollout restart` on the floating `main-latest` tag — that bypasses
+the GitOps audit trail. Always deploy via Argo CD sync after CI updates the overlay.
 
 ---
 
 ## Rollback
 
-```bash
-# Find the previous SHA from CI runs or git log:
-git log --oneline -10
+**Standard rollback — revert the image-tag commit:**
 
-# Re-deploy the previous commit:
+```bash
+# Find the commit that updated the tags:
+git log --oneline deployment/k8s/overlays/uni-server-registry/kustomization.yaml
+
+# Revert it:
+git revert <image-tag-update-commit>
+git push origin main
+# Argo CD detects OutOfSync; operator manually syncs
+```
+
+**Rollback to a release tag:**
+
+```bash
+# Update targetRevision in deployment/argocd/searchess-application.yaml
+# to the desired tag (e.g. v0.1.0-gitops), apply, then sync:
+kubectl apply -f deployment/argocd/searchess-application.yaml
+argocd app sync searchess
+```
+
+**Emergency fallback (Argo CD unavailable):**
+
+```bash
 bash deployment/server/deploy-server-registry.sh <previous-sha>
 ```
 
@@ -159,7 +202,7 @@ bash deployment/server/deploy-server-registry.sh <previous-sha>
 |---|---|---|
 | Overlay | `deployment/k8s/overlays/uni-server-k3d` | `deployment/k8s/overlays/uni-server-registry` |
 | imagePullPolicy | `Never` | `IfNotPresent` (base default) |
-| Image source | `searchess/*:local` (k3d imported) | `ghcr.io/arutepsu/searchess-*:performance-latest` |
+| Image source | `searchess/*:local` (k3d imported) | `ghcr.io/arutepsu/searchess-*:sha-<git-sha>` (written by CI) |
 | Mongo | `4.4` | `4.4` |
 | Deploy script | `deploy-server-k3d.sh` | `deploy-server-registry.sh` |
 | Verify script | `verify-server-k3d.sh` | `verify-server-registry.sh` |
@@ -181,7 +224,7 @@ into namespace `searchess` on demand.
 | Property | Value |
 |---|---|
 | Source repo | `https://github.com/arutepsu/SeArChess.git` |
-| Branch | `performance` |
+| Branch | `main` |
 | Path | `deployment/k8s/overlays/uni-server-registry` |
 | Destination | `https://kubernetes.default.svc`, namespace `searchess` |
 | Sync | **Manual** — no auto-sync in this phase |
