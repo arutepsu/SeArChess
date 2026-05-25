@@ -1,6 +1,6 @@
 # Searchess — OpenTelemetry and Tempo Distributed Tracing
 
-**Status:** Infrastructure deployed; game-service instrumented (F1 complete); history-service, ai-service, python-ai-service are F2–F4  
+**Status:** Infrastructure deployed; game-service (F1) and history-service (F2) instrumented; ai-service and python-ai-service are F3–F4  
 **Date:** 2026-05-25  
 **Scope:** All Kubernetes environments (base); university server GitOps overlay
 
@@ -120,15 +120,18 @@ No application code changed. No overlay-specific changes required. All three ove
 | Tempo pod running | Active |
 | OTel Collector pod running | Active |
 | Grafana Tempo datasource provisioned | Active |
-| Trace data in Grafana | **Active** — game-service emits spans; search service `searchess-game-service` |
-| game-service traces | **Active (F1)** — Java agent auto-instrumentation; JDBC, Redis, HTTP auto-instrumented |
-| history-service traces | **F2** — not yet instrumented |
+| Trace data in Grafana | **Active** — game-service and history-service emit spans |
+| game-service traces | **Active (F1)** — Java agent auto-instrumentation; HTTP server, JDBC, Redis, outbound HTTP auto-instrumented |
+| history-service traces | **Active (F2)** — Java agent auto-instrumentation; JDBC and Redis Streams consumer auto-instrumented |
 | ai-service traces | **F3** — not yet instrumented |
 | python-ai-service traces | **F4** — not yet instrumented |
 
-Grafana → Explore → Tempo → service name `searchess-game-service` will show spans once
-game-service has handled at least one request. history-service, ai-service, and
-python-ai-service do not appear in Tempo yet.
+Grafana → Explore → Tempo → service name `searchess-game-service` or
+`searchess-history-service` will show spans once each service has handled at least one
+request. Cross-service trace continuity (game-service → history-service span linkage)
+requires both sides to propagate the W3C `traceparent` header — the Java agent handles
+this automatically for HTTP calls, but the Redis Streams path does not carry trace
+context natively. ai-service and python-ai-service do not appear in Tempo yet.
 
 ---
 
@@ -194,20 +197,36 @@ a later, optional step.
 
 ---
 
-### 6.2 history-service — F2 (pending)
+### 6.2 history-service — F2 (complete)
 
-Same approach as F1: add the Java agent download stage to `Dockerfile.history`, add
-OTel env vars to `deployment/k8s/base/history-service/configmap.yaml`.
+Same pattern as F1. `Dockerfile.history` gets the same `otel-agent` download stage
+(v2.10.0) and `COPY --from=otel-agent`. `deployment/k8s/base/history-service/configmap.yaml`
+receives the OTel env vars.
 
 ```yaml
 JAVA_TOOL_OPTIONS: "-javaagent:/app/opentelemetry-javaagent.jar"
 OTEL_SERVICE_NAME: "searchess-history-service"
 OTEL_TRACES_EXPORTER: "otlp"
+OTEL_METRICS_EXPORTER: "none"
+OTEL_LOGS_EXPORTER: "none"
 OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
 OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
 ```
 
-The Java agent will auto-instrument Postgres JDBC and Redis Streams consumption.
+**What is auto-instrumented:**
+
+| Instrumentation | Auto-detected |
+|---|---|
+| Incoming HTTP requests | http4s server health and ingest endpoints |
+| PostgreSQL JDBC | All `history.history_archives` reads and writes |
+| Redis Streams consumer | `XREADGROUP` calls on `searchess.history.archives` |
+
+**Cross-service trace continuity note:** The game-service → history-service delivery
+path uses Redis Streams, not HTTP. The Java agent auto-propagates W3C `traceparent`
+headers on HTTP calls but not through Redis message envelopes. Each service will show
+its own independent trace trees in Grafana Tempo rather than a single end-to-end trace
+for the game → history path. HTTP-based call chains (e.g., game-service calling
+ai-service over HTTP) will show as a single linked trace once F3 is complete.
 
 ---
 
@@ -279,7 +298,7 @@ game-service → history-service, game-service → ai-service → python-ai-serv
 | Limitation | Impact | Resolution |
 |---|---|---|
 | Tempo uses `emptyDir` storage | Traces lost on Tempo pod restart | Add a PersistentVolume when trace durability is needed |
-| Only game-service emits spans | Cross-service traces incomplete; history-service, ai-service, python-ai-service not yet instrumented | F2–F4 instrumentation |
+| Partial service instrumentation | game-service and history-service emit spans; ai-service and python-ai-service not yet instrumented | F3–F4 instrumentation |
 | No manual business-logic spans | Agent auto-instruments framework calls only; move validation, AI decision spans are absent | Add manual spans with OTel SDK after auto-instrumentation is validated |
 | Retention set to 24h | Old traces expire automatically | Increase `block_retention` in tempo-config ConfigMap |
 | Local k3d images must be imported | `grafana/tempo:2.6.1` and `otel/opentelemetry-collector-contrib:0.114.0` must be pulled or imported for local-k3d | `k3d image import grafana/tempo:2.6.1 otel/opentelemetry-collector-contrib:0.114.0` |

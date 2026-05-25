@@ -34,7 +34,7 @@ progressive canary delivery, with a manual promotion gate before full rollout.
 - No service mesh. Traffic splitting is replica-based, not L7-weighted.
 - Sealed Secrets uses a self-managed cluster key, not a KMS-backed key.
 - `prune: false` — old resources are not auto-deleted.
-- Partial distributed tracing: game-service emits spans (F1 complete); history-service, ai-service, and python-ai-service are not yet instrumented (F2–F4).
+- Partial distributed tracing: game-service (F1) and history-service (F2) emit spans; ai-service and python-ai-service are not yet instrumented (F3–F4).
 - No automated canary analysis (AnalysisTemplate not wired).
 - Mongo is pinned to 4.4 due to AVX CPU limitations on the university VM.
 
@@ -409,7 +409,7 @@ moment auto-sync was first activated.
 - [x] Postgres schema isolation (`game` / `history`)
 - [x] OpenTelemetry Collector + Tempo — infrastructure deployed; Grafana datasource provisioned
 - [x] game-service — OTel Java agent auto-instrumentation (F1 complete; spans visible in Grafana Tempo)
-- [ ] history-service — OTel Java agent instrumentation (F2, pending)
+- [x] history-service — OTel Java agent auto-instrumentation (F2 complete; spans visible in Grafana Tempo)
 - [ ] ai-service — OTel Java agent instrumentation (F3, pending)
 - [ ] python-ai-service — OTel Python SDK instrumentation (F4, pending; separate repo)
 
@@ -426,13 +426,12 @@ OpenTelemetry instrumentation. The Tempo and OTel Collector infrastructure is de
 and ready to receive spans; nothing will appear in Grafana Explore until services emit
 traces.
 
-**F1 is complete.** game-service emits spans to Grafana Tempo via Java agent auto-instrumentation.
+**F1 and F2 are complete.** game-service and history-service emit spans to Grafana Tempo via Java agent auto-instrumentation.
 Remaining instrumentation tasks:
 
 | # | Task | Notes |
 |---|---|---|
-| F2 | Instrument **history-service** with OTel Java agent | Same pattern as F1 — `Dockerfile.history` + `history-service/configmap.yaml`; agent covers JDBC and Redis Streams |
-| F3 | Instrument **ai-service** with OTel Java agent | Same pattern as F1 — `Dockerfile.ai` + `ai-service/configmap.yaml`; agent covers outbound HTTP to python-ai-service |
+| F3 | Instrument **ai-service** with OTel Java agent | Same pattern as F1/F2 — `Dockerfile.ai` + `ai-service/configmap.yaml`; agent covers outbound HTTP to python-ai-service; completing this closes the HTTP call chain from game-service |
 | F4 | Instrument **python-ai-service** with OTel Python SDK | Separate repo (`arutepsu/searchess-ai-service`); Python SDK; rebuilt via `workflow_dispatch rebuild_python_ai=true` only |
 | F5 | Exact L7 traffic splitting (optional) | Current canary is replica-based. Exact per-request splitting requires Istio, Linkerd/SMI, NGINX Ingress, or Envoy routing. Only needed if replica-based control is insufficient. |
 
@@ -462,7 +461,7 @@ as a deficiency.
 | No service mesh | Traffic splitting is pod-count-based, not L7-weighted | Istio, Linkerd, or Envoy Gateway |
 | No exact canary traffic splitting | 20% weight ≈ 1 pod, not 20% of requests | Service mesh with traffic routing |
 | `prune: false` | Orphaned resources accumulate unless manually deleted | Enable after operators are confident in lifecycle |
-| Partial service span emission | game-service emits spans (F1); history-service, ai-service, python-ai-service have no spans yet (F2–F4) — cross-service traces are incomplete | Instrument remaining services — see docs/deployment/opentelemetry-tempo.md §6 |
+| Partial service span emission | game-service (F1) and history-service (F2) emit spans; ai-service and python-ai-service have no spans yet (F3–F4) — HTTP call chain traces are incomplete | Instrument remaining services — see docs/deployment/opentelemetry-tempo.md §6 |
 | No automated canary analysis | Canary health is assessed manually | Add AnalysisTemplate + Prometheus metrics gate |
 | No production secret rotation | Sealed Secrets key is static; rotation requires re-sealing | KMS-backed key, automated re-sealing pipeline |
 | Mongo 4.4 (not 7.0) | Missing features and security fixes in Mongo 5+ | Move to a VM or node with AVX support |
