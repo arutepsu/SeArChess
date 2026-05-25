@@ -1,0 +1,1 @@
+{"status":"ok","service":"searchess-history-service","check":"process-liveness","gameServiceDependency":"optional-for-health","downstreamIngestionPath":"/internal/events/game","legacyIngestionPathEnabled":false,"archiveReadAudience":"internal-for-now"}pod "history-health" deleted

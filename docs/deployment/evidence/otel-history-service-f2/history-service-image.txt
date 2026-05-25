@@ -1,0 +1,1 @@
+ghcr.io/arutepsu/searchess-history-service:sha-4662dc3

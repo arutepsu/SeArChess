@@ -1,0 +1,20 @@
+Picked up JAVA_TOOL_OPTIONS: -javaagent:/app/opentelemetry-javaagent.jar
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+[otel.javaagent 2026-05-25 15:24:24:190 +0000] [main] INFO io.opentelemetry.javaagent.tooling.VersionLogger - opentelemetry-javaagent - version: 2.10.0
+{"ts":"2026-05-25T15:24:33.202789108Z","level":"info","service":"history-service","event":"startup_config","httpHost":"0.0.0.0","httpPort":8081,"gameServiceArchiveBaseUrl":"http://game-service:8080","storage":"postgres-slick","postgresSchema":"history","deliveryMode":"RedisStream","redisStream":"searchess.history.archives","redisGroup":"history-service","acceptLegacyIngestionPath":false}
+May 25, 2026 3:24:36 PM org.flywaydb.core.FlywayExecutor init
+INFO: Database: jdbc:postgresql://postgres:5432/searchess (PostgreSQL 16.14)
+May 25, 2026 3:24:37 PM org.flywaydb.core.internal.command.DbValidate validate
+INFO: Successfully validated 2 migrations (execution time 00:00.106s)
+May 25, 2026 3:24:37 PM org.flywaydb.core.internal.command.DbMigrate migrateGroup
+INFO: Current version of schema "history": 1
+May 25, 2026 3:24:37 PM org.flywaydb.core.internal.command.DbMigrate logSummary
+INFO: Schema "history" is up to date. No migration necessary.
+May 25, 2026 3:24:38 PM org.flywaydb.core.FlywayExecutor init
+INFO: Database: jdbc:postgresql://postgres:5432/searchess (PostgreSQL 16.14)
+{"ts":"2026-05-25T15:24:38.491901757Z","level":"info","service":"history-service","event":"postgres_schema_migrated","migrationsExecuted":0,"schemaVersion":"1"}
+SLF4J(W): No SLF4J providers were found.
+SLF4J(W): Defaulting to no-operation (NOP) logger implementation
+SLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.
+{"ts":"2026-05-25T15:24:47.700706314Z","level":"info","service":"history-service","event":"redis_consumer_started","stream":"searchess.history.archives","group":"history-service","consumer":"history-service-76f66c6f5c-4vgbc"}
+{"ts":"2026-05-25T15:24:47.702137742Z","level":"info","service":"history-service","event":"started","httpHost":"0.0.0.0","httpPort":8081,"healthPath":"/health","downstreamIngestionPath":"/internal/events/game","legacyIngestionPathEnabled":false}
