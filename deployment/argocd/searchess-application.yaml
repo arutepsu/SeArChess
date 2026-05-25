@@ -20,10 +20,11 @@ spec:
     namespace: searchess
 
   syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
     syncOptions:
-      # Create the searchess namespace if it does not exist.
       - CreateNamespace=true
-      # Apply server-side to avoid annotation size limits on large ConfigMaps.
       - ServerSideApply=true
 
     # No automated sync block — sync is initiated manually via the UI or argocd CLI.
