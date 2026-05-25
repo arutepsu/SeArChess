@@ -269,6 +269,56 @@ The fix flows through all overlays (`local-k3d`, `uni-server-k3d`,
 
 ---
 
+## Argo CD drift — k3s-managed StatefulSet fields
+
+After adding the Kubernetes-defaulted fields to the base manifests, the three
+StatefulSets still showed `OutOfSync`. Inspecting `managedFields` on the live objects
+revealed a second manager:
+
+| Resource | Managers |
+|---|---|
+| StatefulSet/mongo | `argocd-controller` (Apply), `kubectl-set` (Update), `k3s` (Update) |
+| StatefulSet/postgres | `argocd-controller` (Apply), `k3s` (Update) |
+| StatefulSet/redis | `argocd-controller` (Apply), `k3s` (Update) |
+
+**Root cause:** k3s writes additional fields (or re-writes defaulted fields) under its
+own manager entry after `argocd-controller` applies the manifest. Argo CD detects the
+gap between what it applied and what k3s wrote back, and reports persistent drift.
+
+**Fix:** Added `ignoreDifferences` rules to `deployment/argocd/searchess-application.yaml`
+scoped to the three StatefulSets and the `k3s` manager only:
+
+```yaml
+ignoreDifferences:
+  - group: apps
+    kind: StatefulSet
+    name: mongo
+    namespace: searchess
+    managedFieldsManagers:
+      - k3s
+  - group: apps
+    kind: StatefulSet
+    name: postgres
+    namespace: searchess
+    managedFieldsManagers:
+      - k3s
+  - group: apps
+    kind: StatefulSet
+    name: redis
+    namespace: searchess
+    managedFieldsManagers:
+      - k3s
+```
+
+**Scope limits:**
+- Only `mongo`, `postgres`, and `redis` StatefulSets are ignored — not all StatefulSets.
+- Only the `k3s` manager is ignored. `kubectl-set` is intentionally **not** ignored so
+  that manual image overrides applied with `kubectl set image` remain visible as drift.
+- Deployments, Services, ConfigMaps, Secrets, and pod templates are unaffected.
+- Auto-sync and prune remain disabled.
+
+---
+
 ## Mongo 4.4 note
 
 Same constraint as `uni-server-k3d`: the university VM does not expose AVX CPU
