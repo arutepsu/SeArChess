@@ -1,0 +1,28 @@
+Name:            python-ai-service
+Namespace:       searchess
+Status:          [32m✔[0m Healthy
+Strategy:        Canary
+  Step:          4/4
+  SetWeight:     100
+  ActualWeight:  100
+Images:          ghcr.io/arutepsu/searchess-python-ai-service:sha-2e50332 ([32mstable[0m)
+Replicas:
+  Desired:       5
+  Current:       5
+  Updated:       5
+  Ready:         5
+  Available:     5
+
+NAME                                          KIND        STATUS        AGE    INFO
+⟳ python-ai-service                           Rollout     [32m✔[0m Healthy     29m    
+├──# revision:3                                                                
+│  └──⧉ [32mpython-ai-service-945cf7c6c[0m           ReplicaSet  [32m✔[0m Healthy     9m54s  [32mstable[0m
+│     ├──□ python-ai-service-945cf7c6c-46xrx  Pod         [32m✔[0m Running     9m54s  ready:1/1
+│     ├──□ python-ai-service-945cf7c6c-krfn6  Pod         [32m✔[0m Running     4m5s   ready:1/1
+│     ├──□ python-ai-service-945cf7c6c-dglfb  Pod         [32m✔[0m Running     3m35s  ready:1/1
+│     ├──□ python-ai-service-945cf7c6c-5kdsk  Pod         [32m✔[0m Running     2m46s  ready:1/1
+│     └──□ python-ai-service-945cf7c6c-vqdkn  Pod         [32m✔[0m Running     2m15s  ready:1/1
+├──# revision:2                                                                
+│  └──⧉ python-ai-service-847c59bd5d          ReplicaSet  [0m•[0m ScaledDown  19m    
+└──# revision:1                                                                
+   └──⧉ python-ai-service-7d45597449          ReplicaSet  [0m•[0m ScaledDown  29m    
