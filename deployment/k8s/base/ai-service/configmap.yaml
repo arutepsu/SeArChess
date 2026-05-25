@@ -11,3 +11,10 @@ data:
   # Remove or leave empty to use local first-legal-move selection.
   PYTHON_AI_BASE_URL: "http://python-ai-service:8765"
   PYTHON_AI_TIMEOUT_MILLIS: "5000"
+  JAVA_TOOL_OPTIONS: "-javaagent:/app/opentelemetry-javaagent.jar"
+  OTEL_SERVICE_NAME: "searchess-ai-service"
+  OTEL_TRACES_EXPORTER: "otlp"
+  OTEL_METRICS_EXPORTER: "none"
+  OTEL_LOGS_EXPORTER: "none"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+  OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
