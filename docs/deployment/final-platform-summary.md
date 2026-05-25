@@ -104,17 +104,35 @@ k3d / k3s — university server
 
 ## 4. Deployment flow
 
+### CI/CD boundary
+
+The build workflow runs **only** when application code, build files, or Dockerfiles
+change. Infrastructure manifest and documentation changes are **not** image-build
+triggers — Argo CD syncs them directly.
+
+| Change type | Triggers image build? | Argo CD action |
+|---|---|---|
+| `apps/**`, `modules/**`, `build.sbt`, Dockerfile | **Yes** | Sync with new sha-* image tags |
+| `deployment/k8s/**` (manifests, overlays) | No | Sync changed manifest directly |
+| `docs/**`, evidence files | No | Nothing |
+| Overlay `kustomization.yaml` (written by CI) | No | Sync updated image tags |
+
+This boundary prevents documentation and infrastructure commits from triggering
+unnecessary image rebuilds and Rollout canary pauses.
+
+### App-code delivery path
+
 ```
-Developer merges PR to main
+Developer merges PR to main (app code / Dockerfile change)
   │
   ▼
-GitHub Actions: build-images.yml
+GitHub Actions: build-images.yml  (triggered by paths: apps/**, modules/**, etc.)
   ├─ builds searchess-{game,history,ai,python-ai}-service
   ├─ pushes sha-<git-sha> tag to GHCR      ← immutable, deployment source of truth
   ├─ pushes main-latest tag to GHCR        ← convenience only, never deployed
   ├─ runs kustomize edit set image         ← updates newTag in overlay kustomization.yaml
   ├─ validates: kubectl kustomize ...      ← fails fast if render breaks
-  └─ commits kustomization.yaml [skip ci]  ← paths-ignore + GITHUB_TOKEN prevent loop
+  └─ commits kustomization.yaml [skip ci]  ← paths filter + GITHUB_TOKEN prevent loop
   │
   ▼
 Argo CD detects OutOfSync (kustomization.yaml changed in main)

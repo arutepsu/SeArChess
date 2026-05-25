@@ -4,13 +4,27 @@ on:
   push:
     branches:
       - main
-    # The update-overlay job commits only kustomization.yaml back to main.
-    # paths-ignore prevents that commit from re-triggering this workflow.
-    # GITHUB_TOKEN pushes also do not trigger workflows by default (GitHub
-    # built-in protection), and [skip ci] in the commit message adds a third
-    # guard. All three layers together prevent infinite loops.
-    paths-ignore:
-      - 'deployment/k8s/overlays/uni-server-registry/kustomization.yaml'
+    # Image builds run only when application code, build definitions, or Dockerfiles
+    # change. Commits that touch only docs, deployment manifests, infrastructure YAML,
+    # or evidence files do not trigger image rebuilds — Argo CD syncs those directly.
+    #
+    # This is the CI/CD boundary contract:
+    #   App change   → images rebuilt, sha-* tag written, Argo CD detects OutOfSync.
+    #   Infra change → Argo CD applies the manifest change; no image rebuild.
+    #   Docs change  → no CI action; nothing is deployed.
+    #
+    # Loop prevention for the overlay update commit (touches only kustomization.yaml):
+    # 1. GITHUB_TOKEN pushes do not trigger push workflows (GitHub built-in).
+    # 2. kustomization.yaml is not listed in paths below, so the commit never matches.
+    # 3. [skip ci] in the commit message adds a third guard.
+    paths:
+      - 'apps/**'
+      - 'modules/**'
+      - 'project/**'
+      - 'build.sbt'
+      - '**/Dockerfile'
+      - 'Dockerfile*'
+      - '.github/workflows/build-images.yml'
   workflow_dispatch:
     inputs:
       tag:
@@ -30,9 +44,8 @@ jobs:
   build-scala-services:
     name: Build Scala services
     runs-on: ubuntu-latest
-    # Belt-and-suspenders guard: do not run if triggered by the bot commit
-    # that updates the overlay. paths-ignore above is the primary guard;
-    # this condition covers edge cases such as workflow_dispatch from the bot.
+    # Belt-and-suspenders: skip if the bot somehow triggers this job (e.g. via
+    # workflow_dispatch). The paths filter above is the primary loop-prevention guard.
     if: github.actor != 'github-actions[bot]'
 
     strategy:
@@ -200,8 +213,8 @@ jobs:
           echo "Validation passed: all four app images reference sha-${SHORT_SHA}"
 
       # Commit only kustomization.yaml.
-      # [skip ci] tells GitHub Actions to skip workflow runs for this commit
-      # (third loop-prevention layer after paths-ignore and GITHUB_TOKEN protection).
+      # [skip ci] in the message is the third loop-prevention layer (after GITHUB_TOKEN
+      # push protection and the paths filter that excludes kustomization.yaml).
       # git pull --rebase handles the rare case where another run pushed first.
       - name: Commit and push tag update
         run: |
