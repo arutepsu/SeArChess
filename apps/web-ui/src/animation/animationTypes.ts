@@ -16,5 +16,11 @@ export type BoardAnimation = {
   to: string;
   movingPiece: PieceCode;
   capturedPiece?: PieceCode;
+  capturedSquare?: string;
   isCapture: boolean;
+  castlingRook?: {
+    from: string;
+    to: string;
+    piece: PieceCode;
+  };
 };

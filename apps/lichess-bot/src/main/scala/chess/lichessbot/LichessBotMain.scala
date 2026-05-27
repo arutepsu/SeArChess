@@ -386,7 +386,7 @@ class LichessBot(val token: String)(implicit ec: ExecutionContext) {
 
 object LichessBotMain {
   // Hinterlegen Sie hier Ihren Lichess-API-Token
-  val token = "TOKEN_HERE"
+  val token = "YOUR_LICHESS"
 
   def main(args: Array[String]): Unit = {
     implicit val ec: ExecutionContext = ExecutionContext.global

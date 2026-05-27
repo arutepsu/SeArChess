@@ -67,9 +67,9 @@ class AiServiceRoutes(config: AiServiceConfig):
           chess.notation.api.ImportTarget.PositionTarget
         ) match
           case Right(res: chess.notation.api.ImportResult.PositionImportResult[chess.domain.state.GameState]) =>
-            chess.aiservice.engine.MinimaxEngine.selectBestMove(res.data, request.legalMoves, 3).getOrElse(request.legalMoves.head)
+            chess.aiservice.engine.MinimaxEngine.selectBestMove(res.data, request.legalMoves, 4).getOrElse(request.legalMoves.head)
           case Right(res: chess.notation.api.ImportResult.GameImportResult[chess.domain.state.GameState]) =>
-            chess.aiservice.engine.MinimaxEngine.selectBestMove(res.data, request.legalMoves, 3).getOrElse(request.legalMoves.head)
+            chess.aiservice.engine.MinimaxEngine.selectBestMove(res.data, request.legalMoves, 4).getOrElse(request.legalMoves.head)
           case _ =>
             request.legalMoves.head
 

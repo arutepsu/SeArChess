@@ -257,45 +257,44 @@ final class TextUI(
           loop(pendingMove = None)
 
         case Some(aiMove) =>
-          if sessionOpt.isDefined && commands.isDefined then
-            // Session-aware path: submit through unified boundary
-            val ctx = sessionOpt.get
-            val gameCommands = commands.get
-            gameCommands.submitMove(
-              ctx.getSession,
-              currentState,
-              aiMove,
-              SideController.AI()
-            ) match
-              case Left(err) =>
-                console.printLine(s"ERROR executing AI move: ${renderSessionMoveError(err)}")
-                console.printLine("")
-                console.printLine(ConsoleRenderer.renderBoard(currentState))
-                console.printLine(ConsoleRenderer.renderStatus(currentState))
-                console.print("> ")
-                loop(pendingMove = None)
-              case Right((newState, newSess)) =>
-                ctx.setSession(newSess)
-                game.updateState(newState)
-                console.printLine(s"AI played: ${aiMove.from} to ${aiMove.to}")
-                // Recursively process AI turns if needed
-                processAiMovesIfNeeded(newState, Some(ctx))
-          else
-            // Local mode: no session context
-            GameStateCommandService.handleCommand(currentState, MakeMove(aiMove)) match
-              case Left(err) =>
-                console.printLine(
-                  s"ERROR executing AI move: ${ConsoleRenderer.renderApplicationError(err)}"
-                )
-                console.printLine("")
-                console.printLine(ConsoleRenderer.renderBoard(currentState))
-                console.printLine(ConsoleRenderer.renderStatus(currentState))
-                console.print("> ")
-                loop(pendingMove = None)
-              case Right(newState) =>
-                game.updateState(newState)
-                console.printLine(s"AI played: ${aiMove.from} to ${aiMove.to}")
-                processAiMovesIfNeeded(newState)
+          (sessionOpt, commands) match
+            case (Some(ctx), Some(gameCommands)) =>
+              // Session-aware path: submit through unified boundary
+              gameCommands.submitMove(
+                ctx.getSession,
+                currentState,
+                aiMove,
+                SideController.AI()
+              ) match
+                case Left(err) =>
+                  console.printLine(s"ERROR executing AI move: ${renderSessionMoveError(err)}")
+                  console.printLine("")
+                  console.printLine(ConsoleRenderer.renderBoard(currentState))
+                  console.printLine(ConsoleRenderer.renderStatus(currentState))
+                  console.print("> ")
+                  loop(pendingMove = None)
+                case Right((newState, newSess)) =>
+                  ctx.setSession(newSess)
+                  game.updateState(newState)
+                  console.printLine(s"AI played: ${aiMove.from} to ${aiMove.to}")
+                  // Recursively process AI turns if needed
+                  processAiMovesIfNeeded(newState, Some(ctx))
+            case _ =>
+              // Local mode: no session context
+              GameStateCommandService.handleCommand(currentState, MakeMove(aiMove)) match
+                case Left(err) =>
+                  console.printLine(
+                    s"ERROR executing AI move: ${ConsoleRenderer.renderApplicationError(err)}"
+                  )
+                  console.printLine("")
+                  console.printLine(ConsoleRenderer.renderBoard(currentState))
+                  console.printLine(ConsoleRenderer.renderStatus(currentState))
+                  console.print("> ")
+                  loop(pendingMove = None)
+                case Right(newState) =>
+                  game.updateState(newState)
+                  console.printLine(s"AI played: ${aiMove.from} to ${aiMove.to}")
+                  processAiMovesIfNeeded(newState)
 
   private def isPromotionRequired(err: SessionMoveError): Boolean = err match
     case SessionMoveError.DomainRejection(

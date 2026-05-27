@@ -16,7 +16,7 @@ import GameAnalysisView from "./components/GameAnalysisView.tsx";
 import MoveList from "./components/MoveList.tsx";
 //import ResumeGamePanel from "./components/ResumeGamePanel.tsx";
 import SessionTransferPanel from "./components/SessionTransferPanel.tsx";
-//import StatusBanner from "./components/StatusBanner.tsx";
+import StatusBanner from "./components/StatusBanner.tsx";
 import Homepage from "./components/Homepage.tsx";
 import BackgroundEffectsLayer from "./components/BackgroundEffectsLayer.tsx";
 import BackgroundPanel from "./components/BackgroundPanel.tsx";
@@ -63,6 +63,7 @@ export default function App() {
     gameMode,
     notation,
     sessionLifecycle,
+    promotionPending,
     loadGame,
     refreshFromServer,
     handleSelect,
@@ -75,6 +76,8 @@ export default function App() {
     handleSaveSession,
     handleResign,
     handleAnimationFinished,
+    handleResolvePromotion,
+    handleCancelPromotion,
     setMessage,
     setBusy
   } = useGameState();
@@ -418,6 +421,13 @@ export default function App() {
 
             {displayedGame ? (
               <section className="board-column">
+                <StatusBanner
+                  game={game}
+                  connection={connection}
+                  liveConnection={liveConnection}
+                  message={message}
+                />
+
                 <ChessBoard
                   board={displayedGame.board}
                   selectedSquare={replayModeActive ? undefined : selectedSquare}
@@ -427,6 +437,15 @@ export default function App() {
                   disabled={boardInteractionDisabled || replayModeActive}
                   onSelect={handleSelect}
                   onAnimationFinished={handleAnimationFinished}
+                  inCheck={game?.status === "check"}
+                  activeColor={game?.activeColor}
+                  gameStatus={game?.status}
+                  drawReason={game?.drawReason}
+                  winner={game?.winner}
+                  promotionPending={promotionPending}
+                  onResolvePromotion={handleResolvePromotion}
+                  onCancelPromotion={handleCancelPromotion}
+                  onNewGame={handleNewGame}
                 />
 
                 <section className="replay-timeline panel" aria-label="Time-travel timeline">

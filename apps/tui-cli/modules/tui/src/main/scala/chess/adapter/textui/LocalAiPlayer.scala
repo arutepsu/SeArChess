@@ -1,6 +1,7 @@
 package chess.adapter.textui
 
-import chess.domain.model.{Color, GameState, Move, Position}
+import chess.domain.model.{Color, Move, Position}
+import chess.domain.state.GameState
 import scala.util.Random
 
 /** A simple local AI player for standalone TUI use.
@@ -32,12 +33,12 @@ object LocalAiPlayer:
         Some(selectBestCapture(state, capturingMoves, aiColor))
       else
         // No captures available; prefer center control
-        val centerSquares = Set(
+        val centerSquares: Set[Position] = Set(
           Position.from(3, 3), // d4
           Position.from(4, 3), // e4
           Position.from(3, 4), // d5
           Position.from(4, 4) // e5
-        ).flatten
+        ).flatMap(_.toOption)
 
         val centerMoves = legalMoves.filter(move => centerSquares.contains(move.to))
 
@@ -46,13 +47,12 @@ object LocalAiPlayer:
 
   private def allLegalMoves(state: GameState, color: Color): Vector[Move] =
     (for
-      rank <- 0 to 7
-      file <- 0 to 7
-      from <- Position.from(file, rank).toOption
-      piece <- state.board.pieceAt(from)
+      rank <- (0 to 7).toList
+      file <- (0 to 7).toList
+      from <- Position.from(file, rank).toOption.toList
+      piece <- state.board.pieceAt(from).toList
       if piece.color == color
-      to <- state.possibleMovesFrom(from).toOption if to.nonEmpty
-      move <- to
+      move <- chess.domain.rules.GameStateRules.legalMovesFrom(state, from).toList
     yield move).toVector
 
   private def selectBestCapture(
@@ -65,7 +65,7 @@ object LocalAiPlayer:
       val value = capturedPiece.map(pieceValue).getOrElse(0)
       (move, value)
     }
-    captureValues.maxBy(_._2)._1
+    captureValues.maxBy(_._2)(using Ordering.Int)._1
 
   private def pieceValue(piece: chess.domain.model.Piece): Int =
     piece.pieceType match
