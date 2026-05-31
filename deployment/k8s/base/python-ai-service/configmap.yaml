@@ -9,3 +9,9 @@ data:
   #   "random"     — uniform random selection
   #   "supervised" — neural-network policy; MODEL_ARTIFACT_DIR must be set and mounted
   INFERENCE_BACKEND: "fake"
+  OTEL_SERVICE_NAME: "searchess-python-ai-service"
+  OTEL_TRACES_EXPORTER: "otlp"
+  OTEL_METRICS_EXPORTER: "none"
+  OTEL_LOGS_EXPORTER: "none"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+  OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
