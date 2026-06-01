@@ -48,6 +48,42 @@ static_resources:
                             body:
                               inline_string: "not found\n"
                 http_filters:
+                  # ---------------------------------------------------------------------------
+                  # JWT validation — local Compose only.
+                  #
+                  # Issuer matches the token iss claim: browser authenticated against localhost.
+                  # JWKS is fetched internally: Envoy reaches Keycloak via compose DNS keycloak:8080.
+                  #
+                  # Protected:  /api/*  (except /api/health)
+                  # Public:     /health, /api/health, /ws/*, /admin/migrations
+                  # ---------------------------------------------------------------------------
+                  - name: envoy.filters.http.jwt_authn
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication
+                      providers:
+                        keycloak:
+                          issuer: "http://localhost:8080/realms/searchess"
+                          audiences:
+                            - searchess-api
+                          remote_jwks:
+                            http_uri:
+                              uri: "http://keycloak:8080/realms/searchess/protocol/openid-connect/certs"
+                              cluster: keycloak
+                              timeout: 5s
+                            cache_duration:
+                              seconds: 300
+                          forward: true
+                      rules:
+                        # Carve out /api/health before the protected /api/ prefix rule.
+                        - match:
+                            path: "/api/health"
+                        # Require a valid JWT for all other /api/ routes.
+                        - match:
+                            prefix: "/api/"
+                          requires:
+                            provider_name: "keycloak"
+                      # Let OPTIONS preflight pass without a token.
+                      bypass_cors_preflight: true
                   - name: envoy.filters.http.router
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
@@ -77,6 +113,18 @@ static_resources:
                     socket_address:
                       address: game-service
                       port_value: 9090
+    - name: keycloak
+      type: STRICT_DNS
+      connect_timeout: 5s
+      load_assignment:
+        cluster_name: keycloak
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: keycloak
+                      port_value: 8080
 
 admin:
   address:

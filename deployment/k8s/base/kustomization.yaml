@@ -11,6 +11,9 @@ resources:
   # Edge
   - envoy/deployment.yaml
   - envoy/service.yaml
+  # Web UI (SPA — served through Envoy at /)
+  - web-ui/deployment.yaml
+  - web-ui/service.yaml
   # Application services
   - game-service/configmap.yaml
   - game-service/deployment.yaml
@@ -28,10 +31,15 @@ resources:
   # Data stores
   - postgres/statefulset.yaml
   - postgres/service.yaml
+  - postgres/job-keycloak-db-init.yaml
   - mongo/statefulset.yaml
   - mongo/service.yaml
   - redis/statefulset.yaml
   - redis/service.yaml
+  # Auth
+  - keycloak/secret.yaml
+  - keycloak/deployment.yaml
+  - keycloak/service.yaml
   # Observability
   - prometheus/deployment.yaml
   - prometheus/service.yaml
@@ -49,6 +57,10 @@ configMapGenerator:
   - name: envoy-config
     files:
       - envoy/envoy.yaml
+
+  - name: keycloak-realm
+    files:
+      - realm-searchess.json=keycloak/realm-searchess.json
 
   - name: prometheus-config
     files:

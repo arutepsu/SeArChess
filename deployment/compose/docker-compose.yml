@@ -48,7 +48,10 @@ services:
       game-service:
         condition: service_healthy
     ports:
-      - "10000:10000"
+      # 11000 avoids collision with the k3d-searchess-serverlb container on host port 10000.
+      # k3d API:    http://localhost:10000  (k3d load balancer — untouched)
+      # Compose API: http://localhost:11000 (this Envoy — local auth stack)
+      - "11000:10000"
     volumes:
       - ../../config/envoy/envoy.yaml:/etc/envoy/envoy.yaml:ro
     healthcheck:
@@ -302,6 +305,33 @@ services:
       timeout: 5s
       retries: 6
       start_period: 10s
+    restart: unless-stopped
+
+  # --- Auth (local Docker Compose only — NOT part of the Kubernetes deployment) ---
+  #
+  # Start standalone:  docker compose -f deployment/compose/docker-compose.yml up keycloak
+  # Admin console:     http://localhost:8080  (admin / admin)
+  # Realm import:      deployment/keycloak/realm-searchess.json
+  # Token test:        see deployment/keycloak/README.md
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.6.2
+    networks:
+      - edge
+    ports:
+      - "8080:8080"
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    volumes:
+      - ../keycloak/realm-searchess.json:/opt/keycloak/data/import/realm-searchess.json:ro
+    command: ["start-dev", "--import-realm"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/realms/master || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 40s
     restart: unless-stopped
 
 # ---------------------------------------------------------------------------
