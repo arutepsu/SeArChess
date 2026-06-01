@@ -27,27 +27,27 @@ resources:
 # mongo is intentionally pinned to 4.4 and is not managed by the image workflow.
 # mongo:7.0 requires AVX CPU instructions not available on the university VM.
 # mongo:4.4 is the last release that does not require AVX.
+  # Tag is written by CI (build-images.yml) when apps/web-ui/** changes.
+  # On the first merge to main the workflow will replace this placeholder
+  # with the real sha-<commit> before Argo CD syncs.
 images:
 - name: mongo
   newTag: "4.4"
 - name: searchess/ai-service
   newName: ghcr.io/arutepsu/searchess-ai-service
-  newTag: sha-2247329
+  newTag: sha-fef3cb0
 - name: searchess/game-service
   newName: ghcr.io/arutepsu/searchess-game-service
-  newTag: sha-2247329
+  newTag: sha-fef3cb0
 - name: searchess/history-service
   newName: ghcr.io/arutepsu/searchess-history-service
-  newTag: sha-2247329
+  newTag: sha-fef3cb0
 - name: searchess/python-ai-service
   newName: ghcr.io/arutepsu/searchess-python-ai-service
   newTag: sha-2247329
 - name: searchess/web-ui
   newName: ghcr.io/arutepsu/searchess-web-ui
-  # Tag is written by CI (build-images.yml) when apps/web-ui/** changes.
-  # On the first merge to main the workflow will replace this placeholder
-  # with the real sha-<commit> before Argo CD syncs.
-  newTag: sha-0000000
+  newTag: sha-fef3cb0
 
 # Expose Envoy and Grafana as LoadBalancer — k3d servicelb forwards these
 # through the port mappings in deployment/k3d/server-cluster.yaml.
