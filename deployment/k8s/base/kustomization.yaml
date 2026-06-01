@@ -60,7 +60,7 @@ configMapGenerator:
 
   - name: keycloak-realm
     files:
-      - keycloak-realm.json=keycloak/realm-searchess.json
+      - realm-searchess.json=keycloak/realm-searchess.json
 
   - name: prometheus-config
     files:
