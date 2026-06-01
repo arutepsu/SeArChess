@@ -1,11 +1,11 @@
-=== Git / Argo Revision ===
-LOCAL=39d56b6ed796d14d231792fd9134c8cd9df90e08
-REMOTE=39d56b6ed796d14d231792fd9134c8cd9df90e08
-ARGO=39d56b6ed796d14d231792fd9134c8cd9df90e08
+=== Git / Argo ===
+LOCAL=ce4c7f849ff38308990754e0171eae250b2c56c7
+REMOTE=ce4c7f849ff38308990754e0171eae250b2c56c7
+ARGO=ce4c7f849ff38308990754e0171eae250b2c56c7
 
 === Argo CD ===
 NAME        SYNC STATUS   HEALTH STATUS
-searchess   Synced        Progressing
+searchess   Synced        Healthy
 
 === Pods ===
 NAME                                 READY   STATUS    RESTARTS       AGE
@@ -13,15 +13,18 @@ ai-service-99b8d9488-x7x8h           1/1     Running   8 (15h ago)    18h
 envoy-7f6d87458c-j9rvr               1/1     Running   9 (15h ago)    18h
 game-service-787fdfc5fd-z5lx7        1/1     Running   19 (15h ago)   18h
 grafana-8f98b9ddb-4ckg9              1/1     Running   8 (15h ago)    18h
-history-service-5d9c448f96-w4lrh     1/1     Running   20 (25m ago)   18h
-mongo-0                              1/1     Running   0              18h
+history-service-5d9c448f96-w4lrh     1/1     Running   20 (36m ago)   18h
+mongo-0                              1/1     Running   0              19h
 otel-collector-f8457759d-9gt9h       1/1     Running   10 (15h ago)   18h
 postgres-0                           1/1     Running   0              18h
 prometheus-68755dfbd6-m45gh          1/1     Running   8 (15h ago)    18h
 python-ai-service-58ccd9694d-xlfxm   1/1     Running   0              17h
-redis-0                              1/1     Running   0              18h
-tempo-7cf75b5986-q88tm               0/1     Running   92 (26s ago)   18h
+redis-0                              1/1     Running   0              19h
+tempo-7cf75b5986-q88tm               1/1     Running   93 (10m ago)   18h
 
+=== API Health ===
+{"status":"ok","service":"searchess-game-service","check":"process-liveness","optionalDependencies":["ai-service","history-service"]}
+{"status":"ok","service":"searchess-game-service","check":"process-liveness","optionalDependencies":["ai-service","history-service"]}
 === Grafana ===
 NAME      READY   UP-TO-DATE   AVAILABLE   AGE
 grafana   1/1     1            1           8d
@@ -29,6 +32,8 @@ NAME      TYPE           CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE   SE
 grafana   LoadBalancer   10.43.225.245   172.18.0.2    3000:31542/TCP   8d    app=grafana
 NAME      ENDPOINTS          AGE
 grafana   10.42.0.185:3000   8d
+
+Grafana browser URL via SSH tunnel: http://127.0.0.1:33001
 
 === Python AI Rollout ===
 Name:            python-ai-service
@@ -56,7 +61,7 @@ NAME                                           KIND        STATUS        AGE    
 ├──# revision:5                                                                 
 │  └──⧉ python-ai-service-696cc964df           ReplicaSet  [0m•[0m ScaledDown  6d20h  
 ├──# revision:4                                                                 
-│  └──⧉ python-ai-service-6d4dc8d468           ReplicaSet  [0m•[0m ScaledDown  6d20h  
+│  └──⧉ python-ai-service-6d4dc8d468           ReplicaSet  [0m•[0m ScaledDown  6d21h  
 ├──# revision:3                                                                 
 │  └──⧉ python-ai-service-945cf7c6c            ReplicaSet  [0m•[0m ScaledDown  6d21h  
 ├──# revision:2                                                                 
@@ -64,5 +69,9 @@ NAME                                           KIND        STATUS        AGE    
 └──# revision:1                                                                 
    └──⧉ python-ai-service-7d45597449           ReplicaSet  [0m•[0m ScaledDown  6d21h  
 
-=== Unhealthy check ===
-tempo-7cf75b5986-q88tm               0/1     Running   92 (28s ago)   18h
+=== Python AI OTEL Env ===
+OTEL_TRACES_EXPORTER=otlp
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+OTEL_SERVICE_NAME=searchess-python-ai-service
+
+=== Unhealthy Check ===
