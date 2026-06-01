@@ -1,5 +1,12 @@
 name: Build and push Docker images
 
+# One overlay-update run per branch at a time. cancel-in-progress: false so a
+# queued run still lands — preventing a second dispatch from silently dropping
+# the overlay commit that the first run was about to push.
+concurrency:
+  group: build-images-${{ github.ref_name }}
+  cancel-in-progress: false
+
 on:
   push:
     branches:
@@ -453,8 +460,14 @@ jobs:
       )
 
     steps:
+      # Checkout the branch that triggered this workflow, not the default branch.
+      # Without an explicit ref, actions/checkout uses GITHUB_SHA (a detached HEAD
+      # on the triggering commit) which makes the subsequent push fail on feature
+      # branches because "origin/main" does not exist as a valid rebase target there.
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
 
       - name: Set short SHA
         id: sha
@@ -529,10 +542,14 @@ jobs:
       # Commit only kustomization.yaml with the list of updated services in the message.
       # [skip ci] is the third loop-prevention layer (after GITHUB_TOKEN push protection
       # and the paths filter that excludes kustomization.yaml).
-      # git pull --rebase handles the case where another concurrent run pushed first.
+      # Branch-safe: rebase and push against the branch that triggered this workflow
+      # (github.ref_name). On main this is identical to the previous behaviour;
+      # on feature branches it avoids the add/add conflict that occurred when the
+      # push target was hardcoded to "main" while the checkout was on the feature branch.
       - name: Commit and push tag update
         run: |
           SHORT_SHA=${{ steps.sha.outputs.SHORT_SHA }}
+          BRANCH="${{ github.ref_name }}"
           SERVICES=$(echo "${{ steps.update.outputs.images_updated }}" | tr ' ' ',')
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -542,5 +559,5 @@ jobs:
             exit 0
           fi
           git commit -m "Deploy images sha-${SHORT_SHA} (${SERVICES}) [skip ci]"
-          git pull --rebase origin main
-          git push origin main
+          git pull --rebase origin "${BRANCH}"
+          git push origin HEAD:"${BRANCH}"
