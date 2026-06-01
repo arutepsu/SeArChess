@@ -6,6 +6,4 @@ const keycloak = new Keycloak({
   clientId: "searchess-web",
 });
 
-(window as any).keycloak = keycloak;
-
 export default keycloak;
