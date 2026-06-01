@@ -8,6 +8,36 @@ on the university Kubernetes deployment.
 
 ---
 
+## Deployment history note
+
+**First deploy attempt (sha-fef3cb0, 2026-06-01) — rolled back.**
+
+The first deployment of this branch to the university server triggered rolling restarts
+of game-service, history-service, and ai-service (all at sha-fef3cb0) at the same time
+as it introduced Keycloak, web-ui, and the Postgres init Job. The combined memory
+pressure on the 4 GB VM caused Postgres to go Unknown and destabilised the cluster.
+Argo CD was rolled back to main (sha-2247329 baseline). Main is healthy.
+
+**Corrective action applied:**
+
+The overlay was corrected so game/history/ai remain pinned to the stable baseline
+(sha-2247329). Only auth-layer additions are new on this branch:
+
+| Service | Tag on this branch | Note |
+|---|---|---|
+| game-service | sha-2247329 | unchanged from main — no restart |
+| history-service | sha-2247329 | unchanged from main — no restart |
+| ai-service | sha-2247329 | unchanged from main — no restart |
+| python-ai-service | sha-2247329 | unchanged from main — no restart |
+| web-ui | sha-fef3cb0 | new service — first deploy only |
+| keycloak | quay.io/keycloak/keycloak:26.6.2 | new service — first deploy only |
+
+**Next deploy scope is narrow:** Postgres init Job, Keycloak Deployment, web-ui
+Deployment, and the updated Envoy ConfigMap (jwt_authn). Backend services are not
+disturbed.
+
+---
+
 ## Pre-flight: first-time Keycloak setup
 
 These steps are required once before the first demo. They are idempotent and safe to re-run.

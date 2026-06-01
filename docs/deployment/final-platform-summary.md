@@ -502,7 +502,7 @@ as a deficiency.
 | Mongo 4.4 (not 7.0) | Missing features and security fixes in Mongo 5+ | Move to a VM or node with AVX support |
 | Python AI: fake/random backend | No real supervised inference if `INFERENCE_BACKEND=fake` | Mount a model artifact volume for supervised mode |
 | Keycloak: HTTP-only, issuer `127.0.0.1:8080` (branch) | Not accessible without SSH tunnel / port-forward; tokens not valid for a public URL | cert-manager + public domain; update `KC_HOSTNAME` and realm redirect URIs |
-| Keycloak: not yet validated on university server (branch) | `keycloak-sealed-secret.yaml` has placeholder values; Keycloak will not start until operator runs seal script | Run `scripts/seal-keycloak-secrets.sh`, commit result, run Postgres init Job |
+| Keycloak: first deploy attempt rolled back (branch) | Combined rollout of Keycloak + web-ui + backend image churn overloaded the 4 GB VM; Postgres went Unknown; rolled back to main | Branch corrected: game/history/ai pinned to sha-2247329; next deploy introduces only auth-layer additions |
 
 ---
 
