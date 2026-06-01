@@ -1,0 +1,2042 @@
+=== Git revisions ===
+LOCAL=2f30e3b801fbc168d119883ae32b58bce834a5df
+REMOTE=2f30e3b801fbc168d119883ae32b58bce834a5df
+ARGO=2f30e3b801fbc168d119883ae32b58bce834a5df
+
+=== Argo CD application ===
+NAME        SYNC STATUS   HEALTH STATUS
+searchess   Synced        Healthy
+
+=== Python AI rollout ===
+Name:            python-ai-service
+Namespace:       searchess
+Status:          [32m✔[0m Healthy
+Strategy:        Canary
+  Step:          4/4
+  SetWeight:     100
+  ActualWeight:  100
+Images:          ghcr.io/arutepsu/searchess-python-ai-service:sha-2247329 ([32mstable[0m)
+Replicas:
+  Desired:       1
+  Current:       1
+  Updated:       1
+  Ready:         1
+  Available:     1
+
+NAME                                           KIND        STATUS        AGE    INFO
+⟳ python-ai-service                            Rollout     [32m✔[0m Healthy     6d20h  
+├──# revision:7                                                                 
+│  └──⧉ [32mpython-ai-service-58ccd9694d[0m           ReplicaSet  [32m✔[0m Healthy     17h    [32mstable[0m
+│     └──□ python-ai-service-58ccd9694d-xlfxm  Pod         [32m✔[0m Running     15h    ready:1/1
+├──# revision:6                                                                 
+│  └──⧉ python-ai-service-57f47656f6           ReplicaSet  [0m•[0m ScaledDown  6d18h  
+├──# revision:5                                                                 
+│  └──⧉ python-ai-service-696cc964df           ReplicaSet  [0m•[0m ScaledDown  6d18h  
+├──# revision:4                                                                 
+│  └──⧉ python-ai-service-6d4dc8d468           ReplicaSet  [0m•[0m ScaledDown  6d19h  
+├──# revision:3                                                                 
+│  └──⧉ python-ai-service-945cf7c6c            ReplicaSet  [0m•[0m ScaledDown  6d20h  
+├──# revision:2                                                                 
+│  └──⧉ python-ai-service-847c59bd5d           ReplicaSet  [0m•[0m ScaledDown  6d20h  
+└──# revision:1                                                                 
+   └──⧉ python-ai-service-7d45597449           ReplicaSet  [0m•[0m ScaledDown  6d20h  
+
+=== Python AI pods ===
+NAME                                 READY   STATUS    RESTARTS   AGE   IP            NODE                            NOMINATED NODE   READINESS GATES
+python-ai-service-58ccd9694d-xlfxm   1/1     Running   0          15h   10.42.0.203   k3d-searchess-server-server-0   <none>           <none>
+
+=== Unhealthy pods check ===
+ai-service-77d8596c79-29rbc          0/1     Error                    0                38h
+ai-service-77d8596c79-2b2jq          0/1     Error                    0                23h
+ai-service-77d8596c79-2g576          0/1     Error                    0                2d22h
+ai-service-77d8596c79-2g7jb          0/1     Error                    0                46h
+ai-service-77d8596c79-2nljt          0/1     ContainerStatusUnknown   1                22h
+ai-service-77d8596c79-2qkdp          0/1     Error                    0                2d16h
+ai-service-77d8596c79-2tjps          0/1     Error                    0                41h
+ai-service-77d8596c79-2tmwt          0/1     ContainerStatusUnknown   1                34h
+ai-service-77d8596c79-2vxpz          0/1     Error                    0                27h
+ai-service-77d8596c79-44mzg          0/1     Error                    0                2d16h
+ai-service-77d8596c79-45xd2          0/1     ContainerStatusUnknown   1                44h
+ai-service-77d8596c79-48jn2          0/1     Error                    0                21h
+ai-service-77d8596c79-4bpgf          0/1     Error                    0                24h
+ai-service-77d8596c79-4cms5          0/1     Error                    0                2d15h
+ai-service-77d8596c79-4g942          0/1     ContainerStatusUnknown   1                38h
+ai-service-77d8596c79-4m5df          0/1     Error                    0                33h
+ai-service-77d8596c79-4qkj7          0/1     Error                    0                24h
+ai-service-77d8596c79-4tkn8          0/1     ContainerStatusUnknown   1                34h
+ai-service-77d8596c79-4wgj4          0/1     Error                    0                2d8h
+ai-service-77d8596c79-4xgkm          0/1     Error                    0                2d5h
+ai-service-77d8596c79-545kl          0/1     Error                    0                20h
+ai-service-77d8596c79-57m8h          0/1     Error                    0                33h
+ai-service-77d8596c79-5h7t8          0/1     Error                    0                22h
+ai-service-77d8596c79-5kxtr          0/1     Error                    0                39h
+ai-service-77d8596c79-67g88          0/1     Error                    0                34h
+ai-service-77d8596c79-684fh          0/1     Error                    0                2d21h
+ai-service-77d8596c79-6bcbz          0/1     Error                    0                34h
+ai-service-77d8596c79-6c42z          0/1     Error                    0                29h
+ai-service-77d8596c79-6fkbf          0/1     Error                    0                2d20h
+ai-service-77d8596c79-6g5sp          0/1     Error                    0                46h
+ai-service-77d8596c79-6zctf          0/1     Error                    0                2d20h
+ai-service-77d8596c79-77lrg          0/1     ContainerStatusUnknown   1                2d20h
+ai-service-77d8596c79-77s86          0/1     Error                    0                2d3h
+ai-service-77d8596c79-7df6m          0/1     Error                    0                28h
+ai-service-77d8596c79-7g9s6          0/1     Error                    0                38h
+ai-service-77d8596c79-7m4wf          0/1     Error                    0                45h
+ai-service-77d8596c79-7pzcz          0/1     Error                    0                2d7h
+ai-service-77d8596c79-7xv4l          0/1     Error                    0                31h
+ai-service-77d8596c79-7zdsm          0/1     Error                    0                37h
+ai-service-77d8596c79-884h7          0/1     Error                    0                32h
+ai-service-77d8596c79-884ld          0/1     Error                    0                2d1h
+ai-service-77d8596c79-89g5j          0/1     Error                    0                24h
+ai-service-77d8596c79-8c7kc          0/1     Error                    0                2d15h
+ai-service-77d8596c79-8fmwd          0/1     Error                    0                37h
+ai-service-77d8596c79-8n82w          0/1     Error                    0                25h
+ai-service-77d8596c79-8nq95          0/1     Error                    0                26h
+ai-service-77d8596c79-92487          0/1     Error                    0                27h
+ai-service-77d8596c79-9dkdf          0/1     Error                    0                24h
+ai-service-77d8596c79-9frjz          0/1     Error                    0                25h
+ai-service-77d8596c79-9lflb          0/1     Error                    0                39h
+ai-service-77d8596c79-9pmjb          0/1     Error                    0                45h
+ai-service-77d8596c79-9ppbr          0/1     Error                    0                47h
+ai-service-77d8596c79-9vpj8          0/1     Error                    0                2d17h
+ai-service-77d8596c79-9w59c          0/1     Error                    0                19h
+ai-service-77d8596c79-9xlct          0/1     Error                    0                33h
+ai-service-77d8596c79-9xw6r          0/1     Error                    0                29h
+ai-service-77d8596c79-b85gw          0/1     Error                    0                2d16h
+ai-service-77d8596c79-bchpz          0/1     Error                    0                40h
+ai-service-77d8596c79-bdq7r          0/1     Error                    0                6d16h
+ai-service-77d8596c79-bh7x9          0/1     Error                    0                2d14h
+ai-service-77d8596c79-bhk64          0/1     Error                    0                20h
+ai-service-77d8596c79-bkbwx          0/1     Error                    0                18h
+ai-service-77d8596c79-bktxw          0/1     Error                    0                2d6h
+ai-service-77d8596c79-bq27b          0/1     ContainerStatusUnknown   1                22h
+ai-service-77d8596c79-brd6g          0/1     Error                    0                40h
+ai-service-77d8596c79-bv6v5          0/1     Error                    0                46h
+ai-service-77d8596c79-bwf7c          0/1     Error                    0                30h
+ai-service-77d8596c79-bzdd9          0/1     Error                    0                27h
+ai-service-77d8596c79-c2bfg          0/1     ContainerStatusUnknown   1                2d
+ai-service-77d8596c79-c7272          0/1     Error                    0                18h
+ai-service-77d8596c79-c7tlv          0/1     Error                    0                41h
+ai-service-77d8596c79-cfnkx          0/1     Error                    0                2d14h
+ai-service-77d8596c79-ch2lc          0/1     ContainerStatusUnknown   1                42h
+ai-service-77d8596c79-chr7j          0/1     Error                    0                43h
+ai-service-77d8596c79-ck5nz          0/1     Error                    0                26h
+ai-service-77d8596c79-cnm69          0/1     Error                    0                38h
+ai-service-77d8596c79-cpmvx          0/1     Error                    0                2d
+ai-service-77d8596c79-cqm5v          0/1     ContainerStatusUnknown   1                26h
+ai-service-77d8596c79-cr959          0/1     Error                    0                34h
+ai-service-77d8596c79-cvs6w          0/1     Error                    0                21h
+ai-service-77d8596c79-czktf          0/1     Error                    0                21h
+ai-service-77d8596c79-dcmdv          0/1     Error                    0                2d
+ai-service-77d8596c79-drp6q          0/1     Error                    0                28h
+ai-service-77d8596c79-dsx9f          0/1     Error                    0                30h
+ai-service-77d8596c79-dtp2t          0/1     Error                    0                40h
+ai-service-77d8596c79-dttzz          0/1     Error                    0                20h
+ai-service-77d8596c79-dw259          0/1     Error                    0                37h
+ai-service-77d8596c79-dw4pv          0/1     ContainerStatusUnknown   1                19h
+ai-service-77d8596c79-dx8zv          0/1     Error                    0                2d1h
+ai-service-77d8596c79-f4lq7          0/1     Error                    0                2d2h
+ai-service-77d8596c79-f8bm6          0/1     Error                    0                34h
+ai-service-77d8596c79-f8qkv          0/1     Error                    0                2d20h
+ai-service-77d8596c79-f97lz          0/1     Error                    0                17h
+ai-service-77d8596c79-ffd7r          0/1     Error                    0                38h
+ai-service-77d8596c79-fk8kz          0/1     Error                    0                31h
+ai-service-77d8596c79-fkzgs          0/1     Error                    0                30h
+ai-service-77d8596c79-fnjfs          0/1     Error                    0                43h
+ai-service-77d8596c79-fqgp7          0/1     Error                    0                37h
+ai-service-77d8596c79-ft7l7          0/1     Error                    0                32h
+ai-service-77d8596c79-ftnbn          0/1     Error                    0                44h
+ai-service-77d8596c79-g25bm          0/1     Error                    0                2d10h
+ai-service-77d8596c79-g462d          0/1     Error                    0                33h
+ai-service-77d8596c79-g76pm          0/1     Error                    0                47h
+ai-service-77d8596c79-g8lvz          0/1     Error                    0                2d5h
+ai-service-77d8596c79-gc4r7          0/1     Error                    0                2d18h
+ai-service-77d8596c79-gr4bh          0/1     Error                    0                28h
+ai-service-77d8596c79-gt8g9          0/1     Error                    0                2d4h
+ai-service-77d8596c79-gvmc9          0/1     ContainerStatusUnknown   1                35h
+ai-service-77d8596c79-gvvxk          0/1     Error                    0                28h
+ai-service-77d8596c79-h5xmj          0/1     Error                    0                26h
+ai-service-77d8596c79-h6bql          0/1     Error                    0                37h
+ai-service-77d8596c79-h6mwf          0/1     Error                    0                30h
+ai-service-77d8596c79-h9dhd          0/1     Error                    0                36h
+ai-service-77d8596c79-h9dxv          0/1     Error                    0                30h
+ai-service-77d8596c79-hbjl5          0/1     Error                    0                2d20h
+ai-service-77d8596c79-hd2j6          0/1     Error                    0                2d19h
+ai-service-77d8596c79-hd8l6          0/1     Error                    0                21h
+ai-service-77d8596c79-hf59k          0/1     Error                    0                2d15h
+ai-service-77d8596c79-hfvct          0/1     Error                    0                46h
+ai-service-77d8596c79-hh6tq          0/1     ContainerStatusUnknown   1                23h
+ai-service-77d8596c79-hl82m          0/1     ContainerStatusUnknown   1                35h
+ai-service-77d8596c79-hnktm          0/1     Error                    0                23h
+ai-service-77d8596c79-hrtkp          0/1     Error                    0                24h
+ai-service-77d8596c79-hswlk          0/1     Error                    0                2d7h
+ai-service-77d8596c79-hwqtm          0/1     Error                    0                20h
+ai-service-77d8596c79-j4wz2          0/1     Error                    0                23h
+ai-service-77d8596c79-j676h          0/1     Error                    0                23h
+ai-service-77d8596c79-j6m6k          0/1     Error                    0                30h
+ai-service-77d8596c79-j8pvg          0/1     Error                    0                2d8h
+ai-service-77d8596c79-jgnmp          0/1     ContainerStatusUnknown   1                24h
+ai-service-77d8596c79-jq5gg          0/1     Error                    0                2d21h
+ai-service-77d8596c79-jspdq          0/1     Error                    0                2d14h
+ai-service-77d8596c79-jwbdx          0/1     Error                    0                29h
+ai-service-77d8596c79-jz5lk          0/1     ContainerStatusUnknown   1                2d21h
+ai-service-77d8596c79-jz5xn          0/1     Error                    0                36h
+ai-service-77d8596c79-k5sp9          0/1     Error                    0                27h
+ai-service-77d8596c79-kjcq6          0/1     Error                    0                44h
+ai-service-77d8596c79-kk8qd          0/1     Error                    0                29h
+ai-service-77d8596c79-kkvfg          0/1     Error                    0                32h
+ai-service-77d8596c79-kld6r          0/1     Error                    0                36h
+ai-service-77d8596c79-km6w9          0/1     Error                    0                25h
+ai-service-77d8596c79-kp5l4          0/1     Error                    0                2d22h
+ai-service-77d8596c79-ksddl          0/1     Error                    0                24h
+ai-service-77d8596c79-l8gzd          0/1     Error                    0                27h
+ai-service-77d8596c79-lt7ft          0/1     Error                    0                2d15h
+ai-service-77d8596c79-lwqnd          0/1     Error                    0                44h
+ai-service-77d8596c79-m6jsz          0/1     Error                    0                2d21h
+ai-service-77d8596c79-m7s9d          0/1     Error                    0                31h
+ai-service-77d8596c79-m956f          0/1     Error                    0                25h
+ai-service-77d8596c79-mfgp6          0/1     Error                    0                2d
+ai-service-77d8596c79-mknvb          0/1     Error                    0                45h
+ai-service-77d8596c79-mrtjx          0/1     Error                    0                34h
+ai-service-77d8596c79-ms2rw          0/1     Error                    0                20h
+ai-service-77d8596c79-n29z4          0/1     Error                    0                2d15h
+ai-service-77d8596c79-n58nx          0/1     ContainerStatusUnknown   1                19h
+ai-service-77d8596c79-nbscr          0/1     Error                    0                2d6h
+ai-service-77d8596c79-nh279          0/1     Error                    0                42h
+ai-service-77d8596c79-nk54n          0/1     Error                    0                2d17h
+ai-service-77d8596c79-nk7tf          0/1     ContainerStatusUnknown   1                2d22h
+ai-service-77d8596c79-nsgjc          0/1     Error                    0                2d17h
+ai-service-77d8596c79-pl2rr          0/1     Error                    0                21h
+ai-service-77d8596c79-pp5sd          0/1     Error                    0                37h
+ai-service-77d8596c79-prg8f          0/1     Error                    0                35h
+ai-service-77d8596c79-ps77h          0/1     Error                    0                28h
+ai-service-77d8596c79-ps99x          0/1     Error                    0                19h
+ai-service-77d8596c79-pt4jw          0/1     Error                    0                2d9h
+ai-service-77d8596c79-pwvbx          0/1     Error                    0                2d14h
+ai-service-77d8596c79-pxb8l          0/1     Error                    0                2d20h
+ai-service-77d8596c79-q22l2          0/1     Error                    0                23h
+ai-service-77d8596c79-q4vtl          0/1     Error                    0                28h
+ai-service-77d8596c79-q7wqh          0/1     ContainerStatusUnknown   1                2d14h
+ai-service-77d8596c79-q9gds          0/1     Error                    0                47h
+ai-service-77d8596c79-q9rzn          0/1     Error                    0                28h
+ai-service-77d8596c79-qh29t          0/1     Error                    0                34h
+ai-service-77d8596c79-qh696          0/1     Error                    0                39h
+ai-service-77d8596c79-qlmnk          0/1     Error                    0                2d16h
+ai-service-77d8596c79-qmxhh          0/1     Error                    0                18h
+ai-service-77d8596c79-qvfrs          0/1     Error                    0                2d15h
+ai-service-77d8596c79-qvfwc          0/1     Error                    0                33h
+ai-service-77d8596c79-r4dk8          0/1     Error                    0                2d7h
+ai-service-77d8596c79-r4rtf          0/1     Error                    0                31h
+ai-service-77d8596c79-rf2kq          0/1     Error                    0                43h
+ai-service-77d8596c79-rgj54          0/1     Error                    0                21h
+ai-service-77d8596c79-rks4h          0/1     Error                    0                2d21h
+ai-service-77d8596c79-rltsl          0/1     ContainerStatusUnknown   1                30h
+ai-service-77d8596c79-rm8qx          0/1     Error                    0                2d4h
+ai-service-77d8596c79-rx8q7          0/1     Error                    0                41h
+ai-service-77d8596c79-rxjlg          0/1     Error                    0                2d2h
+ai-service-77d8596c79-s2p2k          0/1     Error                    0                32h
+ai-service-77d8596c79-s56f5          0/1     Error                    0                25h
+ai-service-77d8596c79-s6gc9          0/1     ContainerStatusUnknown   1                26h
+ai-service-77d8596c79-s79f6          0/1     Error                    0                38h
+ai-service-77d8596c79-sd92f          0/1     Error                    0                19h
+ai-service-77d8596c79-sh7pq          0/1     Error                    0                18h
+ai-service-77d8596c79-slslm          0/1     Error                    0                2d2h
+ai-service-77d8596c79-sm2d7          0/1     Error                    0                44h
+ai-service-77d8596c79-ssqhv          0/1     Error                    0                17h
+ai-service-77d8596c79-sz9lk          0/1     Error                    0                42h
+ai-service-77d8596c79-t44gh          0/1     Error                    0                20h
+ai-service-77d8596c79-t52fc          0/1     ContainerStatusUnknown   1                25h
+ai-service-77d8596c79-t9k9w          0/1     Error                    0                25h
+ai-service-77d8596c79-tcmgg          0/1     Error                    0                2d16h
+ai-service-77d8596c79-tdpql          0/1     Error                    0                2d22h
+ai-service-77d8596c79-tmrbz          0/1     Error                    0                19h
+ai-service-77d8596c79-tqgx4          0/1     ContainerStatusUnknown   1                47h
+ai-service-77d8596c79-tsrkc          0/1     Error                    0                2d6h
+ai-service-77d8596c79-ttgrg          0/1     Error                    0                22h
+ai-service-77d8596c79-tvlwx          0/1     Error                    0                45h
+ai-service-77d8596c79-tzfwq          0/1     Error                    0                2d21h
+ai-service-77d8596c79-v2wv7          0/1     Error                    0                21h
+ai-service-77d8596c79-v7wpx          0/1     ContainerStatusUnknown   1                2d15h
+ai-service-77d8596c79-v8g9h          0/1     Evicted                  0                20h
+ai-service-77d8596c79-vbz87          0/1     Error                    0                27h
+ai-service-77d8596c79-vdfn4          0/1     Error                    0                32h
+ai-service-77d8596c79-vhxzx          0/1     Error                    0                23h
+ai-service-77d8596c79-w65vp          0/1     Error                    0                32h
+ai-service-77d8596c79-wf8z5          0/1     Error                    0                29h
+ai-service-77d8596c79-wgd76          0/1     Error                    0                42h
+ai-service-77d8596c79-whlgp          0/1     Error                    0                2d1h
+ai-service-77d8596c79-wq9jc          0/1     Error                    0                18h
+ai-service-77d8596c79-ws2bn          0/1     Error                    0                18h
+ai-service-77d8596c79-wsvwq          0/1     Error                    0                17h
+ai-service-77d8596c79-wtlvp          0/1     Error                    0                26h
+ai-service-77d8596c79-x4k82          0/1     Error                    0                22h
+ai-service-77d8596c79-x6px7          0/1     Error                    0                2d8h
+ai-service-77d8596c79-xcrqp          0/1     Error                    0                41h
+ai-service-77d8596c79-xjz69          0/1     ContainerStatusUnknown   1                39h
+ai-service-77d8596c79-xmbgq          0/1     Error                    0                43h
+ai-service-77d8596c79-xw5r7          0/1     Error                    0                30h
+ai-service-77d8596c79-xxnzp          0/1     Error                    0                42h
+ai-service-77d8596c79-xz279          0/1     Error                    0                39h
+ai-service-77d8596c79-xzd5n          0/1     Error                    0                35h
+ai-service-77d8596c79-z5sh5          0/1     Error                    0                36h
+ai-service-77d8596c79-z7dsg          0/1     Error                    0                2d3h
+ai-service-77d8596c79-z8k78          0/1     Error                    0                31h
+ai-service-77d8596c79-z9zr2          0/1     ContainerStatusUnknown   1                2d8h
+ai-service-77d8596c79-zc9dd          0/1     Error                    0                22h
+ai-service-77d8596c79-zfqkb          0/1     Error                    0                2d21h
+ai-service-77d8596c79-zhpx4          0/1     Error                    0                26h
+ai-service-77d8596c79-zkzxh          0/1     Error                    0                39h
+ai-service-77d8596c79-zzq8w          0/1     Error                    0                32h
+envoy-7f6d87458c-25n7w               0/1     Completed                0                2d21h
+envoy-7f6d87458c-25q5n               0/1     Completed                0                2d6h
+envoy-7f6d87458c-26fkh               0/1     ContainerStatusUnknown   1                34h
+envoy-7f6d87458c-2b87h               0/1     Completed                0                2d17h
+envoy-7f6d87458c-2q5h5               0/1     Completed                0                2d15h
+envoy-7f6d87458c-2zr7j               0/1     Completed                0                20h
+envoy-7f6d87458c-47jxw               0/1     Completed                0                44h
+envoy-7f6d87458c-4ddhs               0/1     Completed                0                25h
+envoy-7f6d87458c-4dj7s               0/1     Completed                0                22h
+envoy-7f6d87458c-4dqpw               0/1     Completed                1 (17h ago)      17h
+envoy-7f6d87458c-4f76b               0/1     Completed                0                2d20h
+envoy-7f6d87458c-4ksjj               0/1     ContainerStatusUnknown   1                2d10h
+envoy-7f6d87458c-4l4wv               0/1     Completed                0                36h
+envoy-7f6d87458c-4pjrt               0/1     Completed                0                42h
+envoy-7f6d87458c-4rs4f               0/1     Completed                0                34h
+envoy-7f6d87458c-4srgf               0/1     Completed                0                2d15h
+envoy-7f6d87458c-4xggt               0/1     Completed                0                2d
+envoy-7f6d87458c-526r9               0/1     Completed                0                33h
+envoy-7f6d87458c-527fs               0/1     Completed                0                47h
+envoy-7f6d87458c-57dt2               0/1     Completed                0                2d4h
+envoy-7f6d87458c-588v5               0/1     Completed                0                42h
+envoy-7f6d87458c-5fr5q               0/1     Completed                0                18h
+envoy-7f6d87458c-5gqqc               0/1     Completed                0                31h
+envoy-7f6d87458c-5hr2d               0/1     Completed                0                2d21h
+envoy-7f6d87458c-5hzzm               0/1     Completed                0                36h
+envoy-7f6d87458c-5mp75               0/1     Completed                0                2d22h
+envoy-7f6d87458c-5trfv               0/1     Completed                0                29h
+envoy-7f6d87458c-5xbzj               0/1     Completed                0                33h
+envoy-7f6d87458c-66dqf               0/1     Completed                0                2d14h
+envoy-7f6d87458c-6gtwp               0/1     Completed                0                38h
+envoy-7f6d87458c-6krfj               0/1     Completed                0                19h
+envoy-7f6d87458c-6mfpq               0/1     Completed                0                24h
+envoy-7f6d87458c-6p87k               0/1     Completed                0                46h
+envoy-7f6d87458c-6stkd               0/1     Completed                0                28h
+envoy-7f6d87458c-6v5jp               0/1     Completed                0                27h
+envoy-7f6d87458c-7262n               0/1     ContainerStatusUnknown   1                21h
+envoy-7f6d87458c-75m6f               0/1     ContainerStatusUnknown   1                2d20h
+envoy-7f6d87458c-7fkt7               0/1     Completed                0                29h
+envoy-7f6d87458c-7md87               0/1     Completed                0                21h
+envoy-7f6d87458c-7nsf8               0/1     Completed                0                30h
+envoy-7f6d87458c-7rvvf               0/1     Completed                0                18h
+envoy-7f6d87458c-7s7s5               0/1     Completed                0                18h
+envoy-7f6d87458c-7t8ww               0/1     Completed                0                26h
+envoy-7f6d87458c-82pqp               0/1     Completed                0                27h
+envoy-7f6d87458c-84qrg               0/1     Completed                0                2d14h
+envoy-7f6d87458c-878lb               0/1     Completed                0                30h
+envoy-7f6d87458c-8cdtf               0/1     ContainerStatusUnknown   1                39h
+envoy-7f6d87458c-8fhk7               0/1     Completed                0                21h
+envoy-7f6d87458c-8fl5q               0/1     Completed                0                2d2h
+envoy-7f6d87458c-8grjr               0/1     Completed                0                47h
+envoy-7f6d87458c-8hlst               0/1     Completed                0                25h
+envoy-7f6d87458c-8wf8h               0/1     Completed                0                2d16h
+envoy-7f6d87458c-8xrw9               0/1     ContainerStatusUnknown   1                32h
+envoy-7f6d87458c-926vp               0/1     Completed                0                2d5h
+envoy-7f6d87458c-92rn2               0/1     Completed                0                31h
+envoy-7f6d87458c-946fm               0/1     Completed                0                38h
+envoy-7f6d87458c-96xjj               0/1     Completed                0                46h
+envoy-7f6d87458c-976q5               0/1     Completed                0                37h
+envoy-7f6d87458c-99pc2               0/1     Completed                0                32h
+envoy-7f6d87458c-99wzz               0/1     Completed                0                2d16h
+envoy-7f6d87458c-9dsr2               0/1     Completed                0                32h
+envoy-7f6d87458c-9mrhb               0/1     Completed                0                2d1h
+envoy-7f6d87458c-9v2qs               0/1     Completed                0                21h
+envoy-7f6d87458c-b5dxg               0/1     Completed                0                30h
+envoy-7f6d87458c-b5gmx               0/1     Completed                0                2d2h
+envoy-7f6d87458c-b7rfq               0/1     Completed                0                26h
+envoy-7f6d87458c-b8m87               0/1     Completed                0                2d22h
+envoy-7f6d87458c-b9gb2               0/1     Completed                0                24h
+envoy-7f6d87458c-bbk8v               0/1     Completed                0                32h
+envoy-7f6d87458c-bjcdw               0/1     Completed                0                41h
+envoy-7f6d87458c-bjd2t               0/1     ContainerStatusUnknown   1                45h
+envoy-7f6d87458c-blqfc               0/1     Completed                0                23h
+envoy-7f6d87458c-bp5gz               0/1     Completed                0                39h
+envoy-7f6d87458c-bqsff               0/1     Completed                0                29h
+envoy-7f6d87458c-bt67m               0/1     Completed                0                38h
+envoy-7f6d87458c-cg5z9               0/1     Completed                0                8d
+envoy-7f6d87458c-cnps9               0/1     Completed                0                36h
+envoy-7f6d87458c-cplmv               0/1     Completed                0                20h
+envoy-7f6d87458c-d2rh7               0/1     Completed                0                20h
+envoy-7f6d87458c-d5zlk               0/1     Completed                0                33h
+envoy-7f6d87458c-dptkb               0/1     Completed                0                38h
+envoy-7f6d87458c-dqthx               0/1     Completed                1 (23h ago)      23h
+envoy-7f6d87458c-dz22d               0/1     Completed                0                35h
+envoy-7f6d87458c-dzrxz               0/1     Completed                0                2d15h
+envoy-7f6d87458c-f46fw               0/1     Completed                0                28h
+envoy-7f6d87458c-f5tdh               0/1     Completed                0                44h
+envoy-7f6d87458c-f5zzz               0/1     Completed                0                26h
+envoy-7f6d87458c-f97hk               0/1     Completed                0                28h
+envoy-7f6d87458c-fbnkx               0/1     Completed                0                37h
+envoy-7f6d87458c-flnrl               0/1     ContainerStatusUnknown   1                2d20h
+envoy-7f6d87458c-flwn9               0/1     ContainerStatusUnknown   1                18h
+envoy-7f6d87458c-g5mqf               0/1     Completed                0                23h
+envoy-7f6d87458c-gcqtf               0/1     Completed                0                27h
+envoy-7f6d87458c-ghb9s               0/1     Completed                0                22h
+envoy-7f6d87458c-ghhr7               0/1     Completed                0                2d3h
+envoy-7f6d87458c-gsrh7               0/1     Completed                0                2d21h
+envoy-7f6d87458c-gw9k2               0/1     Completed                0                21h
+envoy-7f6d87458c-gwc4f               0/1     Completed                0                23h
+envoy-7f6d87458c-gwv25               0/1     Completed                0                19h
+envoy-7f6d87458c-h7dw9               0/1     Completed                0                2d20h
+envoy-7f6d87458c-h7gpj               0/1     Completed                0                40h
+envoy-7f6d87458c-h9vfp               0/1     Completed                0                28h
+envoy-7f6d87458c-hc42m               0/1     Completed                0                23h
+envoy-7f6d87458c-hh7qc               0/1     ContainerStatusUnknown   1                2d22h
+envoy-7f6d87458c-hkf4r               0/1     Completed                0                29h
+envoy-7f6d87458c-hlgrz               0/1     Completed                0                40h
+envoy-7f6d87458c-hm5z2               0/1     Completed                0                44h
+envoy-7f6d87458c-hpcgv               0/1     Completed                1 (24h ago)      24h
+envoy-7f6d87458c-hr74w               0/1     Completed                0                42h
+envoy-7f6d87458c-ht9xp               0/1     Completed                0                28h
+envoy-7f6d87458c-j8548               0/1     Completed                0                2d2h
+envoy-7f6d87458c-jg7zz               0/1     Completed                0                2d22h
+envoy-7f6d87458c-jjq56               0/1     Completed                0                2d5h
+envoy-7f6d87458c-jvcmr               0/1     Completed                0                24h
+envoy-7f6d87458c-jxn2q               0/1     Completed                0                26h
+envoy-7f6d87458c-k429p               0/1     Completed                0                28h
+envoy-7f6d87458c-k46rt               0/1     Completed                0                20h
+envoy-7f6d87458c-k6mt8               0/1     Completed                0                26h
+envoy-7f6d87458c-kcc8x               0/1     Completed                0                22h
+envoy-7f6d87458c-kccrp               0/1     Completed                0                2d15h
+envoy-7f6d87458c-kf972               0/1     Completed                0                2d3h
+envoy-7f6d87458c-kgt7k               0/1     Completed                0                19h
+envoy-7f6d87458c-kq52w               0/1     Completed                0                43h
+envoy-7f6d87458c-kr28g               0/1     Completed                0                20h
+envoy-7f6d87458c-l2jrr               0/1     Completed                0                17h
+envoy-7f6d87458c-l47w8               0/1     Completed                0                37h
+envoy-7f6d87458c-l4xwt               0/1     Completed                0                2d14h
+envoy-7f6d87458c-l6c6l               0/1     ContainerStatusUnknown   1                2d1h
+envoy-7f6d87458c-l99m7               0/1     Completed                0                2d15h
+envoy-7f6d87458c-lftcp               0/1     Completed                0                30h
+envoy-7f6d87458c-lhrmb               0/1     ContainerStatusUnknown   1                27h
+envoy-7f6d87458c-lkkn2               0/1     ContainerStatusUnknown   1                34h
+envoy-7f6d87458c-lnlkz               0/1     Completed                0                2d21h
+envoy-7f6d87458c-lwmpd               0/1     Completed                0                18h
+envoy-7f6d87458c-m44kj               0/1     Completed                0                45h
+envoy-7f6d87458c-mgqmk               0/1     Completed                0                38h
+envoy-7f6d87458c-mstxx               0/1     ContainerStatusUnknown   1                2d7h
+envoy-7f6d87458c-n765d               0/1     Completed                0                30h
+envoy-7f6d87458c-nd99m               0/1     ContainerStatusUnknown   1                2d21h
+envoy-7f6d87458c-nggvk               0/1     Completed                0                2d8h
+envoy-7f6d87458c-ngmp4               0/1     Completed                0                27h
+envoy-7f6d87458c-nh6rf               0/1     Completed                0                37h
+envoy-7f6d87458c-nmr5j               0/1     Completed                0                24h
+envoy-7f6d87458c-nrrbs               0/1     Completed                0                34h
+envoy-7f6d87458c-nthjq               0/1     ContainerStatusUnknown   1                42h
+envoy-7f6d87458c-nwdpg               0/1     Completed                0                39h
+envoy-7f6d87458c-p4mhs               0/1     Completed                0                2d4h
+envoy-7f6d87458c-p8msn               0/1     Completed                0                19h
+envoy-7f6d87458c-p8pjw               0/1     Completed                0                2d8h
+envoy-7f6d87458c-pf8cp               0/1     Completed                0                25h
+envoy-7f6d87458c-pl4t7               0/1     Completed                0                34h
+envoy-7f6d87458c-plbkt               0/1     Completed                0                2d14h
+envoy-7f6d87458c-pq7zv               0/1     Completed                0                25h
+envoy-7f6d87458c-pqvdz               0/1     Completed                0                2d20h
+envoy-7f6d87458c-pw5wt               0/1     Completed                0                2d15h
+envoy-7f6d87458c-pz2hd               0/1     Completed                0                35h
+envoy-7f6d87458c-pzkpc               0/1     Completed                0                37h
+envoy-7f6d87458c-q6ldz               0/1     Completed                0                2d1h
+envoy-7f6d87458c-q7nbz               0/1     Completed                0                31h
+envoy-7f6d87458c-qpxv8               0/1     Completed                0                33h
+envoy-7f6d87458c-qzpg2               0/1     Completed                0                2d20h
+envoy-7f6d87458c-r8bvl               0/1     Error                    0                25h
+envoy-7f6d87458c-r8zvc               0/1     Completed                0                23h
+envoy-7f6d87458c-rblh5               0/1     ContainerStatusUnknown   1                34h
+envoy-7f6d87458c-rf6zh               0/1     Completed                0                2d17h
+envoy-7f6d87458c-rjqp9               0/1     Completed                0                2d6h
+envoy-7f6d87458c-rjs87               0/1     Completed                0                34h
+envoy-7f6d87458c-rnr5z               0/1     Completed                0                19h
+envoy-7f6d87458c-rp6mf               0/1     Completed                0                32h
+envoy-7f6d87458c-rtgkl               0/1     ContainerStatusUnknown   1                31h
+envoy-7f6d87458c-s542h               0/1     Completed                0                2d14h
+envoy-7f6d87458c-s7qbf               0/1     Completed                0                2d16h
+envoy-7f6d87458c-s92gm               0/1     Completed                0                2d21h
+envoy-7f6d87458c-s9z8z               0/1     Completed                0                27h
+envoy-7f6d87458c-sj2cv               0/1     Completed                0                41h
+envoy-7f6d87458c-sjj5g               0/1     Completed                0                21h
+envoy-7f6d87458c-skqdj               0/1     Completed                0                2d16h
+envoy-7f6d87458c-snzl9               0/1     Completed                0                20h
+envoy-7f6d87458c-sxxqd               0/1     Completed                0                21h
+envoy-7f6d87458c-szrfq               0/1     Completed                0                22h
+envoy-7f6d87458c-t2b6h               0/1     Completed                0                2d21h
+envoy-7f6d87458c-tdwtv               0/1     Completed                0                47h
+envoy-7f6d87458c-tnmgk               0/1     Completed                0                2d16h
+envoy-7f6d87458c-trmbj               0/1     Completed                0                30h
+envoy-7f6d87458c-twbck               0/1     Completed                0                37h
+envoy-7f6d87458c-twfbt               0/1     Completed                0                2d19h
+envoy-7f6d87458c-v2tn2               0/1     Completed                0                24h
+envoy-7f6d87458c-vdm29               0/1     Completed                0                26h
+envoy-7f6d87458c-vhwzk               0/1     Completed                0                2d9h
+envoy-7f6d87458c-vlq4m               0/1     Completed                0                35h
+envoy-7f6d87458c-vlxtn               0/1     Completed                0                32h
+envoy-7f6d87458c-vtntj               0/1     Completed                0                20h
+envoy-7f6d87458c-w2l22               0/1     Completed                0                31h
+envoy-7f6d87458c-w6b8b               0/1     Completed                0                2d15h
+envoy-7f6d87458c-wlf5n               0/1     Completed                0                19h
+envoy-7f6d87458c-wrxkp               0/1     Completed                0                2d18h
+envoy-7f6d87458c-ww54f               0/1     Completed                0                39h
+envoy-7f6d87458c-x7dvq               0/1     Completed                0                30h
+envoy-7f6d87458c-xc269               0/1     Completed                0                25h
+envoy-7f6d87458c-xknkk               0/1     Completed                0                32h
+envoy-7f6d87458c-xlmmv               0/1     Completed                0                26h
+envoy-7f6d87458c-xm268               0/1     Completed                0                2d7h
+envoy-7f6d87458c-xsmjv               0/1     Completed                0                38h
+envoy-7f6d87458c-xx7rs               0/1     Completed                0                17h
+envoy-7f6d87458c-z8jtq               0/1     Completed                0                24h
+envoy-7f6d87458c-z8vj9               0/1     Completed                0                41h
+envoy-7f6d87458c-zdd8q               0/1     Completed                0                25h
+envoy-7f6d87458c-zl5c4               0/1     Completed                0                18h
+envoy-7f6d87458c-zls74               0/1     Completed                0                23h
+envoy-7f6d87458c-zpmb9               0/1     Completed                0                22h
+envoy-7f6d87458c-zsgr4               0/1     Completed                0                22h
+envoy-7f6d87458c-zw2nj               0/1     Completed                0                2d
+game-service-7775fdd95-22tt7         0/1     Evicted                  0                40h
+game-service-7775fdd95-26d4x         0/1     Error                    0                2d
+game-service-7775fdd95-27k6s         0/1     Evicted                  0                2d
+game-service-7775fdd95-27l2j         0/1     ContainerStatusUnknown   1 (34h ago)      34h
+game-service-7775fdd95-2h8cw         0/1     ContainerStatusUnknown   1                2d7h
+game-service-7775fdd95-2jjmf         0/1     ContainerStatusUnknown   1                22h
+game-service-7775fdd95-2pn8w         0/1     ContainerStatusUnknown   8 (40h ago)      41h
+game-service-7775fdd95-2xk6b         0/1     Evicted                  0                2d2h
+game-service-7775fdd95-2zs25         0/1     ContainerStatusUnknown   1 (34h ago)      34h
+game-service-7775fdd95-429tz         0/1     Evicted                  0                2d2h
+game-service-7775fdd95-44ss8         0/1     Error                    0                20h
+game-service-7775fdd95-462j5         0/1     ContainerStatusUnknown   1 (38h ago)      38h
+game-service-7775fdd95-4966d         0/1     Error                    0                2d21h
+game-service-7775fdd95-4f55w         0/1     Evicted                  0                2d1h
+game-service-7775fdd95-4hwf4         0/1     Error                    0                2d21h
+game-service-7775fdd95-4mlfz         0/1     ContainerStatusUnknown   1 (2d1h ago)     2d1h
+game-service-7775fdd95-4mpvk         0/1     ContainerStatusUnknown   1 (27h ago)      27h
+game-service-7775fdd95-4nmpg         0/1     Evicted                  0                2d2h
+game-service-7775fdd95-4q7cm         0/1     ContainerStatusUnknown   2 (27h ago)      27h
+game-service-7775fdd95-4v8kj         0/1     Error                    1 (18h ago)      18h
+game-service-7775fdd95-4v8q9         0/1     Evicted                  0                46h
+game-service-7775fdd95-4vfkf         0/1     Evicted                  0                35h
+game-service-7775fdd95-55klg         0/1     ContainerStatusUnknown   1 (22h ago)      22h
+game-service-7775fdd95-56sx9         0/1     Error                    0                29h
+game-service-7775fdd95-59qtp         0/1     Error                    0                43h
+game-service-7775fdd95-5cjvl         0/1     Error                    1                38h
+game-service-7775fdd95-5dqxm         0/1     Error                    0                45h
+game-service-7775fdd95-5f5hq         0/1     ContainerStatusUnknown   2 (32h ago)      32h
+game-service-7775fdd95-5mm46         0/1     ContainerStatusUnknown   2 (21h ago)      21h
+game-service-7775fdd95-5rtfz         0/1     Error                    0                2d5h
+game-service-7775fdd95-5tzls         0/1     Error                    6                47h
+game-service-7775fdd95-5vvhx         0/1     ContainerStatusUnknown   7 (46h ago)      46h
+game-service-7775fdd95-654vp         0/1     Error                    0                2d4h
+game-service-7775fdd95-694cl         0/1     Error                    0                2d21h
+game-service-7775fdd95-69krg         0/1     Error                    0                36h
+game-service-7775fdd95-6bncw         0/1     Evicted                  0                2d19h
+game-service-7775fdd95-6grjf         0/1     ContainerStatusUnknown   1                2d3h
+game-service-7775fdd95-6h6wc         0/1     Error                    0                2d20h
+game-service-7775fdd95-6h8fj         0/1     ContainerStatusUnknown   1 (37h ago)      37h
+game-service-7775fdd95-6pqmv         0/1     ContainerStatusUnknown   7 (2d9h ago)     2d10h
+game-service-7775fdd95-6tqwr         0/1     ContainerStatusUnknown   2 (19h ago)      19h
+game-service-7775fdd95-74tz4         0/1     Error                    1 (30h ago)      30h
+game-service-7775fdd95-78tpn         0/1     ContainerStatusUnknown   9 (2d18h ago)    2d18h
+game-service-7775fdd95-79s4j         0/1     Error                    0                22h
+game-service-7775fdd95-7dcgt         0/1     ContainerStatusUnknown   6 (2d5h ago)     2d5h
+game-service-7775fdd95-7dmzf         0/1     ContainerStatusUnknown   1 (24h ago)      24h
+game-service-7775fdd95-7gwmk         0/1     Error                    0                2d2h
+game-service-7775fdd95-7jjz7         0/1     ContainerStatusUnknown   5 (42h ago)      42h
+game-service-7775fdd95-7pqv6         0/1     ContainerStatusUnknown   6 (2d1h ago)     2d1h
+game-service-7775fdd95-7szmd         0/1     Error                    1                39h
+game-service-7775fdd95-7vjfr         0/1     Error                    0                2d21h
+game-service-7775fdd95-7z6nx         0/1     Evicted                  0                2d3h
+game-service-7775fdd95-8264n         0/1     ContainerStatusUnknown   1 (18h ago)      19h
+game-service-7775fdd95-8475q         0/1     Error                    0                45h
+game-service-7775fdd95-84znj         0/1     Evicted                  0                41h
+game-service-7775fdd95-85m6l         0/1     ContainerStatusUnknown   1 (19h ago)      19h
+game-service-7775fdd95-8d4nd         0/1     ContainerStatusUnknown   1 (27h ago)      27h
+game-service-7775fdd95-8djdj         0/1     Error                    0                2d
+game-service-7775fdd95-8fhkv         0/1     ContainerStatusUnknown   1 (39h ago)      39h
+game-service-7775fdd95-8hgtp         0/1     ContainerStatusUnknown   1 (34h ago)      34h
+game-service-7775fdd95-8jwmr         0/1     Evicted                  0                46h
+game-service-7775fdd95-8kwtd         0/1     Error                    0                39h
+game-service-7775fdd95-8nhz2         0/1     Error                    0                2d4h
+game-service-7775fdd95-8q2gn         0/1     Error                    1 (32h ago)      32h
+game-service-7775fdd95-8tvfb         0/1     Error                    0                2d16h
+game-service-7775fdd95-92xnh         0/1     ContainerStatusUnknown   1 (32h ago)      32h
+game-service-7775fdd95-95pgz         0/1     Error                    0                2d14h
+game-service-7775fdd95-96z8x         0/1     Evicted                  0                2d5h
+game-service-7775fdd95-9ctsf         0/1     Evicted                  0                47h
+game-service-7775fdd95-9g4d6         0/1     Error                    1 (22h ago)      22h
+game-service-7775fdd95-9h8p7         0/1     ContainerStatusUnknown   2 (21h ago)      21h
+game-service-7775fdd95-9lqff         0/1     ContainerStatusUnknown   6 (2d2h ago)     2d2h
+game-service-7775fdd95-9nqcp         0/1     ContainerStatusUnknown   6 (2d3h ago)     2d3h
+game-service-7775fdd95-9qxmp         0/1     Error                    0                6d16h
+game-service-7775fdd95-9r6dj         0/1     Error                    0                2d15h
+game-service-7775fdd95-9rcj6         0/1     ContainerStatusUnknown   6 (31h ago)      31h
+game-service-7775fdd95-9rnvc         0/1     ContainerStatusUnknown   1 (38h ago)      38h
+game-service-7775fdd95-9sq5v         0/1     Error                    1 (37h ago)      37h
+game-service-7775fdd95-9v62r         0/1     Evicted                  0                2d7h
+game-service-7775fdd95-b555p         0/1     Error                    0                4d5h
+game-service-7775fdd95-b5mp2         0/1     Error                    0                2d7h
+game-service-7775fdd95-b6j2z         0/1     ContainerStatusUnknown   1 (28h ago)      28h
+game-service-7775fdd95-b97cq         0/1     Error                    0                2d14h
+game-service-7775fdd95-b9c9j         0/1     Error                    0                2d21h
+game-service-7775fdd95-bg58z         0/1     ContainerStatusUnknown   1 (33h ago)      33h
+game-service-7775fdd95-bhq5q         0/1     ContainerStatusUnknown   7 (2d4h ago)     2d4h
+game-service-7775fdd95-bk88r         0/1     Evicted                  0                2d21h
+game-service-7775fdd95-bp6sq         0/1     Evicted                  0                2d1h
+game-service-7775fdd95-brr57         0/1     Evicted                  0                2d1h
+game-service-7775fdd95-brzml         0/1     Error                    0                2d20h
+game-service-7775fdd95-bzv26         0/1     ContainerStatusUnknown   6 (2d3h ago)     2d3h
+game-service-7775fdd95-c6tcd         0/1     Evicted                  0                2d21h
+game-service-7775fdd95-c7lx8         0/1     Error                    0                2d18h
+game-service-7775fdd95-c9rtn         0/1     ContainerStatusUnknown   1                2d20h
+game-service-7775fdd95-cd6fg         0/1     ContainerStatusUnknown   6 (2d1h ago)     2d2h
+game-service-7775fdd95-ch4qz         0/1     ContainerStatusUnknown   1                41h
+game-service-7775fdd95-ch5rz         0/1     ContainerStatusUnknown   1 (34h ago)      34h
+game-service-7775fdd95-chplb         0/1     ContainerStatusUnknown   1 (25h ago)      25h
+game-service-7775fdd95-ckbp8         0/1     Evicted                  0                2d16h
+game-service-7775fdd95-cl7r4         0/1     Error                    1                26h
+game-service-7775fdd95-cnwll         0/1     Error                    0                2d5h
+game-service-7775fdd95-cq8bk         0/1     Evicted                  0                2d5h
+game-service-7775fdd95-cz52l         0/1     ContainerStatusUnknown   1 (24h ago)      24h
+game-service-7775fdd95-d2vlk         0/1     ContainerStatusUnknown   2 (17h ago)      18h
+game-service-7775fdd95-d4rd4         0/1     Evicted                  0                2d2h
+game-service-7775fdd95-d6rcn         0/1     Evicted                  0                47h
+game-service-7775fdd95-d72b5         0/1     Evicted                  0                2d2h
+game-service-7775fdd95-d7knj         0/1     Error                    47               2d14h
+game-service-7775fdd95-d7pb6         0/1     Error                    0                2d8h
+game-service-7775fdd95-d7xbp         0/1     ContainerStatusUnknown   2 (23h ago)      23h
+game-service-7775fdd95-dctth         0/1     Evicted                  0                2d19h
+game-service-7775fdd95-dhkw2         0/1     Error                    0                24h
+game-service-7775fdd95-dlm2n         0/1     Evicted                  0                46h
+game-service-7775fdd95-dlwb6         0/1     Evicted                  0                46h
+game-service-7775fdd95-dq4mw         0/1     ContainerStatusUnknown   1 (29h ago)      30h
+game-service-7775fdd95-dq64p         0/1     ContainerStatusUnknown   1 (29h ago)      29h
+game-service-7775fdd95-dqtxt         0/1     Error                    0                2d21h
+game-service-7775fdd95-dsrr4         0/1     ContainerStatusUnknown   1 (37h ago)      37h
+game-service-7775fdd95-dxbxg         0/1     Error                    0                2d6h
+game-service-7775fdd95-f4wrq         0/1     ContainerStatusUnknown   1 (40h ago)      40h
+game-service-7775fdd95-f5pdb         0/1     Error                    0                2d2h
+game-service-7775fdd95-f5z79         0/1     ContainerStatusUnknown   2 (22h ago)      22h
+game-service-7775fdd95-f87s7         0/1     Error                    0                3d2h
+game-service-7775fdd95-f8vk5         0/1     Error                    1 (19h ago)      19h
+game-service-7775fdd95-fmcdc         0/1     Evicted                  0                2d16h
+game-service-7775fdd95-fpvt7         0/1     ContainerStatusUnknown   7 (2d ago)       2d
+game-service-7775fdd95-fv2dz         0/1     ContainerStatusUnknown   7 (35h ago)      36h
+game-service-7775fdd95-fwgbm         0/1     Error                    0                2d16h
+game-service-7775fdd95-fz8cz         0/1     Error                    0                3d14h
+game-service-7775fdd95-g2rlc         0/1     ContainerStatusUnknown   6 (43h ago)      44h
+game-service-7775fdd95-g4z8v         0/1     Error                    0                2d6h
+game-service-7775fdd95-g5jvb         0/1     Error                    0                2d16h
+game-service-7775fdd95-g6b6m         0/1     ContainerStatusUnknown   1 (21h ago)      21h
+game-service-7775fdd95-g6lb6         0/1     ContainerStatusUnknown   1 (2d1h ago)     2d1h
+game-service-7775fdd95-gcrwd         0/1     Error                    2 (21h ago)      21h
+game-service-7775fdd95-gh7wc         0/1     ContainerStatusUnknown   1 (19h ago)      19h
+game-service-7775fdd95-gkzdx         0/1     ContainerStatusUnknown   5 (2d2h ago)     2d2h
+game-service-7775fdd95-gldnv         0/1     ContainerStatusUnknown   7 (43h ago)      43h
+game-service-7775fdd95-gp7m7         0/1     Error                    0                2d8h
+game-service-7775fdd95-gvwf7         0/1     Evicted                  0                46h
+game-service-7775fdd95-h22hk         0/1     ContainerStatusUnknown   2 (23h ago)      23h
+game-service-7775fdd95-h5bbh         0/1     Error                    0                2d6h
+game-service-7775fdd95-h6lvp         0/1     Error                    2 (27h ago)      27h
+game-service-7775fdd95-hcp28         0/1     Evicted                  0                46h
+game-service-7775fdd95-hhp9g         0/1     Evicted                  0                44h
+game-service-7775fdd95-hj8nj         0/1     ContainerStatusUnknown   1 (17h ago)      17h
+game-service-7775fdd95-hjksx         0/1     ContainerStatusUnknown   2 (37h ago)      37h
+game-service-7775fdd95-hkxvr         0/1     ContainerStatusUnknown   1 (28h ago)      28h
+game-service-7775fdd95-hn2nj         0/1     ContainerStatusUnknown   6 (43h ago)      43h
+game-service-7775fdd95-htcgw         0/1     ContainerStatusUnknown   1 (25h ago)      25h
+game-service-7775fdd95-hv9ss         0/1     ContainerStatusUnknown   6 (2d5h ago)     2d5h
+game-service-7775fdd95-hvnd8         0/1     Error                    1                47h
+game-service-7775fdd95-hwlcg         0/1     Evicted                  0                44h
+game-service-7775fdd95-j4xdm         0/1     Error                    0                20h
+game-service-7775fdd95-j5bxb         0/1     Error                    0                24h
+game-service-7775fdd95-j8drp         0/1     Error                    0                2d15h
+game-service-7775fdd95-j94vk         0/1     Error                    1 (20h ago)      20h
+game-service-7775fdd95-j9n6z         0/1     Error                    7                2d7h
+game-service-7775fdd95-jcdjz         0/1     ContainerStatusUnknown   2                34h
+game-service-7775fdd95-jdmtm         0/1     Error                    0                2d16h
+game-service-7775fdd95-jkcn6         0/1     Error                    2 (20h ago)      20h
+game-service-7775fdd95-jkfpk         0/1     Error                    0                2d15h
+game-service-7775fdd95-jkkrr         0/1     ContainerStatusUnknown   1                45h
+game-service-7775fdd95-jlc6b         0/1     Evicted                  0                2d2h
+game-service-7775fdd95-jmsvm         0/1     Error                    1 (42h ago)      42h
+game-service-7775fdd95-jncsl         0/1     Evicted                  0                36h
+game-service-7775fdd95-jr7jd         0/1     ContainerStatusUnknown   1 (32h ago)      32h
+game-service-7775fdd95-jtgvf         0/1     ContainerStatusUnknown   1 (34h ago)      34h
+game-service-7775fdd95-jtxcx         0/1     Error                    0                2d15h
+game-service-7775fdd95-jw69f         0/1     ContainerStatusUnknown   1                44h
+game-service-7775fdd95-jwclk         0/1     Evicted                  0                2d5h
+game-service-7775fdd95-jzjzw         0/1     Error                    0                2d23h
+game-service-7775fdd95-k9wq6         0/1     Error                    1 (2d14h ago)    2d15h
+game-service-7775fdd95-kdbd8         0/1     ContainerStatusUnknown   1 (35h ago)      35h
+game-service-7775fdd95-kfklr         0/1     ContainerStatusUnknown   7 (40h ago)      40h
+game-service-7775fdd95-khqzq         0/1     ContainerStatusUnknown   1 (18h ago)      18h
+game-service-7775fdd95-kk56b         0/1     ContainerStatusUnknown   6 (35h ago)      35h
+game-service-7775fdd95-kmmfm         0/1     Error                    0                2d17h
+game-service-7775fdd95-kmnfb         0/1     ContainerStatusUnknown   1 (28h ago)      28h
+game-service-7775fdd95-kq4nh         0/1     ContainerStatusUnknown   1 (27h ago)      28h
+game-service-7775fdd95-kr6zc         0/1     ContainerStatusUnknown   2 (18h ago)      18h
+game-service-7775fdd95-ks4lf         0/1     Error                    0                18h
+game-service-7775fdd95-kxxtq         0/1     Error                    0                2d14h
+game-service-7775fdd95-l2wq8         0/1     Error                    1                2d1h
+game-service-7775fdd95-l92nn         0/1     ContainerStatusUnknown   6 (44h ago)      45h
+game-service-7775fdd95-lcrv7         0/1     Error                    0                2d1h
+game-service-7775fdd95-lm454         0/1     ContainerStatusUnknown   1 (29h ago)      29h
+game-service-7775fdd95-lppxq         0/1     Error                    0                2d14h
+game-service-7775fdd95-lq5sx         0/1     Evicted                  0                46h
+game-service-7775fdd95-lsmlx         0/1     Evicted                  0                2d2h
+game-service-7775fdd95-lttc7         0/1     Evicted                  0                30h
+game-service-7775fdd95-lxfsk         0/1     Evicted                  0                43h
+game-service-7775fdd95-m689n         0/1     ContainerStatusUnknown   6 (29h ago)      29h
+game-service-7775fdd95-m69ng         0/1     ContainerStatusUnknown   1 (37h ago)      37h
+game-service-7775fdd95-m8npb         0/1     ContainerStatusUnknown   7 (42h ago)      42h
+game-service-7775fdd95-mcpsf         0/1     ContainerStatusUnknown   8 (2d19h ago)    2d19h
+game-service-7775fdd95-mdjfh         0/1     Evicted                  0                43h
+game-service-7775fdd95-mhh7h         0/1     Evicted                  0                2d2h
+game-service-7775fdd95-mm4c2         0/1     ContainerStatusUnknown   1 (33h ago)      33h
+game-service-7775fdd95-mmdt4         0/1     ContainerStatusUnknown   1 (25h ago)      25h
+game-service-7775fdd95-mprfp         0/1     Error                    0                2d15h
+game-service-7775fdd95-mqrxp         0/1     Error                    1                30h
+game-service-7775fdd95-mw6pn         0/1     Error                    0                35h
+game-service-7775fdd95-mw9fx         0/1     ContainerStatusUnknown   8 (2d9h ago)     2d9h
+game-service-7775fdd95-n2cv7         0/1     ContainerStatusUnknown   1 (46h ago)      47h
+game-service-7775fdd95-n87xf         0/1     Evicted                  0                2d2h
+game-service-7775fdd95-n8w77         0/1     Evicted                  0                2d21h
+game-service-7775fdd95-n9dwt         0/1     Evicted                  0                46h
+game-service-7775fdd95-n9fm6         0/1     ContainerStatusUnknown   1 (30h ago)      30h
+game-service-7775fdd95-nc5dx         0/1     Error                    0                41h
+game-service-7775fdd95-ngzdw         0/1     Evicted                  0                2d9h
+game-service-7775fdd95-nphm5         0/1     Error                    1                20h
+game-service-7775fdd95-ntsgx         0/1     Error                    0                46h
+game-service-7775fdd95-nxbxq         0/1     Error                    1 (28h ago)      28h
+game-service-7775fdd95-nxw5r         0/1     ContainerStatusUnknown   1 (32h ago)      32h
+game-service-7775fdd95-p4w4m         0/1     Error                    1                35h
+game-service-7775fdd95-p99bd         0/1     ContainerStatusUnknown   1 (47h ago)      47h
+game-service-7775fdd95-pbth9         0/1     Evicted                  0                2d21h
+game-service-7775fdd95-pfwnd         0/1     ContainerStatusUnknown   7 (37h ago)      38h
+game-service-7775fdd95-ph8sk         0/1     Error                    1                2d5h
+game-service-7775fdd95-pl8j4         0/1     Error                    0                2d19h
+game-service-7775fdd95-ptlgk         0/1     Error                    1                42h
+game-service-7775fdd95-pwqtj         0/1     Error                    0                2d21h
+game-service-7775fdd95-pwvrj         0/1     ContainerStatusUnknown   6 (47h ago)      2d
+game-service-7775fdd95-pzxvw         0/1     ContainerStatusUnknown   1                2d22h
+game-service-7775fdd95-q85xj         0/1     Error                    0                2d16h
+game-service-7775fdd95-q8hzm         0/1     Evicted                  0                43h
+game-service-7775fdd95-qc5r9         0/1     Error                    0                2d2h
+game-service-7775fdd95-qfb2d         0/1     Error                    0                25h
+game-service-7775fdd95-qhdzw         0/1     Error                    1 (32h ago)      32h
+game-service-7775fdd95-qlld2         0/1     ContainerStatusUnknown   1 (23h ago)      23h
+game-service-7775fdd95-qprg8         0/1     Error                    0                2d22h
+game-service-7775fdd95-qpss9         0/1     Evicted                  0                2d3h
+game-service-7775fdd95-qqmbl         0/1     ContainerStatusUnknown   2 (23h ago)      23h
+game-service-7775fdd95-qrqww         0/1     Evicted                  0                43h
+game-service-7775fdd95-qtdjk         0/1     Error                    2 (22h ago)      22h
+game-service-7775fdd95-qwn4p         0/1     Evicted                  0                2d19h
+game-service-7775fdd95-qwxl9         0/1     Error                    0                2d6h
+game-service-7775fdd95-qz2mx         0/1     Error                    1 (24h ago)      24h
+game-service-7775fdd95-r2f5h         0/1     Error                    0                47h
+game-service-7775fdd95-r8h82         0/1     Evicted                  0                2d1h
+game-service-7775fdd95-rdh2m         0/1     ContainerStatusUnknown   1 (26h ago)      26h
+game-service-7775fdd95-rl8k7         0/1     Error                    1 (28h ago)      28h
+game-service-7775fdd95-rlzht         0/1     ContainerStatusUnknown   1 (2d15h ago)    2d15h
+game-service-7775fdd95-rm7z8         0/1     Error                    0                30h
+game-service-7775fdd95-rmpbf         0/1     Evicted                  0                47h
+game-service-7775fdd95-rqxbj         0/1     Error                    0                2d16h
+game-service-7775fdd95-rrhcb         0/1     Error                    0                2d18h
+game-service-7775fdd95-rthpv         0/1     Error                    0                2d16h
+game-service-7775fdd95-rtn6f         0/1     Evicted                  0                2d5h
+game-service-7775fdd95-rtr8k         0/1     Error                    1 (36h ago)      37h
+game-service-7775fdd95-rv2x9         0/1     Error                    0                2d10h
+game-service-7775fdd95-rwbs8         0/1     Error                    1 (32h ago)      32h
+game-service-7775fdd95-rz7cg         0/1     Evicted                  0                2d5h
+game-service-7775fdd95-s2rdk         0/1     Evicted                  0                2d19h
+game-service-7775fdd95-s4d9p         0/1     Error                    0                44h
+game-service-7775fdd95-s86b7         0/1     Evicted                  0                2d2h
+game-service-7775fdd95-s9lw9         0/1     ContainerStatusUnknown   1 (30h ago)      30h
+game-service-7775fdd95-sc2vw         0/1     Evicted                  0                46h
+game-service-7775fdd95-sc9wd         0/1     ContainerStatusUnknown   3 (20h ago)      20h
+game-service-7775fdd95-shbdg         0/1     ContainerStatusUnknown   1 (30h ago)      30h
+game-service-7775fdd95-skjlk         0/1     Error                    0                2d22h
+game-service-7775fdd95-sw8qd         0/1     Evicted                  0                2d19h
+game-service-7775fdd95-sw9js         0/1     ContainerStatusUnknown   1 (22h ago)      23h
+game-service-7775fdd95-sxbbg         0/1     Error                    2                36h
+game-service-7775fdd95-t4cx4         0/1     Error                    0                2d22h
+game-service-7775fdd95-t5cpb         0/1     Evicted                  0                2d5h
+game-service-7775fdd95-t62tv         0/1     Evicted                  0                2d9h
+game-service-7775fdd95-t79tn         0/1     Error                    1                2d22h
+game-service-7775fdd95-t9n6v         0/1     Error                    0                38h
+game-service-7775fdd95-tctsb         0/1     Evicted                  0                2d2h
+game-service-7775fdd95-td666         0/1     ContainerStatusUnknown   6 (28h ago)      29h
+game-service-7775fdd95-tdv2w         0/1     Error                    1                2d3h
+game-service-7775fdd95-tf6wg         0/1     ContainerStatusUnknown   1 (23h ago)      23h
+game-service-7775fdd95-tfxk7         0/1     ContainerStatusUnknown   6 (33h ago)      33h
+game-service-7775fdd95-tkbhx         0/1     ContainerStatusUnknown   1 (24h ago)      25h
+game-service-7775fdd95-tlccf         0/1     Evicted                  0                2d2h
+game-service-7775fdd95-ttl56         0/1     ContainerStatusUnknown   1                2d8h
+game-service-7775fdd95-ttr4t         0/1     Evicted                  0                36h
+game-service-7775fdd95-ttspv         0/1     ContainerStatusUnknown   1 (44h ago)      44h
+game-service-7775fdd95-ttvm6         0/1     Evicted                  0                2d1h
+game-service-7775fdd95-tz9td         0/1     Evicted                  0                2d5h
+game-service-7775fdd95-tzfx9         0/1     ContainerStatusUnknown   1 (45h ago)      46h
+game-service-7775fdd95-v5zbz         0/1     Error                    2 (25h ago)      26h
+game-service-7775fdd95-v6jdn         0/1     Evicted                  0                2d19h
+game-service-7775fdd95-v9cjg         0/1     ContainerStatusUnknown   8 (41h ago)      41h
+game-service-7775fdd95-v9txt         0/1     Error                    0                2d20h
+game-service-7775fdd95-vc2lx         0/1     Error                    0                2d
+game-service-7775fdd95-vdjvf         0/1     ContainerStatusUnknown   1 (42h ago)      43h
+game-service-7775fdd95-vgq27         0/1     ContainerStatusUnknown   3 (17h ago)      17h
+game-service-7775fdd95-vj8q5         0/1     Evicted                  0                2d19h
+game-service-7775fdd95-vjb57         0/1     ContainerStatusUnknown   7 (2d3h ago)     2d4h
+game-service-7775fdd95-vjw4x         0/1     ContainerStatusUnknown   1 (31h ago)      31h
+game-service-7775fdd95-vkfp2         0/1     Error                    2 (31h ago)      32h
+game-service-7775fdd95-vlf4p         0/1     Error                    2                27h
+game-service-7775fdd95-vn4gt         0/1     ContainerStatusUnknown   6 (31h ago)      31h
+game-service-7775fdd95-vprjq         0/1     Error                    0                37h
+game-service-7775fdd95-vsmn4         0/1     Error                    0                17h
+game-service-7775fdd95-vt59d         0/1     ContainerStatusUnknown   7 (2d7h ago)     2d7h
+game-service-7775fdd95-vzgp2         0/1     Error                    0                2d8h
+game-service-7775fdd95-vzhmj         0/1     ContainerStatusUnknown   1 (27h ago)      27h
+game-service-7775fdd95-w2knf         0/1     Error                    0                26h
+game-service-7775fdd95-w2qck         0/1     Error                    0                2d17h
+game-service-7775fdd95-w5m5h         0/1     ContainerStatusUnknown   2 (32h ago)      33h
+game-service-7775fdd95-w94bh         0/1     Evicted                  0                2d5h
+game-service-7775fdd95-wbk8f         0/1     ContainerStatusUnknown   1 (33h ago)      33h
+game-service-7775fdd95-wcfb6         0/1     ContainerStatusUnknown   2 (25h ago)      25h
+game-service-7775fdd95-wgsj7         0/1     ContainerStatusUnknown   2 (19h ago)      19h
+game-service-7775fdd95-wh85d         0/1     ContainerStatusUnknown   6 (36h ago)      36h
+game-service-7775fdd95-whmpm         0/1     Error                    1 (24h ago)      24h
+game-service-7775fdd95-wj4rc         0/1     Evicted                  0                47h
+game-service-7775fdd95-wjj82         0/1     ContainerStatusUnknown   7 (2d8h ago)     2d8h
+game-service-7775fdd95-wl5rt         0/1     Error                    0                2d20h
+game-service-7775fdd95-wmpzh         0/1     ContainerStatusUnknown   5 (33h ago)      34h
+game-service-7775fdd95-wq6wl         0/1     Error                    1                2d9h
+game-service-7775fdd95-wqgc2         0/1     Error                    0                21h
+game-service-7775fdd95-ws9mq         0/1     Evicted                  0                43h
+game-service-7775fdd95-x5t77         0/1     ContainerStatusUnknown   6 (44h ago)      44h
+game-service-7775fdd95-x6sl9         0/1     Error                    0                2d19h
+game-service-7775fdd95-x7rh4         0/1     ContainerStatusUnknown   6 (36h ago)      36h
+game-service-7775fdd95-x9w2f         0/1     Error                    1 (38h ago)      38h
+game-service-7775fdd95-x9xw8         0/1     Error                    1 (35h ago)      35h
+game-service-7775fdd95-xc422         0/1     ContainerStatusUnknown   2 (26h ago)      26h
+game-service-7775fdd95-xdpmq         0/1     ContainerStatusUnknown   1 (31h ago)      31h
+game-service-7775fdd95-xdrht         0/1     ContainerStatusUnknown   1 (23h ago)      24h
+game-service-7775fdd95-xf9kr         0/1     Evicted                  0                2d5h
+game-service-7775fdd95-xgn2k         0/1     ContainerStatusUnknown   1 (25h ago)      25h
+game-service-7775fdd95-xmqcc         0/1     Error                    1 (39h ago)      39h
+game-service-7775fdd95-xpcbj         0/1     ContainerStatusUnknown   1 (28h ago)      28h
+game-service-7775fdd95-xr925         0/1     Evicted                  0                22h
+game-service-7775fdd95-xvktd         0/1     Error                    1 (42h ago)      42h
+game-service-7775fdd95-z8b55         0/1     ContainerStatusUnknown   7 (46h ago)      46h
+game-service-7775fdd95-z8xkl         0/1     Evicted                  0                2d2h
+game-service-7775fdd95-z9fz7         0/1     ContainerStatusUnknown   2 (20h ago)      21h
+game-service-7775fdd95-zcb75         0/1     ContainerStatusUnknown   1                20h
+game-service-7775fdd95-zdfmh         0/1     Evicted                  0                2d5h
+game-service-7775fdd95-zdsrv         0/1     ContainerStatusUnknown   1 (41h ago)      41h
+game-service-7775fdd95-zkn99         0/1     Error                    0                26h
+game-service-7775fdd95-zpvth         0/1     Error                    0                18h
+game-service-7775fdd95-zr7hw         0/1     ContainerStatusUnknown   7 (39h ago)      39h
+game-service-7775fdd95-zrh8n         0/1     Error                    0                2d9h
+game-service-7775fdd95-zshrf         0/1     ContainerStatusUnknown   2 (26h ago)      26h
+game-service-7775fdd95-ztq7x         0/1     Error                    0                39h
+game-service-7775fdd95-zvlp8         0/1     Evicted                  0                2d1h
+game-service-7775fdd95-zvp99         0/1     ContainerStatusUnknown   7 (2d17h ago)    2d17h
+game-service-7775fdd95-zvqsk         0/1     Error                    0                40h
+game-service-7775fdd95-zzf2c         0/1     ContainerStatusUnknown   9 (2d19h ago)    2d20h
+game-service-7775fdd95-zzl8p         0/1     ContainerStatusUnknown   1 (23h ago)      23h
+grafana-8f98b9ddb-228jf              0/1     Evicted                  0                2d22h
+grafana-8f98b9ddb-22f98              0/1     Completed                0                37h
+grafana-8f98b9ddb-25xp7              0/1     Completed                0                44h
+grafana-8f98b9ddb-26xhq              0/1     Evicted                  0                2d15h
+grafana-8f98b9ddb-2bdtr              0/1     Completed                0                2d2h
+grafana-8f98b9ddb-2d6fd              0/1     Completed                0                44h
+grafana-8f98b9ddb-2fbg5              0/1     Completed                0                2d20h
+grafana-8f98b9ddb-2gngw              0/1     Evicted                  0                2d21h
+grafana-8f98b9ddb-2mjq6              0/1     Completed                0                28h
+grafana-8f98b9ddb-2rblc              0/1     Completed                0                2d6h
+grafana-8f98b9ddb-2vkgh              0/1     Completed                0                38h
+grafana-8f98b9ddb-44zdm              0/1     Completed                0                33h
+grafana-8f98b9ddb-4jnlk              0/1     ContainerStatusUnknown   1                47h
+grafana-8f98b9ddb-4l6gk              0/1     Completed                0                46h
+grafana-8f98b9ddb-4lqjw              0/1     Evicted                  0                2d14h
+grafana-8f98b9ddb-4p8pd              0/1     Completed                0                35h
+grafana-8f98b9ddb-4pxn4              0/1     Evicted                  0                2d22h
+grafana-8f98b9ddb-4rqdg              0/1     Completed                0                47h
+grafana-8f98b9ddb-4rwjd              0/1     Completed                0                39h
+grafana-8f98b9ddb-4tl2q              0/1     Completed                0                36h
+grafana-8f98b9ddb-4tpqc              0/1     Completed                0                37h
+grafana-8f98b9ddb-4vjr6              0/1     Completed                0                20h
+grafana-8f98b9ddb-4xh8h              0/1     Completed                0                2d16h
+grafana-8f98b9ddb-4zlkc              0/1     Evicted                  0                2d8h
+grafana-8f98b9ddb-59z4h              0/1     Completed                0                24h
+grafana-8f98b9ddb-5f6xh              0/1     Completed                0                17h
+grafana-8f98b9ddb-5fmdg              0/1     Completed                0                32h
+grafana-8f98b9ddb-5l2nb              0/1     Completed                0                2d3h
+grafana-8f98b9ddb-5pwxg              0/1     ContainerStatusUnknown   1                41h
+grafana-8f98b9ddb-5qwx4              0/1     Completed                0                40h
+grafana-8f98b9ddb-5smq6              0/1     Completed                0                24h
+grafana-8f98b9ddb-5snt2              0/1     Completed                0                2d2h
+grafana-8f98b9ddb-5vtb8              0/1     Completed                0                24h
+grafana-8f98b9ddb-5wq96              0/1     ContainerStatusUnknown   1                2d14h
+grafana-8f98b9ddb-5zvrw              0/1     Completed                0                2d21h
+grafana-8f98b9ddb-62mw6              0/1     Evicted                  0                2d22h
+grafana-8f98b9ddb-6dtcp              0/1     Completed                0                2d7h
+grafana-8f98b9ddb-6f8zn              0/1     Evicted                  0                2d15h
+grafana-8f98b9ddb-6fsm8              0/1     Completed                0                32h
+grafana-8f98b9ddb-6gs6c              0/1     Completed                0                19h
+grafana-8f98b9ddb-6rxtj              0/1     Completed                0                28h
+grafana-8f98b9ddb-6tzb5              0/1     Completed                0                33h
+grafana-8f98b9ddb-6vvh4              0/1     Completed                0                39h
+grafana-8f98b9ddb-6wlwb              0/1     Completed                0                36h
+grafana-8f98b9ddb-6xkp8              0/1     Completed                0                2d
+grafana-8f98b9ddb-724v7              0/1     Completed                0                2d14h
+grafana-8f98b9ddb-74qmr              0/1     Completed                0                2d18h
+grafana-8f98b9ddb-7cfdk              0/1     Completed                0                2d4h
+grafana-8f98b9ddb-7fjf9              0/1     Completed                0                28h
+grafana-8f98b9ddb-7jzzh              0/1     Evicted                  0                2d21h
+grafana-8f98b9ddb-7k68q              0/1     Completed                0                2d19h
+grafana-8f98b9ddb-7kblb              0/1     Completed                0                2d21h
+grafana-8f98b9ddb-7l4x6              0/1     Completed                0                46h
+grafana-8f98b9ddb-7lh2s              0/1     Completed                0                41h
+grafana-8f98b9ddb-7lzz4              0/1     Completed                0                2d22h
+grafana-8f98b9ddb-7n6xt              0/1     Completed                0                43h
+grafana-8f98b9ddb-7tlv4              0/1     Completed                0                2d1h
+grafana-8f98b9ddb-7v84x              0/1     Completed                0                2d2h
+grafana-8f98b9ddb-829nc              0/1     Completed                0                20h
+grafana-8f98b9ddb-86445              0/1     Completed                0                23h
+grafana-8f98b9ddb-8dkfl              0/1     Completed                0                2d17h
+grafana-8f98b9ddb-8fzdp              0/1     Completed                0                37h
+grafana-8f98b9ddb-8m7zs              0/1     Evicted                  0                2d21h
+grafana-8f98b9ddb-8q6gt              0/1     Completed                0                25h
+grafana-8f98b9ddb-8rn8p              0/1     Completed                0                2d21h
+grafana-8f98b9ddb-8vkjx              0/1     Completed                0                30h
+grafana-8f98b9ddb-8w9pp              0/1     Completed                0                2d
+grafana-8f98b9ddb-8wzxz              0/1     Completed                0                3d2h
+grafana-8f98b9ddb-8z42m              0/1     Completed                0                26h
+grafana-8f98b9ddb-922cv              0/1     Completed                0                2d7h
+grafana-8f98b9ddb-94wrc              0/1     Completed                0                25h
+grafana-8f98b9ddb-9b59j              0/1     Completed                0                18h
+grafana-8f98b9ddb-9bbst              0/1     Completed                0                36h
+grafana-8f98b9ddb-9bcd4              0/1     Completed                0                2d7h
+grafana-8f98b9ddb-9dbgr              0/1     Completed                0                47h
+grafana-8f98b9ddb-9hs9t              0/1     Completed                0                27h
+grafana-8f98b9ddb-9j4mr              0/1     Completed                0                2d17h
+grafana-8f98b9ddb-9lwzj              0/1     Completed                0                30h
+grafana-8f98b9ddb-9mzq4              0/1     Completed                0                37h
+grafana-8f98b9ddb-9r2ws              0/1     Completed                0                34h
+grafana-8f98b9ddb-9rtzq              0/1     Evicted                  0                2d15h
+grafana-8f98b9ddb-9xww8              0/1     Completed                0                2d21h
+grafana-8f98b9ddb-b64k7              0/1     Evicted                  0                2d5h
+grafana-8f98b9ddb-b6tln              0/1     Completed                0                42h
+grafana-8f98b9ddb-bgfjr              0/1     Evicted                  0                2d20h
+grafana-8f98b9ddb-bgp6h              0/1     Completed                0                18h
+grafana-8f98b9ddb-bhpmw              0/1     Completed                0                28h
+grafana-8f98b9ddb-bjcbg              0/1     Completed                0                2d23h
+grafana-8f98b9ddb-bl765              0/1     Evicted                  0                2d21h
+grafana-8f98b9ddb-bls4f              0/1     Evicted                  0                2d16h
+grafana-8f98b9ddb-bnf5j              0/1     Completed                0                2d22h
+grafana-8f98b9ddb-bpswb              0/1     Completed                0                33h
+grafana-8f98b9ddb-bvp46              0/1     ContainerStatusUnknown   1                44h
+grafana-8f98b9ddb-bww95              0/1     Completed                0                44h
+grafana-8f98b9ddb-bxgcw              0/1     Completed                0                2d
+grafana-8f98b9ddb-c6rt8              0/1     ContainerStatusUnknown   1                2d9h
+grafana-8f98b9ddb-c797z              0/1     Completed                0                26h
+grafana-8f98b9ddb-c7sdf              0/1     Completed                0                2d3h
+grafana-8f98b9ddb-cqtwx              0/1     Completed                0                2d1h
+grafana-8f98b9ddb-csrg6              0/1     Completed                0                31h
+grafana-8f98b9ddb-cvmpk              0/1     Evicted                  0                2d21h
+grafana-8f98b9ddb-cw69g              0/1     Completed                0                44h
+grafana-8f98b9ddb-d29q9              0/1     ContainerStatusUnknown   1                38h
+grafana-8f98b9ddb-d2rpn              0/1     Completed                0                2d22h
+grafana-8f98b9ddb-d4c6k              0/1     Completed                0                2d19h
+grafana-8f98b9ddb-d5zqh              0/1     Completed                0                18h
+grafana-8f98b9ddb-dbmjq              0/1     Completed                0                45h
+grafana-8f98b9ddb-dcnl8              0/1     Completed                0                23h
+grafana-8f98b9ddb-dg545              0/1     Evicted                  0                2d21h
+grafana-8f98b9ddb-dgz6w              0/1     Evicted                  0                2d21h
+grafana-8f98b9ddb-djggq              0/1     Evicted                  0                2d15h
+grafana-8f98b9ddb-dk6fc              0/1     Completed                0                42h
+grafana-8f98b9ddb-dlbhg              0/1     Completed                0                35h
+grafana-8f98b9ddb-dlzsc              0/1     Completed                0                46h
+grafana-8f98b9ddb-dqgzl              0/1     Completed                0                23h
+grafana-8f98b9ddb-f2psg              0/1     Completed                0                32h
+grafana-8f98b9ddb-f5p8t              0/1     Completed                0                33h
+grafana-8f98b9ddb-f8cc7              0/1     Completed                0                2d4h
+grafana-8f98b9ddb-fc2ss              0/1     Completed                0                2d22h
+grafana-8f98b9ddb-fc4xj              0/1     ContainerStatusUnknown   1                2d6h
+grafana-8f98b9ddb-ffvjz              0/1     Completed                0                27h
+grafana-8f98b9ddb-fhh92              0/1     Completed                0                2d
+grafana-8f98b9ddb-fhwk2              0/1     Completed                0                25h
+grafana-8f98b9ddb-fj4lp              0/1     Completed                0                25h
+grafana-8f98b9ddb-fqfp7              0/1     ContainerStatusUnknown   1                30h
+grafana-8f98b9ddb-fr7c7              0/1     Completed                0                39h
+grafana-8f98b9ddb-frdpn              0/1     Completed                0                21h
+grafana-8f98b9ddb-fvb9t              0/1     Completed                0                25h
+grafana-8f98b9ddb-g25tg              0/1     Completed                0                2d8h
+grafana-8f98b9ddb-g6hl2              0/1     Completed                0                2d14h
+grafana-8f98b9ddb-g7n4d              0/1     Completed                0                2d18h
+grafana-8f98b9ddb-g9s6p              0/1     Evicted                  0                2d10h
+grafana-8f98b9ddb-gbmc7              0/1     Completed                0                39h
+grafana-8f98b9ddb-gc6dh              0/1     Completed                0                2d8h
+grafana-8f98b9ddb-gcwp7              0/1     Completed                0                19h
+grafana-8f98b9ddb-gg572              0/1     Completed                0                22h
+grafana-8f98b9ddb-gg8g4              0/1     Completed                0                2d10h
+grafana-8f98b9ddb-ggljc              0/1     Completed                0                2d6h
+grafana-8f98b9ddb-ggw4d              0/1     Completed                0                27h
+grafana-8f98b9ddb-gh89c              0/1     Completed                0                40h
+grafana-8f98b9ddb-gjbb6              0/1     Completed                0                37h
+grafana-8f98b9ddb-gjpg7              0/1     Evicted                  0                2d20h
+grafana-8f98b9ddb-gm6tz              0/1     Completed                0                2d2h
+grafana-8f98b9ddb-gqxjv              0/1     Completed                0                27h
+grafana-8f98b9ddb-gqz7v              0/1     Completed                0                2d15h
+grafana-8f98b9ddb-gshvc              0/1     Completed                0                2d20h
+grafana-8f98b9ddb-gtcvw              0/1     Completed                0                2d1h
+grafana-8f98b9ddb-gtn86              0/1     Evicted                  0                2d21h
+grafana-8f98b9ddb-gxhfw              0/1     Completed                0                2d5h
+grafana-8f98b9ddb-h9p45              0/1     ContainerStatusUnknown   1                2d20h
+grafana-8f98b9ddb-hcbh8              0/1     Evicted                  0                2d22h
+grafana-8f98b9ddb-hh865              0/1     Completed                0                2d10h
+grafana-8f98b9ddb-hl54n              0/1     Evicted                  0                2d23h
+grafana-8f98b9ddb-hmp2x              0/1     Completed                0                2d6h
+grafana-8f98b9ddb-hmvcc              0/1     Evicted                  0                2d15h
+grafana-8f98b9ddb-hthwc              0/1     Completed                0                24h
+grafana-8f98b9ddb-jb7dg              0/1     Completed                0                19h
+grafana-8f98b9ddb-jcqpp              0/1     Evicted                  0                2d23h
+grafana-8f98b9ddb-jfrpw              0/1     Completed                0                4d5h
+grafana-8f98b9ddb-jn2nr              0/1     Completed                0                23h
+grafana-8f98b9ddb-jnfjs              0/1     Completed                0                29h
+grafana-8f98b9ddb-jpsjw              0/1     Completed                0                23h
+grafana-8f98b9ddb-jq5vp              0/1     Completed                0                35h
+grafana-8f98b9ddb-jqh9m              0/1     Evicted                  0                2d21h
+grafana-8f98b9ddb-jrm5q              0/1     Completed                0                19h
+grafana-8f98b9ddb-jsdpj              0/1     Completed                0                2d15h
+grafana-8f98b9ddb-jttmg              0/1     Completed                0                30h
+grafana-8f98b9ddb-jvckq              0/1     Completed                0                30h
+grafana-8f98b9ddb-jvxh7              0/1     Evicted                  0                2d15h
+grafana-8f98b9ddb-jw8dp              0/1     Completed                0                26h
+grafana-8f98b9ddb-jz6n6              0/1     Completed                0                34h
+grafana-8f98b9ddb-k96z8              0/1     Completed                0                34h
+grafana-8f98b9ddb-k9nkd              0/1     Completed                0                2d14h
+grafana-8f98b9ddb-kglv8              0/1     Completed                0                6d18h
+grafana-8f98b9ddb-kkp9n              0/1     Completed                0                2d15h
+grafana-8f98b9ddb-kkzll              0/1     Completed                0                2d16h
+grafana-8f98b9ddb-kl5j4              0/1     Evicted                  0                2d8h
+grafana-8f98b9ddb-kqm5h              0/1     Completed                0                2d5h
+grafana-8f98b9ddb-krwjd              0/1     Completed                0                33h
+grafana-8f98b9ddb-kzrvc              0/1     Completed                0                42h
+grafana-8f98b9ddb-l4fzk              0/1     Completed                0                2d15h
+grafana-8f98b9ddb-l7jkh              0/1     Completed                0                2d20h
+grafana-8f98b9ddb-l9ksw              0/1     Completed                0                2d5h
+grafana-8f98b9ddb-lftzr              0/1     Completed                0                19h
+grafana-8f98b9ddb-ljf65              0/1     Completed                0                34h
+grafana-8f98b9ddb-lkk97              0/1     Evicted                  0                2d23h
+grafana-8f98b9ddb-lv7jg              0/1     Evicted                  0                2d21h
+grafana-8f98b9ddb-lwpsd              0/1     Completed                0                2d5h
+grafana-8f98b9ddb-lx82p              0/1     Completed                0                2d2h
+grafana-8f98b9ddb-lxwvg              0/1     Evicted                  0                2d20h
+grafana-8f98b9ddb-lzf8n              0/1     Evicted                  0                2d23h
+grafana-8f98b9ddb-m288p              0/1     Completed                0                30h
+grafana-8f98b9ddb-m5jpt              0/1     Completed                0                34h
+grafana-8f98b9ddb-m8kc5              0/1     ContainerStatusUnknown   1                2d7h
+grafana-8f98b9ddb-m9fss              0/1     Completed                0                35h
+grafana-8f98b9ddb-md6kg              0/1     Completed                0                2d19h
+grafana-8f98b9ddb-mdd4q              0/1     Completed                0                19h
+grafana-8f98b9ddb-mdxc2              0/1     Completed                0                45h
+grafana-8f98b9ddb-mgttr              0/1     Evicted                  0                2d14h
+grafana-8f98b9ddb-mkbc2              0/1     Completed                0                38h
+grafana-8f98b9ddb-mkc5w              0/1     Evicted                  0                22h
+grafana-8f98b9ddb-mlxnp              0/1     Completed                0                32h
+grafana-8f98b9ddb-mpm5g              0/1     Completed                0                32h
+grafana-8f98b9ddb-mwnz2              0/1     Completed                0                39h
+grafana-8f98b9ddb-mwqvj              0/1     ContainerStatusUnknown   1                2d20h
+grafana-8f98b9ddb-mz6tj              0/1     Completed                0                26h
+grafana-8f98b9ddb-n2cbh              0/1     Completed                0                2d16h
+grafana-8f98b9ddb-n4nbf              0/1     Completed                0                28h
+grafana-8f98b9ddb-n4qb5              0/1     Completed                0                2d16h
+grafana-8f98b9ddb-n6b6q              0/1     ContainerStatusUnknown   1                22h
+grafana-8f98b9ddb-n75kv              0/1     Completed                0                2d22h
+grafana-8f98b9ddb-n9ddw              0/1     Completed                0                43h
+grafana-8f98b9ddb-nf72g              0/1     Completed                0                2d4h
+grafana-8f98b9ddb-nffqk              0/1     Completed                0                32h
+grafana-8f98b9ddb-nkztt              0/1     Completed                0                18h
+grafana-8f98b9ddb-npcpd              0/1     Completed                0                2d16h
+grafana-8f98b9ddb-npfml              0/1     Completed                0                2d9h
+grafana-8f98b9ddb-nq9wc              0/1     ContainerStatusUnknown   1                42h
+grafana-8f98b9ddb-nsgh2              0/1     Completed                0                31h
+grafana-8f98b9ddb-nvrml              0/1     Completed                0                35h
+grafana-8f98b9ddb-nwnks              0/1     Evicted                  0                2d23h
+grafana-8f98b9ddb-pbmvx              0/1     ContainerStatusUnknown   1                38h
+grafana-8f98b9ddb-ppxnz              0/1     Completed                0                26h
+grafana-8f98b9ddb-pq4b9              0/1     Completed                0                27h
+grafana-8f98b9ddb-pqjwm              0/1     Evicted                  0                2d23h
+grafana-8f98b9ddb-pvf8w              0/1     Completed                0                29h
+grafana-8f98b9ddb-pzhxg              0/1     Completed                0                2d
+grafana-8f98b9ddb-q4nhv              0/1     Completed                0                28h
+grafana-8f98b9ddb-q4qsd              0/1     Evicted                  0                2d22h
+grafana-8f98b9ddb-q8njt              0/1     Completed                0                2d4h
+grafana-8f98b9ddb-qbvkt              0/1     Evicted                  0                2d21h
+grafana-8f98b9ddb-qchtd              0/1     Completed                0                2d5h
+grafana-8f98b9ddb-qd9mc              0/1     Completed                0                2d8h
+grafana-8f98b9ddb-qjlrv              0/1     Completed                0                42h
+grafana-8f98b9ddb-qmw87              0/1     Completed                0                3d14h
+grafana-8f98b9ddb-qpf49              0/1     Completed                0                21h
+grafana-8f98b9ddb-qpnvt              0/1     Completed                0                36h
+grafana-8f98b9ddb-qqnxr              0/1     Evicted                  0                2d21h
+grafana-8f98b9ddb-qsgg5              0/1     Completed                0                29h
+grafana-8f98b9ddb-qwpz8              0/1     Completed                0                23h
+grafana-8f98b9ddb-qxgsx              0/1     Completed                0                26h
+grafana-8f98b9ddb-r4kc5              0/1     Evicted                  0                2d21h
+grafana-8f98b9ddb-r4v65              0/1     Completed                0                2d8h
+grafana-8f98b9ddb-r55jj              0/1     ContainerStatusUnknown   1                2d21h
+grafana-8f98b9ddb-r7c5s              0/1     Completed                0                26h
+grafana-8f98b9ddb-r84zr              0/1     Completed                0                34h
+grafana-8f98b9ddb-r87t4              0/1     Completed                0                2d15h
+grafana-8f98b9ddb-r9cjk              0/1     ContainerStatusUnknown   1                2d21h
+grafana-8f98b9ddb-rbmmz              0/1     Evicted                  0                2d21h
+grafana-8f98b9ddb-rcvw6              0/1     Completed                0                41h
+grafana-8f98b9ddb-rd47c              0/1     Completed                0                41h
+grafana-8f98b9ddb-rl2zh              0/1     Completed                0                2d2h
+grafana-8f98b9ddb-rq6jw              0/1     Completed                0                41h
+grafana-8f98b9ddb-rs56f              0/1     Completed                0                47h
+grafana-8f98b9ddb-rs8l8              0/1     Completed                0                46h
+grafana-8f98b9ddb-rwghn              0/1     Completed                0                20h
+grafana-8f98b9ddb-rz59f              0/1     ContainerStatusUnknown   1                2d9h
+grafana-8f98b9ddb-s4pm9              0/1     Completed                0                47h
+grafana-8f98b9ddb-s6w6z              0/1     ContainerStatusUnknown   1                18h
+grafana-8f98b9ddb-s7zhc              0/1     Completed                0                28h
+grafana-8f98b9ddb-s84x4              0/1     Completed                0                23h
+grafana-8f98b9ddb-sccdq              0/1     Completed                0                2d1h
+grafana-8f98b9ddb-sd2jl              0/1     Completed                0                36h
+grafana-8f98b9ddb-sl2p2              0/1     Evicted                  0                44h
+grafana-8f98b9ddb-slxw2              0/1     Evicted                  0                2d21h
+grafana-8f98b9ddb-smf74              0/1     Completed                0                31h
+grafana-8f98b9ddb-smjvj              0/1     Completed                0                39h
+grafana-8f98b9ddb-snbd4              0/1     Completed                0                37h
+grafana-8f98b9ddb-spqbw              0/1     Completed                0                34h
+grafana-8f98b9ddb-st4gl              0/1     Completed                0                2d16h
+grafana-8f98b9ddb-stsdk              0/1     Evicted                  0                2d21h
+grafana-8f98b9ddb-t6ptk              0/1     Completed                0                2d15h
+grafana-8f98b9ddb-t6z26              0/1     Completed                0                38h
+grafana-8f98b9ddb-tckvt              0/1     Completed                0                40h
+grafana-8f98b9ddb-tdb6w              0/1     Completed                0                20h
+grafana-8f98b9ddb-tdkcm              0/1     Completed                0                20h
+grafana-8f98b9ddb-tjv4s              0/1     Completed                0                22h
+grafana-8f98b9ddb-tkw2h              0/1     Completed                0                25h
+grafana-8f98b9ddb-tn8l5              0/1     Completed                0                22h
+grafana-8f98b9ddb-tp57h              0/1     Completed                0                20h
+grafana-8f98b9ddb-trp8b              0/1     Completed                0                29h
+grafana-8f98b9ddb-ttsv2              0/1     Evicted                  0                2d22h
+grafana-8f98b9ddb-tv9c4              0/1     Completed                0                43h
+grafana-8f98b9ddb-v65wn              0/1     Completed                0                21h
+grafana-8f98b9ddb-v97vv              0/1     Completed                0                24h
+grafana-8f98b9ddb-v9p9v              0/1     Completed                0                2d14h
+grafana-8f98b9ddb-vdftz              0/1     Completed                0                2d18h
+grafana-8f98b9ddb-vgnwr              0/1     Completed                0                2d8h
+grafana-8f98b9ddb-vkfxd              0/1     Completed                0                29h
+grafana-8f98b9ddb-vzm44              0/1     Completed                0                21h
+grafana-8f98b9ddb-wbmxn              0/1     Evicted                  0                2d22h
+grafana-8f98b9ddb-wbztz              0/1     Completed                0                18h
+grafana-8f98b9ddb-wc7nj              0/1     Completed                0                2d21h
+grafana-8f98b9ddb-wd82d              0/1     Completed                0                38h
+grafana-8f98b9ddb-wh8k9              0/1     Completed                0                22h
+grafana-8f98b9ddb-whrjn              0/1     Completed                0                30h
+grafana-8f98b9ddb-wkzjc              0/1     Completed                0                45h
+grafana-8f98b9ddb-wlcxl              0/1     Completed                0                2d1h
+grafana-8f98b9ddb-wnkn7              0/1     ContainerStatusUnknown   1                31h
+grafana-8f98b9ddb-wvlpn              0/1     Completed                0                21h
+grafana-8f98b9ddb-x285w              0/1     Completed                0                2d20h
+grafana-8f98b9ddb-x5h86              0/1     Evicted                  0                2d21h
+grafana-8f98b9ddb-x5qsx              0/1     Completed                0                43h
+grafana-8f98b9ddb-x72ws              0/1     Completed                0                17h
+grafana-8f98b9ddb-xbgr5              0/1     Completed                0                24h
+grafana-8f98b9ddb-xbv5r              0/1     Completed                4                20h
+grafana-8f98b9ddb-xclqw              0/1     Evicted                  0                2d21h
+grafana-8f98b9ddb-xd9f4              0/1     Evicted                  0                2d16h
+grafana-8f98b9ddb-xdpvn              0/1     Completed                0                2d17h
+grafana-8f98b9ddb-xfp8b              0/1     Completed                0                45h
+grafana-8f98b9ddb-xk285              0/1     Completed                0                37h
+grafana-8f98b9ddb-xmdpt              0/1     ContainerStatusUnknown   1                17h
+grafana-8f98b9ddb-xmk2b              0/1     Evicted                  0                2d15h
+grafana-8f98b9ddb-xrcr9              0/1     Completed                0                32h
+grafana-8f98b9ddb-xrttl              0/1     Completed                0                2d16h
+grafana-8f98b9ddb-xrztj              0/1     Completed                0                31h
+grafana-8f98b9ddb-z4r8k              0/1     Evicted                  0                2d22h
+grafana-8f98b9ddb-zdcp8              0/1     ContainerStatusUnknown   1                2d15h
+grafana-8f98b9ddb-zdkm5              0/1     Completed                0                25h
+grafana-8f98b9ddb-zhsgd              0/1     Completed                0                30h
+grafana-8f98b9ddb-zhxmf              0/1     Completed                0                21h
+grafana-8f98b9ddb-zlfmv              0/1     Completed                0                24h
+grafana-8f98b9ddb-zlg2f              0/1     Completed                0                27h
+grafana-8f98b9ddb-zmtmd              0/1     Completed                0                2d3h
+grafana-8f98b9ddb-zsm4t              0/1     Completed                0                2d3h
+grafana-8f98b9ddb-zvlcr              0/1     Completed                0                22h
+history-service-76f66c6f5c-26r2p     0/1     ContainerStatusUnknown   2 (20h ago)      20h
+history-service-76f66c6f5c-28lzb     0/1     Evicted                  0                22h
+history-service-76f66c6f5c-28vbs     0/1     Error                    0                2d
+history-service-76f66c6f5c-29kgb     0/1     Error                    0                2d3h
+history-service-76f66c6f5c-2g59l     0/1     ContainerStatusUnknown   1 (35h ago)      35h
+history-service-76f66c6f5c-2h2hk     0/1     ContainerStatusUnknown   1 (34h ago)      34h
+history-service-76f66c6f5c-2hbpf     0/1     Evicted                  0                2d16h
+history-service-76f66c6f5c-2mssq     0/1     ContainerStatusUnknown   1                2d7h
+history-service-76f66c6f5c-2pcrz     0/1     Error                    1 (21h ago)      21h
+history-service-76f66c6f5c-2s45k     0/1     Error                    1                27h
+history-service-76f66c6f5c-2trf9     0/1     ContainerStatusUnknown   1 (35h ago)      35h
+history-service-76f66c6f5c-2twqw     0/1     Evicted                  0                2d16h
+history-service-76f66c6f5c-2wb75     0/1     Error                    1 (38h ago)      39h
+history-service-76f66c6f5c-2wdzq     0/1     Evicted                  0                41h
+history-service-76f66c6f5c-2x7dg     0/1     Error                    2 (31h ago)      31h
+history-service-76f66c6f5c-44jcj     0/1     ContainerStatusUnknown   7 (2d8h ago)     2d8h
+history-service-76f66c6f5c-4698r     0/1     Error                    0                33h
+history-service-76f66c6f5c-47q6n     0/1     ContainerStatusUnknown   1 (27h ago)      27h
+history-service-76f66c6f5c-47z84     0/1     Error                    1 (37h ago)      37h
+history-service-76f66c6f5c-49ckq     0/1     Error                    0                35h
+history-service-76f66c6f5c-4db4p     0/1     Evicted                  0                2d5h
+history-service-76f66c6f5c-4hhqk     0/1     Error                    1 (2d3h ago)     2d3h
+history-service-76f66c6f5c-4jzbw     0/1     Error                    0                2d15h
+history-service-76f66c6f5c-4pf8b     0/1     Error                    0                2d15h
+history-service-76f66c6f5c-4vgbc     0/1     Error                    0                6d16h
+history-service-76f66c6f5c-4wwm5     0/1     ContainerStatusUnknown   1 (33h ago)      33h
+history-service-76f66c6f5c-4zvdd     0/1     ContainerStatusUnknown   7 (40h ago)      40h
+history-service-76f66c6f5c-57k6r     0/1     ContainerStatusUnknown   1 (28h ago)      28h
+history-service-76f66c6f5c-58c5h     0/1     ContainerStatusUnknown   6 (44h ago)      45h
+history-service-76f66c6f5c-58dgr     0/1     Error                    0                2d21h
+history-service-76f66c6f5c-59vrp     0/1     ContainerStatusUnknown   1 (34h ago)      34h
+history-service-76f66c6f5c-5gx55     0/1     ContainerStatusUnknown   2 (27h ago)      28h
+history-service-76f66c6f5c-5kmf2     0/1     ContainerStatusUnknown   7 (2d7h ago)     2d7h
+history-service-76f66c6f5c-5kznj     0/1     Error                    1 (35h ago)      35h
+history-service-76f66c6f5c-5ndrk     0/1     ContainerStatusUnknown   6 (43h ago)      43h
+history-service-76f66c6f5c-5nlr6     0/1     ContainerStatusUnknown   6 (35h ago)      35h
+history-service-76f66c6f5c-5q6jt     0/1     Evicted                  0                42h
+history-service-76f66c6f5c-5qh95     0/1     Error                    0                2d22h
+history-service-76f66c6f5c-5sp58     0/1     Evicted                  0                2d5h
+history-service-76f66c6f5c-5xgmh     0/1     ContainerStatusUnknown   1 (41h ago)      41h
+history-service-76f66c6f5c-5zzd6     0/1     Error                    0                2d16h
+history-service-76f66c6f5c-65lv5     0/1     ContainerStatusUnknown   1 (28h ago)      28h
+history-service-76f66c6f5c-65w5p     0/1     Evicted                  0                39h
+history-service-76f66c6f5c-6dc5x     0/1     ContainerStatusUnknown   6 (39h ago)      39h
+history-service-76f66c6f5c-6f7c7     0/1     ContainerStatusUnknown   6 (2d1h ago)     2d2h
+history-service-76f66c6f5c-6kj9r     0/1     ContainerStatusUnknown   1 (26h ago)      26h
+history-service-76f66c6f5c-6nkn6     0/1     Evicted                  0                41h
+history-service-76f66c6f5c-6p5lz     0/1     Error                    0                2d10h
+history-service-76f66c6f5c-6q66s     0/1     Error                    1                39h
+history-service-76f66c6f5c-6rsqc     0/1     Error                    0                2d8h
+history-service-76f66c6f5c-6szpn     0/1     Error                    1 (37h ago)      37h
+history-service-76f66c6f5c-6tqvq     0/1     Error                    1                26h
+history-service-76f66c6f5c-6tvll     0/1     Error                    0                2d20h
+history-service-76f66c6f5c-6xplz     0/1     Error                    0                2d17h
+history-service-76f66c6f5c-74pzb     0/1     ContainerStatusUnknown   1 (21h ago)      21h
+history-service-76f66c6f5c-78f9b     0/1     ContainerStatusUnknown   1 (24h ago)      24h
+history-service-76f66c6f5c-79747     0/1     ContainerStatusUnknown   6 (31h ago)      31h
+history-service-76f66c6f5c-7cpcw     0/1     ContainerStatusUnknown   1 (47h ago)      47h
+history-service-76f66c6f5c-7gjzm     0/1     ContainerStatusUnknown   6 (29h ago)      29h
+history-service-76f66c6f5c-7h49l     0/1     ContainerStatusUnknown   1 (29h ago)      30h
+history-service-76f66c6f5c-7k97b     0/1     ContainerStatusUnknown   1 (25h ago)      25h
+history-service-76f66c6f5c-7s8v4     0/1     ContainerStatusUnknown   7 (42h ago)      42h
+history-service-76f66c6f5c-84vf6     0/1     Evicted                  0                2d6h
+history-service-76f66c6f5c-8554b     0/1     Error                    1 (23h ago)      23h
+history-service-76f66c6f5c-88cxj     0/1     Error                    0                37h
+history-service-76f66c6f5c-89c4c     0/1     Error                    1 (20h ago)      20h
+history-service-76f66c6f5c-8gzd2     0/1     Error                    0                2d14h
+history-service-76f66c6f5c-8lsrf     0/1     ContainerStatusUnknown   2 (30h ago)      30h
+history-service-76f66c6f5c-8qsbf     0/1     Error                    0                18h
+history-service-76f66c6f5c-8qv49     0/1     Error                    0                2d20h
+history-service-76f66c6f5c-98xkk     0/1     ContainerStatusUnknown   6 (2d3h ago)     2d3h
+history-service-76f66c6f5c-9bmhk     0/1     Error                    0                2d9h
+history-service-76f66c6f5c-9j7cs     0/1     Error                    2 (24h ago)      24h
+history-service-76f66c6f5c-9kc8z     0/1     ContainerStatusUnknown   1 (32h ago)      33h
+history-service-76f66c6f5c-9kdqk     0/1     Error                    1 (42h ago)      42h
+history-service-76f66c6f5c-9pl2d     0/1     ContainerStatusUnknown   9 (2d19h ago)    2d20h
+history-service-76f66c6f5c-9q8g6     0/1     Evicted                  0                2d2h
+history-service-76f66c6f5c-9qztd     0/1     Error                    1                30h
+history-service-76f66c6f5c-9vblh     0/1     ContainerStatusUnknown   1                47h
+history-service-76f66c6f5c-9wrgr     0/1     ContainerStatusUnknown   1                45h
+history-service-76f66c6f5c-b2kfg     0/1     Evicted                  0                2d9h
+history-service-76f66c6f5c-b2kxk     0/1     ContainerStatusUnknown   1                2d8h
+history-service-76f66c6f5c-b2m84     0/1     Error                    1 (21h ago)      21h
+history-service-76f66c6f5c-b7flc     0/1     Error                    0                2d16h
+history-service-76f66c6f5c-b89zz     0/1     Error                    1                30h
+history-service-76f66c6f5c-b9jqv     0/1     ContainerStatusUnknown   1 (29h ago)      29h
+history-service-76f66c6f5c-bbzq8     0/1     Error                    0                2d15h
+history-service-76f66c6f5c-bcnqb     0/1     Error                    0                2d14h
+history-service-76f66c6f5c-bgwrq     0/1     Error                    1                2d7h
+history-service-76f66c6f5c-bp9s2     0/1     Error                    1 (27h ago)      27h
+history-service-76f66c6f5c-bqpng     0/1     Error                    1 (22h ago)      22h
+history-service-76f66c6f5c-bs8fw     0/1     Error                    0                40h
+history-service-76f66c6f5c-bwl9j     0/1     Error                    0                2d15h
+history-service-76f66c6f5c-bzptw     0/1     Evicted                  0                2d
+history-service-76f66c6f5c-c2n6p     0/1     ContainerStatusUnknown   5 (33h ago)      34h
+history-service-76f66c6f5c-c5m6z     0/1     Error                    0                32h
+history-service-76f66c6f5c-ccb65     0/1     ContainerStatusUnknown   6 (2d3h ago)     2d3h
+history-service-76f66c6f5c-ccknm     0/1     Error                    0                29h
+history-service-76f66c6f5c-cd9f7     0/1     Error                    1 (2d1h ago)     2d1h
+history-service-76f66c6f5c-cdnqp     0/1     ContainerStatusUnknown   7 (46h ago)      46h
+history-service-76f66c6f5c-cjq6j     0/1     ContainerStatusUnknown   7 (46h ago)      46h
+history-service-76f66c6f5c-cjs7f     0/1     Error                    1                22h
+history-service-76f66c6f5c-cl6zd     0/1     ContainerStatusUnknown   1 (23h ago)      23h
+history-service-76f66c6f5c-clxdm     0/1     ContainerStatusUnknown   1 (32h ago)      32h
+history-service-76f66c6f5c-cm7fk     0/1     Error                    2 (18h ago)      18h
+history-service-76f66c6f5c-cm97k     0/1     Error                    1                2d1h
+history-service-76f66c6f5c-cq84w     0/1     ContainerStatusUnknown   1 (20h ago)      20h
+history-service-76f66c6f5c-crgjx     0/1     Error                    1 (38h ago)      38h
+history-service-76f66c6f5c-cskr5     0/1     Evicted                  0                40h
+history-service-76f66c6f5c-cwwfm     0/1     Evicted                  0                19h
+history-service-76f66c6f5c-cx9gt     0/1     Error                    0                2d8h
+history-service-76f66c6f5c-cxmjz     0/1     Evicted                  0                22h
+history-service-76f66c6f5c-cxw6l     0/1     ContainerStatusUnknown   1 (19h ago)      20h
+history-service-76f66c6f5c-d2w6l     0/1     Error                    1 (47h ago)      47h
+history-service-76f66c6f5c-d5mzg     0/1     Error                    0                41h
+history-service-76f66c6f5c-dh9l9     0/1     Error                    0                44h
+history-service-76f66c6f5c-djngw     0/1     ContainerStatusUnknown   1 (24h ago)      24h
+history-service-76f66c6f5c-dkcsl     0/1     Error                    0                2d21h
+history-service-76f66c6f5c-dmtvr     0/1     Error                    0                2d22h
+history-service-76f66c6f5c-dtlds     0/1     Error                    2                19h
+history-service-76f66c6f5c-dzxfc     0/1     Error                    0                2d18h
+history-service-76f66c6f5c-f5cb7     0/1     Error                    0                2d6h
+history-service-76f66c6f5c-f65f6     0/1     Error                    0                2d20h
+history-service-76f66c6f5c-f7fcq     0/1     ContainerStatusUnknown   1 (18h ago)      18h
+history-service-76f66c6f5c-f7l5x     0/1     ContainerStatusUnknown   1 (17h ago)      17h
+history-service-76f66c6f5c-f7x8m     0/1     ContainerStatusUnknown   1 (26h ago)      26h
+history-service-76f66c6f5c-f8467     0/1     ContainerStatusUnknown   6 (43h ago)      44h
+history-service-76f66c6f5c-ffr5q     0/1     Evicted                  0                2d2h
+history-service-76f66c6f5c-fj6xm     0/1     Error                    6                47h
+history-service-76f66c6f5c-fjl4v     0/1     Evicted                  0                2d2h
+history-service-76f66c6f5c-frqj5     0/1     Error                    0                36h
+history-service-76f66c6f5c-fvdpc     0/1     Error                    0                2d15h
+history-service-76f66c6f5c-fvlcf     0/1     Evicted                  0                2d1h
+history-service-76f66c6f5c-fwvhl     0/1     Error                    1 (38h ago)      38h
+history-service-76f66c6f5c-g5md2     0/1     Evicted                  0                2d3h
+history-service-76f66c6f5c-gfjj6     0/1     ContainerStatusUnknown   1 (36h ago)      36h
+history-service-76f66c6f5c-gjllq     0/1     Error                    0                2d21h
+history-service-76f66c6f5c-gnmqw     0/1     Error                    2 (18h ago)      19h
+history-service-76f66c6f5c-gnt82     0/1     Evicted                  0                2d5h
+history-service-76f66c6f5c-gq24q     0/1     Error                    0                26h
+history-service-76f66c6f5c-gsjl9     0/1     ContainerStatusUnknown   4 (2d5h ago)     2d5h
+history-service-76f66c6f5c-gth7x     0/1     Error                    1 (37h ago)      37h
+history-service-76f66c6f5c-gv6lf     0/1     Evicted                  0                2d1h
+history-service-76f66c6f5c-gvd47     0/1     ContainerStatusUnknown   1 (30h ago)      30h
+history-service-76f66c6f5c-gvk6f     0/1     ContainerStatusUnknown   1 (28h ago)      28h
+history-service-76f66c6f5c-gx2qf     0/1     Error                    0                2d16h
+history-service-76f66c6f5c-h4mct     0/1     Error                    1                26h
+history-service-76f66c6f5c-h5gc9     0/1     Error                    0                44h
+history-service-76f66c6f5c-h62hb     0/1     ContainerStatusUnknown   5 (2d2h ago)     2d2h
+history-service-76f66c6f5c-h8hsc     0/1     Error                    3 (17h ago)      17h
+history-service-76f66c6f5c-h8zn2     0/1     ContainerStatusUnknown   6 (36h ago)      36h
+history-service-76f66c6f5c-hdkpk     0/1     ContainerStatusUnknown   1 (25h ago)      25h
+history-service-76f66c6f5c-hgxrf     0/1     Evicted                  0                2d5h
+history-service-76f66c6f5c-hh29t     0/1     Error                    0                2d5h
+history-service-76f66c6f5c-hjc29     0/1     Evicted                  0                21h
+history-service-76f66c6f5c-hkcqw     0/1     Error                    1 (29h ago)      29h
+history-service-76f66c6f5c-hpbhj     0/1     ContainerStatusUnknown   1                23h
+history-service-76f66c6f5c-hpbzs     0/1     Evicted                  0                2d
+history-service-76f66c6f5c-htv5z     0/1     Error                    0                2d21h
+history-service-76f66c6f5c-hxwpl     0/1     Evicted                  0                43h
+history-service-76f66c6f5c-j6l5g     0/1     Evicted                  0                39h
+history-service-76f66c6f5c-jdbwb     0/1     Evicted                  0                2d19h
+history-service-76f66c6f5c-jf2p8     0/1     ContainerStatusUnknown   2 (19h ago)      19h
+history-service-76f66c6f5c-jfhxx     0/1     ContainerStatusUnknown   8 (40h ago)      41h
+history-service-76f66c6f5c-jn4fh     0/1     ContainerStatusUnknown   6 (2d5h ago)     2d5h
+history-service-76f66c6f5c-jpkrx     0/1     ContainerStatusUnknown   6 (44h ago)      44h
+history-service-76f66c6f5c-jqv77     0/1     Evicted                  0                2d
+history-service-76f66c6f5c-jxc4r     0/1     Evicted                  0                2d6h
+history-service-76f66c6f5c-jxhvx     0/1     ContainerStatusUnknown   8 (41h ago)      41h
+history-service-76f66c6f5c-k57b6     0/1     Error                    1                44h
+history-service-76f66c6f5c-k5njs     0/1     Error                    0                22h
+history-service-76f66c6f5c-kb6nb     0/1     Evicted                  0                2d6h
+history-service-76f66c6f5c-kfv7n     0/1     ContainerStatusUnknown   1 (23h ago)      23h
+history-service-76f66c6f5c-kn2nk     0/1     ContainerStatusUnknown   1 (39h ago)      39h
+history-service-76f66c6f5c-knhbk     0/1     Evicted                  0                2d6h
+history-service-76f66c6f5c-knkq5     0/1     ContainerStatusUnknown   6 (36h ago)      36h
+history-service-76f66c6f5c-kq5bt     0/1     Evicted                  0                2d2h
+history-service-76f66c6f5c-krgwj     0/1     ContainerStatusUnknown   1                2d21h
+history-service-76f66c6f5c-krlcp     0/1     Evicted                  0                2d7h
+history-service-76f66c6f5c-ks44m     0/1     ContainerStatusUnknown   1 (32h ago)      32h
+history-service-76f66c6f5c-ksm9z     0/1     ContainerStatusUnknown   7 (2d4h ago)     2d4h
+history-service-76f66c6f5c-kt8wg     0/1     ContainerStatusUnknown   1 (24h ago)      24h
+history-service-76f66c6f5c-ktkd2     0/1     ContainerStatusUnknown   1 (27h ago)      27h
+history-service-76f66c6f5c-kv59b     0/1     ContainerStatusUnknown   1 (37h ago)      37h
+history-service-76f66c6f5c-kv97p     0/1     ContainerStatusUnknown   1 (42h ago)      42h
+history-service-76f66c6f5c-kxgs8     0/1     Evicted                  0                37h
+history-service-76f66c6f5c-kxlfb     0/1     Evicted                  0                2d2h
+history-service-76f66c6f5c-l4924     0/1     Error                    0                2d8h
+history-service-76f66c6f5c-l5tl5     0/1     Evicted                  0                2d
+history-service-76f66c6f5c-l8g9s     0/1     Evicted                  0                43h
+history-service-76f66c6f5c-lf49b     0/1     ContainerStatusUnknown   1 (31h ago)      32h
+history-service-76f66c6f5c-lg5gb     0/1     Evicted                  0                2d6h
+history-service-76f66c6f5c-lhpjs     0/1     Error                    1                46h
+history-service-76f66c6f5c-lhzwd     0/1     ContainerStatusUnknown   1 (28h ago)      28h
+history-service-76f66c6f5c-ljb24     0/1     ContainerStatusUnknown   9 (2d18h ago)    2d18h
+history-service-76f66c6f5c-lkkpp     0/1     Error                    0                2d16h
+history-service-76f66c6f5c-lmbv5     0/1     ContainerStatusUnknown   1 (23h ago)      23h
+history-service-76f66c6f5c-lmhqz     0/1     ContainerStatusUnknown   2 (24h ago)      24h
+history-service-76f66c6f5c-lmhrc     0/1     ContainerStatusUnknown   45 (2d10h ago)   2d14h
+history-service-76f66c6f5c-lphfg     0/1     Evicted                  0                2d
+history-service-76f66c6f5c-lsmrf     0/1     ContainerStatusUnknown   1 (27h ago)      27h
+history-service-76f66c6f5c-ltl4n     0/1     Error                    7                2d6h
+history-service-76f66c6f5c-lx629     0/1     ContainerStatusUnknown   1 (30h ago)      30h
+history-service-76f66c6f5c-m4ht4     0/1     Error                    1                30h
+history-service-76f66c6f5c-m5dbd     0/1     Evicted                  0                2d
+history-service-76f66c6f5c-m6j5p     0/1     ContainerStatusUnknown   7 (2d ago)       2d
+history-service-76f66c6f5c-m72xj     0/1     Error                    0                2d
+history-service-76f66c6f5c-mfj9t     0/1     Error                    1 (22h ago)      22h
+history-service-76f66c6f5c-mg79j     0/1     Error                    1                26h
+history-service-76f66c6f5c-mh5p9     0/1     ContainerStatusUnknown   1 (38h ago)      38h
+history-service-76f66c6f5c-mhwbz     0/1     Error                    0                2d15h
+history-service-76f66c6f5c-mqcsz     0/1     Error                    1 (40h ago)      40h
+history-service-76f66c6f5c-mrsvr     0/1     Error                    0                18h
+history-service-76f66c6f5c-ms2hs     0/1     Error                    1                43h
+history-service-76f66c6f5c-msg6b     0/1     Error                    8                45h
+history-service-76f66c6f5c-mt6fr     0/1     Error                    0                34h
+history-service-76f66c6f5c-mvvgr     0/1     Error                    0                2d4h
+history-service-76f66c6f5c-n6cxz     0/1     Error                    0                2d5h
+history-service-76f66c6f5c-n6wsz     0/1     Evicted                  0                31h
+history-service-76f66c6f5c-nb7xn     0/1     ContainerStatusUnknown   1 (24h ago)      24h
+history-service-76f66c6f5c-nbmq9     0/1     Error                    0                2d18h
+history-service-76f66c6f5c-ncjnx     0/1     ContainerStatusUnknown   1 (46h ago)      47h
+history-service-76f66c6f5c-ng6sv     0/1     Evicted                  0                43h
+history-service-76f66c6f5c-nhvxb     0/1     Evicted                  0                2d7h
+history-service-76f66c6f5c-njkps     0/1     Error                    0                2d6h
+history-service-76f66c6f5c-nljzm     0/1     ContainerStatusUnknown   7 (35h ago)      36h
+history-service-76f66c6f5c-nlkv5     0/1     Error                    0                2d21h
+history-service-76f66c6f5c-nm4wp     0/1     ContainerStatusUnknown   6 (2d6h ago)     2d6h
+history-service-76f66c6f5c-nml5l     0/1     Error                    1                38h
+history-service-76f66c6f5c-nnckd     0/1     ContainerStatusUnknown   7 (2d3h ago)     2d4h
+history-service-76f66c6f5c-npvz7     0/1     ContainerStatusUnknown   8 (2d9h ago)     2d9h
+history-service-76f66c6f5c-nvb75     0/1     Error                    0                2d9h
+history-service-76f66c6f5c-nwsxd     0/1     ContainerStatusUnknown   1 (25h ago)      25h
+history-service-76f66c6f5c-p2zpw     0/1     Error                    1 (31h ago)      31h
+history-service-76f66c6f5c-p94sx     0/1     Error                    1 (34h ago)      34h
+history-service-76f66c6f5c-p9dj7     0/1     Evicted                  0                2d5h
+history-service-76f66c6f5c-p9p5v     0/1     Evicted                  0                40h
+history-service-76f66c6f5c-pgnxp     0/1     Error                    1                19h
+history-service-76f66c6f5c-pmn5r     0/1     Evicted                  0                2d16h
+history-service-76f66c6f5c-pqwzl     0/1     Evicted                  0                44h
+history-service-76f66c6f5c-q2vqh     0/1     Error                    1 (41h ago)      41h
+history-service-76f66c6f5c-q96st     0/1     Error                    1 (42h ago)      42h
+history-service-76f66c6f5c-q9rvq     0/1     ContainerStatusUnknown   1 (23h ago)      23h
+history-service-76f66c6f5c-qbnvc     0/1     ContainerStatusUnknown   6 (33h ago)      33h
+history-service-76f66c6f5c-qglmb     0/1     ContainerStatusUnknown   5 (42h ago)      42h
+history-service-76f66c6f5c-qj87n     0/1     ContainerStatusUnknown   6 (31h ago)      31h
+history-service-76f66c6f5c-qn47w     0/1     Error                    0                18h
+history-service-76f66c6f5c-qnt6p     0/1     ContainerStatusUnknown   6 (2d2h ago)     2d2h
+history-service-76f66c6f5c-qplzz     0/1     ContainerStatusUnknown   1 (34h ago)      34h
+history-service-76f66c6f5c-qtjp7     0/1     ContainerStatusUnknown   7 (2d9h ago)     2d10h
+history-service-76f66c6f5c-qvk25     0/1     Error                    0                2d22h
+history-service-76f66c6f5c-r469w     0/1     Evicted                  0                43h
+history-service-76f66c6f5c-r6vj6     0/1     ContainerStatusUnknown   7 (43h ago)      43h
+history-service-76f66c6f5c-r846f     0/1     ContainerStatusUnknown   1 (32h ago)      32h
+history-service-76f66c6f5c-r8xtm     0/1     Error                    0                25h
+history-service-76f66c6f5c-r98mh     0/1     Error                    0                20h
+history-service-76f66c6f5c-rch8t     0/1     ContainerStatusUnknown   6 (2d ago)       2d1h
+history-service-76f66c6f5c-rhlrn     0/1     ContainerStatusUnknown   6 (47h ago)      2d
+history-service-76f66c6f5c-rjt4c     0/1     Error                    0                2d16h
+history-service-76f66c6f5c-rkbs6     0/1     Error                    1                2d22h
+history-service-76f66c6f5c-rl7j6     0/1     Evicted                  0                40h
+history-service-76f66c6f5c-rpdlf     0/1     ContainerStatusUnknown   1 (17h ago)      17h
+history-service-76f66c6f5c-rpqpv     0/1     ContainerStatusUnknown   8 (2d19h ago)    2d19h
+history-service-76f66c6f5c-rthhq     0/1     ContainerStatusUnknown   1 (34h ago)      34h
+history-service-76f66c6f5c-rtknv     0/1     ContainerStatusUnknown   7 (37h ago)      38h
+history-service-76f66c6f5c-rw85n     0/1     Evicted                  0                2d7h
+history-service-76f66c6f5c-rwdgr     0/1     Evicted                  0                2d6h
+history-service-76f66c6f5c-rxmhr     0/1     Evicted                  0                2d16h
+history-service-76f66c6f5c-s2gwz     0/1     Evicted                  0                2d5h
+history-service-76f66c6f5c-s69dt     0/1     ContainerStatusUnknown   6 (2d1h ago)     2d1h
+history-service-76f66c6f5c-s7xrf     0/1     ContainerStatusUnknown   6 (28h ago)      29h
+history-service-76f66c6f5c-s8c8x     0/1     ContainerStatusUnknown   1                2d2h
+history-service-76f66c6f5c-s8h8b     0/1     Evicted                  0                36h
+history-service-76f66c6f5c-scl4h     0/1     Error                    0                2d2h
+history-service-76f66c6f5c-slfzz     0/1     Error                    0                2d20h
+history-service-76f66c6f5c-spv75     0/1     Evicted                  0                36h
+history-service-76f66c6f5c-srtz2     0/1     ContainerStatusUnknown   1 (33h ago)      33h
+history-service-76f66c6f5c-svkbw     0/1     Evicted                  0                2d5h
+history-service-76f66c6f5c-svwjq     0/1     Error                    0                2d22h
+history-service-76f66c6f5c-sx5rp     0/1     Evicted                  0                2d19h
+history-service-76f66c6f5c-t7djr     0/1     Error                    0                2d
+history-service-76f66c6f5c-tkbpt     0/1     Error                    0                2d21h
+history-service-76f66c6f5c-tltpp     0/1     ContainerStatusUnknown   1 (27h ago)      27h
+history-service-76f66c6f5c-tlvvd     0/1     ContainerStatusUnknown   1 (26h ago)      26h
+history-service-76f66c6f5c-twdfh     0/1     Error                    0                2d14h
+history-service-76f66c6f5c-twwww     0/1     Error                    0                2d14h
+history-service-76f66c6f5c-tzqcm     0/1     Error                    1                38h
+history-service-76f66c6f5c-v774d     0/1     Error                    0                2d4h
+history-service-76f66c6f5c-v8252     0/1     Evicted                  0                2d2h
+history-service-76f66c6f5c-vbwlc     0/1     Evicted                  0                2d2h
+history-service-76f66c6f5c-vc9c8     0/1     Evicted                  0                30h
+history-service-76f66c6f5c-vdw6f     0/1     ContainerStatusUnknown   7 (2d7h ago)     2d7h
+history-service-76f66c6f5c-vh754     0/1     Error                    1                23h
+history-service-76f66c6f5c-vnbhl     0/1     Error                    1                2d1h
+history-service-76f66c6f5c-vq4dm     0/1     Error                    0                2d2h
+history-service-76f66c6f5c-vskxk     0/1     Error                    0                21h
+history-service-76f66c6f5c-vssf8     0/1     Evicted                  0                40h
+history-service-76f66c6f5c-vtlks     0/1     Evicted                  0                2d19h
+history-service-76f66c6f5c-vtrst     0/1     ContainerStatusUnknown   1 (24h ago)      25h
+history-service-76f66c6f5c-vtxbt     0/1     Error                    0                2d20h
+history-service-76f66c6f5c-vzd6p     0/1     Error                    1 (25h ago)      25h
+history-service-76f66c6f5c-w2m9f     0/1     ContainerStatusUnknown   1 (28h ago)      28h
+history-service-76f66c6f5c-w4mnx     0/1     Error                    0                39h
+history-service-76f66c6f5c-w65j6     0/1     ContainerStatusUnknown   2 (19h ago)      19h
+history-service-76f66c6f5c-w7vdr     0/1     ContainerStatusUnknown   1 (37h ago)      37h
+history-service-76f66c6f5c-wbcm4     0/1     ContainerStatusUnknown   1 (21h ago)      21h
+history-service-76f66c6f5c-wrc6c     0/1     ContainerStatusUnknown   1 (32h ago)      32h
+history-service-76f66c6f5c-x7vmr     0/1     Evicted                  0                20h
+history-service-76f66c6f5c-x85sx     0/1     ContainerStatusUnknown   7 (2d16h ago)    2d17h
+history-service-76f66c6f5c-x8mdg     0/1     Error                    0                2d16h
+history-service-76f66c6f5c-x9n5p     0/1     Error                    1 (28h ago)      28h
+history-service-76f66c6f5c-xblcb     0/1     Error                    0                25h
+history-service-76f66c6f5c-xmtzn     0/1     ContainerStatusUnknown   1 (32h ago)      32h
+history-service-76f66c6f5c-xnw4r     0/1     Error                    1 (32h ago)      32h
+history-service-76f66c6f5c-xqjxw     0/1     Error                    0                18h
+history-service-76f66c6f5c-xqrzx     0/1     Evicted                  0                36h
+history-service-76f66c6f5c-xs6mp     0/1     ContainerStatusUnknown   2 (20h ago)      20h
+history-service-76f66c6f5c-xspjq     0/1     ContainerStatusUnknown   1 (22h ago)      22h
+history-service-76f66c6f5c-xst7p     0/1     Evicted                  0                2d18h
+history-service-76f66c6f5c-xvsfr     0/1     Error                    0                2d15h
+history-service-76f66c6f5c-xzh8k     0/1     Error                    0                2d19h
+history-service-76f66c6f5c-z225c     0/1     ContainerStatusUnknown   1 (23h ago)      24h
+history-service-76f66c6f5c-z59tl     0/1     Evicted                  0                2d16h
+history-service-76f66c6f5c-z5krf     0/1     ContainerStatusUnknown   6 (2d5h ago)     2d5h
+history-service-76f66c6f5c-z8dhz     0/1     Evicted                  0                32h
+history-service-76f66c6f5c-z8p9w     0/1     ContainerStatusUnknown   1                46h
+history-service-76f66c6f5c-z94mv     0/1     Evicted                  0                44h
+history-service-76f66c6f5c-z9ljb     0/1     Error                    1 (39h ago)      39h
+history-service-76f66c6f5c-z9z69     0/1     Error                    0                43h
+history-service-76f66c6f5c-z9zrz     0/1     Error                    7                2d17h
+history-service-76f66c6f5c-zl49t     0/1     Error                    7                2d19h
+history-service-76f66c6f5c-zlcwq     0/1     Evicted                  0                2d6h
+history-service-76f66c6f5c-zprlf     0/1     Evicted                  0                2d6h
+history-service-76f66c6f5c-zr8h6     0/1     ContainerStatusUnknown   4 (45h ago)      45h
+history-service-76f66c6f5c-zvkcw     0/1     ContainerStatusUnknown   1 (36h ago)      37h
+otel-collector-f8457759d-24fl9       0/1     Completed                0                2d
+otel-collector-f8457759d-25h2c       0/1     Completed                0                39h
+otel-collector-f8457759d-286kv       0/1     Completed                0                37h
+otel-collector-f8457759d-292xm       0/1     Completed                0                2d3h
+otel-collector-f8457759d-29mqv       0/1     Completed                0                20h
+otel-collector-f8457759d-2hzkw       0/1     Completed                0                45h
+otel-collector-f8457759d-2mtxt       0/1     Completed                0                32h
+otel-collector-f8457759d-2rs8d       0/1     Completed                0                39h
+otel-collector-f8457759d-2s9pq       0/1     Completed                0                22h
+otel-collector-f8457759d-2v2jf       0/1     Completed                0                25h
+otel-collector-f8457759d-2v8lt       0/1     Completed                0                23h
+otel-collector-f8457759d-2xrtz       0/1     Completed                0                2d18h
+otel-collector-f8457759d-2zdtp       0/1     Completed                0                2d18h
+otel-collector-f8457759d-44zw8       0/1     Completed                0                30h
+otel-collector-f8457759d-47gfv       0/1     Completed                0                23h
+otel-collector-f8457759d-4flrs       0/1     Completed                0                2d2h
+otel-collector-f8457759d-4hkd7       0/1     Completed                0                38h
+otel-collector-f8457759d-4nbn8       0/1     Completed                0                41h
+otel-collector-f8457759d-4sb6g       0/1     Completed                0                31h
+otel-collector-f8457759d-4zxf5       0/1     Completed                0                2d21h
+otel-collector-f8457759d-5fcdw       0/1     Completed                0                34h
+otel-collector-f8457759d-5fs2r       0/1     Completed                0                28h
+otel-collector-f8457759d-5klhl       0/1     Completed                0                39h
+otel-collector-f8457759d-5pkrg       0/1     Completed                0                33h
+otel-collector-f8457759d-5pths       0/1     Completed                0                32h
+otel-collector-f8457759d-5v7b6       0/1     Completed                0                44h
+otel-collector-f8457759d-64hhg       0/1     Completed                0                37h
+otel-collector-f8457759d-674dn       0/1     Completed                0                26h
+otel-collector-f8457759d-678ch       0/1     Completed                0                2d6h
+otel-collector-f8457759d-67b59       0/1     ContainerStatusUnknown   1                34h
+otel-collector-f8457759d-685fq       0/1     Completed                0                34h
+otel-collector-f8457759d-6dc4v       0/1     Completed                0                20h
+otel-collector-f8457759d-6trth       0/1     Completed                0                24h
+otel-collector-f8457759d-6v92w       0/1     Completed                0                2d21h
+otel-collector-f8457759d-6vkvj       0/1     Completed                0                21h
+otel-collector-f8457759d-76csw       0/1     Completed                0                2d15h
+otel-collector-f8457759d-77vk5       0/1     Completed                0                40h
+otel-collector-f8457759d-7clmc       0/1     Completed                0                2d5h
+otel-collector-f8457759d-7cxx9       0/1     Completed                0                2d6h
+otel-collector-f8457759d-7ppbg       0/1     Completed                0                38h
+otel-collector-f8457759d-7rlrg       0/1     ContainerStatusUnknown   1                27h
+otel-collector-f8457759d-7slzl       0/1     Completed                0                34h
+otel-collector-f8457759d-7tzl4       0/1     Completed                0                47h
+otel-collector-f8457759d-7w8wt       0/1     Completed                0                2d16h
+otel-collector-f8457759d-8kwrg       0/1     Completed                0                2d20h
+otel-collector-f8457759d-8mclx       0/1     Completed                0                6d18h
+otel-collector-f8457759d-8pgj2       0/1     Completed                0                2d3h
+otel-collector-f8457759d-8xzxq       0/1     Completed                0                30h
+otel-collector-f8457759d-8zml5       0/1     ContainerStatusUnknown   1                2d
+otel-collector-f8457759d-94m85       0/1     Completed                0                26h
+otel-collector-f8457759d-9f427       0/1     Completed                0                2d21h
+otel-collector-f8457759d-9kdf8       0/1     Completed                0                30h
+otel-collector-f8457759d-9nl5w       0/1     Completed                0                29h
+otel-collector-f8457759d-9sn82       0/1     Completed                0                2d2h
+otel-collector-f8457759d-9x47l       0/1     Completed                0                22h
+otel-collector-f8457759d-b225n       0/1     Error                    0                2d14h
+otel-collector-f8457759d-b2kgj       0/1     Completed                0                18h
+otel-collector-f8457759d-b562t       0/1     Completed                0                26h
+otel-collector-f8457759d-b96hk       0/1     Completed                0                45h
+otel-collector-f8457759d-bf4hm       0/1     Completed                0                2d17h
+otel-collector-f8457759d-bhplq       0/1     Completed                0                29h
+otel-collector-f8457759d-bjbkl       0/1     Completed                0                18h
+otel-collector-f8457759d-brb5n       0/1     Completed                0                20h
+otel-collector-f8457759d-bv2rc       0/1     Completed                0                2d4h
+otel-collector-f8457759d-bvpks       0/1     Completed                0                27h
+otel-collector-f8457759d-c68rl       0/1     Completed                0                38h
+otel-collector-f8457759d-c6slc       0/1     Completed                0                30h
+otel-collector-f8457759d-cm6gl       0/1     Completed                0                35h
+otel-collector-f8457759d-cqzpm       0/1     ContainerStatusUnknown   1                28h
+otel-collector-f8457759d-cvfbj       0/1     Completed                0                20h
+otel-collector-f8457759d-cvt4p       0/1     Completed                0                30h
+otel-collector-f8457759d-cz2c5       0/1     Completed                0                46h
+otel-collector-f8457759d-d22sh       0/1     Completed                0                2d15h
+otel-collector-f8457759d-d88wv       0/1     Completed                0                2d8h
+otel-collector-f8457759d-dmb67       0/1     Completed                0                25h
+otel-collector-f8457759d-dvmk9       0/1     Completed                0                32h
+otel-collector-f8457759d-dz2tw       0/1     Completed                0                37h
+otel-collector-f8457759d-f2n58       0/1     Completed                0                38h
+otel-collector-f8457759d-f9mz8       0/1     Completed                0                21h
+otel-collector-f8457759d-fj8rz       0/1     Completed                0                2d21h
+otel-collector-f8457759d-fl674       0/1     Completed                0                23h
+otel-collector-f8457759d-fq4kr       0/1     Completed                0                2d20h
+otel-collector-f8457759d-fwc9f       0/1     Completed                0                26h
+otel-collector-f8457759d-fzmkj       0/1     Completed                0                29h
+otel-collector-f8457759d-g25bl       0/1     Completed                0                32h
+otel-collector-f8457759d-g7d47       0/1     Completed                0                37h
+otel-collector-f8457759d-g8ccf       0/1     Completed                0                29h
+otel-collector-f8457759d-g8fdq       0/1     Completed                0                41h
+otel-collector-f8457759d-gcvff       0/1     Completed                0                2d22h
+otel-collector-f8457759d-gd7kr       0/1     Completed                0                2d7h
+otel-collector-f8457759d-gkmlg       0/1     Completed                0                19h
+otel-collector-f8457759d-gmwgq       0/1     Completed                0                23h
+otel-collector-f8457759d-gnxnj       0/1     Completed                0                28h
+otel-collector-f8457759d-grsnk       0/1     Completed                0                41h
+otel-collector-f8457759d-gzz6d       0/1     Completed                0                44h
+otel-collector-f8457759d-h22x6       0/1     Completed                0                2d10h
+otel-collector-f8457759d-h6h68       0/1     Completed                0                2d
+otel-collector-f8457759d-hccr8       0/1     Completed                0                2d14h
+otel-collector-f8457759d-htgcc       0/1     Completed                0                2d17h
+otel-collector-f8457759d-htrrw       0/1     Completed                0                47h
+otel-collector-f8457759d-jdtzr       0/1     Completed                0                2d16h
+otel-collector-f8457759d-jlf4x       0/1     Completed                0                25h
+otel-collector-f8457759d-jmqfg       0/1     Completed                0                2d19h
+otel-collector-f8457759d-jmxth       0/1     Completed                0                32h
+otel-collector-f8457759d-jsvqr       0/1     Completed                0                34h
+otel-collector-f8457759d-jsws8       0/1     Completed                0                42h
+otel-collector-f8457759d-jtswz       0/1     Completed                0                28h
+otel-collector-f8457759d-jxr8k       0/1     Completed                0                34h
+otel-collector-f8457759d-k7bpk       0/1     Completed                0                2d2h
+otel-collector-f8457759d-k7nkj       0/1     Completed                0                42h
+otel-collector-f8457759d-k8wm4       0/1     Completed                0                19h
+otel-collector-f8457759d-kcgrl       0/1     Completed                0                36h
+otel-collector-f8457759d-kcvs9       0/1     Completed                0                38h
+otel-collector-f8457759d-kgslp       0/1     Completed                0                2d15h
+otel-collector-f8457759d-kq5pb       0/1     Completed                0                2d1h
+otel-collector-f8457759d-kv295       0/1     Completed                0                22h
+otel-collector-f8457759d-l2s75       0/1     Completed                0                22h
+otel-collector-f8457759d-l6kd8       0/1     Completed                0                2d5h
+otel-collector-f8457759d-l7hcw       0/1     Completed                0                2d20h
+otel-collector-f8457759d-l9bw5       0/1     Completed                0                35h
+otel-collector-f8457759d-ldbxq       0/1     ContainerStatusUnknown   1                2d17h
+otel-collector-f8457759d-ldmbf       0/1     Completed                0                25h
+otel-collector-f8457759d-lgzh7       0/1     Completed                0                2d10h
+otel-collector-f8457759d-lkkhk       0/1     Completed                0                38h
+otel-collector-f8457759d-lnfz9       0/1     Completed                0                46h
+otel-collector-f8457759d-lnj9z       0/1     Completed                0                2d22h
+otel-collector-f8457759d-ltmmx       0/1     Completed                0                2d15h
+otel-collector-f8457759d-lxqtk       0/1     Completed                0                27h
+otel-collector-f8457759d-lz2dq       0/1     Completed                0                30h
+otel-collector-f8457759d-m4vfz       0/1     Completed                0                27h
+otel-collector-f8457759d-mkjd7       0/1     Completed                0                33h
+otel-collector-f8457759d-mn84d       0/1     ContainerStatusUnknown   1                2d6h
+otel-collector-f8457759d-mqqxm       0/1     Completed                0                20h
+otel-collector-f8457759d-mslxx       0/1     Completed                0                23h
+otel-collector-f8457759d-mvkms       0/1     Completed                0                2d1h
+otel-collector-f8457759d-n987t       0/1     Completed                0                42h
+otel-collector-f8457759d-nd7lr       0/1     Completed                0                26h
+otel-collector-f8457759d-nfwkm       0/1     Completed                0                36h
+otel-collector-f8457759d-nfzgp       0/1     Completed                0                17h
+otel-collector-f8457759d-nhwgw       0/1     Completed                0                44h
+otel-collector-f8457759d-npgfp       0/1     Completed                0                43h
+otel-collector-f8457759d-nq8k8       0/1     ContainerStatusUnknown   1                2d16h
+otel-collector-f8457759d-nttm2       0/1     Completed                0                18h
+otel-collector-f8457759d-nwv4d       0/1     Completed                0                31h
+otel-collector-f8457759d-nzr6m       0/1     Completed                0                2d23h
+otel-collector-f8457759d-p7t29       0/1     Completed                0                2d1h
+otel-collector-f8457759d-p8j4w       0/1     Completed                0                29h
+otel-collector-f8457759d-p9stw       0/1     Completed                0                40h
+otel-collector-f8457759d-pbqj8       0/1     Completed                0                2d16h
+otel-collector-f8457759d-pc9ft       0/1     ContainerStatusUnknown   1                30h
+otel-collector-f8457759d-ph62k       0/1     Completed                0                26h
+otel-collector-f8457759d-pl5nk       0/1     Completed                0                45h
+otel-collector-f8457759d-pprb9       0/1     ContainerStatusUnknown   1                2d22h
+otel-collector-f8457759d-ptxj5       0/1     Completed                0                30h
+otel-collector-f8457759d-pwfbb       0/1     ContainerStatusUnknown   1                21h
+otel-collector-f8457759d-px6ck       0/1     ContainerStatusUnknown   1                28h
+otel-collector-f8457759d-pxmlz       0/1     Completed                0                21h
+otel-collector-f8457759d-q6qrr       0/1     Completed                0                2d8h
+otel-collector-f8457759d-q7l4d       0/1     Completed                0                2d14h
+otel-collector-f8457759d-qc8kt       0/1     Completed                0                31h
+otel-collector-f8457759d-qjd6b       0/1     Completed                0                34h
+otel-collector-f8457759d-qm2lh       0/1     Completed                1 (23h ago)      23h
+otel-collector-f8457759d-qvrx7       0/1     Completed                0                2d9h
+otel-collector-f8457759d-qwkmq       0/1     Completed                0                24h
+otel-collector-f8457759d-r4v57       0/1     Completed                0                23h
+otel-collector-f8457759d-rf45q       0/1     Completed                0                27h
+otel-collector-f8457759d-rgcv7       0/1     Completed                0                47h
+otel-collector-f8457759d-rhwvq       0/1     Completed                0                18h
+otel-collector-f8457759d-rhxt8       0/1     Completed                0                25h
+otel-collector-f8457759d-rkbhn       0/1     Completed                0                31h
+otel-collector-f8457759d-rmggp       0/1     ContainerStatusUnknown   1                2d14h
+otel-collector-f8457759d-s79cd       0/1     ContainerStatusUnknown   1                2d14h
+otel-collector-f8457759d-sc6s4       0/1     Completed                0                2d15h
+otel-collector-f8457759d-sd7m8       0/1     Completed                0                2d15h
+otel-collector-f8457759d-sgzhp       0/1     Completed                0                22h
+otel-collector-f8457759d-sjc9q       0/1     Completed                0                32h
+otel-collector-f8457759d-sm2jj       0/1     Completed                0                2d20h
+otel-collector-f8457759d-sn8w5       0/1     Completed                0                24h
+otel-collector-f8457759d-snwpf       0/1     ContainerStatusUnknown   1                39h
+otel-collector-f8457759d-snzzg       0/1     Completed                0                2d21h
+otel-collector-f8457759d-sqs6p       0/1     Completed                0                2d21h
+otel-collector-f8457759d-t5mhj       0/1     Completed                0                19h
+otel-collector-f8457759d-t7q4t       0/1     Completed                0                2d22h
+otel-collector-f8457759d-tcd7v       0/1     Completed                0                18h
+otel-collector-f8457759d-tfbs5       0/1     Completed                0                22h
+otel-collector-f8457759d-tjgzf       0/1     Completed                0                26h
+otel-collector-f8457759d-tlqn2       0/1     Completed                0                37h
+otel-collector-f8457759d-tw2r9       0/1     Completed                0                2d21h
+otel-collector-f8457759d-vjxgf       0/1     Completed                0                35h
+otel-collector-f8457759d-vmp5g       0/1     Completed                0                2d20h
+otel-collector-f8457759d-vntnw       0/1     Completed                0                3d14h
+otel-collector-f8457759d-vs2cw       0/1     Completed                0                2d20h
+otel-collector-f8457759d-vx574       0/1     Completed                0                36h
+otel-collector-f8457759d-w2sc4       0/1     ContainerStatusUnknown   1                21h
+otel-collector-f8457759d-w4bc4       0/1     Completed                0                2d16h
+otel-collector-f8457759d-w5vnm       0/1     Evicted                  0                25h
+otel-collector-f8457759d-w8fk6       0/1     Completed                0                45h
+otel-collector-f8457759d-wbh9m       0/1     Completed                0                20h
+otel-collector-f8457759d-wcpgp       0/1     Completed                0                24h
+otel-collector-f8457759d-wfspr       0/1     Completed                0                24h
+otel-collector-f8457759d-wghpq       0/1     Completed                0                32h
+otel-collector-f8457759d-wtgcv       0/1     Completed                0                21h
+otel-collector-f8457759d-wv9zz       0/1     Completed                0                24h
+otel-collector-f8457759d-x2l54       0/1     ContainerStatusUnknown   1                2d8h
+otel-collector-f8457759d-x4vz7       0/1     Completed                0                42h
+otel-collector-f8457759d-x9llr       0/1     Completed                0                2d16h
+otel-collector-f8457759d-xhhl7       0/1     Completed                0                33h
+otel-collector-f8457759d-xzbj4       0/1     Completed                0                18h
+otel-collector-f8457759d-xzflm       0/1     Completed                0                37h
+otel-collector-f8457759d-z2nlf       0/1     Completed                0                24h
+otel-collector-f8457759d-zkc75       0/1     Completed                0                19h
+otel-collector-f8457759d-znw2h       0/1     Completed                0                25h
+otel-collector-f8457759d-zq8st       0/1     Completed                0                20h
+otel-collector-f8457759d-zvc42       0/1     Completed                0                27h
+otel-collector-f8457759d-zvnnx       0/1     Completed                0                28h
+otel-collector-f8457759d-zx56r       0/1     Completed                0                47h
+otel-collector-f8457759d-zz9qd       0/1     Completed                0                2d4h
+otel-collector-f8457759d-zzcgr       0/1     Completed                0                2d15h
+otel-collector-f8457759d-zznfr       0/1     Completed                0                2d7h
+prometheus-68755dfbd6-28v8x          0/1     Evicted                  0                43h
+prometheus-68755dfbd6-2cpb5          0/1     Completed                0                2d19h
+prometheus-68755dfbd6-2fnbg          0/1     ContainerStatusUnknown   0                22h
+prometheus-68755dfbd6-2gtn8          0/1     ContainerStatusUnknown   0                27h
+prometheus-68755dfbd6-2gxhv          0/1     ContainerStatusUnknown   0                36h
+prometheus-68755dfbd6-2hnfs          0/1     Evicted                  0                4d5h
+prometheus-68755dfbd6-2jjlb          0/1     ContainerStatusUnknown   0                23h
+prometheus-68755dfbd6-2kpmn          0/1     Completed                0                27h
+prometheus-68755dfbd6-2l7jb          0/1     Completed                0                2d15h
+prometheus-68755dfbd6-2mgwn          0/1     ContainerStatusUnknown   0                32h
+prometheus-68755dfbd6-2nzbp          0/1     Evicted                  0                44h
+prometheus-68755dfbd6-2spcm          0/1     ContainerStatusUnknown   0                2d7h
+prometheus-68755dfbd6-2trdd          0/1     ContainerStatusUnknown   0                26h
+prometheus-68755dfbd6-2wv6c          0/1     ContainerStatusUnknown   0                24h
+prometheus-68755dfbd6-42mlv          0/1     Completed                0                2d23h
+prometheus-68755dfbd6-42trj          0/1     ContainerStatusUnknown   0                20h
+prometheus-68755dfbd6-44bqm          0/1     Evicted                  0                36h
+prometheus-68755dfbd6-48fjr          0/1     Completed                0                38h
+prometheus-68755dfbd6-48knb          0/1     ContainerStatusUnknown   0                31h
+prometheus-68755dfbd6-4h47h          0/1     Evicted                  0                4d5h
+prometheus-68755dfbd6-4hw7x          0/1     ContainerStatusUnknown   0                31h
+prometheus-68755dfbd6-4jh5f          0/1     Completed                0                2d22h
+prometheus-68755dfbd6-4k5tt          0/1     ContainerStatusUnknown   1                2d20h
+prometheus-68755dfbd6-4km4r          0/1     ContainerStatusUnknown   0                36h
+prometheus-68755dfbd6-4knml          0/1     ContainerStatusUnknown   0                2d5h
+prometheus-68755dfbd6-4mkgp          0/1     Evicted                  0                43h
+prometheus-68755dfbd6-4sg6h          0/1     ContainerStatusUnknown   0                34h
+prometheus-68755dfbd6-4t4nj          0/1     Completed                0                42h
+prometheus-68755dfbd6-4v5ml          0/1     Completed                0                2d7h
+prometheus-68755dfbd6-4vmxb          0/1     Completed                0                2d18h
+prometheus-68755dfbd6-52cvt          0/1     ContainerStatusUnknown   0                34h
+prometheus-68755dfbd6-56th9          0/1     Completed                0                2d14h
+prometheus-68755dfbd6-57pc8          0/1     Completed                0                38h
+prometheus-68755dfbd6-58wfs          0/1     ContainerStatusUnknown   0                20h
+prometheus-68755dfbd6-59whf          0/1     Completed                0                25h
+prometheus-68755dfbd6-5bgcj          0/1     ContainerStatusUnknown   0                37h
+prometheus-68755dfbd6-5h9p5          0/1     Completed                0                2d16h
+prometheus-68755dfbd6-5kcld          0/1     Completed                0                41h
+prometheus-68755dfbd6-5ljwb          0/1     ContainerStatusUnknown   1                2d3h
+prometheus-68755dfbd6-5qxhk          0/1     Evicted                  0                45h
+prometheus-68755dfbd6-5snwq          0/1     ContainerStatusUnknown   1                23h
+prometheus-68755dfbd6-5tpvq          0/1     ContainerStatusUnknown   0                2d3h
+prometheus-68755dfbd6-5v8l4          0/1     Completed                0                2d
+prometheus-68755dfbd6-62j2w          0/1     ContainerStatusUnknown   0                21h
+prometheus-68755dfbd6-66599          0/1     Evicted                  0                46h
+prometheus-68755dfbd6-68nhw          0/1     Completed                0                23h
+prometheus-68755dfbd6-6jnff          0/1     Completed                0                21h
+prometheus-68755dfbd6-6ldkd          0/1     ContainerStatusUnknown   0                33h
+prometheus-68755dfbd6-6qtjv          0/1     Completed                0                31h
+prometheus-68755dfbd6-6rxkt          0/1     ContainerStatusUnknown   0                32h
+prometheus-68755dfbd6-7768x          0/1     Completed                0                2d6h
+prometheus-68755dfbd6-77c4h          0/1     ContainerStatusUnknown   0                25h
+prometheus-68755dfbd6-79w9v          0/1     ContainerStatusUnknown   0                17h
+prometheus-68755dfbd6-79xtq          0/1     Completed                0                3d2h
+prometheus-68755dfbd6-7blpn          0/1     Evicted                  0                45h
+prometheus-68755dfbd6-7csgb          0/1     Evicted                  0                46h
+prometheus-68755dfbd6-7d2q2          0/1     Completed                0                2d22h
+prometheus-68755dfbd6-7djw5          0/1     Evicted                  0                43h
+prometheus-68755dfbd6-7kb9j          0/1     Completed                0                8d
+prometheus-68755dfbd6-7m8qw          0/1     Evicted                  0                45h
+prometheus-68755dfbd6-7nqpj          0/1     Completed                0                33h
+prometheus-68755dfbd6-7nqzd          0/1     Completed                0                2d17h
+prometheus-68755dfbd6-7nxhq          0/1     ContainerStatusUnknown   0                21h
+prometheus-68755dfbd6-7shvs          0/1     Completed                0                41h
+prometheus-68755dfbd6-7twnq          0/1     ContainerStatusUnknown   0                33h
+prometheus-68755dfbd6-7v7cx          0/1     ContainerStatusUnknown   0                20h
+prometheus-68755dfbd6-7zkjp          0/1     ContainerStatusUnknown   0                43h
+prometheus-68755dfbd6-87jw6          0/1     Completed                0                24h
+prometheus-68755dfbd6-8bbh4          0/1     Completed                0                24h
+prometheus-68755dfbd6-8d479          0/1     Evicted                  0                2d7h
+prometheus-68755dfbd6-8ddb9          0/1     Completed                0                30h
+prometheus-68755dfbd6-8gn4x          0/1     Completed                0                2d14h
+prometheus-68755dfbd6-8kw6j          0/1     ContainerStatusUnknown   0                24h
+prometheus-68755dfbd6-8l6tr          0/1     ContainerStatusUnknown   0                44h
+prometheus-68755dfbd6-8qpdn          0/1     Evicted                  0                42h
+prometheus-68755dfbd6-8wdkj          0/1     Completed                0                41h
+prometheus-68755dfbd6-92ttz          0/1     ContainerStatusUnknown   0                45h
+prometheus-68755dfbd6-92v85          0/1     ContainerStatusUnknown   0                41h
+prometheus-68755dfbd6-95nqk          0/1     Completed                0                37h
+prometheus-68755dfbd6-9bpz5          0/1     ContainerStatusUnknown   0                25h
+prometheus-68755dfbd6-9cq8z          0/1     Completed                0                2d8h
+prometheus-68755dfbd6-9dl4q          0/1     ContainerStatusUnknown   0                39h
+prometheus-68755dfbd6-9dqxv          0/1     Evicted                  0                33h
+prometheus-68755dfbd6-9f7h7          0/1     Completed                0                34h
+prometheus-68755dfbd6-9gd28          0/1     ContainerStatusUnknown   0                19h
+prometheus-68755dfbd6-9lm4h          0/1     ContainerStatusUnknown   0                19h
+prometheus-68755dfbd6-9lpsg          0/1     Completed                0                29h
+prometheus-68755dfbd6-9nxqf          0/1     Completed                0                2d4h
+prometheus-68755dfbd6-9rvxh          0/1     ContainerStatusUnknown   0                22h
+prometheus-68755dfbd6-9slz4          0/1     ContainerStatusUnknown   0                23h
+prometheus-68755dfbd6-9v247          0/1     ContainerStatusUnknown   0                30h
+prometheus-68755dfbd6-9v4dp          0/1     Evicted                  0                2d6h
+prometheus-68755dfbd6-9x728          0/1     ContainerStatusUnknown   0                29h
+prometheus-68755dfbd6-9xnst          0/1     Evicted                  0                35h
+prometheus-68755dfbd6-b28n7          0/1     Evicted                  0                33h
+prometheus-68755dfbd6-b9mbj          0/1     ContainerStatusUnknown   0                34h
+prometheus-68755dfbd6-bk27t          0/1     ContainerStatusUnknown   0                23h
+prometheus-68755dfbd6-bklf9          0/1     Evicted                  0                43h
+prometheus-68755dfbd6-bn4br          0/1     Completed                0                46h
+prometheus-68755dfbd6-bph4x          0/1     Evicted                  0                2d2h
+prometheus-68755dfbd6-bq8pz          0/1     Completed                0                2d5h
+prometheus-68755dfbd6-brjw5          0/1     ContainerStatusUnknown   0                28h
+prometheus-68755dfbd6-bt2ls          0/1     Evicted                  0                33h
+prometheus-68755dfbd6-c6qwb          0/1     ContainerStatusUnknown   0                28h
+prometheus-68755dfbd6-cqlm6          0/1     Completed                0                32h
+prometheus-68755dfbd6-csfzj          0/1     ContainerStatusUnknown   0                35h
+prometheus-68755dfbd6-cw9bm          0/1     Completed                0                2d7h
+prometheus-68755dfbd6-cx5qn          0/1     ContainerStatusUnknown   0                2d2h
+prometheus-68755dfbd6-d4dvz          0/1     Completed                0                3d14h
+prometheus-68755dfbd6-dbn2b          0/1     Evicted                  0                4d5h
+prometheus-68755dfbd6-dbpgq          0/1     Completed                0                18h
+prometheus-68755dfbd6-dj5gh          0/1     ContainerStatusUnknown   0                20h
+prometheus-68755dfbd6-djnbp          0/1     Evicted                  0                2d6h
+prometheus-68755dfbd6-dld6r          0/1     Completed                0                35h
+prometheus-68755dfbd6-dmb44          0/1     Completed                0                39h
+prometheus-68755dfbd6-dmv4l          0/1     ContainerStatusUnknown   0                35h
+prometheus-68755dfbd6-dmz2p          0/1     ContainerStatusUnknown   0                29h
+prometheus-68755dfbd6-f2jrm          0/1     Evicted                  0                2d7h
+prometheus-68755dfbd6-f4bz2          0/1     Completed                0                25h
+prometheus-68755dfbd6-f4zg9          0/1     ContainerStatusUnknown   0                29h
+prometheus-68755dfbd6-f5s9c          0/1     Completed                0                2d21h
+prometheus-68755dfbd6-f69sh          0/1     Evicted                  0                41h
+prometheus-68755dfbd6-f6fj8          0/1     Completed                0                36h
+prometheus-68755dfbd6-f99cd          0/1     Completed                0                2d15h
+prometheus-68755dfbd6-fbwxr          0/1     Completed                0                2d2h
+prometheus-68755dfbd6-fd7vb          0/1     ContainerStatusUnknown   1                2d15h
+prometheus-68755dfbd6-fjphb          0/1     Completed                0                44h
+prometheus-68755dfbd6-fl6s7          0/1     Evicted                  0                43h
+prometheus-68755dfbd6-fn964          0/1     ContainerStatusUnknown   0                37h
+prometheus-68755dfbd6-fnpnt          0/1     Completed                0                32h
+prometheus-68755dfbd6-fqg55          0/1     Completed                0                24h
+prometheus-68755dfbd6-g584r          0/1     Completed                0                23h
+prometheus-68755dfbd6-g5k4p          0/1     Completed                0                2d6h
+prometheus-68755dfbd6-g5tkw          0/1     Completed                0                2d8h
+prometheus-68755dfbd6-g8tn7          0/1     Completed                0                2d20h
+prometheus-68755dfbd6-gfbwh          0/1     Completed                0                42h
+prometheus-68755dfbd6-gfm5k          0/1     ContainerStatusUnknown   0                37h
+prometheus-68755dfbd6-gk7t2          0/1     Completed                0                2d20h
+prometheus-68755dfbd6-gpv8l          0/1     ContainerStatusUnknown   0                41h
+prometheus-68755dfbd6-gv9hk          0/1     Completed                0                2d15h
+prometheus-68755dfbd6-gvhpt          0/1     Completed                0                27h
+prometheus-68755dfbd6-h28mn          0/1     ContainerStatusUnknown   0                39h
+prometheus-68755dfbd6-h2kzx          0/1     Completed                0                29h
+prometheus-68755dfbd6-h2nxl          0/1     Completed                0                28h
+prometheus-68755dfbd6-h6x86          0/1     ContainerStatusUnknown   1                2d21h
+prometheus-68755dfbd6-h7dbt          0/1     Completed                0                2d8h
+prometheus-68755dfbd6-hc6qc          0/1     Completed                0                2d
+prometheus-68755dfbd6-hdk94          0/1     Completed                0                2d9h
+prometheus-68755dfbd6-hftpj          0/1     ContainerStatusUnknown   0                22h
+prometheus-68755dfbd6-hn4jd          0/1     Completed                0                36h
+prometheus-68755dfbd6-hr4mp          0/1     ContainerStatusUnknown   1                4d5h
+prometheus-68755dfbd6-hrnv6          0/1     Evicted                  0                2d2h
+prometheus-68755dfbd6-htg9x          0/1     ContainerStatusUnknown   0                2d6h
+prometheus-68755dfbd6-hzbsg          0/1     Evicted                  0                44h
+prometheus-68755dfbd6-j25d7          0/1     ContainerStatusUnknown   0                21h
+prometheus-68755dfbd6-j4hzc          0/1     ContainerStatusUnknown   0                30h
+prometheus-68755dfbd6-j682n          0/1     ContainerStatusUnknown   0                2d2h
+prometheus-68755dfbd6-j6kb7          0/1     Completed                0                2d16h
+prometheus-68755dfbd6-j6vm4          0/1     Completed                0                2d20h
+prometheus-68755dfbd6-jb9zc          0/1     Completed                0                2d19h
+prometheus-68755dfbd6-jdqnt          0/1     Completed                0                2d14h
+prometheus-68755dfbd6-jnr8m          0/1     ContainerStatusUnknown   0                18h
+prometheus-68755dfbd6-jprnm          0/1     Completed                0                2d21h
+prometheus-68755dfbd6-jq8fv          0/1     Completed                0                26h
+prometheus-68755dfbd6-jqqmd          0/1     Evicted                  0                43h
+prometheus-68755dfbd6-jw59v          0/1     ContainerStatusUnknown   0                18h
+prometheus-68755dfbd6-k2fqj          0/1     Completed                0                47h
+prometheus-68755dfbd6-k4xpt          0/1     ContainerStatusUnknown   0                27h
+prometheus-68755dfbd6-k6vm4          0/1     ContainerStatusUnknown   0                18h
+prometheus-68755dfbd6-kcldk          0/1     Completed                0                27h
+prometheus-68755dfbd6-kj6lc          0/1     Completed                0                2d1h
+prometheus-68755dfbd6-klvj8          0/1     ContainerStatusUnknown   0                2d6h
+prometheus-68755dfbd6-klwzm          0/1     ContainerStatusUnknown   0                33h
+prometheus-68755dfbd6-kns6h          0/1     ContainerStatusUnknown   0                19h
+prometheus-68755dfbd6-kvmtp          0/1     ContainerStatusUnknown   0                35h
+prometheus-68755dfbd6-kwfgj          0/1     Completed                0                2d17h
+prometheus-68755dfbd6-kxmnw          0/1     ContainerStatusUnknown   0                32h
+prometheus-68755dfbd6-ljhnn          0/1     Completed                0                2d15h
+prometheus-68755dfbd6-ljj62          0/1     Evicted                  0                30h
+prometheus-68755dfbd6-ljnmf          0/1     Completed                0                39h
+prometheus-68755dfbd6-lk4jg          0/1     Completed                0                2d15h
+prometheus-68755dfbd6-llqcm          0/1     ContainerStatusUnknown   0                18h
+prometheus-68755dfbd6-ln5lt          0/1     Completed                0                28h
+prometheus-68755dfbd6-lpq88          0/1     ContainerStatusUnknown   0                38h
+prometheus-68755dfbd6-lqbvf          0/1     ContainerStatusUnknown   0                21h
+prometheus-68755dfbd6-lszbb          0/1     Completed                0                39h
+prometheus-68755dfbd6-m4lpr          0/1     Completed                0                2d9h
+prometheus-68755dfbd6-m65js          0/1     Evicted                  0                2d2h
+prometheus-68755dfbd6-m7jmz          0/1     ContainerStatusUnknown   0                28h
+prometheus-68755dfbd6-mczgc          0/1     Completed                0                38h
+prometheus-68755dfbd6-md4cf          0/1     ContainerStatusUnknown   0                38h
+prometheus-68755dfbd6-md7q7          0/1     Completed                0                22h
+prometheus-68755dfbd6-mdcmh          0/1     Completed                0                2d4h
+prometheus-68755dfbd6-mdtln          0/1     Completed                0                25h
+prometheus-68755dfbd6-mkmvz          0/1     ContainerStatusUnknown   0                22h
+prometheus-68755dfbd6-mplpz          0/1     Completed                0                2d5h
+prometheus-68755dfbd6-mz67g          0/1     ContainerStatusUnknown   0                19h
+prometheus-68755dfbd6-mzrrg          0/1     Completed                0                2d20h
+prometheus-68755dfbd6-n2548          0/1     Completed                0                18h
+prometheus-68755dfbd6-n422t          0/1     ContainerStatusUnknown   0                26h
+prometheus-68755dfbd6-nc878          0/1     ContainerStatusUnknown   0                43h
+prometheus-68755dfbd6-nknp2          0/1     Completed                0                2d22h
+prometheus-68755dfbd6-nkwgm          0/1     Completed                0                32h
+prometheus-68755dfbd6-nkwjv          0/1     ContainerStatusUnknown   0                25h
+prometheus-68755dfbd6-nrvn6          0/1     ContainerStatusUnknown   1                2d10h
+prometheus-68755dfbd6-nspzz          0/1     ContainerStatusUnknown   0                17h
+prometheus-68755dfbd6-p6k4h          0/1     Completed                0                40h
+prometheus-68755dfbd6-p6nvs          0/1     Completed                0                2d21h
+prometheus-68755dfbd6-p88q6          0/1     Completed                0                20h
+prometheus-68755dfbd6-p8slh          0/1     Completed                0                30h
+prometheus-68755dfbd6-p94zt          0/1     Evicted                  0                2d7h
+prometheus-68755dfbd6-p9fnc          0/1     Completed                0                2d7h
+prometheus-68755dfbd6-pdgbd          0/1     Completed                0                26h
+prometheus-68755dfbd6-pjkp2          0/1     Completed                0                46h
+prometheus-68755dfbd6-pk55g          0/1     ContainerStatusUnknown   0                20h
+prometheus-68755dfbd6-plh5m          0/1     Evicted                  0                45h
+prometheus-68755dfbd6-pvw8w          0/1     ContainerStatusUnknown   0                32h
+prometheus-68755dfbd6-pzgkt          0/1     Completed                0                33h
+prometheus-68755dfbd6-q2qmh          0/1     Completed                0                39h
+prometheus-68755dfbd6-q4p2n          0/1     ContainerStatusUnknown   0                38h
+prometheus-68755dfbd6-q6xr4          0/1     Completed                0                2d14h
+prometheus-68755dfbd6-qfzg9          0/1     Completed                0                47h
+prometheus-68755dfbd6-qhrfc          0/1     ContainerStatusUnknown   0                27h
+prometheus-68755dfbd6-qj62d          0/1     ContainerStatusUnknown   0                24h
+prometheus-68755dfbd6-qn8d2          0/1     Completed                0                2d17h
+prometheus-68755dfbd6-qqclb          0/1     Completed                0                2d4h
+prometheus-68755dfbd6-qrfh8          0/1     Evicted                  0                38h
+prometheus-68755dfbd6-qsbzf          0/1     ContainerStatusUnknown   0                43h
+prometheus-68755dfbd6-qw5p8          0/1     ContainerStatusUnknown   0                26h
+prometheus-68755dfbd6-qwz7z          0/1     Completed                0                2d22h
+prometheus-68755dfbd6-qxg4g          0/1     Completed                0                17h
+prometheus-68755dfbd6-qxmgj          0/1     ContainerStatusUnknown   1                22h
+prometheus-68755dfbd6-r2fxl          0/1     Completed                0                2d14h
+prometheus-68755dfbd6-r4hm9          0/1     Completed                0                2d8h
+prometheus-68755dfbd6-r7nm4          0/1     ContainerStatusUnknown   0                24h
+prometheus-68755dfbd6-rdpt8          0/1     Completed                0                42h
+prometheus-68755dfbd6-rhbnb          0/1     Completed                0                2d9h
+prometheus-68755dfbd6-rjfcx          0/1     Completed                0                2d16h
+prometheus-68755dfbd6-rkm9d          0/1     Completed                0                2d10h
+prometheus-68755dfbd6-rl8x4          0/1     Evicted                  0                43h
+prometheus-68755dfbd6-rmdnj          0/1     Completed                0                28h
+prometheus-68755dfbd6-rngwn          0/1     Completed                0                2d5h
+prometheus-68755dfbd6-rp6wr          0/1     Completed                0                2d3h
+prometheus-68755dfbd6-rplkg          0/1     Completed                0                45h
+prometheus-68755dfbd6-rtn7x          0/1     Completed                0                47h
+prometheus-68755dfbd6-s5fhv          0/1     Completed                0                2d1h
+prometheus-68755dfbd6-s94kl          0/1     Completed                0                2d21h
+prometheus-68755dfbd6-s9rcm          0/1     Completed                0                40h
+prometheus-68755dfbd6-sbzr8          0/1     ContainerStatusUnknown   0                42h
+prometheus-68755dfbd6-sd649          0/1     Evicted                  0                2d6h
+prometheus-68755dfbd6-sj54c          0/1     Evicted                  0                45h
+prometheus-68755dfbd6-slrd6          0/1     ContainerStatusUnknown   1                2d5h
+prometheus-68755dfbd6-smsb7          0/1     Completed                0                37h
+prometheus-68755dfbd6-snlsl          0/1     Completed                0                2d
+prometheus-68755dfbd6-spwn4          0/1     Evicted                  0                4d5h
+prometheus-68755dfbd6-sslnj          0/1     Completed                0                2d18h
+prometheus-68755dfbd6-stjbm          0/1     ContainerStatusUnknown   0                46h
+prometheus-68755dfbd6-sv7nw          0/1     Completed                0                37h
+prometheus-68755dfbd6-sx6zf          0/1     ContainerStatusUnknown   0                2d2h
+prometheus-68755dfbd6-szzdx          0/1     Completed                0                2d8h
+prometheus-68755dfbd6-t4clv          0/1     Completed                0                36h
+prometheus-68755dfbd6-tc9fp          0/1     Completed                0                2d18h
+prometheus-68755dfbd6-tctbh          0/1     Completed                0                26h
+prometheus-68755dfbd6-tg6mk          0/1     ContainerStatusUnknown   0                2d2h
+prometheus-68755dfbd6-thbm4          0/1     Completed                0                2d21h
+prometheus-68755dfbd6-tjdtd          0/1     Completed                0                2d2h
+prometheus-68755dfbd6-tqvlf          0/1     ContainerStatusUnknown   0                19h
+prometheus-68755dfbd6-tscpn          0/1     ContainerStatusUnknown   0                28h
+prometheus-68755dfbd6-tsdt9          0/1     ContainerStatusUnknown   0                45h
+prometheus-68755dfbd6-tsgks          0/1     Completed                0                45h
+prometheus-68755dfbd6-ttbc8          0/1     ContainerStatusUnknown   0                27h
+prometheus-68755dfbd6-ttv8v          0/1     ContainerStatusUnknown   0                21h
+prometheus-68755dfbd6-tz92k          0/1     ContainerStatusUnknown   0                34h
+prometheus-68755dfbd6-tzbrm          0/1     Completed                0                47h
+prometheus-68755dfbd6-v52cs          0/1     Evicted                  0                43h
+prometheus-68755dfbd6-v75lc          0/1     ContainerStatusUnknown   0                37h
+prometheus-68755dfbd6-v9r4v          0/1     Completed                0                44h
+prometheus-68755dfbd6-vbdxx          0/1     Completed                0                34h
+prometheus-68755dfbd6-vc4dt          0/1     Completed                0                2d16h
+prometheus-68755dfbd6-vcsjl          0/1     Completed                0                2d
+prometheus-68755dfbd6-vjsvq          0/1     ContainerStatusUnknown   0                25h
+prometheus-68755dfbd6-vqnxt          0/1     Evicted                  0                43h
+prometheus-68755dfbd6-vrsnt          0/1     Evicted                  0                2d6h
+prometheus-68755dfbd6-vs4x6          0/1     ContainerStatusUnknown   0                32h
+prometheus-68755dfbd6-w7zzd          0/1     Completed                0                2d20h
+prometheus-68755dfbd6-w88fp          0/1     ContainerStatusUnknown   0                42h
+prometheus-68755dfbd6-wbptt          0/1     Completed                0                2d19h
+prometheus-68755dfbd6-wc984          0/1     Completed                0                2d1h
+prometheus-68755dfbd6-wgb2m          0/1     Completed                0                43h
+prometheus-68755dfbd6-wgsm2          0/1     ContainerStatusUnknown   0                19h
+prometheus-68755dfbd6-wgtkz          0/1     Completed                0                2d15h
+prometheus-68755dfbd6-whjr6          0/1     Completed                0                22h
+prometheus-68755dfbd6-wj97r          0/1     Evicted                  0                2d2h
+prometheus-68755dfbd6-wk5br          0/1     ContainerStatusUnknown   2 (20h ago)      20h
+prometheus-68755dfbd6-wnd8n          0/1     Completed                0                2d16h
+prometheus-68755dfbd6-wpmxw          0/1     Evicted                  0                2d6h
+prometheus-68755dfbd6-wxqc2          0/1     Evicted                  0                2d2h
+prometheus-68755dfbd6-wztm2          0/1     ContainerStatusUnknown   0                30h
+prometheus-68755dfbd6-x2v6l          0/1     ContainerStatusUnknown   0                40h
+prometheus-68755dfbd6-x6wpl          0/1     Completed                0                2d16h
+prometheus-68755dfbd6-x77lq          0/1     ContainerStatusUnknown   0                30h
+prometheus-68755dfbd6-x982c          0/1     Completed                0                30h
+prometheus-68755dfbd6-xf5gt          0/1     Completed                0                2d16h
+prometheus-68755dfbd6-xfpfp          0/1     ContainerStatusUnknown   0                44h
+prometheus-68755dfbd6-xlllp          0/1     ContainerStatusUnknown   0                34h
+prometheus-68755dfbd6-xswx2          0/1     ContainerStatusUnknown   1                23h
+prometheus-68755dfbd6-xv5w5          0/1     Evicted                  0                43h
+prometheus-68755dfbd6-xx464          0/1     Completed                0                44h
+prometheus-68755dfbd6-z2xdk          0/1     Completed                0                2d22h
+prometheus-68755dfbd6-zf2sn          0/1     Completed                0                2d4h
+prometheus-68755dfbd6-zk78t          0/1     Completed                0                46h
+prometheus-68755dfbd6-zlqk9          0/1     Completed                0                2d21h
+prometheus-68755dfbd6-zpt4h          0/1     Completed                0                2d
