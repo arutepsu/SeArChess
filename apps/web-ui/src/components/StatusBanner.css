@@ -1,13 +1,98 @@
 .banner {
-  background: linear-gradient(130deg, #1f2430, #3d2b1f);
-  border-radius: 26px;
-  padding: 20px 24px;
-  color: #f8f1e6;
-  box-shadow: 0 25px 40px rgba(0, 0, 0, 0.25);
+  width: min(100%, 590px);
+  border-radius: 16px;
+  padding: 12px 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  margin-bottom: 4px;
 }
 
-.message {
+.banner-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.banner-icon {
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.banner-message {
   margin: 0;
-  font-size: 0.95rem;
-  opacity: 0.8;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #f4efe6;
+  letter-spacing: 0.02rem;
+  line-height: 1.4;
+}
+
+/* State-specific backgrounds, borders, and glows */
+.banner.is-loading {
+  background: rgba(43, 40, 38, 0.8);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.banner.is-offline {
+  background: rgba(89, 28, 28, 0.85);
+  border-color: rgba(255, 100, 100, 0.4);
+  box-shadow: 0 0 15px rgba(255, 100, 100, 0.15);
+}
+
+.banner.is-message {
+  background: rgba(26, 38, 57, 0.85);
+  border-color: rgba(100, 180, 255, 0.3);
+}
+
+.banner.is-idle {
+  background: rgba(43, 24, 28, 0.8);
+  border-color: rgba(197, 160, 89, 0.2);
+}
+
+.banner.is-active {
+  background: rgba(43, 24, 28, 0.85);
+  border-color: rgba(197, 160, 89, 0.35);
+}
+
+.banner.is-check {
+  background: rgba(89, 45, 28, 0.85);
+  border-color: rgba(255, 140, 0, 0.4);
+  animation: banner-alert-pulse 2s infinite ease-in-out;
+}
+
+.banner.is-checkmate {
+  background: rgba(28, 70, 40, 0.85);
+  border-color: rgba(100, 255, 100, 0.4);
+  box-shadow: 0 0 20px rgba(100, 255, 100, 0.2);
+}
+
+.banner.is-draw {
+  background: rgba(45, 45, 45, 0.85);
+  border-color: rgba(200, 200, 200, 0.3);
+}
+
+.banner.is-resigned {
+  background: rgba(58, 28, 89, 0.85);
+  border-color: rgba(180, 100, 255, 0.4);
+}
+
+@keyframes banner-alert-pulse {
+  0% {
+    border-color: rgba(255, 140, 0, 0.3);
+    box-shadow: 0 0 5px rgba(255, 140, 0, 0.1);
+  }
+  50% {
+    border-color: rgba(255, 140, 0, 0.7);
+    box-shadow: 0 0 15px rgba(255, 140, 0, 0.3);
+  }
+  100% {
+    border-color: rgba(255, 140, 0, 0.3);
+    box-shadow: 0 0 5px rgba(255, 140, 0, 0.1);
+  }
 }

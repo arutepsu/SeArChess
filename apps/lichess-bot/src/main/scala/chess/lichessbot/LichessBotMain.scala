@@ -9,7 +9,7 @@ import java.net.URI
 import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.util.concurrent.ConcurrentHashMap
 import scala.util.control.NonFatal
-import chess.domain.model.{Move, PieceType, Position}
+import chess.domain.model.{Color, GameStatus, Move, Piece, PieceType, Position}
 import chess.domain.rules.GameStateRules
 import chess.domain.state.GameStateFactory
 
@@ -22,6 +22,14 @@ import chess.domain.state.GameStateFactory
   * @param token
   *   The Lichess API Token.
   */
+case class GameStateCache(
+    moves: String,
+    isWhite: Boolean,
+    wtime: Option[Long],
+    btime: Option[Long],
+    lastUpdated: Long
+)
+
 class LichessBot(val token: String)(implicit ec: ExecutionContext) {
   private val backend = HttpClientSyncBackend()
   private val httpClient = HttpClient.newHttpClient()
@@ -29,10 +37,63 @@ class LichessBot(val token: String)(implicit ec: ExecutionContext) {
   // Cache to store the number of moves processed for each game to prevent double moves
   private val lastMovesCountMap = new ConcurrentHashMap[String, java.lang.Integer]()
 
+  // Cache to store the latest state of active games to feed newly connected Web UI clients
+  private val activeGames = new ConcurrentHashMap[String, GameStateCache]()
+
+  // Cache to track if the bot has already greeted the opponent at game start
+  private val greetedGames = new ConcurrentHashMap[String, java.lang.Boolean]()
+
+  // Cache to track if the bot has already sent the end game message
+  private val finishedGames = new ConcurrentHashMap[String, java.lang.Boolean]()
+
+  /** Sends a chat message to the game chat room.
+    */
+  private def sendChatMessage(gameId: String, message: String): Unit = {
+    val request = basicRequest
+      .post(uri"https://lichess.org/api/bot/game/$gameId/chat")
+      .header("Authorization", s"Bearer $token")
+      .body(Map("room" -> "player", "text" -> message))
+
+    val response = request.send(backend)
+    val _ = response.body match {
+      case Right(_) =>
+        println(s"[LichessBot] [Game $gameId] Chat message sent: '$message'")
+      case Left(err) =>
+        println(s"[LichessBot] [Game $gameId] Failed to send chat message '$message': $err")
+    }
+  }
+
+  // WebSocket Server on port 9323. Sends initial state of active games to new clients.
+  private val wsServer = new LichessBotWebSocketServer(
+    9323,
+    conn => {
+      activeGames.forEach { (gameId, cache) =>
+        val botColor = if (cache.isWhite) "white" else "black"
+        val json = ujson.Obj(
+          "gameId" -> gameId,
+          "moves" -> cache.moves,
+          "botColor" -> botColor,
+          "wtime" -> cache.wtime.map(ujson.Num(_)).getOrElse(ujson.Null),
+          "btime" -> cache.btime.map(ujson.Num(_)).getOrElse(ujson.Null),
+          "lastUpdated" -> cache.lastUpdated
+        )
+        try {
+          conn.send(ujson.write(json))
+        } catch {
+          case e: Exception =>
+            println(s"[LichessBot] Failed to send initial state to client: ${e.getMessage}")
+        }
+      }
+    }
+  )
+
   def start(): Unit = {
     println("[LichessBot] Loading account details...")
     val botId = fetchBotId()
     println(s"[LichessBot] Successfully logged in as bot ID: $botId")
+
+    println("[LichessBot] Starting WebSocket Server on port 9323...")
+    wsServer.start()
 
     println("[LichessBot] Starting event stream listening...")
     connectToEventStream(botId)
@@ -184,6 +245,7 @@ class LichessBot(val token: String)(implicit ec: ExecutionContext) {
           reader.close()
           response.body().close()
           val _ = lastMovesCountMap.remove(gameId)
+          val _ = activeGames.remove(gameId)
           println(s"[LichessBot] [Game $gameId] Stream closed.")
         }
       } else {
@@ -216,16 +278,51 @@ class LichessBot(val token: String)(implicit ec: ExecutionContext) {
               val determinedColor = json("white")("id").str.toLowerCase == botId
               val moves = json("state")("moves").str
               val status = json("state")("status").str
+              val stateJson = json("state")
+              val wtimeOpt = stateJson.obj.get("wtime").flatMap {
+                case ujson.Num(num) => Some(num.toLong)
+                case _              => None
+              }
+              val btimeOpt = stateJson.obj.get("btime").flatMap {
+                case ujson.Num(num) => Some(num.toLong)
+                case _              => None
+              }
               println(s"[LichessBot] [Game $gameId] Initialized. Bot Color: ${
                   if (determinedColor) "White" else "Black"
                 }. Status: $status")
               processTurn(gameId, moves, determinedColor, status)
+              broadcastGameState(gameId, moves, determinedColor, wtimeOpt, btimeOpt)
+
+              if (status != "started" && status != "created") {
+                if (!finishedGames.containsKey(gameId)) {
+                  finishedGames.put(gameId, true)
+                  sendChatMessage(gameId, "Gut gespielt!")
+                  greetedGames.remove(gameId)
+                }
+              }
               determinedColor
 
             case "gameState" =>
               val moves = json("moves").str
               val status = json("status").str
+              val wtimeOpt = json.obj.get("wtime").flatMap {
+                case ujson.Num(num) => Some(num.toLong)
+                case _              => None
+              }
+              val btimeOpt = json.obj.get("btime").flatMap {
+                case ujson.Num(num) => Some(num.toLong)
+                case _              => None
+              }
               processTurn(gameId, moves, isWhite, status)
+              broadcastGameState(gameId, moves, isWhite, wtimeOpt, btimeOpt)
+
+              if (status != "started" && status != "created") {
+                if (!finishedGames.containsKey(gameId)) {
+                  finishedGames.put(gameId, true)
+                  sendChatMessage(gameId, "Gut gespielt!")
+                  greetedGames.remove(gameId)
+                }
+              }
               isWhite
 
             case _ => // Ignore other events like chatLine
@@ -267,10 +364,85 @@ class LichessBot(val token: String)(implicit ec: ExecutionContext) {
             s"[LichessBot] [Game $gameId] Bot turn detected! (Move count: $movesCount). Calculating move..."
           )
 
+          // 1. Send greeting if start of the game
+          if (movesCount <= 1 && !greetedGames.containsKey(gameId)) {
+            greetedGames.put(gameId, true)
+            sendChatMessage(gameId, "Hallo und viel Glück!")
+          }
+
+          // 2. Perform game position analysis on opponent's move
+          val currentState = replayMoves(moves)
+
+          // Check if opponent put us in check
+          currentState.status match {
+            case GameStatus.Ongoing(true) =>
+              sendChatMessage(gameId, "Oh, Schach! Ein interessanter Angriff.")
+            case _ =>
+          }
+
+          // Detect blunders (opponent hangs a piece)
+          val opponentLastMoveOpt = currentState.moveHistory.lastOption
+          opponentLastMoveOpt.foreach { oppMove =>
+            val legalMoves = GameStateRules.legalMoves(currentState)
+            val captureMoves = legalMoves.filter(m => currentState.board.pieceAt(m.to).isDefined)
+            val freeCaptures = captureMoves.filter { m =>
+              GameStateRules.applyMove(currentState, m) match {
+                case Right(nextState) =>
+                  val opponentMoves = GameStateRules.legalMoves(nextState)
+                  val canRecapture = opponentMoves.exists(_.to == m.to)
+                  !canRecapture
+                case Left(_) => false
+              }
+            }
+
+            val blunderedPieceOpt = freeCaptures
+              .flatMap { m =>
+                currentState.board.pieceAt(m.to).map(p => (m, p))
+              }
+              .find { case (m, p) =>
+                val movedUnsafe = m.to == oppMove.to
+                val isHighValue = p.pieceType != PieceType.Pawn
+                movedUnsafe || isHighValue
+              }
+
+            blunderedPieceOpt match {
+              case Some((_, Piece(_, PieceType.Queen))) =>
+                sendChatMessage(gameId, "Hoppla, deine Dame steht im Visier!")
+              case Some((_, Piece(_, PieceType.Rook))) =>
+                sendChatMessage(gameId, "Oh, da hast du deinen Turm ungeschützt gelassen.")
+              case Some((_, Piece(_, PieceType.Bishop))) =>
+                sendChatMessage(gameId, "Achtung, dein Läufer ist in Gefahr!")
+              case Some((_, Piece(_, PieceType.Knight))) =>
+                sendChatMessage(gameId, "Dein Springer steht etwas unglücklich, oder?")
+              case Some((_, Piece(_, PieceType.Pawn))) =>
+                sendChatMessage(gameId, "Ups, ein freier Bauer!")
+              case _ =>
+            }
+          }
+
           try {
             val nextMove = calculateNextMove(moves)
             println(s"[LichessBot] [Game $gameId] Calculated move: '$nextMove'. Submitting...")
             submitMove(gameId, nextMove)
+
+            // 3. Check if we checked the opponent with our move
+            val parsedMove = parseUciMove(nextMove)
+            val _ = GameStateRules.applyMove(currentState, parsedMove) match {
+              case Right(nextState) =>
+                nextState.status match {
+                  case GameStatus.Ongoing(true) =>
+                    sendChatMessage(gameId, "Schach!")
+                  case _ =>
+                }
+              case Left(_) =>
+            }
+
+            // Broadcast bot's move immediately to the Web UI
+            val newMoves = if (moves.trim.isEmpty) nextMove else s"${moves.trim} $nextMove"
+            val currentCacheOpt = Option(activeGames.get(gameId))
+            val (wtime, btime) =
+              currentCacheOpt.map(c => (c.wtime, c.btime)).getOrElse((None, None))
+            broadcastGameState(gameId, newMoves, isWhite, wtime, btime)
           } catch {
             case NonFatal(e) =>
               println(
@@ -304,6 +476,31 @@ class LichessBot(val token: String)(implicit ec: ExecutionContext) {
       case Left(err) =>
         println(s"[LichessBot] [Game $gameId] Failed to submit move $move: $err")
     }
+  }
+
+  /** Broadcasts the current game state to all connected WebSocket clients.
+    */
+  private def broadcastGameState(
+      gameId: String,
+      moves: String,
+      isWhite: Boolean,
+      wtime: Option[Long],
+      btime: Option[Long]
+  ): Unit = {
+    val timestamp = System.currentTimeMillis()
+    val cache = GameStateCache(moves, isWhite, wtime, btime, timestamp)
+    activeGames.put(gameId, cache)
+
+    val botColor = if (isWhite) "white" else "black"
+    val json = ujson.Obj(
+      "gameId" -> gameId,
+      "moves" -> moves,
+      "botColor" -> botColor,
+      "wtime" -> wtime.map(ujson.Num(_)).getOrElse(ujson.Null),
+      "btime" -> btime.map(ujson.Num(_)).getOrElse(ujson.Null),
+      "lastUpdated" -> timestamp
+    )
+    wsServer.broadcast(ujson.write(json))
   }
 
   /** Schnittstelle zur Schachlogik des Benutzers.

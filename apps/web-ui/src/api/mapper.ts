@@ -83,7 +83,7 @@ function mapMoveHistoryEntry(entry: MoveHistoryEntryDto, ply: number): MoveRecor
   return record;
 }
 
-function computeCapturedPieces(board: BoardMatrix): PieceCode[] {
+export function computeCapturedPieces(board: BoardMatrix): PieceCode[] {
   const initialCounts: Record<PieceCode, number> = {
     wK: 1,
     wQ: 1,

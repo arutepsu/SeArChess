@@ -1,4 +1,4 @@
-import type { BoardMatrix, GameState } from "../api/types";
+import type { BoardMatrix, GameState, PieceCode } from "../api/types";
 import { pieceAt } from "../domain/board";
 import type { BoardAnimation } from "./animationTypes";
 
@@ -26,7 +26,35 @@ export function planAnimation(
   const movingPiece = pieceAt(prevBoard, from);
   if (!movingPiece) return null;
 
-  const capturedPiece = pieceAt(prevBoard, to) ?? undefined;
+  let capturedPiece = pieceAt(prevBoard, to) ?? undefined;
+  let capturedSquare: string | undefined = undefined;
+  let isCapture = Boolean(capturedPiece);
+
+  // 1. Detect En Passant capture
+  if (movingPiece.endsWith("P") && from[0] !== to[0] && !capturedPiece) {
+    const epSquare = `${to[0]}${from[1]}`;
+    const epPiece = pieceAt(prevBoard, epSquare);
+    if (epPiece && epPiece.endsWith("P") && epPiece[0] !== movingPiece[0]) {
+      capturedPiece = epPiece;
+      capturedSquare = epSquare;
+      isCapture = true;
+    }
+  }
+
+  // 2. Detect Castling
+  let castlingRook: { from: string; to: string; piece: PieceCode } | undefined = undefined;
+  if (movingPiece.endsWith("K") && Math.abs(from.charCodeAt(0) - to.charCodeAt(0)) === 2) {
+    const rank = from[1]; // "1" or "8"
+    const color = movingPiece[0] as "w" | "b";
+    const isKingSide = to[0] === "g";
+    const rookFrom = isKingSide ? `h${rank}` : `a${rank}`;
+    const rookTo = isKingSide ? `f${rank}` : `d${rank}`;
+    castlingRook = {
+      from: rookFrom,
+      to: rookTo,
+      piece: `${color}R` as PieceCode
+    };
+  }
 
   return {
     id: nextId,
@@ -34,6 +62,8 @@ export function planAnimation(
     to,
     movingPiece,
     capturedPiece,
-    isCapture: Boolean(capturedPiece)
+    capturedSquare,
+    isCapture,
+    castlingRook
   };
 }

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { BoardMatrix, BoardSquare, PieceCode } from "../api/types";
-import { displayToIndex, displayToSquare, squareToDisplayCoords } from "../domain/board";
+import type { BoardMatrix, BoardSquare, PieceCode, GameStatus, PlayerColor } from "../api/types";
+import { displayToIndex, displayToSquare, indexToSquare, squareToDisplayCoords } from "../domain/board";
 import type { PlaybackMode, SpriteCatalog, StatePlaybackEntry } from "../assets/spriteCatalog";
 import { loadSpriteCatalog } from "../assets/spriteCatalog";
 import type { BoardAnimation } from "../animation/animationTypes";
 import { captureTimings, idleFps, moveDurationMs } from "../animation/animationConfig";
+import type { PromotionPiece } from "../api/backendTypes";
 import "./ChessBoard.css";
 
 type ChessBoardProps = {
@@ -16,6 +17,16 @@ type ChessBoardProps = {
   disabled?: boolean;
   onSelect: (square: string) => void;
   onAnimationFinished: (id: number) => void;
+  inCheck?: boolean;
+  activeColor?: PlayerColor;
+  gameStatus?: GameStatus;
+  drawReason?: string;
+  winner?: PlayerColor;
+  promotionPending?: { from: string; to: string } | null;
+  onResolvePromotion?: (piece: PromotionPiece) => void;
+  onCancelPromotion?: () => void;
+  onNewGame?: () => void;
+  orientation?: PlayerColor;
 };
 
 type SpriteState = "idle" | "move";
@@ -255,7 +266,17 @@ export default function ChessBoard({
   idleAnimation,
   disabled = false,
   onSelect,
-  onAnimationFinished
+  onAnimationFinished,
+  inCheck = false,
+  activeColor,
+  gameStatus,
+  drawReason,
+  winner,
+  promotionPending,
+  onResolvePromotion,
+  onCancelPromotion,
+  onNewGame,
+  orientation = "white"
 }: ChessBoardProps) {
   const [spriteCatalog, setSpriteCatalog] = useState<SpriteCatalog | null>(null);
   const boardRef = useRef<HTMLDivElement | null>(null);
@@ -266,6 +287,71 @@ export default function ChessBoard({
   const animationFrame = useRef<number | null>(null);
   const [currentFrameTick, setCurrentFrameTick] = useState(0);
   const idleTimerFrame = useRef<number | null>(null);
+
+  const [dismissedGameOver, setDismissedGameOver] = useState(false);
+
+  // Reset dismissed state when the board resets or changes
+  useEffect(() => {
+    setDismissedGameOver(false);
+  }, [board]);
+
+  const checkSquare = useMemo(() => {
+    if (!inCheck || !activeColor) return undefined;
+    const kingCode = activeColor === "white" ? "wK" : "bK";
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        if (board[r][c] === kingCode) {
+          return indexToSquare(r, c);
+        }
+      }
+    }
+    return undefined;
+  }, [inCheck, activeColor, board]);
+
+  const showGameOver = !dismissedGameOver && (gameStatus === "checkmate" || gameStatus === "draw" || gameStatus === "resigned");
+
+  const gameOverDetails = useMemo(() => {
+    if (gameStatus === "checkmate") {
+      return {
+        title: "Schachmatt! / Checkmate!",
+        message: winner ? `${winner.toUpperCase()} gewinnt! / ${winner.toUpperCase()} wins!` : "Das Spiel ist beendet. / The game has ended."
+      };
+    }
+    if (gameStatus === "resigned") {
+      return {
+        title: "Aufgegeben / Resigned",
+        message: winner ? `${winner.toUpperCase()} gewinnt durch Aufgabe! / ${winner.toUpperCase()} wins by resignation!` : "Spiel beendet durch Aufgabe. / Game over."
+      };
+    }
+    if (gameStatus === "draw") {
+      let reasonText = "Remis / Draw";
+      if (drawReason === "stalemate") {
+        reasonText = "Unentschieden durch Patt! / Stalemate!";
+      } else if (drawReason === "fiftyMoves") {
+        reasonText = "Unentschieden (50-Züge-Regel) / Draw (50-move rule)";
+      } else if (drawReason === "threefoldRepetition") {
+        reasonText = "Unentschieden (Zugwiederholung) / Draw (Threefold repetition)";
+      } else if (drawReason === "insufficientMaterial") {
+        reasonText = "Unentsicient (Ungenügendes Material) / Draw (Insufficient material)";
+      }
+      return {
+        title: "Remis / Draw",
+        message: reasonText
+      };
+    }
+    return null;
+  }, [gameStatus, winner, drawReason]);
+
+  const promotionOptions = useMemo(() => {
+    if (!promotionPending || !activeColor) return [];
+    const prefix = activeColor === "white" ? "w" : "b";
+    return [
+      { pieceType: "Queen" as PromotionPiece, code: `${prefix}Q` as PieceCode, name: "Dame / Queen" },
+      { pieceType: "Rook" as PromotionPiece, code: `${prefix}R` as PieceCode, name: "Turm / Rook" },
+      { pieceType: "Bishop" as PromotionPiece, code: `${prefix}B` as PieceCode, name: "Läufer / Bishop" },
+      { pieceType: "Knight" as PromotionPiece, code: `${prefix}N` as PieceCode, name: "Springer / Knight" }
+    ];
+  }, [promotionPending, activeColor]);
 
   const boardPieceAt = useCallback(
     (rowIndex: number, colIndex: number): BoardSquare => {
@@ -280,13 +366,24 @@ export default function ChessBoard({
       const classes: string[] = [];
       if (selectedSquare === square) classes.push("is-selected");
       if (legalMoves?.includes(square)) classes.push("is-legal");
+      if (checkSquare === square) classes.push("is-check");
       return classes;
     },
-    [legalMoves, selectedSquare]
+    [legalMoves, selectedSquare, checkSquare]
   );
 
   const suppressedSquare = useMemo(
     () => (animationActive && animationPlan ? animationPlan.to : undefined),
+    [animationActive, animationPlan]
+  );
+
+  const suppressedCapturedSquare = useMemo(
+    () => (animationActive && animationPlan ? (animationPlan.capturedSquare ?? animationPlan.to) : undefined),
+    [animationActive, animationPlan]
+  );
+
+  const suppressedCastlingRookSquare = useMemo(
+    () => (animationActive && animationPlan?.castlingRook ? animationPlan.castlingRook.from : undefined),
     [animationActive, animationPlan]
   );
 
@@ -433,12 +530,14 @@ export default function ChessBoard({
     (square: string): { x: number; y: number } | null => {
       const coords = squareToDisplayCoords(square);
       if (!coords) return null;
+      const displayCol = orientation === "black" ? 7 - coords.displayCol : coords.displayCol;
+      const displayRow = orientation === "black" ? 7 - coords.displayRow : coords.displayRow;
       return {
-        x: coords.displayCol * squareSize,
-        y: coords.displayRow * squareSize
+        x: displayCol * squareSize,
+        y: displayRow * squareSize
       };
     },
-    [squareSize]
+    [squareSize, orientation]
   );
 
   const animationRenderModel = useMemo(() => {
@@ -451,6 +550,38 @@ export default function ChessBoard({
     const t = Math.max(0, Math.min(1, animationProgress));
     const dx = toPixel.x - fromPixel.x;
     const flipX = dx > 0 ? false : dx < 0 ? true : plan.movingPiece.startsWith("b");
+
+    let castlingRook = null as null | {
+      piece: PieceCode;
+      x: number;
+      y: number;
+      opacity: number;
+      visualState: VisualState;
+      frameIndex: number;
+      sheet: { url: string; frameCount: number } | null;
+      flipX: boolean;
+    };
+
+    if (plan.castlingRook) {
+      const rookPlan = plan.castlingRook;
+      const rookFromPixel = squareToPixel(rookPlan.from);
+      const rookToPixel = squareToPixel(rookPlan.to);
+      if (rookFromPixel && rookToPixel) {
+        const style = motionStyleFor(rookPlan.piece, false);
+        const position = interpolate(style, rookFromPixel.x, rookFromPixel.y, rookToPixel.x, rookToPixel.y, t);
+        const moveSprite = resolveSegmentedSprite(rookPlan.piece, "move", t);
+        castlingRook = {
+          piece: rookPlan.piece,
+          x: position.x,
+          y: position.y,
+          opacity: 1,
+          visualState: "move" as VisualState,
+          frameIndex: moveSprite.frameIndex,
+          sheet: moveSprite.sheet,
+          flipX: rookPlan.piece.startsWith("b")
+        };
+      }
+    }
 
     if (!plan.isCapture) {
       const style = motionStyleFor(plan.movingPiece, false);
@@ -468,7 +599,8 @@ export default function ChessBoard({
           frameIndex: moveSprite.frameIndex,
           sheet: moveSprite.sheet
         },
-        captured: null
+        captured: null,
+        castlingRook
       };
     }
 
@@ -513,14 +645,17 @@ export default function ChessBoard({
       flipX: boolean;
     };
 
-    if (plan.capturedPiece) {
+    const capturedSquare = plan.capturedSquare ?? plan.to;
+    const capturedPixel = squareToPixel(capturedSquare);
+
+    if (plan.capturedPiece && capturedPixel) {
       const capturedPiece = plan.capturedPiece;
       if (phase.phase === "approach" || phase.phase === "attack" || phase.phase === "attack1") {
         const idleSprite = resolveSegmentedSprite(capturedPiece, "idle", 0);
         captured = {
           piece: capturedPiece,
-          x: toPixel.x,
-          y: toPixel.y,
+          x: capturedPixel.x,
+          y: capturedPixel.y,
           opacity: 1,
           visualState: "idle",
           frameIndex: idleSprite.frameIndex,
@@ -533,8 +668,8 @@ export default function ChessBoard({
         const opacity = phase.phase === "fade" ? 1 - phase.local : 1;
         captured = {
           piece: capturedPiece,
-          x: toPixel.x,
-          y: toPixel.y,
+          x: capturedPixel.x,
+          y: capturedPixel.y,
           opacity,
           visualState: "dead",
           frameIndex: deadSprite.frameIndex,
@@ -556,7 +691,8 @@ export default function ChessBoard({
         frameIndex: moving.frameIndex,
         sheet: moving.sheet
       },
-      captured
+      captured,
+      castlingRook
     };
   }, [animationActive, animationPlan, animationProgress, resolveAttackSegment, resolveSegmentedSprite, squareToPixel]);
 
@@ -588,6 +724,24 @@ export default function ChessBoard({
       height: `${squareSize}px`,
       opacity: model.opacity.toString(),
       transform: pieceTransform(model.flipX),
+      backgroundImage: model.sheet ? `url(${model.sheet.url})` : "",
+      backgroundSize: model.sheet ? `${model.sheet.frameCount * 100}% 100%` : "100% 100%",
+      backgroundPosition: model.sheet
+        ? backgroundPositionFor(model.frameIndex, model.sheet.frameCount)
+        : "0% 50%"
+    } as React.CSSProperties;
+  }, [animationRenderModel, squareSize]);
+
+  const castlingRookStyle = useMemo(() => {
+    const model = animationRenderModel?.castlingRook;
+    if (!model) return {};
+    return {
+      left: `${model.x}px`,
+      top: `${model.y}px`,
+      width: `${squareSize}px`,
+      height: `${squareSize}px`,
+      opacity: model.opacity.toString(),
+      transform: pieceTransform(model.flipX, PIECE_SCALE),
       backgroundImage: model.sheet ? `url(${model.sheet.url})` : "",
       backgroundSize: model.sheet ? `${model.sheet.frameCount * 100}% 100%` : "100% 100%",
       backgroundPosition: model.sheet
@@ -673,9 +827,13 @@ export default function ChessBoard({
         {indices.map((rowIndex) => (
           <div key={`row-${rowIndex}`} className="board-row" role="row">
             {indices.map((colIndex) => {
-              const square = displayToSquare(rowIndex, colIndex);
-              const piece = boardPieceAt(rowIndex, colIndex);
-              const suppressed = square === suppressedSquare;
+              const mappedRow = orientation === "black" ? 7 - rowIndex : rowIndex;
+              const mappedCol = orientation === "black" ? 7 - colIndex : colIndex;
+              const square = displayToSquare(mappedRow, mappedCol);
+              const piece = boardPieceAt(mappedRow, mappedCol);
+              const suppressed = square === suppressedSquare || 
+                                 square === suppressedCapturedSquare || 
+                                 square === suppressedCastlingRookSquare;
               const spriteClass = piece ? spriteClasses(piece) : "";
               return (
                 <button
@@ -685,7 +843,7 @@ export default function ChessBoard({
                   type="button"
                   role="gridcell"
                   aria-label={`Square ${square}`}
-                  disabled={disabled}
+                  disabled={disabled || Boolean(promotionPending) || showGameOver}
                   onClick={() => onSelect(square)}
                 >
                   {piece && !suppressed ? (
@@ -707,8 +865,75 @@ export default function ChessBoard({
             {animationRenderModel.captured ? (
               <div className="animation-piece" style={capturedStyle}></div>
             ) : null}
+            {animationRenderModel.castlingRook ? (
+              <div className="animation-piece" style={castlingRookStyle}></div>
+            ) : null}
           </div>
         ) : null}
+
+        {/* Promotion selector modal */}
+        {promotionPending && (
+          <div className="promotion-overlay animate-fade-in">
+            <div className="promotion-dialog panel animate-scale-up">
+              <h3>Bauer umwandeln / Promote Pawn</h3>
+              <p className="promotion-desc">Wähle eine Figur für die Beförderung:</p>
+              <div className="promotion-options">
+                {promotionOptions.map((option) => (
+                  <button
+                    key={option.pieceType}
+                    type="button"
+                    className="promotion-option-btn"
+                    onClick={() => onResolvePromotion?.(option.pieceType)}
+                  >
+                    <span
+                      className={`piece ${pieceTone(option.code)} has-sprite`}
+                      style={spriteStyle(option.code)}
+                    />
+                    <span className="promotion-option-label">{option.name}</span>
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="promotion-cancel-btn"
+                onClick={() => onCancelPromotion?.()}
+              >
+                Abbrechen / Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Game Over modal */}
+        {showGameOver && gameOverDetails && (
+          <div className="game-over-overlay animate-fade-in">
+            <div className="game-over-dialog panel animate-scale-up">
+              <h3>{gameOverDetails.title}</h3>
+              <p className="game-over-message">{gameOverDetails.message}</p>
+              <div className="game-over-actions">
+                {onNewGame && (
+                  <button
+                    type="button"
+                    className="game-over-btn primary"
+                    onClick={() => {
+                      setDismissedGameOver(false);
+                      onNewGame();
+                    }}
+                  >
+                    Neues Spiel / New Game
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="game-over-btn secondary"
+                  onClick={() => setDismissedGameOver(true)}
+                >
+                  Brett analysieren / Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );

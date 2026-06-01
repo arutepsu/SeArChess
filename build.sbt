@@ -439,10 +439,26 @@ lazy val lichessBot = project
     run / fork          := true,
     libraryDependencies ++= Seq(
       "com.softwaremill.sttp.client3" %% "core" % "3.9.7",
-      "com.lihaoyi" %% "ujson" % "4.0.2"
+      "com.lihaoyi" %% "ujson" % "4.0.2",
+      "org.java-websocket" % "Java-WebSocket" % "1.5.7"
     )
   )
-  .dependsOn(domain, notation)
+  .dependsOn(domain, notation, aiService)
+
+// App: chess-streaming
+lazy val chessStreaming = project
+  .in(file("apps/chess-streaming"))
+  .settings(
+    commonSettings,
+    name := "searchess-chess-streaming",
+    Compile / mainClass := Some("chess.streaming.ChessStreamingMain"),
+    run / mainClass     := Some("chess.streaming.ChessStreamingMain"),
+    run / fork          := true,
+    libraryDependencies ++= Seq(
+      "org.apache.pekko" %% "pekko-stream" % "1.1.2"
+    )
+  )
+  .dependsOn(domain)
 
 // Module: load-tests
 lazy val loadTests = project
@@ -591,5 +607,5 @@ lazy val root = project
     adapterRestContract, adapterRestHttp4s,
     adapterWebsocket, adapterGui, adapterTui,
     startupShared, gameService, historyService, aiService, desktopGui, tuiCli, loadTests, benchmarks,
-    lichessBot
+    lichessBot, chessStreaming
   )
