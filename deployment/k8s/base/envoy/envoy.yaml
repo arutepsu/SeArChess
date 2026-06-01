@@ -17,7 +17,7 @@ static_resources:
                 route_config:
                   name: local_route
                   virtual_hosts:
-                    - name: searchess_game_service
+                    - name: searchess_edge
                       domains:
                         - "*"
                       routes:
@@ -38,13 +38,49 @@ static_resources:
                             path: /admin/migrations
                           route:
                             cluster: game_service_http
+                        # All other paths served by the web-ui SPA (nginx returns index.html).
                         - match:
                             prefix: /
-                          direct_response:
-                            status: 404
-                            body:
-                              inline_string: "not found\n"
+                          route:
+                            cluster: web_ui
                 http_filters:
+                  # ---------------------------------------------------------------------------
+                  # JWT validation — Kubernetes deployment.
+                  #
+                  # Issuer matches the token iss claim: browser authenticates against
+                  # http://127.0.0.1:8080 (via kubectl port-forward or SSH tunnel).
+                  # JWKS is fetched internally: Envoy reaches Keycloak via K8s DNS keycloak:8080.
+                  #
+                  # Protected:  /api/*  (except /api/health)
+                  # Public:     /health, /api/health, /ws/*, /admin/migrations, /* (web-ui)
+                  # ---------------------------------------------------------------------------
+                  - name: envoy.filters.http.jwt_authn
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication
+                      providers:
+                        keycloak:
+                          issuer: "http://127.0.0.1:8080/realms/searchess"
+                          audiences:
+                            - searchess-api
+                          remote_jwks:
+                            http_uri:
+                              uri: "http://keycloak:8080/realms/searchess/protocol/openid-connect/certs"
+                              cluster: keycloak
+                              timeout: 5s
+                            cache_duration:
+                              seconds: 300
+                          forward: true
+                      rules:
+                        # Carve out /api/health before the protected /api/ prefix rule.
+                        - match:
+                            path: "/api/health"
+                        # Require a valid JWT for all other /api/ routes.
+                        - match:
+                            prefix: "/api/"
+                          requires:
+                            provider_name: "keycloak"
+                      # Let OPTIONS preflight pass without a token.
+                      bypass_cors_preflight: true
                   - name: envoy.filters.http.router
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
@@ -74,6 +110,30 @@ static_resources:
                     socket_address:
                       address: game-service
                       port_value: 9090
+    - name: web_ui
+      type: STRICT_DNS
+      connect_timeout: 1s
+      load_assignment:
+        cluster_name: web_ui
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: web-ui
+                      port_value: 80
+    - name: keycloak
+      type: STRICT_DNS
+      connect_timeout: 5s
+      load_assignment:
+        cluster_name: keycloak
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: keycloak
+                      port_value: 8080
 
 # Admin bound to 0.0.0.0 (not 127.0.0.1) so Kubernetes httpGet readiness probes
 # can reach /ready from the kubelet outside the container's loopback.
