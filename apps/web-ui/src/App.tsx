@@ -17,6 +17,7 @@ import MoveList from "./components/MoveList.tsx";
 //import ResumeGamePanel from "./components/ResumeGamePanel.tsx";
 import SessionTransferPanel from "./components/SessionTransferPanel.tsx";
 import StatusBanner from "./components/StatusBanner.tsx";
+import StatusBanner from "./components/StatusBanner.tsx";
 import Homepage from "./components/Homepage.tsx";
 import BackgroundEffectsLayer from "./components/BackgroundEffectsLayer.tsx";
 import BackgroundPanel from "./components/BackgroundPanel.tsx";
@@ -65,7 +66,7 @@ interface BotWebSocketData {
 function playMoveSound() {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    
+
     // Impact click: short pop at higher frequency
     const osc1 = ctx.createOscillator();
     const gain1 = ctx.createGain();
@@ -76,7 +77,7 @@ function playMoveSound() {
     gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
     osc1.connect(gain1);
     gain1.connect(ctx.destination);
-    
+
     // Wooden resonant body: lower frequency decay
     const osc2 = ctx.createOscillator();
     const gain2 = ctx.createGain();
@@ -87,7 +88,7 @@ function playMoveSound() {
     gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
     osc2.connect(gain2);
     gain2.connect(ctx.destination);
-    
+
     osc1.start();
     osc2.start();
     osc1.stop(ctx.currentTime + 0.05);
@@ -540,7 +541,7 @@ export default function App() {
     function connect() {
       if (!isComponentMounted) return;
       setBotConnectionState("connecting");
-      
+
       ws = new WebSocket("ws://localhost:9323");
 
       ws.onopen = () => {
@@ -553,7 +554,7 @@ export default function App() {
         try {
           const data: BotWebSocketData = JSON.parse(event.data);
           setBotGameData(data);
-          
+
           if (data.wtime !== undefined && data.wtime !== null) {
             setBotWhiteClockMs(data.wtime);
           }
@@ -563,14 +564,14 @@ export default function App() {
 
           const movesStr = data.moves || "";
           const movesCount = movesStr.split(" ").filter(Boolean).length;
-          
+
           if (activeTabRef.current === "local") {
-            if (prevBotGameIdRef.current !== null && 
-                (data.gameId !== prevBotGameIdRef.current || movesCount > prevBotMovesCountRef.current)) {
+            if (prevBotGameIdRef.current !== null &&
+              (data.gameId !== prevBotGameIdRef.current || movesCount > prevBotMovesCountRef.current)) {
               setHasNewBotMoveNotification(true);
             }
           }
-          
+
           prevBotMovesCountRef.current = movesCount;
           prevBotGameIdRef.current = data.gameId;
         } catch (e) {
@@ -642,21 +643,21 @@ export default function App() {
   // Audio trigger
   const lastPlayedGameId = useRef<string | null>(null);
   const prevMovesLength = useRef<number | null>(null);
-  
+
   useEffect(() => {
     if (!displayedGame) {
       lastPlayedGameId.current = null;
       prevMovesLength.current = null;
       return;
     }
-    
+
     const gameId = activeTab === "bot" ? displayedGame.id : (game?.id ?? "local");
     const currentLength = displayedGame.moves.length;
-    
+
     if (lastPlayedGameId.current === gameId && prevMovesLength.current !== null && currentLength > prevMovesLength.current) {
       playMoveSound();
     }
-    
+
     lastPlayedGameId.current = gameId;
     prevMovesLength.current = currentLength;
   }, [displayedGame, activeTab, game?.id]);
@@ -677,7 +678,7 @@ export default function App() {
     };
   }, []);
 
-  const displayedConnection = activeTab === "bot" 
+  const displayedConnection = activeTab === "bot"
     ? (botConnectionState === "disconnected" ? "offline" as const : botConnectionState === "connecting" ? "loading" as const : "connected" as const)
     : connection;
 

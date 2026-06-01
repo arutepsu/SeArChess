@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BoardMatrix, BoardSquare, PieceCode, GameStatus, PlayerColor } from "../api/types";
 import { displayToIndex, displayToSquare, indexToSquare, squareToDisplayCoords } from "../domain/board";
+import type { BoardMatrix, BoardSquare, PieceCode, GameStatus, PlayerColor } from "../api/types";
+import { displayToIndex, displayToSquare, indexToSquare, squareToDisplayCoords } from "../domain/board";
 import type { PlaybackMode, SpriteCatalog, StatePlaybackEntry } from "../assets/spriteCatalog";
 import { loadSpriteCatalog } from "../assets/spriteCatalog";
 import type { BoardAnimation } from "../animation/animationTypes";
@@ -831,9 +833,9 @@ export default function ChessBoard({
               const mappedCol = orientation === "black" ? 7 - colIndex : colIndex;
               const square = displayToSquare(mappedRow, mappedCol);
               const piece = boardPieceAt(mappedRow, mappedCol);
-              const suppressed = square === suppressedSquare || 
-                                 square === suppressedCapturedSquare || 
-                                 square === suppressedCastlingRookSquare;
+              const suppressed = square === suppressedSquare ||
+                square === suppressedCapturedSquare ||
+                square === suppressedCastlingRookSquare;
               const spriteClass = piece ? spriteClasses(piece) : "";
               return (
                 <button
