@@ -16,6 +16,7 @@ import Homepage from "./components/Homepage.tsx";
 import BackgroundEffectsLayer from "./components/BackgroundEffectsLayer.tsx";
 import BackgroundPanel from "./components/BackgroundPanel.tsx";
 import CapturedPanel from "./components/CapturedPanel.tsx";
+import AuthBar from "./components/AuthBar.tsx";
 import "./App.css";
 
 type ConnectionState = "connected" | "offline" | "loading";
@@ -310,6 +311,7 @@ export default function App() {
   return (
     <div className="app">
       <BackgroundEffectsLayer backgroundId={backgroundId} />
+      <AuthBar />
 
       <Routes>
         <Route path="/" element={
