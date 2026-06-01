@@ -81,6 +81,11 @@ spec:
           ports:
             - name: http
               containerPort: 8080
+            # Keycloak 26 with KC_HEALTH_ENABLED=true serves /health/ready and
+            # /health/live on the management interface (port 9000), not on the
+            # main HTTP port (8080). Probes must target port 9000.
+            - name: management
+              containerPort: 9000
           volumeMounts:
             - name: realm-import
               mountPath: /opt/keycloak/data/import/realm-searchess.json
@@ -89,14 +94,14 @@ spec:
           readinessProbe:
             httpGet:
               path: /health/ready
-              port: 8080
+              port: 9000
             initialDelaySeconds: 30
             periodSeconds: 10
             failureThreshold: 12
           livenessProbe:
             httpGet:
               path: /health/live
-              port: 8080
+              port: 9000
             initialDelaySeconds: 60
             periodSeconds: 15
             failureThreshold: 3
