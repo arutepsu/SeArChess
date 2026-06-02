@@ -468,6 +468,7 @@ lazy val aiService = project
 // App: lichess-bot
 lazy val lichessBot = project
   .in(file("apps/lichess-bot"))
+  .enablePlugins(JavaAppPackaging)
   .settings(
     commonSettings,
     name := "searchess-lichess-bot",

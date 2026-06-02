@@ -26,6 +26,8 @@ data:
   AI_REMOTE_BASE_URL: "http://ai-service:8765"
   AI_TIMEOUT_MILLIS: "2000"
   AI_REMOTE_TEST_MODE: ""
+  EXTERNAL_GAME_BOT_PLATFORM: "Lichess"
+  EXTERNAL_GAME_BOT_ACTOR_ID: "selinasa"
   MIGRATION_ADMIN_ENABLED: "false"
   JAVA_TOOL_OPTIONS: "-javaagent:/app/opentelemetry-javaagent.jar"
   OTEL_SERVICE_NAME: "searchess-game-service"
