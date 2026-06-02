@@ -35,13 +35,13 @@ images:
   newTag: "4.4"
 - name: searchess/ai-service
   newName: ghcr.io/arutepsu/searchess-ai-service
-  newTag: sha-af35ab9
+  newTag: sha-f6df848
 - name: searchess/game-service
   newName: ghcr.io/arutepsu/searchess-game-service
-  newTag: sha-af35ab9
+  newTag: sha-f6df848
 - name: searchess/history-service
   newName: ghcr.io/arutepsu/searchess-history-service
-  newTag: sha-ff6c2f2
+  newTag: sha-f6df848
 - name: searchess/lichess-bot
   newName: ghcr.io/arutepsu/searchess-lichess-bot
   newTag: sha-ff6c2f2
