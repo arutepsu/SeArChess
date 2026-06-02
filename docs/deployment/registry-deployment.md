@@ -29,6 +29,7 @@ Use `uni-server-registry` for all validated deployments to the shared server.
 | game-service | `ghcr.io/arutepsu/searchess-game-service` |
 | history-service | `ghcr.io/arutepsu/searchess-history-service` |
 | ai-service | `ghcr.io/arutepsu/searchess-ai-service` |
+| lichess-bot | `ghcr.io/arutepsu/searchess-lichess-bot` |
 | python-ai-service | `ghcr.io/arutepsu/searchess-python-ai-service` |
 
 Third-party images (Envoy, Postgres, Mongo, Redis, Prometheus, Grafana) continue to be
@@ -57,13 +58,12 @@ operating the deployment pipeline without unnecessary canary promotions.
 | Commit type | Image rebuild? | Argo CD action |
 |---|---|---|
 | App-specific code (`apps/<service>/**`, `Dockerfile[.<service>]`) | **Yes — that service only** | Detects OutOfSync (new sha-* tag for that service); auto-syncs |
-| Shared Scala input (`modules/**`, `build.sbt`, `project/**`) | **Yes — all three Scala services** | Detects OutOfSync (new sha-* tags for game, history, ai); auto-syncs |
+| Shared Scala input (`modules/**`, `build.sbt`, `project/**`) | **Yes — all Scala services, including lichess-bot** | Detects OutOfSync (new sha-* tags for rebuilt Scala images); auto-syncs |
 | `python-ai-service` (code in sibling repo) | **Never on push** — `workflow_dispatch rebuild_python_ai=true` only | Rollout enters canary only when its image tag changes |
-| Kubernetes manifest change (`deployment/k8s/**`) | **No** | Detects OutOfSync (manifest changed in Git); auto-syncs |
-| Argo CD config change (`deployment/argocd/**`) | **No** | No sync needed (not managed by Argo CD Application) |
+| Deployment change (`deployment/**`) | **Yes — lichess-bot only** | Detects OutOfSync after the manifest change and the refreshed bot image tag commit |
 | Documentation change (`docs/**`) | **No** | Nothing |
 | Evidence file change | **No** | Nothing |
-| Overlay kustomization.yaml (written by CI) | **No** | Detects OutOfSync; auto-syncs |
+| Overlay kustomization.yaml (written by CI) | **No new workflow from the bot commit** | Detects OutOfSync; auto-syncs |
 
 **Consequence for Argo Rollouts:**  
 `python-ai-service` enters a canary pause **only when its image tag changes** — i.e.,
@@ -75,7 +75,7 @@ changed manifest with no Rollout triggered, because the `Rollout` object's image
 does not change.
 
 **Manual override:**  
-`workflow_dispatch` rebuilds all three Scala services. It also accepts a
+`workflow_dispatch` rebuilds all Scala services, including `lichess-bot`. It also accepts a
 `rebuild_python_ai` boolean input (default `false`) — set it to `true` to also rebuild
 `python-ai-service` from the sibling `arutepsu/searchess-ai-service` repo. Use this
 when you need to force a rebuild without a code change (e.g. to pick up a base-image
@@ -85,8 +85,9 @@ security patch).
 
 ## GitHub Actions workflow
 
-Trigger: push to `main` branch **only when app code, build files, or Dockerfiles
-change** (see paths filter below), or manual dispatch via `workflow_dispatch`.
+Trigger: push to `main` branch **only when app code, build files, Dockerfiles, or
+deployment wiring change** (see paths filter below), or manual dispatch via
+`workflow_dispatch`.
 
 Paths that trigger an image build:
 
@@ -97,17 +98,21 @@ project/**
 build.sbt
 **/Dockerfile
 Dockerfile*
+deployment/**
 .github/workflows/build-images.yml
 ```
 
-All other paths — including `docs/**`, `deployment/k8s/**`, `deployment/argocd/**`,
-`deployment/server/**` — do **not** trigger the workflow.
+All other paths — including `docs/**` and evidence files — do **not** trigger the
+workflow.
 
 Jobs:
 - **determine-changes** — reads `git diff --name-only` between the before/after SHAs
   to compute per-service boolean flags (`build_game`, `build_history`, `build_ai`,
-  `build_python_ai`). Shared Scala inputs (`modules/**`, `build.sbt`, `project/**`,
-  `.github/workflows/build-images.yml`) set all three Scala service flags to `true`.
+  `build_lichess_bot`, `build_web_ui`, `build_python_ai`). Shared Scala inputs
+  (`modules/**`, `build.sbt`, `project/**`) set all Scala service flags to `true`.
+  Deployment changes (`deployment/**`) set `build_lichess_bot=true` so the
+  Argo-tracked bot deployment never points at a SHA tag that CI skipped.
+  `.github/workflows/build-images.yml` sets all in-repo service flags to `true`.
   `build_python_ai` is always `false` on `push`; it is `true` only via
   `workflow_dispatch` with `rebuild_python_ai=true`.
 - **build-game-service** — runs only when `build_game=true`. Builds and pushes
@@ -116,6 +121,8 @@ Jobs:
   `ghcr.io/arutepsu/searchess-history-service` using `Dockerfile.history`.
 - **build-ai-service** — runs only when `build_ai=true`. Builds and pushes
   `ghcr.io/arutepsu/searchess-ai-service` using `Dockerfile.ai`.
+- **build-lichess-bot** — runs only when `build_lichess_bot=true`. Builds and pushes
+  `ghcr.io/arutepsu/searchess-lichess-bot` using `Dockerfile.lichess-bot`.
 - **build-python-ai-service** — runs only on `workflow_dispatch` with
   `rebuild_python_ai=true`. Checks out the sibling `arutepsu/searchess-ai-service`
   repository and builds from its `Dockerfile`. Never triggered on `push` — the Python
@@ -131,13 +138,11 @@ Built images are pushed with `sha-<7-char-git-sha>` (deployment tag) and `main-l
 
 ### Infinite loop prevention
 
-The overlay update commit targets only `kustomization.yaml`. Three independent layers
+The overlay update commit targets only `kustomization.yaml`. Two independent layers
 prevent it from re-triggering the build workflow:
 
 1. `GITHUB_TOKEN` pushes do not trigger `push` workflows (GitHub built-in protection).
-2. `kustomization.yaml` is not listed in the `paths` filter, so the commit never matches
-   the trigger condition.
-3. `[skip ci]` in the commit message signals CI systems to skip the run.
+2. `[skip ci]` in the commit message signals CI systems to skip the run.
 
 ### GHCR authentication (workflow)
 
