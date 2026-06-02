@@ -44,7 +44,7 @@ images:
   newTag: sha-64120f5
 - name: searchess/lichess-bot
   newName: ghcr.io/arutepsu/searchess-lichess-bot
-  newTag: sha-64120f5
+  newTag: sha-1e2f13d
 - name: searchess/python-ai-service
   newName: ghcr.io/arutepsu/searchess-python-ai-service
   newTag: sha-2247329
