@@ -417,6 +417,9 @@ export function useGameState(): UseGameStateReturn {
       }
 
       if (!legalMoves.includes(normalizedSquare)) {
+        const moveStr = `${selectedSquare}-${normalizedSquare}`;
+        console.log(`Move ${moveStr} is illegal`);
+
         const alternateMoves = game.legalTargetsByFrom[normalizedSquare] ?? [];
 
         if (alternateMoves.length > 0) {
@@ -432,6 +435,9 @@ export function useGameState(): UseGameStateReturn {
 
         return;
       }
+
+      const moveStr = `${selectedSquare}-${normalizedSquare}`;
+      console.log(`Move ${moveStr} is legal`);
 
       const prevBoard = game.board;
       const thisGen = ++generation.current;

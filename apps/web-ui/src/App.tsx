@@ -169,6 +169,100 @@ function mapBotDataToGameState(
   };
 }
 
+interface PekkoWebSocketData {
+  status: "success" | "error";
+  activeColor?: string;
+  board?: Record<string, string>;
+  moves?: string[];
+  message?: string;
+}
+
+function mapPekkoDataToGameState(
+  gameId: string,
+  pekkoBoard: Record<string, string>,
+  pekkoMoves: string[]
+): GameState {
+  const chess = new Chess();
+  for (const moveStr of pekkoMoves) {
+    const pattern = /^([a-h][1-8])-([a-h][1-8])$/;
+    const match = moveStr.match(pattern);
+    if (match) {
+      const from = match[1];
+      const to = match[2];
+      try {
+        chess.move({ from, to, promotion: "q" });
+      } catch (e) {
+        console.error("Failed to apply move in chess.js:", moveStr, e);
+      }
+    }
+  }
+
+  const board: BoardMatrix = Array.from({ length: 8 }, () => Array(8).fill(null));
+  const chessBoard = chess.board();
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const piece = chessBoard[r][c];
+      if (piece) {
+        board[r][c] = `${piece.color}${piece.type.toUpperCase()}` as PieceCode;
+      }
+    }
+  }
+
+  const captured = computeCapturedPieces(board);
+
+  const legalTargetsByFrom: Record<string, string[]> = {};
+  chess.moves({ verbose: true }).forEach((m: any) => {
+    if (!legalTargetsByFrom[m.from]) {
+      legalTargetsByFrom[m.from] = [];
+    }
+    legalTargetsByFrom[m.from].push(m.to);
+  });
+
+  const verboseMoves = chess.history({ verbose: true });
+  const moves = verboseMoves.map((m: any, index: number) => {
+    const record: any = {
+      ply: index + 1,
+      notation: m.san,
+      from: m.from,
+      to: m.to,
+    };
+    if (m.captured) {
+      const oppColor = m.color === "w" ? "b" : "w";
+      record.captured = `${oppColor}${m.captured.toUpperCase()}` as PieceCode;
+    }
+    if (m.promotion) {
+      record.promotion = `${m.color}${m.promotion.toUpperCase()}` as PieceCode;
+    }
+    return record;
+  });
+
+  let status: any = "active";
+  if (chess.in_checkmate()) {
+    status = "checkmate";
+  } else if (chess.in_draw()) {
+    status = "draw";
+  } else if (chess.in_check()) {
+    status = "check";
+  }
+
+  const activeColor = chess.turn() === "w" ? "white" : "black";
+  const winner = status === "checkmate" ? (activeColor === "white" ? "black" : "white") : undefined;
+
+  return {
+    id: gameId,
+    board,
+    activeColor,
+    status,
+    winner,
+    moves,
+    captured,
+    fullMove: Math.floor((moves.length + 2) / 2),
+    halfMoveClock: 0,
+    lastMove: moves.length > 0 ? moves[moves.length - 1] : undefined,
+    legalTargetsByFrom
+  };
+}
+
 export default function App() {
   const {
     game,
@@ -217,13 +311,21 @@ export default function App() {
   const [replayGame, setReplayGame] = useState<GameState | null>(null);
 
   // Bot mode state
-  const [activeTab, setActiveTab] = useState<"local" | "bot">("local");
+  const [activeTab, setActiveTab] = useState<"local" | "bot" | "pekko">("local");
   const [botGameData, setBotGameData] = useState<BotWebSocketData | null>(null);
   const [botWhiteClockMs, setBotWhiteClockMs] = useState<number | null>(null);
   const [botBlackClockMs, setBotBlackClockMs] = useState<number | null>(null);
   const [hasNewBotMoveNotification, setHasNewBotMoveNotification] = useState(false);
   const [botConnectionState, setBotConnectionState] = useState<"idle" | "connecting" | "live" | "disconnected">("idle");
   const [devBotStatus, setDevBotStatus] = useState<string>("stopped");
+
+  // Pekko mode state
+  const [pekkoRoomId, setPekkoRoomId] = useState<string>("room-1");
+  const [pekkoGame, setPekkoGame] = useState<GameState | null>(null);
+  const [pekkoConnectionState, setPekkoConnectionState] = useState<"idle" | "connecting" | "live" | "disconnected">("idle");
+  const [pekkoSelectedSquare, setPekkoSelectedSquare] = useState<string | undefined>(undefined);
+  const [pekkoLegalMoves, setPekkoLegalMoves] = useState<string[]>([]);
+  const pekkoWsRef = useRef<WebSocket | null>(null);
 
   const lastTickMs = useRef<number | null>(null);
   const wsClientRef = useRef<WsClient | null>(null);
@@ -242,7 +344,11 @@ export default function App() {
       ? session?.whiteController
       : session?.blackController;
 
-  const boardInteractionDisabled = activeTab === "bot" || busy || sessionClosed || !clockRunning;
+  const boardInteractionDisabled = activeTab === "bot"
+    ? true
+    : activeTab === "pekko"
+      ? (pekkoConnectionState !== "live" || !pekkoGame || pekkoGame.status === "checkmate" || pekkoGame.status === "draw")
+      : (busy || sessionClosed || !clockRunning);
   const replayModeActive = timelinePly < timelineTotalPlies;
 
   const mappedBotGame = useMemo(() => {
@@ -254,8 +360,11 @@ export default function App() {
     if (activeTab === "bot") {
       return mappedBotGame;
     }
+    if (activeTab === "pekko") {
+      return pekkoGame;
+    }
     return replayModeActive && replayGame ? replayGame : game;
-  }, [activeTab, mappedBotGame, replayModeActive, replayGame, game]);
+  }, [activeTab, mappedBotGame, pekkoGame, replayModeActive, replayGame, game]);
 
   const currentReplayMove =
     timelinePly <= 0 ? null : timelineRawMoves[timelinePly - 1] ?? null;
@@ -264,13 +373,14 @@ export default function App() {
     return Boolean(mappedBotGame && mappedBotGame.status !== "checkmate" && mappedBotGame.status !== "draw" && mappedBotGame.status !== "resigned");
   }, [mappedBotGame]);
 
-  const displayedWhiteTimeMs = activeTab === "bot" ? (botWhiteClockMs ?? 0) : whiteClockMs;
-  const displayedBlackTimeMs = activeTab === "bot" ? (botBlackClockMs ?? 0) : blackClockMs;
-  const displayedActiveColor = activeTab === "bot" ? displayedGame?.activeColor : game?.activeColor;
-  const displayedClockRunning = activeTab === "bot" ? botClockRunning : clockRunning;
+  const displayedWhiteTimeMs = activeTab === "bot" ? (botWhiteClockMs ?? 0) : activeTab === "pekko" ? 0 : whiteClockMs;
+  const displayedBlackTimeMs = activeTab === "bot" ? (botBlackClockMs ?? 0) : activeTab === "pekko" ? 0 : blackClockMs;
+  const displayedActiveColor = activeTab === "bot" ? displayedGame?.activeColor : activeTab === "pekko" ? (pekkoGame?.activeColor ?? "white") : game?.activeColor;
+  const displayedClockRunning = activeTab === "bot" ? botClockRunning : activeTab === "pekko" ? false : clockRunning;
 
   const canResign =
     activeTab !== "bot" &&
+    activeTab !== "pekko" &&
     Boolean(game) &&
     !busy &&
     !sessionClosed &&
@@ -629,6 +739,120 @@ export default function App() {
     };
   }, []);
 
+  // Connect/disconnect handler for Pekko Streams
+  const handlePekkoConnect = useCallback(() => {
+    if (pekkoWsRef.current) {
+      pekkoWsRef.current.close();
+    }
+
+    setPekkoConnectionState("connecting");
+    setPekkoGame(null);
+    setPekkoSelectedSquare(undefined);
+    setPekkoLegalMoves([]);
+
+    const ws = new WebSocket(`ws://localhost:8080/game?gameId=${encodeURIComponent(pekkoRoomId)}`);
+    pekkoWsRef.current = ws;
+
+    ws.onopen = () => {
+      setPekkoConnectionState("live");
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data) as PekkoWebSocketData;
+        if (data.status === "success" && data.board && data.moves) {
+          const game = mapPekkoDataToGameState(pekkoRoomId, data.board, data.moves);
+          setPekkoGame(game);
+        } else if (data.status === "error") {
+          console.error("Pekko server error:", data.message);
+          alert(`Pekko Fehler: ${data.message}`);
+        }
+      } catch (err) {
+        console.error("Failed to parse Pekko websocket message:", err);
+      }
+    };
+
+    ws.onclose = () => {
+      setPekkoConnectionState("disconnected");
+      pekkoWsRef.current = null;
+    };
+
+    ws.onerror = (e) => {
+      console.error("Pekko websocket error:", e);
+      ws.close();
+    };
+  }, [pekkoRoomId]);
+
+  const handlePekkoDisconnect = useCallback(() => {
+    if (pekkoWsRef.current) {
+      pekkoWsRef.current.close();
+    }
+    setPekkoConnectionState("idle");
+    setPekkoGame(null);
+    setPekkoSelectedSquare(undefined);
+    setPekkoLegalMoves([]);
+  }, []);
+
+  // Cleanup Pekko WS on unmount
+  useEffect(() => {
+    return () => {
+      if (pekkoWsRef.current) {
+        pekkoWsRef.current.close();
+      }
+    };
+  }, []);
+
+  const handlePekkoSelect = useCallback(
+    async (square: string): Promise<void> => {
+      if (!pekkoGame || pekkoConnectionState !== "live") return;
+
+      const normalizedSquare = square.toLowerCase();
+
+      if (pekkoGame.status === "checkmate" || pekkoGame.status === "draw" || pekkoGame.status === "resigned") {
+        return;
+      }
+
+      if (pekkoSelectedSquare === normalizedSquare) {
+        setPekkoSelectedSquare(undefined);
+        setPekkoLegalMoves([]);
+        return;
+      }
+
+      if (!pekkoSelectedSquare) {
+        const moves = pekkoGame.legalTargetsByFrom[normalizedSquare] ?? [];
+        if (moves.length === 0) {
+          setPekkoSelectedSquare(undefined);
+          setPekkoLegalMoves([]);
+        } else {
+          setPekkoSelectedSquare(normalizedSquare);
+          setPekkoLegalMoves(moves);
+        }
+        return;
+      }
+
+      if (!pekkoLegalMoves.includes(normalizedSquare)) {
+        const alternateMoves = pekkoGame.legalTargetsByFrom[normalizedSquare] ?? [];
+        if (alternateMoves.length > 0) {
+          setPekkoSelectedSquare(normalizedSquare);
+          setPekkoLegalMoves(alternateMoves);
+        } else {
+          console.log(`Move ${pekkoSelectedSquare}-${normalizedSquare} is illegal`);
+        }
+        return;
+      }
+
+      const moveStr = `${pekkoSelectedSquare}-${normalizedSquare}`;
+      console.log(`Move ${moveStr} is legal`);
+      if (pekkoWsRef.current && pekkoWsRef.current.readyState === WebSocket.OPEN) {
+        pekkoWsRef.current.send(JSON.stringify({ gameId: pekkoRoomId, move: moveStr }));
+      }
+
+      setPekkoSelectedSquare(undefined);
+      setPekkoLegalMoves([]);
+    },
+    [pekkoGame, pekkoConnectionState, pekkoSelectedSquare, pekkoLegalMoves, pekkoRoomId]
+  );
+
   // Bot clock ticking
   useEffect(() => {
     let lastTick = performance.now();
@@ -703,15 +927,21 @@ export default function App() {
 
   const displayedConnection = activeTab === "bot"
     ? (botConnectionState === "disconnected" ? "offline" as const : botConnectionState === "connecting" ? "loading" as const : "connected" as const)
-    : connection;
+    : activeTab === "pekko"
+      ? (pekkoConnectionState === "disconnected" ? "offline" as const : pekkoConnectionState === "connecting" ? "loading" as const : pekkoConnectionState === "live" ? "connected" as const : "offline" as const)
+      : connection;
 
   const displayedLiveConnection = activeTab === "bot"
     ? (botConnectionState === "live" ? "live" as const : botConnectionState === "connecting" ? "connecting" as const : "disconnected" as const)
-    : liveConnection;
+    : activeTab === "pekko"
+      ? (pekkoConnectionState === "live" ? "live" as const : pekkoConnectionState === "connecting" ? "connecting" as const : "disconnected" as const)
+      : liveConnection;
 
   const displayedMessage = activeTab === "bot"
     ? (botConnectionState === "disconnected" ? "Verbindung zum Bot-Server getrennt. Reconnect in 3s... / Disconnected from bot server. Reconnecting..." : (!botGameData ? "Warte auf Bot-Spiele... / Waiting for bot games..." : undefined))
-    : message;
+    : activeTab === "pekko"
+      ? (pekkoConnectionState === "disconnected" ? "Verbindung zum Pekko-Server getrennt. / Disconnected from Pekko server." : (pekkoConnectionState === "connecting" ? "Verbinde mit Pekko-Server... / Connecting to Pekko..." : (!pekkoGame ? "Tritt einem Spielraum bei, um zu beginnen. / Join a game room to begin." : undefined)))
+      : message;
 
   return (
     <div className="app">
@@ -744,7 +974,7 @@ export default function App() {
               <CapturedPanel captured={displayedGame?.captured ?? []} spriteCatalog={spriteCatalog} />
             </aside>
 
-            {displayedGame || activeTab === "bot" ? (
+            {displayedGame || activeTab === "bot" || activeTab === "pekko" ? (
               <section className="board-column">
                 <nav className="tab-navigation" aria-label="Game Mode Tabs">
                   <button
@@ -763,7 +993,74 @@ export default function App() {
                     {devBotStatus === "running" && <span className="bot-live-dot" title="Bot ist aktiv!" />}
                     {hasNewBotMoveNotification && <span className="notification-dot" />}
                   </button>
+                  <button
+                    type="button"
+                    className={`tab-btn ${activeTab === "pekko" ? "active" : ""}`}
+                    onClick={() => setActiveTab("pekko")}
+                  >
+                    📡 Pekko-Räume
+                    {pekkoConnectionState === "live" && <span className="bot-live-dot" style={{ backgroundColor: "#22c55e", boxShadow: "0 0 8px #22c55e" }} title="Pekko-Verbindung aktiv!" />}
+                  </button>
                 </nav>
+
+                {activeTab === "pekko" && (
+                  <div className="pekko-room-controls panel animate-scale-up" style={{ display: "flex", gap: "10px", alignItems: "center", marginBottom: "15px", padding: "12px", border: "1px solid rgba(197, 160, 89, 0.4)", borderRadius: "8px", background: "#2b181c" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                      <span style={{ fontSize: "0.8rem", color: "#a3a3a3", fontWeight: "bold", textTransform: "uppercase" }}>Pekko Spielraum / Game Room</span>
+                      <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                        <input
+                          type="text"
+                          value={pekkoRoomId}
+                          onChange={(e) => setPekkoRoomId(e.target.value)}
+                          disabled={pekkoConnectionState === "live" || pekkoConnectionState === "connecting"}
+                          placeholder="Raum ID (z.B. room-1)"
+                          style={{ padding: "6px 10px", borderRadius: "4px", border: "1px solid #c5a059", background: "#1e1e24", color: "#fff", outline: "none", fontSize: "0.9rem", width: "150px" }}
+                        />
+                        {pekkoConnectionState === "live" ? (
+                          <button
+                            type="button"
+                            onClick={handlePekkoDisconnect}
+                            style={{ padding: "6px 12px", borderRadius: "4px", border: "none", background: "#ef4444", color: "#fff", fontWeight: "bold", cursor: "pointer", fontSize: "0.9rem" }}
+                          >
+                            Trennen
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handlePekkoConnect}
+                            disabled={!pekkoRoomId.trim() || pekkoConnectionState === "connecting"}
+                            style={{ padding: "6px 12px", borderRadius: "4px", border: "none", background: "#e6b347", color: "#120a0c", fontWeight: "bold", cursor: "pointer", fontSize: "0.9rem" }}
+                          >
+                            {pekkoConnectionState === "connecting" ? "Verbinde..." : "Verbinden"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ marginLeft: "auto", display: "flex", gap: "6px" }}>
+                      {["room-1", "room-2", "room-3"].map((roomName) => (
+                        <button
+                          key={roomName}
+                          type="button"
+                          onClick={() => {
+                            setPekkoRoomId(roomName);
+                          }}
+                          disabled={pekkoConnectionState === "live" || pekkoConnectionState === "connecting"}
+                          style={{
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            border: "1px solid rgba(197, 160, 89, 0.4)",
+                            background: pekkoRoomId === roomName ? "rgba(230, 179, 71, 0.2)" : "#1e1e24",
+                            color: pekkoRoomId === roomName ? "#e6b347" : "#a3a3a3",
+                            fontSize: "0.8rem",
+                            cursor: "pointer"
+                          }}
+                        >
+                          {roomName}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <StatusBanner
                   game={displayedGame ?? undefined}
@@ -775,31 +1072,36 @@ export default function App() {
                 {displayedGame ? (
                   <ChessBoard
                     board={displayedGame.board}
-                    selectedSquare={replayModeActive ? undefined : selectedSquare}
-                    legalMoves={replayModeActive ? [] : legalMoves}
-                    animation={replayModeActive ? null : animationPlan}
+                    selectedSquare={activeTab === "pekko" ? pekkoSelectedSquare : (replayModeActive ? undefined : selectedSquare)}
+                    legalMoves={activeTab === "pekko" ? pekkoLegalMoves : (replayModeActive ? [] : legalMoves)}
+                    animation={activeTab === "pekko" ? null : (replayModeActive ? null : animationPlan)}
                     idleAnimation={true}
-                    disabled={boardInteractionDisabled || replayModeActive}
-                    onSelect={handleSelect}
+                    disabled={boardInteractionDisabled || (activeTab !== "pekko" && replayModeActive)}
+                    onSelect={activeTab === "pekko" ? handlePekkoSelect : handleSelect}
                     onAnimationFinished={handleAnimationFinished}
                     inCheck={displayedGame.status === "check"}
                     activeColor={displayedGame.activeColor}
                     gameStatus={displayedGame.status}
                     drawReason={displayedGame.drawReason}
                     winner={displayedGame.winner}
-                    promotionPending={promotionPending}
-                    onResolvePromotion={handleResolvePromotion}
-                    onCancelPromotion={handleCancelPromotion}
-                    onNewGame={handleNewGame}
+                    promotionPending={activeTab === "pekko" ? null : promotionPending}
+                    onResolvePromotion={activeTab === "pekko" ? undefined : handleResolvePromotion}
+                    onCancelPromotion={activeTab === "pekko" ? undefined : handleCancelPromotion}
+                    onNewGame={activeTab === "pekko" ? undefined : handleNewGame}
                     orientation={activeTab === "bot" ? (botGameData?.botColor ?? "white") : "white"}
                   />
                 ) : (
                   <section className="board-shell placeholder">
-                    <div className="loading">Warte auf Bot-Spieldaten... / Waiting for bot game data...</div>
+                    <div className="loading">
+                      {activeTab === "pekko"
+                        ? "Verbinde mit einem Pekko-Raum, um das Brett zu laden... / Connect to a Pekko room to load board..."
+                        : "Warte auf Bot-Spieldaten... / Waiting for bot game data..."
+                      }
+                    </div>
                   </section>
                 )}
 
-                {activeTab !== "bot" && (
+                {activeTab !== "bot" && activeTab !== "pekko" && (
                   <section className="replay-timeline panel" aria-label="Time-travel timeline">
                     <header className="replay-timeline-header">
                       <h2>Time-Travel</h2>
@@ -855,7 +1157,7 @@ export default function App() {
 
             <aside className="side right-side">
               <ControlPanel
-                game={activeTab === "bot" ? (displayedGame ?? undefined) : game}
+                game={activeTab === "bot" ? (displayedGame ?? undefined) : activeTab === "pekko" ? (pekkoGame ?? undefined) : game}
                 busy={busy}
                 whiteTimeMs={displayedWhiteTimeMs}
                 blackTimeMs={displayedBlackTimeMs}
@@ -864,9 +1166,9 @@ export default function App() {
                 gameMode={gameMode}
                 canResign={canResign}
                 sessionId={session?.sessionId}
-                gameId={activeTab === "bot" ? (displayedGame?.id ?? undefined) : (game?.id ?? session?.gameId)}
-                fen={activeTab === "bot" ? undefined : notation?.fen}
-                pgn={activeTab === "bot" ? undefined : notation?.pgn}
+                gameId={activeTab === "bot" ? (displayedGame?.id ?? undefined) : activeTab === "pekko" ? pekkoRoomId : (game?.id ?? session?.gameId)}
+                fen={activeTab === "bot" || activeTab === "pekko" ? undefined : notation?.fen}
+                pgn={activeTab === "bot" || activeTab === "pekko" ? undefined : notation?.pgn}
                 onImportNotation={handleImportNotation}
                 onExportNotation={handleExportNotation}
                 onGameModeChange={setGameMode}

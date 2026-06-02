@@ -28,16 +28,18 @@ object GameState {
 
 object ChessStreamingEngine {
 
-  /** Parser Flow: Parses DSL move strings ("e2-e4") into Move objects.
-    * Invalid formats are wrapped in a Left(Throwable).
-    */
-  val parserFlow: Flow[String, Either[Throwable, Move], _] = Flow[String].map { dsl =>
+  def parseMove(dsl: String): Either[Throwable, Move] = {
     val pattern = "^([a-h][1-8])-([a-h][1-8])$".r
     dsl.trim match {
       case pattern(from, to) => Right(Move(from, to))
       case _ => Left(new IllegalArgumentException(s"Ungueltiges Format fuer Schachzug: '$dsl'"))
     }
   }
+
+  /** Parser Flow: Parses DSL move strings ("e2-e4") into Move objects.
+    * Invalid formats are wrapped in a Left(Throwable).
+    */
+  val parserFlow: Flow[String, Either[Throwable, Move], _] = Flow[String].map(parseMove)
 
   /** Validator/Processor Flow: Keeps track of board state per materialization
     * and applies rules to validate and progress the game.

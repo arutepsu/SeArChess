@@ -126,6 +126,11 @@
             </div>
             
             <div class="input-group">
+                <input type="text" id="roomIdInput" placeholder="Raum ID (z. B. room-1)" value="room-1">
+                <button id="connectBtn" onclick="toggleConnect()">Trennen</button>
+            </div>
+            
+            <div class="input-group">
                 <input type="text" id="moveInput" placeholder="z. B. e2-e4" value="e2-e4">
                 <button id="sendBtn" onclick="sendMove()">Senden</button>
             </div>
@@ -168,14 +173,29 @@
             logPanel.scrollTop = logPanel.scrollHeight;
         }
 
+        let activeRoomId = "room-1";
+
+        function toggleConnect() {
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+                log("Trennen...");
+                ws.close();
+            } else {
+                const roomInput = document.getElementById('roomIdInput');
+                activeRoomId = roomInput.value.trim() || "default";
+                connect();
+            }
+        }
+
         function connect() {
-            log("Verbinde mit ws://localhost:8080/game...");
-            ws = new WebSocket("ws://localhost:8080/game");
+            log(`Verbinde mit ws://localhost:8080/game?gameId=${activeRoomId}...`);
+            ws = new WebSocket(`ws://localhost:8080/game?gameId=${activeRoomId}`);
 
             ws.onopen = () => {
                 document.getElementById('statusDot').className = 'status-dot connected';
-                document.getElementById('statusText').innerText = 'Verbunden / Connected (Port 8080)';
-                log("WebSocket-Verbindung erfolgreich hergestellt!", "success");
+                document.getElementById('statusText').innerText = `Verbunden / Connected (${activeRoomId})`;
+                document.getElementById('connectBtn').innerText = 'Trennen';
+                document.getElementById('roomIdInput').disabled = true;
+                log(`WebSocket-Verbindung zu Raum "${activeRoomId}" erfolgreich hergestellt!`, "success");
                 renderBoard(initialBoard);
                 document.getElementById('turnIndicator').innerText = "Am Zug: WEISS";
             };
@@ -201,8 +221,9 @@
             ws.onclose = () => {
                 document.getElementById('statusDot').className = 'status-dot';
                 document.getElementById('statusText').innerText = 'Getrennt / Disconnected';
-                log("Verbindung getrennt. Reconnect in 3s...", "error");
-                setTimeout(connect, 3000);
+                document.getElementById('connectBtn').innerText = 'Verbinden';
+                document.getElementById('roomIdInput').disabled = false;
+                log("Verbindung getrennt.", "error");
             };
 
             ws.onerror = () => {
@@ -216,10 +237,10 @@
             if (!moveVal) return;
             
             if (ws && ws.readyState === WebSocket.OPEN) {
-                // Send as JSON format containing the "move" string
-                const payload = JSON.stringify({ move: moveVal });
+                // Send as JSON format containing the "move" and "gameId" fields
+                const payload = JSON.stringify({ gameId: activeRoomId, move: moveVal });
                 ws.send(payload);
-                log(`Sende Zug: "${moveVal}"`);
+                log(`Sende Zug in Raum "${activeRoomId}": "${moveVal}"`);
                 input.value = ""; // Clear input
             } else {
                 log("Fehler: WebSocket-Verbindung ist nicht offen.", "error");

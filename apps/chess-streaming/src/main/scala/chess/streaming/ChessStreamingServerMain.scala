@@ -4,9 +4,34 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.Http
 import org.apache.pekko.http.scaladsl.model.ws.{Message, TextMessage}
 import org.apache.pekko.http.scaladsl.server.Directives._
-import org.apache.pekko.stream.scaladsl.Flow
+import org.apache.pekko.stream.scaladsl.{BroadcastHub, Flow, Keep, MergeHub, Sink, Source}
+import java.util.concurrent.ConcurrentHashMap
 import scala.concurrent.ExecutionContext
-import scala.io.StdIn
+
+class GameRoom(val gameId: String)(implicit system: ActorSystem) {
+  implicit val ec: ExecutionContext = system.dispatcher
+
+  @volatile var currentState: GameState = GameState.initial
+
+  val (hubSink, hubSource) = MergeHub.source[Either[Throwable, Move]]
+    .via(ChessStreamingEngine.validatorFlow)
+    .map { result =>
+      result.foreach { state =>
+        currentState = state
+      }
+      result
+    }
+    .toMat(BroadcastHub.sink[Either[String, GameState]])(Keep.both)
+    .run()
+}
+
+object GameRoomRegistry {
+  private val rooms = new ConcurrentHashMap[String, GameRoom]()
+
+  def getOrCreate(gameId: String)(implicit system: ActorSystem): GameRoom = {
+    rooms.computeIfAbsent(gameId, id => new GameRoom(id))
+  }
+}
 
 object ChessStreamingServerMain {
 
@@ -14,20 +39,33 @@ object ChessStreamingServerMain {
     implicit val system: ActorSystem = ActorSystem("ChessStreamingServerSystem")
     implicit val ec: ExecutionContext = system.dispatcher
 
-    // WebSocket handler logic
-    def webSocketFlow: Flow[Message, Message, Any] = {
-      // Ingoing flow: Extracts raw move from incoming JSON or text message
-      val incomingFlow: Flow[Message, String, Any] = Flow[Message].collect {
-        case TextMessage.Strict(text) =>
-          try {
-            val json = ujson.read(text)
-            json("move").str
-          } catch {
-            case _: Exception => text // Fallback to raw text message if not JSON
-          }
-      }
+    // WebSocket handler logic per connection
+    def webSocketFlow(gameId: String): Flow[Message, Message, Any] = {
+      val room = GameRoomRegistry.getOrCreate(gameId)
 
-      // Outgoing flow: Converts GameState/Error into JSON TextMessage
+      // Ingress: process incoming client messages and route moves to the room's Sink
+      val incomingSink: Sink[Message, Any] = Flow[Message]
+        .collect {
+          case TextMessage.Strict(text) =>
+            try {
+              val json = ujson.read(text)
+              val targetGameId = json.obj.get("gameId").map(_.str).getOrElse(gameId)
+              val moveStr = json("move").str
+              (targetGameId, moveStr)
+            } catch {
+              case _: Exception => (gameId, text)
+            }
+        }
+        .map { case (gId, moveStr) =>
+          val parsed = ChessStreamingEngine.parseMove(moveStr)
+          (gId, parsed)
+        }
+        .to(Sink.foreach { case (gId, parsedMove) =>
+          val targetRoom = GameRoomRegistry.getOrCreate(gId)
+          Source.single(parsedMove).runWith(targetRoom.hubSink)
+        })
+
+      // Egress: serialize room events to TextMessage
       val outgoingFlow: Flow[Either[String, GameState], Message, Any] = Flow[Either[String, GameState]].map {
         case Right(state) =>
           val boardJson = ujson.Obj.from(state.board.map { case (square, piece) =>
@@ -50,17 +88,23 @@ object ChessStreamingServerMain {
           TextMessage.Strict(ujson.write(response))
       }
 
-      // Combine parsing & validation flows from ChessStreamingEngine
-      val chessFlow = ChessStreamingEngine.parserFlow
-        .via(ChessStreamingEngine.validatorFlow)
+      // Prepend current state on connect, then stream live updates from BroadcastHub
+      val initialSource = Source.single(Right(room.currentState))
+      val liveSource = room.hubSource
+      val outgoingSource = initialSource.concat(liveSource)
 
-      // Connect everything: Ingest -> Parse -> Validate -> Serialize
-      incomingFlow.via(chessFlow).via(outgoingFlow)
+      Flow.fromSinkAndSource(incomingSink, outgoingSource.via(outgoingFlow))
     }
 
     val route =
       path("game") {
-        handleWebSocketMessages(webSocketFlow)
+        parameter("gameId".?) {
+          case Some(gameId) => handleWebSocketMessages(webSocketFlow(gameId))
+          case None         => handleWebSocketMessages(webSocketFlow("default"))
+        }
+      } ~
+      path("game" / Segment) { gameId =>
+        handleWebSocketMessages(webSocketFlow(gameId))
       }
 
     val host = "localhost"
