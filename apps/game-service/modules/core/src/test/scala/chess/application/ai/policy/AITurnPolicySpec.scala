@@ -1,6 +1,6 @@
 package chess.application.ai.policy
 
-import chess.application.session.model.{GameSession, SessionMode, SideController}
+import chess.application.session.model.{ExternalPlatform, GameSession, SessionMode, SideController}
 import chess.application.session.model.SessionIds.GameId
 import chess.domain.model.Color
 import org.scalatest.flatspec.AnyFlatSpec
@@ -54,5 +54,23 @@ class AITurnPolicySpec extends AnyFlatSpec with Matchers:
 
   it should "return false when only White is AI but it is Black's turn" in {
     val session = sessionWith(white = SideController.AI(), black = SideController.HumanLocal)
+    AITurnPolicy.isAITurn(session, Color.Black) shouldBe false
+  }
+
+  // ── isAITurn: External controller is never AI ─────────────────────────────
+
+  it should "return false when White is External(Lichess) and it is White's turn" in {
+    val session = sessionWith(
+      white = SideController.External(ExternalPlatform.Lichess, "some-bot"),
+      black = SideController.AI()
+    )
+    AITurnPolicy.isAITurn(session, Color.White) shouldBe false
+  }
+
+  it should "return false when Black is External(Lichess) and it is Black's turn" in {
+    val session = sessionWith(
+      white = SideController.AI(),
+      black = SideController.External(ExternalPlatform.Lichess, "some-bot")
+    )
     AITurnPolicy.isAITurn(session, Color.Black) shouldBe false
   }

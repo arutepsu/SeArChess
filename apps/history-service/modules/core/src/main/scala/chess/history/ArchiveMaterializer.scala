@@ -91,10 +91,11 @@ class ArchiveMaterializer private (
   private def controllerLabel(c: chess.application.session.model.SideController): String =
     import chess.application.session.model.SideController.*
     c match
-      case HumanLocal       => "HumanLocal"
-      case HumanRemote      => "HumanRemote"
-      case AI(Some(engine)) => s"AI:$engine"
-      case AI(None)         => "AI"
+      case HumanLocal                  => "HumanLocal"
+      case HumanRemote                 => "HumanRemote"
+      case AI(Some(engine))            => s"AI:$engine"
+      case AI(None)                    => "AI"
+      case External(platform, actorId) => s"External:${platform}:${actorId}"
 
   private def pgnResultTag(closure: GameClosure): String = closure match
     case GameClosure.Checkmate(Color.White) => "1-0"

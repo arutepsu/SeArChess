@@ -12,7 +12,7 @@ import chess.adapter.rest.contract.dto.{
 import chess.application.query.game.GameView
 import chess.application.session.service.{PersistentSessionAggregate, SessionSnapshotEnvelope}
 import chess.application.query.session.SessionView
-import chess.application.session.model.{GameSession, SessionLifecycle, SessionMode, SideController}
+import chess.application.session.model.{ExternalPlatform, GameSession, SessionLifecycle, SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import chess.domain.model.{Color, DrawReason, GameStatus, Move, Piece, PieceType, Position}
 import chess.domain.state.{CastlingRights, EnPassantState}
@@ -35,14 +35,22 @@ object SessionMapper:
 
   /** Parse a [[SessionMode]] from an optional request string. Absent or "HumanVsHuman" ->
     * [[SessionMode.HumanVsHuman]] (default).
+    *
+    * [[SessionMode.AiVsExternal]] and [[SessionMode.ExternalVsExternal]] are parsed for
+    * deserialization round-trips (e.g. reading a persisted session back) but are rejected by
+    * [[resolveCreateControllers]] — those sessions must be created through the external-game API.
     */
   def parseMode(s: Option[String]): Either[String, SessionMode] =
     s match
-      case None | Some("HumanVsHuman") => Right(SessionMode.HumanVsHuman)
-      case Some("HumanVsAI")           => Right(SessionMode.HumanVsAI)
-      case Some("AIVsAI")              => Right(SessionMode.AIVsAI)
+      case None | Some("HumanVsHuman")    => Right(SessionMode.HumanVsHuman)
+      case Some("HumanVsAI")              => Right(SessionMode.HumanVsAI)
+      case Some("AIVsAI")                 => Right(SessionMode.AIVsAI)
+      case Some("AiVsExternal")           => Right(SessionMode.AiVsExternal)
+      case Some("ExternalVsExternal")     => Right(SessionMode.ExternalVsExternal)
       case Some(other) =>
-        Left(s"Unknown mode: '$other'. Expected HumanVsHuman, HumanVsAI, or AIVsAI")
+        Left(
+          s"Unknown mode: '$other'. Expected one of: HumanVsHuman, HumanVsAI, AIVsAI, AiVsExternal, ExternalVsExternal"
+        )
 
   /** Parse a human [[SideController]] from an optional request string. Absent or "HumanLocal" ->
     * [[SideController.HumanLocal]] (default).
@@ -62,6 +70,10 @@ object SessionMapper:
     * Rule: mode determines AI seats server-side. Controller fields are accepted only for
     * human-controlled seats; clients cannot request AI engine identity or override an AI seat
     * through the REST contract.
+    *
+    * [[SessionMode.AiVsExternal]] and [[SessionMode.ExternalVsExternal]] are reserved for the
+    * external-game API (`POST /external-games`). Attempting to create them here returns a
+    * descriptive error so callers know where to go.
     */
   def resolveCreateControllers(
       mode: SessionMode,
@@ -88,6 +100,11 @@ object SessionMapper:
             "Controllers are server-controlled AI for AIVsAI; omit whiteController and blackController"
           )
         else Right((SideController.AI(), SideController.AI()))
+
+      case SessionMode.AiVsExternal | SessionMode.ExternalVsExternal =>
+        Left(
+          s"Sessions with mode $mode must be created through POST /external-games, not the generic session endpoint"
+        )
 
   /** Parse a [[Color]] side from a request string.
     *
@@ -237,13 +254,15 @@ object SessionMapper:
 
   /** Serialize a [[SideController]] to a stable transport string.
     *
-    * AI engine ids are not surfaced in Phase 7.
+    * Wire format: `"HumanLocal"`, `"HumanRemote"`, `"AI"`, `"External:{platform}:{actorId}"`.
+    * AI engine ids are not surfaced in REST v1.
     */
   private[mapper] def controllerToString(c: SideController): String =
     c match
-      case SideController.HumanLocal  => "HumanLocal"
-      case SideController.HumanRemote => "HumanRemote"
-      case SideController.AI(_)       => "AI"
+      case SideController.HumanLocal           => "HumanLocal"
+      case SideController.HumanRemote          => "HumanRemote"
+      case SideController.AI(_)                => "AI"
+      case SideController.External(platform, actorId) => s"External:${platform}:${actorId}"
 
   private def parseSessionId(value: String): Either[String, SessionId] =
     try Right(SessionId(UUID.fromString(value)))
@@ -263,7 +282,13 @@ object SessionMapper:
       case "HumanLocal"  => Right(SideController.HumanLocal)
       case "HumanRemote" => Right(SideController.HumanRemote)
       case "AI"          => Right(SideController.AI())
-      case other         => Left(s"Unknown controller: '$other'")
+      case s if s.startsWith("AI:") => Right(SideController.AI(Some(s.stripPrefix("AI:"))))
+      case s if s.startsWith("External:") =>
+        s.split(":", 3) match
+          case Array(_, platformStr, actorId) =>
+            parseExternalPlatform(platformStr).map(SideController.External(_, actorId))
+          case _ => Left(s"Malformed External controller: '$s'")
+      case other => Left(s"Unknown controller: '$other'")
 
   private def parseInstant(field: String, value: String): Either[String, Instant] =
     try Right(Instant.parse(value))
@@ -318,6 +343,11 @@ object SessionMapper:
     DrawReason.values
       .find(_.toString == value)
       .toRight(s"Unknown drawReason: '$value'")
+
+  private def parseExternalPlatform(value: String): Either[String, ExternalPlatform] =
+    ExternalPlatform.values
+      .find(_.toString == value)
+      .toRight(s"Unknown external platform: '$value'")
 
   private def parseEnPassant(value: Option[EnPassantDto]): Either[String, Option[EnPassantState]] =
     value match

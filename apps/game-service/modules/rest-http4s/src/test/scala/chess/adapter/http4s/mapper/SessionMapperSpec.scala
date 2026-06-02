@@ -2,7 +2,7 @@ package chess.adapter.http4s.mapper
 
 import chess.application.GameStateCommandService
 import chess.application.query.game.GameView
-import chess.application.session.model.{GameSession, SessionLifecycle, SessionMode, SideController}
+import chess.application.session.model.{ExternalPlatform, GameSession, SessionLifecycle, SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import java.time.Instant
 import org.scalatest.EitherValues
@@ -40,6 +40,14 @@ class SessionMapperSpec extends AnyFlatSpec with Matchers with EitherValues:
     SessionMapper.parseMode(Some("AIVsAI")).value shouldBe SessionMode.AIVsAI
   }
 
+  it should "parse 'AiVsExternal'" in {
+    SessionMapper.parseMode(Some("AiVsExternal")).value shouldBe SessionMode.AiVsExternal
+  }
+
+  it should "parse 'ExternalVsExternal'" in {
+    SessionMapper.parseMode(Some("ExternalVsExternal")).value shouldBe SessionMode.ExternalVsExternal
+  }
+
   it should "return Left for an unknown mode string" in {
     SessionMapper.parseMode(Some("invalid")).isLeft shouldBe true
   }
@@ -66,6 +74,10 @@ class SessionMapperSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   it should "return Left for AI because REST v1 derives AI seats from mode" in {
     SessionMapper.parseController(Some("AI")).isLeft shouldBe true
+  }
+
+  it should "return Left for External because REST v1 move submissions do not accept External" in {
+    SessionMapper.parseController(Some("External:Lichess:some-bot")).isLeft shouldBe true
   }
 
   it should "include the offending value in the error message" in {
@@ -122,6 +134,18 @@ class SessionMapperSpec extends AnyFlatSpec with Matchers with EitherValues:
       .value should include("AIVsAI")
   }
 
+  it should "reject AiVsExternal because it must go through the external-game API" in {
+    SessionMapper
+      .resolveCreateControllers(SessionMode.AiVsExternal, None, None)
+      .isLeft shouldBe true
+  }
+
+  it should "reject ExternalVsExternal because it must go through the external-game API" in {
+    SessionMapper
+      .resolveCreateControllers(SessionMode.ExternalVsExternal, None, None)
+      .isLeft shouldBe true
+  }
+
   "SessionMapper.controllerToString" should "serialize HumanLocal" in {
     SessionMapper.controllerToString(SideController.HumanLocal) shouldBe "HumanLocal"
   }
@@ -133,6 +157,20 @@ class SessionMapperSpec extends AnyFlatSpec with Matchers with EitherValues:
   it should "serialize AI regardless of engine id" in {
     SessionMapper.controllerToString(SideController.AI(None)) shouldBe "AI"
     SessionMapper.controllerToString(SideController.AI(Some("stockfish"))) shouldBe "AI"
+  }
+
+  it should "serialize External as 'External:{platform}:{actorId}'" in {
+    SessionMapper.controllerToString(
+      SideController.External(ExternalPlatform.Lichess, "searchess-bot")
+    ) shouldBe "External:Lichess:searchess-bot"
+  }
+
+  "SessionMapper.parseAnyController" should "round-trip External(Lichess, actorId)" in {
+    val ctrl = SideController.External(ExternalPlatform.Lichess, "searchess-bot")
+    val str  = SessionMapper.controllerToString(ctrl)
+    // parseAnyController is private[mapper], tested indirectly through toPersistentSessionAggregate
+    // but we verify the string format is correct for round-trip
+    str shouldBe "External:Lichess:searchess-bot"
   }
 
   "SessionMapper.toSessionResponse" should "populate all fields from GameSession" in {

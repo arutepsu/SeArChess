@@ -1,7 +1,7 @@
 package chess.adapter.repository.sqlite
 
 import chess.application.port.repository.{RepositoryError, SessionRepository}
-import chess.application.session.model.{GameSession, SessionLifecycle, SessionMode, SideController}
+import chess.application.session.model.{ExternalPlatform, GameSession, SessionLifecycle, SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 
 import java.sql.{Connection, ResultSet}
@@ -132,15 +132,18 @@ class SqliteSessionRepository(ds: SqliteDataSource) extends SessionRepository:
   // ── Encoders ──────────────────────────────────────────────────────────────
 
   private def modeStr(m: SessionMode): String = m match
-    case SessionMode.HumanVsHuman => "HumanVsHuman"
-    case SessionMode.HumanVsAI    => "HumanVsAI"
-    case SessionMode.AIVsAI       => "AIVsAI"
+    case SessionMode.HumanVsHuman       => "HumanVsHuman"
+    case SessionMode.HumanVsAI          => "HumanVsAI"
+    case SessionMode.AIVsAI             => "AIVsAI"
+    case SessionMode.AiVsExternal       => "AiVsExternal"
+    case SessionMode.ExternalVsExternal => "ExternalVsExternal"
 
   private def controllerStr(c: SideController): String = c match
-    case SideController.HumanLocal       => "HumanLocal"
-    case SideController.HumanRemote      => "HumanRemote"
-    case SideController.AI(Some(engine)) => s"AI:$engine"
-    case SideController.AI(None)         => "AI"
+    case SideController.HumanLocal                       => "HumanLocal"
+    case SideController.HumanRemote                      => "HumanRemote"
+    case SideController.AI(Some(engine))                 => s"AI:$engine"
+    case SideController.AI(None)                         => "AI"
+    case SideController.External(platform, actorId)      => s"External:${platform}:${actorId}"
 
   private def lifecycleStr(l: SessionLifecycle): String = l match
     case SessionLifecycle.Created           => "Created"
@@ -152,16 +155,27 @@ class SqliteSessionRepository(ds: SqliteDataSource) extends SessionRepository:
   // ── Decoders ──────────────────────────────────────────────────────────────
 
   private def parseMode(s: String): SessionMode = s match
-    case "HumanVsHuman" => SessionMode.HumanVsHuman
-    case "HumanVsAI"    => SessionMode.HumanVsAI
-    case "AIVsAI"       => SessionMode.AIVsAI
-    case other          => throw IllegalStateException(s"Unknown session mode in DB: $other")
+    case "HumanVsHuman"       => SessionMode.HumanVsHuman
+    case "HumanVsAI"          => SessionMode.HumanVsAI
+    case "AIVsAI"             => SessionMode.AIVsAI
+    case "AiVsExternal"       => SessionMode.AiVsExternal
+    case "ExternalVsExternal" => SessionMode.ExternalVsExternal
+    case other                => throw IllegalStateException(s"Unknown session mode in DB: $other")
 
   private def parseController(s: String): SideController = s match
     case "HumanLocal"               => SideController.HumanLocal
     case "HumanRemote"              => SideController.HumanRemote
     case "AI"                       => SideController.AI(None)
     case ai if ai.startsWith("AI:") => SideController.AI(Some(ai.stripPrefix("AI:")))
+    case ext if ext.startsWith("External:") =>
+      ext.split(":", 3) match
+        case Array(_, platformStr, actorId) =>
+          ExternalPlatform.values.find(_.toString == platformStr) match
+            case Some(platform) => SideController.External(platform, actorId)
+            case None =>
+              throw IllegalStateException(s"Unknown external platform in DB: $platformStr")
+        case _ =>
+          throw IllegalStateException(s"Malformed External controller in DB: $ext")
     case other => throw IllegalStateException(s"Unknown controller in DB: $other")
 
   private def parseLifecycle(s: String): SessionLifecycle = s match
