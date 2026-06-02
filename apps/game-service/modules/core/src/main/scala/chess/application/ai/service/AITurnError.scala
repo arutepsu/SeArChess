@@ -4,11 +4,14 @@ import chess.application.port.ai.AIError
 import chess.application.port.repository.RepositoryError
 import chess.application.session.service.{SessionError, SessionMoveError}
 
-/** Errors produced by [[AITurnService.requestAIMove]] and
-  * [[chess.application.GameServiceApi.triggerAIMove]].
+/** Errors produced by [[AITurnService.requestAIMove]],
+  * [[chess.application.GameServiceApi.triggerAIMove]], and
+  * [[chess.application.GameServiceApi.runAiTurnsByGameId]].
   *
   * Cases are ordered from "caller error" to "infrastructure/provider error":
   *
+  *   - [[InvalidMaxPlies]]: `maxPlies` argument is less than 1. This is a pure caller error caught
+  *     at the application boundary before any I/O.
   *   - [[NotConfigured]]: no AI service is wired into this deployment. The operation cannot be
   *     attempted at all.
   *   - [[NotAITurn]]: the current player's side is not AI-controlled. The AI turn guard rejected
@@ -33,6 +36,9 @@ import chess.application.session.service.{SessionError, SessionMoveError}
   * `StorageFailure(msg)`) so that callers do not depend on the internal error hierarchy.
   */
 enum AITurnError:
+  /** `maxPlies` argument is < 1; the caller supplied an invalid bound. */
+  case InvalidMaxPlies(value: Int)
+
   /** No AI service is wired into this deployment;
     * [[chess.application.GameServiceApi.triggerAIMove]] is not available.
     */

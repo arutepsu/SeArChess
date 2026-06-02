@@ -2,7 +2,7 @@ package chess.adapter.repository.slick
 
 import chess.application.port.repository.RepositoryError
 import chess.application.session.model.SessionIds.{GameId, SessionId}
-import chess.application.session.model.{GameSession, SessionLifecycle, SessionMode, SideController}
+import chess.application.session.model.{ExternalPlatform, GameSession, SessionLifecycle, SessionMode, SideController}
 
 import java.sql.Timestamp
 
@@ -45,9 +45,11 @@ object SlickSessionMapper:
 
   private def modeString(mode: SessionMode): String =
     mode match
-      case SessionMode.HumanVsHuman => "HumanVsHuman"
-      case SessionMode.HumanVsAI    => "HumanVsAI"
-      case SessionMode.AIVsAI       => "AIVsAI"
+      case SessionMode.HumanVsHuman       => "HumanVsHuman"
+      case SessionMode.HumanVsAI          => "HumanVsAI"
+      case SessionMode.AIVsAI             => "AIVsAI"
+      case SessionMode.AiVsExternal       => "AiVsExternal"
+      case SessionMode.ExternalVsExternal => "ExternalVsExternal"
 
   private def lifecycleString(lifecycle: SessionLifecycle): String =
     lifecycle match
@@ -59,16 +61,19 @@ object SlickSessionMapper:
 
   private def controllerColumns(controller: SideController): (String, Option[String]) =
     controller match
-      case SideController.HumanLocal  => ("HumanLocal", None)
-      case SideController.HumanRemote => ("HumanRemote", None)
-      case SideController.AI(engineId) => ("AI", engineId)
+      case SideController.HumanLocal                   => ("HumanLocal", None)
+      case SideController.HumanRemote                  => ("HumanRemote", None)
+      case SideController.AI(engineId)                 => ("AI", engineId)
+      case SideController.External(platform, actorId)  => (s"External:${platform}", Some(actorId))
 
   private def parseMode(value: String): Either[RepositoryError, SessionMode] =
     value match
-      case "HumanVsHuman" => Right(SessionMode.HumanVsHuman)
-      case "HumanVsAI"    => Right(SessionMode.HumanVsAI)
-      case "AIVsAI"       => Right(SessionMode.AIVsAI)
-      case other          => storageFailure(s"Unknown session mode in DB: $other")
+      case "HumanVsHuman"       => Right(SessionMode.HumanVsHuman)
+      case "HumanVsAI"          => Right(SessionMode.HumanVsAI)
+      case "AIVsAI"             => Right(SessionMode.AIVsAI)
+      case "AiVsExternal"       => Right(SessionMode.AiVsExternal)
+      case "ExternalVsExternal" => Right(SessionMode.ExternalVsExternal)
+      case other                => storageFailure(s"Unknown session mode in DB: $other")
 
   private def parseLifecycle(value: String): Either[RepositoryError, SessionLifecycle] =
     value match
@@ -87,6 +92,15 @@ object SlickSessionMapper:
       case "HumanLocal" if engineId.isEmpty  => Right(SideController.HumanLocal)
       case "HumanRemote" if engineId.isEmpty => Right(SideController.HumanRemote)
       case "AI"                              => Right(SideController.AI(engineId))
+      case k if k.startsWith("External:") =>
+        val platformStr = k.stripPrefix("External:")
+        engineId match
+          case None =>
+            storageFailure(s"External controller '$k' is missing actorId (engine_id column)")
+          case Some(actorId) =>
+            ExternalPlatform.values.find(_.toString == platformStr) match
+              case Some(platform) => Right(SideController.External(platform, actorId))
+              case None           => storageFailure(s"Unknown external platform in DB: $platformStr")
       case "HumanLocal" | "HumanRemote" =>
         storageFailure(s"Human controller $kind cannot have an AI engine id")
       case other =>

@@ -22,6 +22,17 @@ class PostgresFlywaySchemaInitializerTestcontainerSpec
     if !postgres.isDockerAvailable then
       cancel("Docker/Testcontainers unavailable; skipping PostgreSQL container integration tests")
     postgres.start()
+    // Drop managed public tables before each test so state from a prior test cannot
+    // contaminate subsequent ones (e.g. flyway_schema_history left by a previous run).
+    postgres.withDatabase { db =>
+      Await.result(
+        db.run(
+          // Drop external_game_bindings first (it FK-references sessions and game_states).
+          sqlu"drop table if exists flyway_schema_history, external_game_bindings, game_states, sessions, legacy_public_table cascade"
+        ),
+        10.seconds
+      )
+    }
     super.withFixture(test)
 
   override protected def afterAll(): Unit =
@@ -48,6 +59,7 @@ class PostgresFlywaySchemaInitializerTestcontainerSpec
       tables should contain("flyway_schema_history")
       tables should contain("sessions")
       tables should contain("game_states")
+      tables should contain("external_game_bindings")
     }
   }
 
@@ -97,6 +109,7 @@ class PostgresFlywaySchemaInitializerTestcontainerSpec
       gameTables should contain("flyway_schema_history")
       gameTables should contain("sessions")
       gameTables should contain("game_states")
+      gameTables should contain("external_game_bindings")
       publicTables should contain("legacy_public_table")
       publicTables should not contain "flyway_schema_history"
     }

@@ -1,7 +1,7 @@
 package chess.history
 
 import chess.application.query.game.GameClosure
-import chess.application.session.model.{SessionMode, SideController}
+import chess.application.session.model.{ExternalPlatform, SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import chess.domain.model.{Color, DrawReason}
 import java.time.Instant
@@ -60,10 +60,11 @@ object ArchiveRecordJson:
   private def controllerString(controller: chess.application.session.model.SideController): String =
     import chess.application.session.model.SideController.*
     controller match
-      case HumanLocal       => "HumanLocal"
-      case HumanRemote      => "HumanRemote"
-      case AI(Some(engine)) => s"AI:$engine"
-      case AI(None)         => "AI"
+      case HumanLocal                    => "HumanLocal"
+      case HumanRemote                   => "HumanRemote"
+      case AI(Some(engine))              => s"AI:$engine"
+      case AI(None)                      => "AI"
+      case External(platform, actorId)   => s"External:${platform}:${actorId}"
 
   private def parseClosure(json: ujson.Value): GameClosure =
     json("kind").str match
@@ -84,7 +85,14 @@ object ArchiveRecordJson:
       case "HumanRemote"            => SideController.HumanRemote
       case "AI"                     => SideController.AI(None)
       case v if v.startsWith("AI:") => SideController.AI(Some(v.stripPrefix("AI:")))
-      case other                    => throw IllegalArgumentException(s"unknown controller: $other")
+      case v if v.startsWith("External:") =>
+        v.split(":", 3) match
+          case Array(_, platformStr, actorId) =>
+            ExternalPlatform.values.find(_.toString == platformStr) match
+              case Some(platform) => SideController.External(platform, actorId)
+              case None           => throw IllegalArgumentException(s"unknown external platform: $platformStr")
+          case _ => throw IllegalArgumentException(s"malformed External controller: $v")
+      case other => throw IllegalArgumentException(s"unknown controller: $other")
 
   private def parseColor(value: String): Color =
     Color.values

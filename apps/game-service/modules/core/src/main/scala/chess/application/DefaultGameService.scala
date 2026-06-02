@@ -1,6 +1,6 @@
 package chess.application
 
-import chess.application.ai.service.{AITurnError, AITurnService}
+import chess.application.ai.service.{AITurnError, AITurnRunResult, AITurnService}
 import chess.application.event.AppEvent
 import chess.application.port.event.EventPublisher
 import chess.application.port.repository.{GameRepository, RepositoryError, SessionGameStore}
@@ -182,6 +182,26 @@ class DefaultGameService(
           state <- gameRepository.load(gameId).left.map(AITurnError.GameStateLookupFailed(_))
           result <- ai.requestAIMove(session, state, now)
         yield result
+
+  def runAiTurnsByGameId(
+      gameId: GameId,
+      maxPlies: Int
+  ): Either[AITurnError, AITurnRunResult] =
+    if maxPlies < 1 then Left(AITurnError.InvalidMaxPlies(maxPlies))
+    else
+      aiService match
+        case None => Left(AITurnError.NotConfigured)
+        case Some(ai) =>
+          for
+            session <- sessionLifecycleService
+              .getSessionByGameId(gameId)
+              .left
+              .map(AITurnError.SessionLookupFailed(_))
+            state <- gameRepository
+              .load(gameId)
+              .left
+              .map(AITurnError.GameStateLookupFailed(_))
+          yield ai.runTurns(session, state, maxPlies)
 
   // ── Queries ─────────────────────────────────────────────────────────────────
 

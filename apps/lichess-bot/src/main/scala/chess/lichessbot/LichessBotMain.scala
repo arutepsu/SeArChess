@@ -1,27 +1,16 @@
 package chess.lichessbot
 
-import sttp.client3._
+import sttp.client3.*
 import ujson.Value
-import scala.concurrent.{Future, ExecutionContext}
-import scala.concurrent.duration._
-import java.io.{BufferedReader, InputStreamReader, InputStream}
+
+import java.io.{BufferedReader, InputStreamReader}
 import java.net.URI
 import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.util.concurrent.ConcurrentHashMap
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
-import chess.domain.model.{Color, GameStatus, Move, Piece, PieceType, Position}
-import chess.domain.rules.GameStateRules
-import chess.domain.state.GameStateFactory
 
-/** Lichess Bot client to connect to the Lichess API using sttp (for requests) and Java HttpClient
-  * (for ND-JSON streaming) along with ujson for parsing.
-  *
-  * Designed in a functional style with tail-recursive streaming to respect strict WartRemover
-  * settings.
-  *
-  * @param token
-  *   The Lichess API Token.
-  */
+/** Latest Lichess state cached only for Web UI fan-out. */
 case class GameStateCache(
     moves: String,
     isWhite: Boolean,
@@ -30,45 +19,32 @@ case class GameStateCache(
     lastUpdated: Long
 )
 
-class LichessBot(val token: String)(implicit ec: ExecutionContext) {
+/** Lichess Bot client.
+  *
+  * Game authority lives in Game Service. This bot only streams Lichess events, forwards cumulative
+  * UCI move history to `/external-games`, and submits the `uciMove` returned by Game Service.
+  */
+class LichessBot(
+    val token: String,
+    gameServiceClient: Option[GameServiceClient] =
+      GameServiceClientConfig.fromEnv().map(GameServiceClient(_))
+)(implicit ec: ExecutionContext):
+
   private val backend = HttpClientSyncBackend()
   private val httpClient = HttpClient.newHttpClient()
 
-  // Cache to store the number of moves processed for each game to prevent double moves
-  private val lastMovesCountMap = new ConcurrentHashMap[String, java.lang.Integer]()
-
-  // Cache to store the latest state of active games to feed newly connected Web UI clients
+  // Cache to store latest visible state for Web UI clients. Not used for game authority.
   private val activeGames = new ConcurrentHashMap[String, GameStateCache]()
 
-  // Cache to track if the bot has already greeted the opponent at game start
+  // UX-only chat guards.
   private val greetedGames = new ConcurrentHashMap[String, java.lang.Boolean]()
-
-  // Cache to track if the bot has already sent the end game message
   private val finishedGames = new ConcurrentHashMap[String, java.lang.Boolean]()
 
-  /** Sends a chat message to the game chat room.
-    */
-  private def sendChatMessage(gameId: String, message: String): Unit = {
-    val request = basicRequest
-      .post(uri"https://lichess.org/api/bot/game/$gameId/chat")
-      .header("Authorization", s"Bearer $token")
-      .body(Map("room" -> "player", "text" -> message))
-
-    val response = request.send(backend)
-    val _ = response.body match {
-      case Right(_) =>
-        println(s"[LichessBot] [Game $gameId] Chat message sent: '$message'")
-      case Left(err) =>
-        println(s"[LichessBot] [Game $gameId] Failed to send chat message '$message': $err")
-    }
-  }
-
-  // WebSocket Server on port 9323. Sends initial state of active games to new clients.
   private val wsServer = new LichessBotWebSocketServer(
     9323,
     conn => {
       activeGames.forEach { (gameId, cache) =>
-        val botColor = if (cache.isWhite) "white" else "black"
+        val botColor = if cache.isWhite then "white" else "black"
         val json = ujson.Obj(
           "gameId" -> gameId,
           "moves" -> cache.moves,
@@ -77,49 +53,45 @@ class LichessBot(val token: String)(implicit ec: ExecutionContext) {
           "btime" -> cache.btime.map(ujson.Num(_)).getOrElse(ujson.Null),
           "lastUpdated" -> cache.lastUpdated
         )
-        try {
-          conn.send(ujson.write(json))
-        } catch {
+        try conn.send(ujson.write(json))
+        catch
           case e: Exception =>
             println(s"[LichessBot] Failed to send initial state to client: ${e.getMessage}")
-        }
       }
     }
   )
 
-  def start(): Unit = {
+  def start(): Unit =
     println("[LichessBot] Loading account details...")
     val botId = fetchBotId()
     println(s"[LichessBot] Successfully logged in as bot ID: $botId")
+    gameServiceClient match
+      case Some(client) =>
+        println(
+          s"[LichessBot] Game Service external-game integration enabled: baseUrl=${client.config.baseUrl}, platform=${client.config.platform}, actorId=${client.config.actorId}"
+        )
+      case None =>
+        println(
+          "[LichessBot] Game Service external-game integration disabled: EXTERNAL_GAME_BOT_API_KEY is not configured. The bot will not make moves."
+        )
 
     println("[LichessBot] Starting WebSocket Server on port 9323...")
     wsServer.start()
 
     println("[LichessBot] Starting event stream listening...")
     connectToEventStream(botId)
-  }
 
-  /** Fetches the profile account data of the bot to dynamically determine its username/id.
-    */
-  private def fetchBotId(): String = {
+  private def fetchBotId(): String =
     val request = basicRequest
       .get(uri"https://lichess.org/api/account")
       .header("Authorization", s"Bearer $token")
 
     val response = request.send(backend)
-    response.body match {
-      case Right(bodyStr) =>
-        val json = ujson.read(bodyStr)
-        json("id").str.toLowerCase
-      case Left(error) =>
-        // We print the error and terminate or throw. Throwing is acceptable as configuration guard.
-        throw new RuntimeException(s"Failed to fetch Lichess account info: $error")
-    }
-  }
+    response.body match
+      case Right(bodyStr) => ujson.read(bodyStr)("id").str.toLowerCase
+      case Left(error)    => throw RuntimeException(s"Failed to fetch Lichess account info: $error")
 
-  /** Starts a persistent connection to the Lichess Event Stream.
-    */
-  private def connectToEventStream(botId: String): Unit = {
+  private def connectToEventStream(botId: String): Unit =
     val request = HttpRequest
       .newBuilder()
       .uri(URI.create("https://lichess.org/api/stream/event"))
@@ -127,62 +99,45 @@ class LichessBot(val token: String)(implicit ec: ExecutionContext) {
       .GET()
       .build()
 
-    try {
+    try
       val response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream())
-      if (response.statusCode() == 200) {
-        val reader = new BufferedReader(new InputStreamReader(response.body(), "UTF-8"))
-        try {
-          readEventLines(reader, botId)
-        } finally {
+      if response.statusCode() == 200 then
+        val reader = BufferedReader(InputStreamReader(response.body(), "UTF-8"))
+        try readEventLines(reader, botId)
+        finally
           reader.close()
           response.body().close()
-        }
-      } else {
+      else
         println(
           s"[LichessBot] Event Stream returned status ${response.statusCode()}. Reconnecting in 5 seconds..."
         )
         Thread.sleep(5000)
         connectToEventStream(botId)
-      }
-    } catch {
+    catch
       case NonFatal(e) =>
         println(
           s"[LichessBot] Event Stream disconnected: ${e.getMessage}. Reconnecting in 5 seconds..."
         )
         Thread.sleep(5000)
         connectToEventStream(botId)
-    }
-  }
 
-  /** Tail-recursively reads and processes incoming event lines to avoid mutable var and return
-    * statements.
-    */
   @scala.annotation.tailrec
-  private def readEventLines(reader: BufferedReader, botId: String): Unit = {
+  private def readEventLines(reader: BufferedReader, botId: String): Unit =
     val line = reader.readLine()
-    if (line != null) {
+    if line != null then
       val trimmed = line.trim
-      // Keep-Alive Skip: Lichess streams send newlines (\n) to keep connection alive.
-      // Parsing empty strings with ujson will crash, so we explicitly ignore empty lines.
-      if (trimmed.nonEmpty) {
-        try {
-          handleEvent(trimmed, botId)
-        } catch {
+      if trimmed.nonEmpty then
+        try handleEvent(trimmed, botId)
+        catch
           case NonFatal(e) =>
             println(
               s"[LichessBot] [Event Error] Error handling event: $trimmed, error: ${e.getMessage}"
             )
-        }
-      }
       readEventLines(reader, botId)
-    }
-  }
 
-  /** Dispatches incoming event lines.
-    */
-  private def handleEvent(line: String, botId: String): Unit = {
+  private def handleEvent(line: String, botId: String): Unit =
     val json = ujson.read(line)
-    json("type").str match {
+    json("type").str match
       case "challenge" =>
         val challengeId = json("challenge")("id").str
         val challenger = json("challenge")("challenger")("id").str
@@ -193,41 +148,28 @@ class LichessBot(val token: String)(implicit ec: ExecutionContext) {
         val gameId = json("game")("id").str
         println(s"[LichessBot] Game started: $gameId. Starting game stream...")
         val _ = Future {
-          try {
-            connectToGameStream(gameId, botId)
-          } catch {
+          try connectToGameStream(gameId, botId)
+          catch
             case NonFatal(e) =>
               println(
                 s"[LichessBot] [Game Stream Error] Game $gameId stream finished with error: ${e.getMessage}"
               )
-          }
         }
 
       case other =>
-        // Ignore other events like challengeCanceled, challengeDeclined, etc.
         println(s"[LichessBot] Ignored event type: $other")
-    }
-  }
 
-  /** Accepts a challenge.
-    */
-  private def acceptChallenge(challengeId: String): Unit = {
+  private def acceptChallenge(challengeId: String): Unit =
     val request = basicRequest
       .post(uri"https://lichess.org/api/challenge/$challengeId/accept")
       .header("Authorization", s"Bearer $token")
 
     val response = request.send(backend)
-    val _ = response.body match {
-      case Right(_) =>
-        println(s"[LichessBot] Successfully accepted challenge $challengeId")
-      case Left(err) =>
-        println(s"[LichessBot] Failed to accept challenge $challengeId: $err")
-    }
-  }
+    val _ = response.body match
+      case Right(_)  => println(s"[LichessBot] Successfully accepted challenge $challengeId")
+      case Left(err) => println(s"[LichessBot] Failed to accept challenge $challengeId: $err")
 
-  /** Connects to a specific game's stream and processes move updates.
-    */
-  private def connectToGameStream(gameId: String, botId: String): Unit = {
+  private def connectToGameStream(gameId: String, botId: String): Unit =
     val request = HttpRequest
       .newBuilder()
       .uri(URI.create(s"https://lichess.org/api/bot/game/stream/$gameId"))
@@ -235,263 +177,204 @@ class LichessBot(val token: String)(implicit ec: ExecutionContext) {
       .GET()
       .build()
 
-    try {
+    try
       val response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream())
-      if (response.statusCode() == 200) {
-        val reader = new BufferedReader(new InputStreamReader(response.body(), "UTF-8"))
-        try {
-          readGameLines(reader, gameId, botId, isWhite = false)
-        } finally {
+      if response.statusCode() == 200 then
+        val reader = BufferedReader(InputStreamReader(response.body(), "UTF-8"))
+        try readGameLines(reader, gameId, botId, isWhite = false)
+        finally
           reader.close()
           response.body().close()
-          val _ = lastMovesCountMap.remove(gameId)
           val _ = activeGames.remove(gameId)
           println(s"[LichessBot] [Game $gameId] Stream closed.")
-        }
-      } else {
+      else
         println(s"[LichessBot] [Game $gameId] Game Stream returned status ${response.statusCode()}")
-      }
-    } catch {
+    catch
       case NonFatal(e) =>
         println(s"[LichessBot] [Game $gameId] Failed to connect to game stream: ${e.getMessage}")
-    }
-  }
 
-  /** Tail-recursively reads and processes game updates to avoid mutable var and return statements.
-    */
   @scala.annotation.tailrec
   private def readGameLines(
       reader: BufferedReader,
       gameId: String,
       botId: String,
       isWhite: Boolean
-  ): Unit = {
+  ): Unit =
     val line = reader.readLine()
-    if (line != null) {
+    if line != null then
       val trimmed = line.trim
-      // Keep-Alive Skip: Lichess streams send newlines (\n) to keep connection alive.
-      val nextIsWhite = if (trimmed.nonEmpty) {
-        try {
-          val json = ujson.read(trimmed)
-          json("type").str match {
-            case "gameFull" =>
-              val determinedColor = json("white")("id").str.toLowerCase == botId
-              val moves = json("state")("moves").str
-              val status = json("state")("status").str
-              val stateJson = json("state")
-              val wtimeOpt = stateJson.obj.get("wtime").flatMap {
-                case ujson.Num(num) => Some(num.toLong)
-                case _              => None
-              }
-              val btimeOpt = stateJson.obj.get("btime").flatMap {
-                case ujson.Num(num) => Some(num.toLong)
-                case _              => None
-              }
-              println(s"[LichessBot] [Game $gameId] Initialized. Bot Color: ${
-                  if (determinedColor) "White" else "Black"
-                }. Status: $status")
-              processTurn(gameId, moves, determinedColor, status)
-              broadcastGameState(gameId, moves, determinedColor, wtimeOpt, btimeOpt)
-
-              if (status != "started" && status != "created") {
-                if (!finishedGames.containsKey(gameId)) {
-                  finishedGames.put(gameId, true)
-                  sendChatMessage(gameId, "Gut gespielt!")
-                  greetedGames.remove(gameId)
-                }
-              }
-              determinedColor
-
-            case "gameState" =>
-              val moves = json("moves").str
-              val status = json("status").str
-              val wtimeOpt = json.obj.get("wtime").flatMap {
-                case ujson.Num(num) => Some(num.toLong)
-                case _              => None
-              }
-              val btimeOpt = json.obj.get("btime").flatMap {
-                case ujson.Num(num) => Some(num.toLong)
-                case _              => None
-              }
-              processTurn(gameId, moves, isWhite, status)
-              broadcastGameState(gameId, moves, isWhite, wtimeOpt, btimeOpt)
-
-              if (status != "started" && status != "created") {
-                if (!finishedGames.containsKey(gameId)) {
-                  finishedGames.put(gameId, true)
-                  sendChatMessage(gameId, "Gut gespielt!")
-                  greetedGames.remove(gameId)
-                }
-              }
-              isWhite
-
-            case _ => // Ignore other events like chatLine
-              isWhite
-          }
-        } catch {
-          case NonFatal(e) =>
-            println(
-              s"[LichessBot] [Game $gameId] Error parsing game stream line: $trimmed, error: ${e.getMessage}"
-            )
-            isWhite
-        }
-      } else {
-        isWhite
-      }
-      readGameLines(reader, gameId, botId, nextIsWhite)
-    }
-  }
-
-  /** Checks if the game is active, calculates whose turn it is, and makes a move if it is the Bot's
-    * turn.
-    */
-  private def processTurn(gameId: String, moves: String, isWhite: Boolean, status: String): Unit = {
-    if (status == "started") {
-      val movesList = moves.trim.split(" ").filter(_.nonEmpty)
-      val movesCount = movesList.length
-
-      // If we are White, we play on even move counts (0, 2, 4...). If we are Black, we play on odd move counts (1, 3, 5...).
-      val isOurTurn = (isWhite && movesCount % 2 == 0) || (!isWhite && movesCount % 2 == 1)
-
-      if (isOurTurn) {
-        val prevCountOpt = Option(lastMovesCountMap.get(gameId))
-        // Double-Move Protection: Only calculate and submit if we haven't already processed this move count
-        // Used fold to avoid Option.get and respect WartRemover rules.
-        val isNewMove = prevCountOpt.fold(true)(prevCount => movesCount > prevCount.intValue())
-        if (isNewMove) {
-          val _ = lastMovesCountMap.put(gameId, movesCount)
-          println(
-            s"[LichessBot] [Game $gameId] Bot turn detected! (Move count: $movesCount). Calculating move..."
-          )
-
-          // 1. Send greeting if start of the game
-          if (movesCount <= 1 && !greetedGames.containsKey(gameId)) {
-            greetedGames.put(gameId, true)
-            sendChatMessage(gameId, "Hallo und viel Glück!")
-          }
-
-          // 2. Perform game position analysis on opponent's move
-          val currentState = replayMoves(moves)
-
-          // Check if opponent put us in check
-          currentState.status match {
-            case GameStatus.Ongoing(true) =>
-              sendChatMessage(gameId, "Oh, Schach! Ein interessanter Angriff.")
-            case _ =>
-          }
-
-          // Detect blunders (opponent hangs a piece)
-          val opponentLastMoveOpt = currentState.moveHistory.lastOption
-          opponentLastMoveOpt.foreach { oppMove =>
-            val legalMoves = GameStateRules.legalMoves(currentState)
-            val captureMoves = legalMoves.filter(m => currentState.board.pieceAt(m.to).isDefined)
-            val freeCaptures = captureMoves.filter { m =>
-              GameStateRules.applyMove(currentState, m) match {
-                case Right(nextState) =>
-                  val opponentMoves = GameStateRules.legalMoves(nextState)
-                  val canRecapture = opponentMoves.exists(_.to == m.to)
-                  !canRecapture
-                case Left(_) => false
-              }
-            }
-
-            val blunderedPieceOpt = freeCaptures
-              .flatMap { m =>
-                currentState.board.pieceAt(m.to).map(p => (m, p))
-              }
-              .find { case (m, p) =>
-                val movedUnsafe = m.to == oppMove.to
-                val isHighValue = p.pieceType != PieceType.Pawn
-                movedUnsafe || isHighValue
-              }
-
-            blunderedPieceOpt match {
-              case Some((_, Piece(_, PieceType.Queen))) =>
-                sendChatMessage(gameId, "Hoppla, deine Dame steht im Visier!")
-              case Some((_, Piece(_, PieceType.Rook))) =>
-                sendChatMessage(gameId, "Oh, da hast du deinen Turm ungeschützt gelassen.")
-              case Some((_, Piece(_, PieceType.Bishop))) =>
-                sendChatMessage(gameId, "Achtung, dein Läufer ist in Gefahr!")
-              case Some((_, Piece(_, PieceType.Knight))) =>
-                sendChatMessage(gameId, "Dein Springer steht etwas unglücklich, oder?")
-              case Some((_, Piece(_, PieceType.Pawn))) =>
-                sendChatMessage(gameId, "Ups, ein freier Bauer!")
-              case _ =>
-            }
-          }
-
-          try {
-            val nextMove = calculateNextMove(moves)
-            println(s"[LichessBot] [Game $gameId] Calculated move: '$nextMove'. Submitting...")
-            submitMove(gameId, nextMove)
-
-            // 3. Check if we checked the opponent with our move
-            val parsedMove = parseUciMove(nextMove)
-            val _ = GameStateRules.applyMove(currentState, parsedMove) match {
-              case Right(nextState) =>
-                nextState.status match {
-                  case GameStatus.Ongoing(true) =>
-                    sendChatMessage(gameId, "Schach!")
-                  case _ =>
-                }
-              case Left(_) =>
-            }
-
-            // Broadcast bot's move immediately to the Web UI
-            val newMoves = if (moves.trim.isEmpty) nextMove else s"${moves.trim} $nextMove"
-            val currentCacheOpt = Option(activeGames.get(gameId))
-            val (wtime, btime) =
-              currentCacheOpt.map(c => (c.wtime, c.btime)).getOrElse((None, None))
-            broadcastGameState(gameId, newMoves, isWhite, wtime, btime)
-          } catch {
+      val nextIsWhite =
+        if trimmed.nonEmpty then
+          try handleGameLine(gameId, botId, isWhite, ujson.read(trimmed))
+          catch
             case NonFatal(e) =>
               println(
-                s"[LichessBot] [Game $gameId] Failed to calculate or submit move: ${e.getMessage}"
+                s"[LichessBot] [Game $gameId] Error parsing game stream line: $trimmed, error: ${e.getMessage}"
               )
-          }
-        } else {
+              isWhite
+        else isWhite
+      readGameLines(reader, gameId, botId, nextIsWhite)
+
+  private def handleGameLine(
+      gameId: String,
+      botId: String,
+      isWhite: Boolean,
+      json: Value
+  ): Boolean =
+    json("type").str match
+      case "gameFull" =>
+        val determinedColor = json("white")("id").str.toLowerCase == botId
+        val stateJson = json("state")
+        val moves = cumulativeMoves(stateJson)
+        val status = statusValue(stateJson)
+        val opponentId = opponentActorId(json, botId, determinedColor)
+        val (wtimeOpt, btimeOpt) = clockTimes(stateJson)
+        println(
+          s"[LichessBot] [Game $gameId] Initialized. Bot Color: ${if determinedColor then "White" else "Black"}. Status: $status"
+        )
+        val started = startExternalGame(gameId, determinedColor, opponentId)
+        if started then
+          processExternalGameState(gameId, moves, determinedColor, status, source = "gameFull")
+        broadcastGameState(gameId, moves, determinedColor, wtimeOpt, btimeOpt)
+        handleTerminalUx(gameId, status)
+        determinedColor
+
+      case "gameState" =>
+        val moves = cumulativeMoves(json)
+        val status = statusValue(json)
+        val (wtimeOpt, btimeOpt) = clockTimes(json)
+        processExternalGameState(gameId, moves, isWhite, status, source = "gameState")
+        broadcastGameState(gameId, moves, isWhite, wtimeOpt, btimeOpt)
+        handleTerminalUx(gameId, status)
+        isWhite
+
+      case _ =>
+        isWhite
+
+  private def processExternalGameState(
+      gameId: String,
+      moves: String,
+      isWhite: Boolean,
+      status: String,
+      source: String
+  ): Unit =
+    if status == "started" then
+      gameServiceClient match
+        case Some(client) =>
+          client.ingestMoves(client.config.platform, gameId, moves) match
+            case Right(result) =>
+              println(
+                s"[LichessBot] [Game $gameId] Game Service ingested $source moves='${moves.trim}', lastProcessedPly=${result.lastProcessedPly}, nextAction=${result.nextAction}"
+              )
+              maybeSendGreeting(gameId, moves)
+              result.nextAction match
+                case NextAction.AwaitExternalMove =>
+                  println(s"[LichessBot] [Game $gameId] Awaiting next external move.")
+                case NextAction.TriggerAI =>
+                  requestAndSubmitAiMove(client, gameId, moves, isWhite)
+                case NextAction.GameFinished =>
+                  finishExternalGame(gameId, "Game Service reported terminal state")
+            case Left(error) =>
+              logGameServiceError(gameId, "move ingestion", error)
+        case None =>
           println(
-            s"[LichessBot] [Game $gameId] Skip move calculation (Move count $movesCount already processed to prevent double moves)."
+            s"[LichessBot] [Game $gameId] Game Service client is not configured. Refusing to move to avoid split-brain state."
           )
-        }
-      }
-    } else {
+    else if isTerminalStatus(status) then finishExternalGame(gameId, status)
+    else
       println(
         s"[LichessBot] [Game $gameId] Game is not active (Status: $status). Skipping turn processing."
       )
-    }
-  }
 
-  /** Submits the calculated move to the Lichess API.
-    */
-  private def submitMove(gameId: String, move: String): Unit = {
+  private def startExternalGame(gameId: String, isWhite: Boolean, opponentActorId: String): Boolean =
+    gameServiceClient match
+      case Some(client) =>
+        val color = if isWhite then "White" else "Black"
+        client.startExternalGame(gameId, color, opponentActorId) match
+          case Right(binding) =>
+            println(
+              s"[LichessBot] [Game $gameId] External game binding ready: ${binding.platform}/${binding.externalGameId}, status=${binding.status}"
+            )
+            true
+          case Left(error) =>
+            logGameServiceError(gameId, "external game start", error)
+            false
+      case None =>
+        println(
+          s"[LichessBot] [Game $gameId] Cannot start external game binding: Game Service client is not configured."
+        )
+        false
+
+  private def requestAndSubmitAiMove(
+      client: GameServiceClient,
+      gameId: String,
+      moves: String,
+      isWhite: Boolean
+  ): Unit =
+    client.requestAiMove(client.config.platform, gameId) match
+      case Right(aiMove) if aiMove.uciMove.trim.nonEmpty =>
+        println(
+          s"[LichessBot] [Game $gameId] Game Service selected move '${aiMove.uciMove}'. Submitting to Lichess..."
+        )
+        submitMove(gameId, aiMove.uciMove)
+        val newMoves = if moves.trim.isEmpty then aiMove.uciMove else s"${moves.trim} ${aiMove.uciMove}"
+        val currentCacheOpt = Option(activeGames.get(gameId))
+        val (wtime, btime) =
+          currentCacheOpt.map(c => (c.wtime, c.btime)).getOrElse((None, None))
+        broadcastGameState(gameId, newMoves, isWhite, wtime, btime)
+      case Right(_) =>
+        println(s"[LichessBot] [Game $gameId] Game Service ai-move returned an empty move. Refusing to move.")
+      case Left(error) =>
+        logGameServiceError(gameId, "AI move request", error)
+
+  private def finishExternalGame(gameId: String, reason: String): Unit =
+    gameServiceClient.foreach { client =>
+      client.finishExternalGame(client.config.platform, gameId, Some(reason)) match
+        case Right(binding) =>
+          println(s"[LichessBot] [Game $gameId] External game marked finished in Game Service: ${binding.status}")
+        case Left(GameServiceClientError.Rejected(409, _)) =>
+          println(s"[LichessBot] [Game $gameId] External game was already inactive in Game Service.")
+        case Left(error) =>
+          logGameServiceError(gameId, "external game finish", error)
+    }
+
+  private def submitMove(gameId: String, move: String): Unit =
     val request = basicRequest
       .post(uri"https://lichess.org/api/bot/game/$gameId/move/$move")
       .header("Authorization", s"Bearer $token")
 
     val response = request.send(backend)
-    val _ = response.body match {
+    val _ = response.body match
       case Right(_) =>
         println(s"[LichessBot] [Game $gameId] Move $move successfully submitted")
       case Left(err) =>
         println(s"[LichessBot] [Game $gameId] Failed to submit move $move: $err")
-    }
-  }
 
-  /** Broadcasts the current game state to all connected WebSocket clients.
-    */
+  private def sendChatMessage(gameId: String, message: String): Unit =
+    val request = basicRequest
+      .post(uri"https://lichess.org/api/bot/game/$gameId/chat")
+      .header("Authorization", s"Bearer $token")
+      .body(Map("room" -> "player", "text" -> message))
+
+    val response = request.send(backend)
+    val _ = response.body match
+      case Right(_) =>
+        println(s"[LichessBot] [Game $gameId] Chat message sent: '$message'")
+      case Left(err) =>
+        println(s"[LichessBot] [Game $gameId] Failed to send chat message '$message': $err")
+
   private def broadcastGameState(
       gameId: String,
       moves: String,
       isWhite: Boolean,
       wtime: Option[Long],
       btime: Option[Long]
-  ): Unit = {
+  ): Unit =
     val timestamp = System.currentTimeMillis()
     val cache = GameStateCache(moves, isWhite, wtime, btime, timestamp)
     activeGames.put(gameId, cache)
 
-    val botColor = if (isWhite) "white" else "black"
+    val botColor = if isWhite then "white" else "black"
     val json = ujson.Obj(
       "gameId" -> gameId,
       "moves" -> moves,
@@ -501,100 +384,80 @@ class LichessBot(val token: String)(implicit ec: ExecutionContext) {
       "lastUpdated" -> timestamp
     )
     wsServer.broadcast(ujson.write(json))
-  }
 
-  /** Schnittstelle zur Schachlogik des Benutzers.
-    *
-    * @param moves
-    *   Eine Leerzeichen-separierte Liste aller bisherigen Züge, z.B. "e2e4 e7e5"
-    * @return
-    *   Der berechnete nächste Zug in UCI-Notation (z.B. "g1f3")
-    */
-  def calculateNextMove(moves: String): String = {
-    println(s"[LichessBot] calculateNextMove received moves history: '$moves'")
+  private def maybeSendGreeting(gameId: String, moves: String): Unit =
+    val movesCount = moves.trim.split(" ").filter(_.nonEmpty).length
+    if movesCount <= 1 && !greetedGames.containsKey(gameId) then
+      greetedGames.put(gameId, true)
+      sendChatMessage(gameId, "Hallo und viel Glueck!")
 
-    val currentState = replayMoves(moves)
-    val legalMoves = GameStateRules.legalMoves(currentState).toVector.sortBy(moveToUci)
+  private def handleTerminalUx(gameId: String, status: String): Unit =
+    if isTerminalStatus(status) && !finishedGames.containsKey(gameId) then
+      finishedGames.put(gameId, true)
+      sendChatMessage(gameId, "Gut gespielt!")
+      greetedGames.remove(gameId)
 
-    legalMoves.headOption match {
-      case Some(move) => moveToUci(move)
-      case None => throw new RuntimeException("No legal moves available for the current game state")
+  private def opponentActorId(gameFull: Value, botId: String, isWhite: Boolean): String =
+    val side = if isWhite then "black" else "white"
+    gameFull.obj.get(side).flatMap(_.obj.get("id")).map(_.str.toLowerCase).getOrElse(s"opponent-$botId")
+
+  private def clockTimes(json: Value): (Option[Long], Option[Long]) =
+    val wtime = json.obj.get("wtime").flatMap {
+      case ujson.Num(num) => Some(num.toLong)
+      case _              => None
     }
-  }
-
-  private def replayMoves(moves: String): chess.domain.state.GameState = {
-    moves
-      .split(" ")
-      .iterator
-      .map(_.trim)
-      .filter(_.nonEmpty)
-      .foldLeft(GameStateFactory.initial()) { (state, moveText) =>
-        val move = parseUciMove(moveText)
-        GameStateRules.applyMove(state, move) match {
-          case Right(nextState) => nextState
-          case Left(error) =>
-            throw new RuntimeException(s"Failed to replay move '$moveText': $error")
-        }
-      }
-  }
-
-  private def parseUciMove(moveText: String): Move = {
-    if (moveText.length < 4) {
-      throw new RuntimeException(s"Invalid UCI move: '$moveText'")
+    val btime = json.obj.get("btime").flatMap {
+      case ujson.Num(num) => Some(num.toLong)
+      case _              => None
     }
+    (wtime, btime)
 
-    val from = Position
-      .fromAlgebraic(moveText.substring(0, 2))
-      .fold(
-        error => throw new RuntimeException(s"Invalid UCI source square in '$moveText': $error"),
-        identity
-      )
-    val to = Position
-      .fromAlgebraic(moveText.substring(2, 4))
-      .fold(
-        error => throw new RuntimeException(s"Invalid UCI target square in '$moveText': $error"),
-        identity
-      )
-    val promotion =
-      if moveText.length == 5 then
-        moveText.charAt(4).toLower match
-          case 'q' => Some(PieceType.Queen)
-          case 'r' => Some(PieceType.Rook)
-          case 'b' => Some(PieceType.Bishop)
-          case 'n' => Some(PieceType.Knight)
-          case other =>
-            throw new RuntimeException(s"Invalid UCI promotion piece '$other' in '$moveText'")
-      else None
+  private def cumulativeMoves(json: Value): String =
+    json.obj.get("moves").flatMap(_.strOpt).getOrElse("")
 
-    Move(from, to, promotion)
-  }
+  private def statusValue(json: Value): String =
+    json.obj.get("status").flatMap(_.strOpt).getOrElse("started")
 
-  private def moveToUci(move: Move): String = {
-    val base = s"${move.from}${move.to}"
-    move.promotion match {
-      case Some(PieceType.Queen)                              => base + "q"
-      case Some(PieceType.Rook)                               => base + "r"
-      case Some(PieceType.Bishop)                             => base + "b"
-      case Some(PieceType.Knight)                             => base + "n"
-      case Some(PieceType.King) | Some(PieceType.Pawn) | None => base
-    }
-  }
-}
+  private def isTerminalStatus(status: String): Boolean =
+    status != "started" && status != "created"
 
-object LichessBotMain {
-  // Hinterlegen Sie hier Ihren Lichess-API-Token
-  val token = "YOUR_LICHESS"
+  private def logGameServiceError(
+      gameId: String,
+      operation: String,
+      error: GameServiceClientError
+  ): Unit =
+    error match
+      case GameServiceClientError.Auth(status, message) =>
+        println(
+          s"[LichessBot] [Game $gameId] Game Service auth/config error during $operation (HTTP $status): $message. Refusing to move."
+        )
+      case GameServiceClientError.Rejected(status, message) =>
+        println(
+          s"[LichessBot] [Game $gameId] Game Service rejected $operation (HTTP $status): $message. Refusing to move."
+        )
+      case GameServiceClientError.Unavailable(message) =>
+        println(
+          s"[LichessBot] [Game $gameId] Game Service unavailable during $operation: $message. Refusing local fallback to avoid split-brain state."
+        )
+      case GameServiceClientError.Unexpected(status, message) =>
+        println(
+          s"[LichessBot] [Game $gameId] Unexpected Game Service response during $operation (HTTP $status): $message. Refusing to move."
+        )
+      case GameServiceClientError.Decode(message) =>
+        println(
+          s"[LichessBot] [Game $gameId] Could not decode Game Service response during $operation: $message. Refusing to move."
+        )
 
-  def main(args: Array[String]): Unit = {
+object LichessBotMain:
+  private val DefaultToken = "YOUR_LICHESS"
+
+  def main(args: Array[String]): Unit =
     implicit val ec: ExecutionContext = ExecutionContext.global
-    val bot = new LichessBot(token)
+    val token = Option(System.getenv("LICHESS_BOT_TOKEN")).filter(_.nonEmpty).getOrElse(DefaultToken)
+    val bot = LichessBot(token)
 
-    try {
-      bot.start()
-    } catch {
+    try bot.start()
+    catch
       case NonFatal(e) =>
         println(s"[LichessBot] Critical error on startup: ${e.getMessage}")
         e.printStackTrace()
-    }
-  }
-}

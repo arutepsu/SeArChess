@@ -3,6 +3,7 @@ package chess.server.assembly
 import chess.application.DefaultGameService
 import chess.application.GameServiceApi
 import chess.application.event.AppEvent
+import chess.application.external.ExternalGameServiceApi
 import chess.application.port.event.{
   EventPublisher,
   NoOpTerminalEventJsonSerializer,
@@ -30,6 +31,7 @@ final case class AppContext(
     sessionGameStore: SessionGameStore,
     gameRepository: GameRepository,
     gameService: GameServiceApi,
+    externalGameService: Option[ExternalGameServiceApi] = None,
     shutdownPersistence: () => Unit = () => ()
 )
 
@@ -68,7 +70,8 @@ object CoreAssembly:
       persistence.store,
       persistence.gameRepository,
       gameService,
-      persistence.shutdown
+      externalGameService = None,
+      shutdownPersistence = persistence.shutdown
     )
 
   object SilentEventPublisher extends EventPublisher:

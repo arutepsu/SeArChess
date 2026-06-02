@@ -1,6 +1,8 @@
 package chess.adapter.repository.testcontainers
 
 import chess.adapter.repository.postgres.{
+  PostgresExternalGameBindingRepository,
+  PostgresExternalGameCommandStore,
   PostgresFlywaySchemaInitializer,
   PostgresGameRepository,
   PostgresSessionGameStore,
@@ -8,7 +10,13 @@ import chess.adapter.repository.postgres.{
   PostgresSessionRepository
 }
 import chess.application.migration.SessionMigrationReader
-import chess.application.port.repository.{GameRepository, SessionGameStore, SessionRepository}
+import chess.application.port.repository.{
+  ExternalGameBindingRepository,
+  ExternalGameCommandStore,
+  GameRepository,
+  SessionGameStore,
+  SessionRepository
+}
 import org.testcontainers.DockerClientFactory
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
@@ -52,6 +60,15 @@ final class PostgresTestcontainerFixture:
     try use(db)
     finally db.close()
 
+  def freshExternalGameParts(schema: Option[String] = None): ExternalGameParts =
+    resetWithFlyway(schema)
+    ExternalGameParts(
+      sessionRepository = PostgresSessionRepository(sharedDatabase, 10.seconds, schema),
+      gameRepository    = PostgresGameRepository(sharedDatabase, 10.seconds, schema),
+      bindingRepository = PostgresExternalGameBindingRepository(sharedDatabase, 10.seconds, schema),
+      commandStore      = PostgresExternalGameCommandStore(sharedDatabase, 10.seconds, schema)
+    )
+
   def freshStoreParts(schema: Option[String] = None): StoreParts =
     resetWithFlyway(schema)
     StoreParts(
@@ -79,8 +96,9 @@ final class PostgresTestcontainerFixture:
             case Some(value) =>
               sqlu"""drop schema if exists "#$value" cascade"""
             case None =>
+              // Drop external_game_bindings before sessions/game_states (FK order).
               sqlu"""
-                drop table if exists flyway_schema_history, game_states, sessions cascade
+                drop table if exists flyway_schema_history, external_game_bindings, game_states, sessions cascade
               """
         ),
         10.seconds
@@ -110,4 +128,11 @@ final case class StoreParts(
     sessionRepository: SessionRepository,
     gameRepository: GameRepository,
     store: SessionGameStore
+)
+
+final case class ExternalGameParts(
+    sessionRepository: SessionRepository,
+    gameRepository: GameRepository,
+    bindingRepository: ExternalGameBindingRepository,
+    commandStore: ExternalGameCommandStore
 )

@@ -9,7 +9,7 @@ import chess.adapter.repository.{
   InMemorySessionRepository
 }
 import chess.application.DefaultGameService
-import chess.application.ai.service.AITurnService
+import chess.application.ai.service.{AITurnError, AITurnService}
 import chess.application.event.AppEvent
 import chess.application.port.ai.{AIError, AiMoveSuggestionClient, AIResponse}
 import chess.application.port.event.EventPublisher
@@ -998,3 +998,238 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     resp.status shouldBe Status.NotFound
     bodyJson(resp)("code").str shouldBe "GAME_NOT_FOUND"
   }
+
+  // ── POST /games/{gameId}/ai-turns ─────────────────────────────────────────
+
+  "POST /games/{gameId}/ai-turns" should
+    "return 422 AI_NOT_CONFIGURED when no AI is wired" in {
+      val (gameRoutes, sessRoutes) = makeRoutes()
+      val gameId = createSession(sessRoutes)
+      val resp = run(
+        gameRoutes,
+        Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/ai-turns"))
+      )
+      resp.status shouldBe Status.UnprocessableEntity
+      bodyJson(resp)("code").str shouldBe "AI_NOT_CONFIGURED"
+    }
+
+  it should "stop immediately with AwaitingHuman and pliesRun=0 for a HumanVsHuman session" in {
+    val collector = new TestEventPublisher
+    val sessionRepo = InMemorySessionRepository()
+    val gameRepo    = InMemoryGameRepository()
+    val store       = InMemorySessionGameStore(sessionRepo, gameRepo)
+    val lifecycle   = SessionLifecycleService(sessionRepo, collector)
+    val svc         = SessionGameCommandService(lifecycle, store, collector)
+    val provider: AiMoveSuggestionClient = ctx =>
+      Right(AIResponse(
+        GameStateRules.legalMoves(ctx.state).toSeq
+          .sortBy(m => (m.from.file, m.from.rank, m.to.file, m.to.rank))
+          .head
+      ))
+    val ai          = AITurnService(provider, svc, collector)
+    val gameService = DefaultGameService(svc, lifecycle, gameRepo, collector, Some(ai))
+    val gameRoutes  = Http4sGameRoutes(gameService).routes.orNotFound
+    val persService = PersistentSessionService(sessionRepo, gameRepo, store, lifecycle)
+    val sessRoutes  = sessionRoutes(gameService, persService, store)
+
+    val gameId = createSession(sessRoutes)  // default = HumanVsHuman
+    val resp = run(
+      gameRoutes,
+      Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/ai-turns"))
+    )
+    resp.status shouldBe Status.Ok
+    val json = bodyJson(resp)
+    json("pliesRun").num.toInt shouldBe 0
+    json("stopReason").str shouldBe "AwaitingHuman"
+  }
+
+  it should "run one AI ply in HumanVsAI (after a human move) and return AwaitingHuman" in {
+    val collector = new TestEventPublisher
+    val sessionRepo = InMemorySessionRepository()
+    val gameRepo    = InMemoryGameRepository()
+    val store       = InMemorySessionGameStore(sessionRepo, gameRepo)
+    val lifecycle   = SessionLifecycleService(sessionRepo, collector)
+    val svc         = SessionGameCommandService(lifecycle, store, collector)
+    val provider: AiMoveSuggestionClient = ctx =>
+      Right(AIResponse(
+        GameStateRules.legalMoves(ctx.state).toSeq
+          .sortBy(m => (m.from.file, m.from.rank, m.to.file, m.to.rank))
+          .head
+      ))
+    val ai          = AITurnService(provider, svc, collector)
+    val gameService = DefaultGameService(svc, lifecycle, gameRepo, collector, Some(ai))
+    val gameRoutes  = Http4sGameRoutes(gameService).routes.orNotFound
+    val persService = PersistentSessionService(sessionRepo, gameRepo, store, lifecycle)
+    val sessRoutes  = sessionRoutes(gameService, persService, store)
+
+    // Create HumanVsAI session
+    val createResp = run(
+      sessRoutes,
+      Request[IO](Method.POST, uri"/sessions/human-vs-ai").withBodyStream(jsonBody("{}"))
+    )
+    val gameId = bodyJson(createResp)("session")("gameId").str
+
+    // Human plays e2→e4 (white move)
+    run(
+      gameRoutes,
+      Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/moves"))
+        .withBodyStream(jsonBody("""{"from":"e2","to":"e4"}"""))
+    )
+
+    // Now Black's AI turn — runAiTurns should apply 1 ply and stop at AwaitingHuman.
+    val resp = run(
+      gameRoutes,
+      Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/ai-turns"))
+    )
+    resp.status shouldBe Status.Ok
+    val json = bodyJson(resp)
+    json("pliesRun").num.toInt shouldBe 1
+    json("stopReason").str shouldBe "AwaitingHuman"
+    json("game")("moveHistory").arr should have size 2
+  }
+
+  it should "run multiple AI plies in AIVsAI and honour maxPlies from the query string" in {
+    val collector = new TestEventPublisher
+    val sessionRepo = InMemorySessionRepository()
+    val gameRepo    = InMemoryGameRepository()
+    val store       = InMemorySessionGameStore(sessionRepo, gameRepo)
+    val lifecycle   = SessionLifecycleService(sessionRepo, collector)
+    val svc         = SessionGameCommandService(lifecycle, store, collector)
+    val provider: AiMoveSuggestionClient = ctx =>
+      Right(AIResponse(
+        GameStateRules.legalMoves(ctx.state).toSeq
+          .sortBy(m => (m.from.file, m.from.rank, m.to.file, m.to.rank))
+          .head
+      ))
+    val ai          = AITurnService(provider, svc, collector)
+    val gameService = DefaultGameService(svc, lifecycle, gameRepo, collector, Some(ai))
+    val gameRoutes  = Http4sGameRoutes(gameService).routes.orNotFound
+    val persService = PersistentSessionService(sessionRepo, gameRepo, store, lifecycle)
+    val sessRoutes  = sessionRoutes(gameService, persService, store)
+
+    val createResp = run(
+      sessRoutes,
+      Request[IO](Method.POST, uri"/sessions/ai-vs-ai").withBodyStream(jsonBody("{}"))
+    )
+    val gameId = bodyJson(createResp)("session")("gameId").str
+
+    val resp = run(
+      gameRoutes,
+      Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/ai-turns?maxPlies=4"))
+    )
+    resp.status shouldBe Status.Ok
+    val json = bodyJson(resp)
+    json("pliesRun").num.toInt shouldBe 4
+    json("stopReason").str shouldBe "MaxPliesReached"
+    json("game")("moveHistory").arr should have size 4
+  }
+
+  it should "return 400 BAD_REQUEST for maxPlies=0" in {
+    val (gameRoutes, sessRoutes) = makeRoutes()
+    val gameId = createSession(sessRoutes)
+    val resp = run(
+      gameRoutes,
+      Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/ai-turns?maxPlies=0"))
+    )
+    resp.status shouldBe Status.BadRequest
+    bodyJson(resp)("code").str shouldBe "BAD_REQUEST"
+  }
+
+  it should "return 400 BAD_REQUEST for negative maxPlies" in {
+    val (gameRoutes, sessRoutes) = makeRoutes()
+    val gameId = createSession(sessRoutes)
+    val resp = run(
+      gameRoutes,
+      Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/ai-turns?maxPlies=-5"))
+    )
+    resp.status shouldBe Status.BadRequest
+    bodyJson(resp)("code").str shouldBe "BAD_REQUEST"
+  }
+
+  it should "return 400 BAD_REQUEST for non-integer maxPlies" in {
+    val (gameRoutes, sessRoutes) = makeRoutes()
+    val gameId = createSession(sessRoutes)
+    val resp = run(
+      gameRoutes,
+      Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/ai-turns?maxPlies=xyz"))
+    )
+    resp.status shouldBe Status.BadRequest
+    bodyJson(resp)("code").str shouldBe "BAD_REQUEST"
+  }
+
+  it should "return 404 for an unknown game id" in {
+    val collector = new TestEventPublisher
+    val sessionRepo = InMemorySessionRepository()
+    val gameRepo    = InMemoryGameRepository()
+    val store       = InMemorySessionGameStore(sessionRepo, gameRepo)
+    val lifecycle   = SessionLifecycleService(sessionRepo, collector)
+    val svc         = SessionGameCommandService(lifecycle, store, collector)
+    val provider: AiMoveSuggestionClient =
+      _ => Right(AIResponse(Move(Position.from(4, 1).value, Position.from(4, 3).value)))
+    val ai          = AITurnService(provider, svc, collector)
+    val gameService = DefaultGameService(svc, lifecycle, gameRepo, collector, Some(ai))
+    val gameRoutes  = Http4sGameRoutes(gameService).routes.orNotFound
+
+    val resp = run(
+      gameRoutes,
+      Request[IO](Method.POST, Uri.unsafeFromString(s"/games/${UUID.randomUUID()}/ai-turns"))
+    )
+    resp.status shouldBe Status.NotFound
+    bodyJson(resp)("code").str shouldBe "GAME_NOT_FOUND"
+  }
+
+  // ── Application-level maxPlies validation ────────────────────────────────
+  // These tests call DefaultGameService directly (not through HTTP) to verify
+  // the application boundary rejects maxPlies < 1 independently of the route.
+
+  "DefaultGameService.runAiTurnsByGameId" should
+    "return Left(InvalidMaxPlies(0)) when maxPlies is 0" in {
+      val sessionRepo = InMemorySessionRepository()
+      val gameRepo    = InMemoryGameRepository()
+      val store       = InMemorySessionGameStore(sessionRepo, gameRepo)
+      val lifecycle   = SessionLifecycleService(sessionRepo, _ => ())
+      val svc         = SessionGameCommandService(lifecycle, store, _ => ())
+      val gameService = DefaultGameService(svc, lifecycle, gameRepo, _ => ())
+
+      gameService.runAiTurnsByGameId(GameId.random(), 0) shouldBe
+        Left(AITurnError.InvalidMaxPlies(0))
+    }
+
+  it should "return Left(InvalidMaxPlies(-5)) when maxPlies is negative" in {
+    val sessionRepo = InMemorySessionRepository()
+    val gameRepo    = InMemoryGameRepository()
+    val store       = InMemorySessionGameStore(sessionRepo, gameRepo)
+    val lifecycle   = SessionLifecycleService(sessionRepo, _ => ())
+    val svc         = SessionGameCommandService(lifecycle, store, _ => ())
+    val gameService = DefaultGameService(svc, lifecycle, gameRepo, _ => ())
+
+    gameService.runAiTurnsByGameId(GameId.random(), -5) shouldBe
+      Left(AITurnError.InvalidMaxPlies(-5))
+  }
+
+  it should "fire InvalidMaxPlies before NotConfigured so the check is unconditional" in {
+    // No AI service wired — validates that InvalidMaxPlies wins over NotConfigured.
+    val sessionRepo = InMemorySessionRepository()
+    val gameRepo    = InMemoryGameRepository()
+    val store       = InMemorySessionGameStore(sessionRepo, gameRepo)
+    val lifecycle   = SessionLifecycleService(sessionRepo, _ => ())
+    val svc         = SessionGameCommandService(lifecycle, store, _ => ())
+    val gameService = DefaultGameService(svc, lifecycle, gameRepo, _ => ()) // aiService = None
+
+    val result = gameService.runAiTurnsByGameId(GameId.random(), 0)
+    result shouldBe Left(AITurnError.InvalidMaxPlies(0))
+    result should not be Left(AITurnError.NotConfigured)
+  }
+
+  // Verify the existing ai-move endpoint is unaffected.
+  "POST /games/{gameId}/ai-move (unchanged)" should
+    "still return 422 AI_NOT_CONFIGURED when no AI is configured" in {
+      val (gameRoutes, sessRoutes) = makeRoutes()
+      val gameId = createSession(sessRoutes)
+      val resp = run(
+        gameRoutes,
+        Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/ai-move"))
+      )
+      resp.status shouldBe Status.UnprocessableEntity
+      bodyJson(resp)("code").str shouldBe "AI_NOT_CONFIGURED"
+    }

@@ -23,6 +23,8 @@ object ConfigLoader:
   private val DefaultAiRemoteBaseUrl: String = "http://ai-service:8765"
   private val DefaultAiTimeoutMillis: String = "15000"
   private val DefaultMigrationAdminEnabled: String = "false"
+  private val DefaultExternalGameBotPlatform: String = "Lichess"
+  private val DefaultExternalGameBotActorId: String = "searchess-bot"
 
   def load(): Either[String, AppConfig] =
     loadFrom(key => Option(System.getenv(key)).filter(_.nonEmpty))
@@ -80,6 +82,11 @@ object ConfigLoader:
         env("MIGRATION_ADMIN_ENABLED").getOrElse(DefaultMigrationAdminEnabled)
       )
       migrationToken <- parseMigrationAdminToken(migrationAdmin, env("MIGRATION_ADMIN_TOKEN"))
+      externalGameBot <- parseExternalGameBotConfig(
+        env("EXTERNAL_GAME_BOT_API_KEY"),
+        env("EXTERNAL_GAME_BOT_PLATFORM").getOrElse(DefaultExternalGameBotPlatform),
+        env("EXTERNAL_GAME_BOT_ACTOR_ID").getOrElse(DefaultExternalGameBotActorId)
+      )
     yield AppConfig(
       http = HttpConfig(httpHost, httpPort),
       webSocket = WebSocketConfig(wsEnabled, wsPort),
@@ -97,6 +104,7 @@ object ConfigLoader:
         timeoutMillis = aiTimeout,
         defaultEngineId = engineId
       ),
+      externalGameBot = externalGameBot,
       migrationAdminEnabled = migrationAdmin,
       migrationAdminToken = migrationToken
     )
@@ -217,6 +225,27 @@ object ConfigLoader:
           )
     else
       Right(token)
+
+  private def parseExternalGameBotConfig(
+      rawApiKey: Option[String],
+      rawPlatform: String,
+      rawActorId: String
+  ): Either[String, Option[ExternalGameBotConfig]] =
+    rawApiKey.map(_.trim).filter(_.nonEmpty) match
+      case None => Right(None)
+      case Some(apiKey) =>
+        val platform = rawPlatform.trim
+        val actorId = rawActorId.trim
+        for
+          _ <- parseExternalGameBotPlatform(platform)
+          _ <- Either.cond(actorId.nonEmpty, (), "EXTERNAL_GAME_BOT_ACTOR_ID must be non-empty when external-game bot credentials are configured")
+        yield Some(ExternalGameBotConfig(platform, actorId, apiKey))
+
+  private def parseExternalGameBotPlatform(value: String): Either[String, Unit] =
+    value.toLowerCase match
+      case "lichess" => Right(())
+      case other =>
+        Left(s"EXTERNAL_GAME_BOT_PLATFORM must be 'Lichess', got: '$other'")
 
   private def parseHistoryForwardingConfig(
       enabled: Boolean,

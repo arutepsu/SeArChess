@@ -54,10 +54,18 @@ object ActorControlPolicy:
     *
     * `AI` variants match each other regardless of `engineId` because turn ownership is about actor
     * type, not specific engine identity.
+    *
+    * `External` variants match when platforms agree. The `actorId` is intentionally NOT checked
+    * here: fine-grained identity validation (ensuring the calling bot matches the session's
+    * assigned actor) is the responsibility of the external-game application service, which operates
+    * on a [[chess.adapter.http4s.VerifiedCallerIdentity]] extracted from the request by the route.
+    * Checking `actorId` at the policy level would re-open the attack surface by trusting request
+    * body values — exactly what [[chess.adapter.http4s.VerifiedCallerIdentity]] prevents.
     */
   private def matches(assigned: SideController, requesting: SideController): Boolean =
     (assigned, requesting) match
       case (SideController.HumanLocal, SideController.HumanLocal)   => true
       case (SideController.HumanRemote, SideController.HumanRemote) => true
       case (SideController.AI(_), SideController.AI(_))             => true
-      case _                                                        => false
+      case (SideController.External(p1, _), SideController.External(p2, _)) => p1 == p2
+      case _                                                                 => false

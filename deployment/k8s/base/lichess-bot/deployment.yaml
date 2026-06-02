@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lichess-bot
+  namespace: searchess
+  labels:
+    app: lichess-bot
+spec:
+  # Keep disabled until real secrets are installed and a controlled smoke test is planned.
+  replicas: 0
+  selector:
+    matchLabels:
+      app: lichess-bot
+  template:
+    metadata:
+      labels:
+        app: lichess-bot
+    spec:
+      containers:
+        - name: lichess-bot
+          image: searchess/lichess-bot:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: lichess-bot-env
+          env:
+            - name: LICHESS_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: searchess-secrets
+                  key: lichess-bot-token
+            - name: EXTERNAL_GAME_BOT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: searchess-secrets
+                  key: external-game-bot-api-key
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

@@ -79,6 +79,12 @@ final case class AiConfig(
     failureBehaviour: DependencyFailureBehaviour = DependencyFailureBehaviour.FailRequest
 )
 
+final case class ExternalGameBotConfig(
+    platform: String,
+    actorId: String,
+    apiKey: String
+)
+
 /** Fully resolved Game Service runtime configuration. */
 final case class AppConfig(
     http: HttpConfig,
@@ -91,6 +97,7 @@ final case class AppConfig(
     cors: CorsConfig,
     history: HistoryForwardingConfig,
     ai: AiConfig,
+    externalGameBot: Option[ExternalGameBotConfig] = None,
     migrationAdminEnabled: Boolean = false,
     migrationAdminToken: Option[String] = None
 )

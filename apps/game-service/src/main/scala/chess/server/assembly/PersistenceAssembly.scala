@@ -7,13 +7,21 @@ import chess.adapter.repository.{
 }
 import chess.adapter.repository.sqlite.{
   SqliteDataSource,
+  SqliteExternalGameBindingRepository,
+  SqliteExternalGameCommandStore,
   SqliteGameRepository,
   SqliteSchema,
   SqliteSessionGameStore,
   SqliteSessionRepository
 }
 import chess.adapter.repository.postgres.PostgresPersistenceRuntime
-import chess.application.port.repository.{GameRepository, SessionGameStore, SessionRepository}
+import chess.application.port.repository.{
+  ExternalGameBindingRepository,
+  ExternalGameCommandStore,
+  GameRepository,
+  SessionGameStore,
+  SessionRepository
+}
 import chess.server.config.{AppConfig, MongoConfig, PersistenceMode, PostgresConfig, SqliteConfig}
 import chess.server.persistence.MongoPersistenceRuntime
 
@@ -21,6 +29,8 @@ final case class PersistenceWiring(
     sessionRepository: SessionRepository,
     gameRepository: GameRepository,
     store: SessionGameStore,
+    externalGameBindingRepository: Option[ExternalGameBindingRepository] = None,
+    externalGameCommandStore: Option[ExternalGameCommandStore] = None,
     shutdown: () => Unit = () => ()
 )
 
@@ -67,7 +77,15 @@ object PersistenceAssembly:
     val sessionRepo = SqliteSessionRepository(ds)
     val gameRepo = SqliteGameRepository(ds)
     val store = SqliteSessionGameStore(ds, sessionRepo, gameRepo)
-    PersistenceWiring(sessionRepo, gameRepo, store)
+    val bindingRepo = SqliteExternalGameBindingRepository(ds)
+    val commandStore = SqliteExternalGameCommandStore(ds, sessionRepo, gameRepo, bindingRepo)
+    PersistenceWiring(
+      sessionRepo,
+      gameRepo,
+      store,
+      externalGameBindingRepository = Some(bindingRepo),
+      externalGameCommandStore = Some(commandStore)
+    )
 
   private def assemblePostgres(cfg: PostgresConfig): PersistenceWiring =
     PostgresPersistenceRuntime.open(cfg.url, cfg.user, cfg.password, schema = cfg.schema) match
@@ -77,6 +95,8 @@ object PersistenceAssembly:
           runtime.sessionRepository,
           runtime.gameRepository,
           runtime.store,
+          externalGameBindingRepository = Some(runtime.externalGameBindingRepository),
+          externalGameCommandStore = Some(runtime.externalGameCommandStore),
           shutdown = runtime.close
         )
 

@@ -13,10 +13,15 @@ import chess.server.config.{
   RemoteAiConfig,
   WebSocketConfig
 }
+import chess.adapter.repository.postgres.{
+  PostgresExternalGameBindingRepository,
+  PostgresExternalGameCommandStore
+}
 import chess.application.session.model.{SessionMode, SideController}
 import org.scalatest.Assertions.cancel
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.EitherValues
+import org.scalatest.OptionValues
 import org.scalatest.Outcome
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -37,6 +42,7 @@ class PersistenceAssemblyPostgresRuntimeSpec
     extends AnyFlatSpec
     with Matchers
     with EitherValues
+    with OptionValues
     with BeforeAndAfterAll:
 
   private val postgres = GameServiceRuntimePostgresContainer()
@@ -83,6 +89,8 @@ class PersistenceAssemblyPostgresRuntimeSpec
       loadedSession.mode shouldBe session.mode
       loadedSession.lifecycle shouldBe session.lifecycle
       persistence.gameRepository.load(session.gameId).value shouldBe state
+      persistence.externalGameBindingRepository.value shouldBe a[PostgresExternalGameBindingRepository]
+      persistence.externalGameCommandStore.value shouldBe a[PostgresExternalGameCommandStore]
     finally persistence.shutdown()
   }
 

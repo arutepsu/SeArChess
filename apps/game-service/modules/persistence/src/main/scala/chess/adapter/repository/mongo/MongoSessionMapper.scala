@@ -1,7 +1,7 @@
 package chess.adapter.repository.mongo
 
 import chess.application.port.repository.RepositoryError
-import chess.application.session.model.{GameSession, SessionLifecycle, SessionMode, SideController}
+import chess.application.session.model.{ExternalPlatform, GameSession, SessionLifecycle, SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import org.bson.Document
 
@@ -45,9 +45,11 @@ private[mongo] object MongoSessionMapper:
 
   private def modeString(mode: SessionMode): String =
     mode match
-      case SessionMode.HumanVsHuman => "HumanVsHuman"
-      case SessionMode.HumanVsAI    => "HumanVsAI"
-      case SessionMode.AIVsAI       => "AIVsAI"
+      case SessionMode.HumanVsHuman       => "HumanVsHuman"
+      case SessionMode.HumanVsAI          => "HumanVsAI"
+      case SessionMode.AIVsAI             => "AIVsAI"
+      case SessionMode.AiVsExternal       => "AiVsExternal"
+      case SessionMode.ExternalVsExternal => "ExternalVsExternal"
 
   private def lifecycleString(lifecycle: SessionLifecycle): String =
     lifecycle match
@@ -58,21 +60,28 @@ private[mongo] object MongoSessionMapper:
       case SessionLifecycle.Cancelled         => "Cancelled"
 
   private def controllerDocument(controller: SideController): Document =
-    val (kind, engineId) = controller match
-      case SideController.HumanLocal   => ("HumanLocal", None)
-      case SideController.HumanRemote  => ("HumanRemote", None)
-      case SideController.AI(engineId) => ("AI", engineId)
-
-    val document = Document("kind", kind)
-    engineId.foreach(document.append("engineId", _))
-    document
+    controller match
+      case SideController.HumanLocal   =>
+        Document("kind", "HumanLocal")
+      case SideController.HumanRemote  =>
+        Document("kind", "HumanRemote")
+      case SideController.AI(engineId) =>
+        val doc = Document("kind", "AI")
+        engineId.foreach(doc.append("engineId", _))
+        doc
+      case SideController.External(platform, actorId) =>
+        Document("kind", "External")
+          .append("platform", platform.toString)
+          .append("actorId", actorId)
 
   private def parseMode(value: String): Either[RepositoryError, SessionMode] =
     value match
-      case "HumanVsHuman" => Right(SessionMode.HumanVsHuman)
-      case "HumanVsAI"    => Right(SessionMode.HumanVsAI)
-      case "AIVsAI"       => Right(SessionMode.AIVsAI)
-      case other          => storageFailure(s"Unknown session mode in Mongo document: $other")
+      case "HumanVsHuman"       => Right(SessionMode.HumanVsHuman)
+      case "HumanVsAI"          => Right(SessionMode.HumanVsAI)
+      case "AIVsAI"             => Right(SessionMode.AIVsAI)
+      case "AiVsExternal"       => Right(SessionMode.AiVsExternal)
+      case "ExternalVsExternal" => Right(SessionMode.ExternalVsExternal)
+      case other                => storageFailure(s"Unknown session mode in Mongo document: $other")
 
   private def parseLifecycle(value: String): Either[RepositoryError, SessionLifecycle] =
     value match
@@ -93,6 +102,16 @@ private[mongo] object MongoSessionMapper:
           case "HumanLocal" if engineId.isEmpty  => Right(SideController.HumanLocal)
           case "HumanRemote" if engineId.isEmpty => Right(SideController.HumanRemote)
           case "AI"                              => Right(SideController.AI(engineId))
+          case "External" =>
+            val platform = Option(value.getString("platform"))
+            val actorId  = Option(value.getString("actorId"))
+            (platform, actorId) match
+              case (Some(p), Some(a)) =>
+                ExternalPlatform.values.find(_.toString == p) match
+                  case Some(ep) => Right(SideController.External(ep, a))
+                  case None     => storageFailure(s"Unknown external platform in Mongo document: $p")
+              case _ =>
+                storageFailure("External controller document missing 'platform' or 'actorId' field")
           case "HumanLocal" | "HumanRemote" =>
             storageFailure(s"Human controller $kind cannot have an AI engine id")
           case other =>

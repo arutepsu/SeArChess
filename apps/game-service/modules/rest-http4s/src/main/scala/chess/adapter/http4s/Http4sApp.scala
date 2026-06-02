@@ -4,15 +4,18 @@ import cats.effect.IO
 import cats.syntax.semigroupk.*
 import chess.adapter.http4s.route.{
   Http4sArchiveRoutes,
+  ExternalGameRouteAuth,
   Http4sGameRoutes,
+  Http4sExternalGameRoutes,
   Http4sNotationRoutes,
   Http4sSessionRoutes,
   Http4sStatsRoutes
 }
 import chess.application.GameServiceApi
+import chess.application.external.ExternalGameServiceApi
 import chess.application.port.repository.{GameRepository, SessionGameStore}
 import chess.application.session.service.{PersistentSessionService, SessionSnapshotTransferService}
-import org.http4s.HttpApp
+import org.http4s.{HttpApp, HttpRoutes}
 
 /** REST adapter surface for the chess API.
   *
@@ -37,15 +40,23 @@ class Http4sApp(
     snapshotTransferService: SessionSnapshotTransferService,
     gameRepository: GameRepository,
     sessionGameStore: SessionGameStore,
-    domainMetrics: DomainMetricsRegistry = new DomainMetricsRegistry()
+    domainMetrics: DomainMetricsRegistry = new DomainMetricsRegistry(),
+    externalGameService: Option[ExternalGameServiceApi] = None,
+    externalGameAuth: Option[ExternalGameRouteAuth] = None
 ):
+
+  private val externalRoutes =
+    (externalGameService, externalGameAuth) match
+      case (Some(service), Some(auth)) => Http4sExternalGameRoutes(service, auth).routes
+      case _                          => HttpRoutes.empty[IO]
 
   private val combinedRoutes =
     Http4sSessionRoutes(gameService, persistentSessionService, snapshotTransferService, domainMetrics).routes <+>
       Http4sGameRoutes(gameService, domainMetrics).routes <+>
       Http4sNotationRoutes(gameRepository, sessionGameStore).routes <+>
       Http4sArchiveRoutes(gameService).routes <+>
-      Http4sStatsRoutes(gameService).routes
+      Http4sStatsRoutes(gameService).routes <+>
+      externalRoutes
 
   /** Combined [[HttpApp]] for all REST routes.
     *

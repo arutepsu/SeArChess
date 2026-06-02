@@ -33,6 +33,26 @@ object SqliteSchema:
       |  state_json TEXT NOT NULL
       |)""".stripMargin
 
+  private val createExternalGameBindings =
+    """CREATE TABLE IF NOT EXISTS external_game_bindings (
+      |  binding_id         TEXT    PRIMARY KEY,
+      |  platform           TEXT    NOT NULL,
+      |  external_game_id   TEXT    NOT NULL,
+      |  internal_game_id   TEXT    NOT NULL,
+      |  session_id         TEXT    NOT NULL,
+      |  our_actor_id       TEXT    NOT NULL,
+      |  status             TEXT    NOT NULL,
+      |  status_reason      TEXT,
+      |  last_processed_ply INTEGER NOT NULL DEFAULT 0,
+      |  created_at         TEXT    NOT NULL,
+      |  updated_at         TEXT    NOT NULL,
+      |  UNIQUE (platform, external_game_id)
+      |)""".stripMargin
+
+  private val createExternalGameBindingsIndex =
+    """CREATE INDEX IF NOT EXISTS external_bindings_status_idx
+      |ON external_game_bindings(status)""".stripMargin
+
   private val createHistoryEventOutbox =
     """CREATE TABLE IF NOT EXISTS history_event_outbox (
       |  id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,6 +76,8 @@ object SqliteSchema:
     try
       stmt.execute(createSessions)
       stmt.execute(createGameStates)
+      stmt.execute(createExternalGameBindings)
+      stmt.execute(createExternalGameBindingsIndex)
       stmt.execute(createHistoryEventOutbox)
       stmt.execute(createHistoryEventOutboxIndex)
     finally stmt.close()

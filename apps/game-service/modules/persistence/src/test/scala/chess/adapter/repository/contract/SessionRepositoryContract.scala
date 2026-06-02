@@ -1,7 +1,7 @@
 package chess.adapter.repository.contract
 
 import chess.application.port.repository.{RepositoryError, SessionRepository}
-import chess.application.session.model.{GameSession, SessionLifecycle, SessionMode, SideController}
+import chess.application.session.model.{ExternalPlatform, GameSession, SessionLifecycle, SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -31,6 +31,32 @@ trait SessionRepositoryContract extends AnyFlatSpecLike with Matchers with Eithe
     val session = freshSession().copy(
       whiteController = SideController.AI(Some("stockfish-15")),
       blackController = SideController.AI(None)
+    )
+
+    repo.save(session).value
+
+    repo.load(session.sessionId).value shouldBe session
+  }
+
+  it should "round-trip a session with External controllers and AiVsExternal mode" in {
+    val repo = freshRepository()
+    val session = freshSession().copy(
+      mode = SessionMode.AiVsExternal,
+      whiteController = SideController.AI(),
+      blackController = SideController.External(ExternalPlatform.Lichess, "searchess-bot")
+    )
+
+    repo.save(session).value
+
+    repo.load(session.sessionId).value shouldBe session
+  }
+
+  it should "round-trip a session with ExternalVsExternal mode" in {
+    val repo = freshRepository()
+    val session = freshSession().copy(
+      mode = SessionMode.ExternalVsExternal,
+      whiteController = SideController.External(ExternalPlatform.Lichess, "white-bot"),
+      blackController = SideController.External(ExternalPlatform.Lichess, "black-bot")
     )
 
     repo.save(session).value

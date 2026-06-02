@@ -50,7 +50,8 @@ object ArchiveSnapshotMapper:
     case Color.Black => "Black"
 
   private def controllerString(controller: SideController): String = controller match
-    case SideController.HumanLocal       => "HumanLocal"
-    case SideController.HumanRemote      => "HumanRemote"
-    case SideController.AI(Some(engine)) => s"AI:$engine"
-    case SideController.AI(None)         => "AI"
+    case SideController.HumanLocal                        => "HumanLocal"
+    case SideController.HumanRemote                       => "HumanRemote"
+    case SideController.AI(Some(engine))                  => s"AI:$engine"
+    case SideController.AI(None)                          => "AI"
+    case SideController.External(platform, actorId)       => s"External:${platform}:${actorId}"

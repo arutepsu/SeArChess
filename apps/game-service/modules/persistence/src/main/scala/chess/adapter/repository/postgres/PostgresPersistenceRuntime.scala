@@ -1,7 +1,13 @@
 package chess.adapter.repository.postgres
 
 import chess.application.migration.SessionMigrationReader
-import chess.application.port.repository.{GameRepository, SessionGameStore, SessionRepository}
+import chess.application.port.repository.{
+  ExternalGameBindingRepository,
+  ExternalGameCommandStore,
+  GameRepository,
+  SessionGameStore,
+  SessionRepository
+}
 import slick.jdbc.PostgresProfile.api.Database
 
 import scala.concurrent.duration.Duration
@@ -14,6 +20,8 @@ object PostgresPersistenceRuntime:
       sessionRepository: SessionRepository,
       gameRepository: GameRepository,
       store: SessionGameStore,
+      externalGameBindingRepository: ExternalGameBindingRepository,
+      externalGameCommandStore: ExternalGameCommandStore,
       close: () => Unit
   )
 
@@ -46,6 +54,9 @@ object PostgresPersistenceRuntime:
           sessionRepository = PostgresSessionRepository(db, timeout, schema),
           gameRepository = PostgresGameRepository(db, timeout, schema),
           store = PostgresSessionGameStore(db, timeout, schema),
+          externalGameBindingRepository =
+            PostgresExternalGameBindingRepository(db, timeout, schema),
+          externalGameCommandStore = PostgresExternalGameCommandStore(db, timeout, schema),
           close = () => db.close()
         )
       )

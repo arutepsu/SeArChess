@@ -4,6 +4,7 @@ import chess.adapter.ai.LocalDeterministicAiClient
 import chess.adapter.ai.remote.RemoteAiMoveSuggestionClient
 import chess.application.DefaultGameService
 import chess.application.ai.service.AITurnService
+import chess.application.external.ExternalGameService
 import chess.application.port.ai.AiMoveSuggestionClient
 import chess.server.assembly.{
   AppContext,
@@ -26,7 +27,7 @@ object GameServiceComposition:
     val persistence = PersistenceAssembly.assemble(config)
     val events = EventAssembly.assemble(config)
     val baseCtx = CoreAssembly.build(persistence, events.coreEvents)
-    (withAi(baseCtx, events, config.ai), events)
+    (withAiAndExternal(baseCtx, persistence, events, config.ai), events)
 
   private[server] def withAi(baseCtx: AppContext, events: EventWiring): AppContext =
     withAi(
@@ -45,8 +46,29 @@ object GameServiceComposition:
       events: EventWiring,
       config: AiConfig
   ): AppContext =
-    val aiService =
-      aiClientFor(config).map(client => AITurnService(client, baseCtx.commands, events.publisher))
+    withAiClient(baseCtx, events, aiClientFor(config), externalGameService = None)
+
+  private def withAiAndExternal(
+      baseCtx: AppContext,
+      persistence: chess.server.assembly.PersistenceWiring,
+      events: EventWiring,
+      config: AiConfig
+  ): AppContext =
+    val aiClient = aiClientFor(config)
+    withAiClient(
+      baseCtx,
+      events,
+      aiClient,
+      externalGameService = externalGameService(baseCtx, persistence, events, aiClient)
+    )
+
+  private def withAiClient(
+      baseCtx: AppContext,
+      events: EventWiring,
+      aiClient: Option[AiMoveSuggestionClient],
+      externalGameService: Option[chess.application.external.ExternalGameServiceApi]
+  ): AppContext =
+    val aiService = aiClient.map(client => AITurnService(client, baseCtx.commands, events.publisher))
     baseCtx.copy(gameService =
       DefaultGameService(
         commands = baseCtx.commands,
@@ -54,7 +76,26 @@ object GameServiceComposition:
         gameRepository = baseCtx.gameRepository,
         publisher = events.publisher,
         aiService = aiService
-      )
+      ),
+      externalGameService = externalGameService
+    )
+
+  private def externalGameService(
+      baseCtx: AppContext,
+      persistence: chess.server.assembly.PersistenceWiring,
+      events: EventWiring,
+      aiClient: Option[AiMoveSuggestionClient]
+  ): Option[chess.application.external.ExternalGameServiceApi] =
+    for
+      bindingRepo <- persistence.externalGameBindingRepository
+      commandStore <- persistence.externalGameCommandStore
+    yield ExternalGameService(
+      bindingRepo = bindingRepo,
+      commandStore = commandStore,
+      lifecycleService = baseCtx.sessionLifecycleService,
+      gameRepository = baseCtx.gameRepository,
+      aiClient = aiClient,
+      publisher = events.publisher
     )
 
   private[server] def aiClientFor(config: AiConfig): Option[AiMoveSuggestionClient] =
