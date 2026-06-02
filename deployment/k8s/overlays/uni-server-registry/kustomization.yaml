@@ -6,12 +6,12 @@ namespace: searchess
 # python-ai-service uses an Argo Rollouts canary Rollout in this overlay only.
 # The base Deployment/python-ai-service is removed via the delete patch below.
 # local-k3d and uni-server-k3d continue to use the base Deployment unchanged.
+# GitOps reconciliation CronJob for existing Keycloak clients; this is a
+# resource, not a patch, so Argo keeps it in normal cluster state.
 resources:
 - ../../base
 - sealed-secret.yaml
 - keycloak-sealed-secret.yaml
-# GitOps reconciliation CronJob for existing Keycloak clients; this is a
-# resource, not a patch, so Argo keeps it in normal cluster state.
 - keycloak-searchess-web-reconcile-job.yaml
 - python-ai-service-rollout.yaml
 
@@ -47,7 +47,7 @@ images:
   newTag: sha-769fc27
 - name: searchess/lichess-bot
   newName: ghcr.io/arutepsu/searchess-lichess-bot
-  newTag: sha-17560fe
+  newTag: sha-d65ba38
 - name: searchess/python-ai-service
   newName: ghcr.io/arutepsu/searchess-python-ai-service
   newTag: sha-2247329
