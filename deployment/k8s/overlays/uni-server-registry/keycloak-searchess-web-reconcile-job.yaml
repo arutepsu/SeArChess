@@ -1,154 +1,154 @@
 apiVersion: batch/v1
-kind: Job
+kind: CronJob
 metadata:
   name: keycloak-reconcile-searchess-web-client
   namespace: searchess
-  annotations:
-    # Argo CD runs this after applying Keycloak and its realm import ConfigMap.
-    # BeforeHookCreation makes the Job rerunnable when this manifest changes.
-    argocd.argoproj.io/hook: PostSync
-    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
 spec:
-  ttlSecondsAfterFinished: 600
-  backoffLimit: 3
-  template:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
     spec:
-      restartPolicy: OnFailure
-      containers:
-        - name: reconcile
-          image: python:3.12-alpine
-          env:
-            - name: KEYCLOAK_BASE_URL
-              value: http://keycloak:8080
-            - name: KEYCLOAK_REALM
-              value: searchess
-            - name: KEYCLOAK_CLIENT_ID
-              value: searchess-web
-            - name: KEYCLOAK_ADMIN_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: keycloak-secrets
-                  key: bootstrap-admin-username
-            - name: KEYCLOAK_ADMIN_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: keycloak-secrets
-                  key: bootstrap-admin-password
-          command:
-            - python
-            - -c
-          args:
-            - |
-              import json
-              import os
-              import sys
-              import time
-              import urllib.error
-              import urllib.parse
-              import urllib.request
+      ttlSecondsAfterFinished: 600
+      backoffLimit: 3
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: reconcile
+              image: python:3.12-alpine
+              env:
+                - name: KEYCLOAK_BASE_URL
+                  value: http://keycloak:8080
+                - name: KEYCLOAK_REALM
+                  value: searchess
+                - name: KEYCLOAK_CLIENT_ID
+                  value: searchess-web
+                - name: KEYCLOAK_ADMIN_USERNAME
+                  valueFrom:
+                    secretKeyRef:
+                      name: keycloak-secrets
+                      key: bootstrap-admin-username
+                - name: KEYCLOAK_ADMIN_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: keycloak-secrets
+                      key: bootstrap-admin-password
+              command:
+                - python
+                - -c
+              args:
+                - |
+                  import json
+                  import os
+                  import sys
+                  import time
+                  import urllib.parse
+                  import urllib.request
 
-              base_url = os.environ["KEYCLOAK_BASE_URL"].rstrip("/")
-              realm = os.environ["KEYCLOAK_REALM"]
-              client_id = os.environ["KEYCLOAK_CLIENT_ID"]
-              admin_username = os.environ["KEYCLOAK_ADMIN_USERNAME"]
-              admin_password = os.environ["KEYCLOAK_ADMIN_PASSWORD"]
+                  base_url = os.environ["KEYCLOAK_BASE_URL"].rstrip("/")
+                  realm = os.environ["KEYCLOAK_REALM"]
+                  client_id = os.environ["KEYCLOAK_CLIENT_ID"]
+                  admin_username = os.environ["KEYCLOAK_ADMIN_USERNAME"]
+                  admin_password = os.environ["KEYCLOAK_ADMIN_PASSWORD"]
 
-              required_redirect_uris = [
-                  "http://localhost:18000/*",
-                  "http://127.0.0.1:18000/*",
-              ]
-              required_web_origins = [
-                  "http://localhost:18000",
-                  "http://127.0.0.1:18000",
-              ]
+                  required_redirect_uris = [
+                      "http://localhost:18000/*",
+                      "http://127.0.0.1:18000/*",
+                  ]
+                  required_web_origins = [
+                      "http://localhost:18000",
+                      "http://127.0.0.1:18000",
+                  ]
 
-              def request(method, url, *, token=None, body=None, form=None):
-                  headers = {}
-                  data = None
-                  if token:
-                      headers["Authorization"] = f"Bearer {token}"
-                  if form is not None:
-                      data = urllib.parse.urlencode(form).encode("utf-8")
-                      headers["Content-Type"] = "application/x-www-form-urlencoded"
-                  elif body is not None:
-                      data = json.dumps(body).encode("utf-8")
-                      headers["Content-Type"] = "application/json"
-                  req = urllib.request.Request(url, data=data, headers=headers, method=method)
-                  with urllib.request.urlopen(req, timeout=10) as response:
-                      payload = response.read()
-                      if not payload:
-                          return None
-                      return json.loads(payload.decode("utf-8"))
+                  def request(method, url, *, token=None, body=None, form=None):
+                      headers = {}
+                      data = None
+                      if token:
+                          headers["Authorization"] = f"Bearer {token}"
+                      if form is not None:
+                          data = urllib.parse.urlencode(form).encode("utf-8")
+                          headers["Content-Type"] = "application/x-www-form-urlencoded"
+                      elif body is not None:
+                          data = json.dumps(body).encode("utf-8")
+                          headers["Content-Type"] = "application/json"
+                      req = urllib.request.Request(url, data=data, headers=headers, method=method)
+                      with urllib.request.urlopen(req, timeout=10) as response:
+                          payload = response.read()
+                          if not payload:
+                              return None
+                          return json.loads(payload.decode("utf-8"))
 
-              def wait_for_keycloak():
-                  discovery_url = f"{base_url}/realms/master/.well-known/openid-configuration"
-                  deadline = time.time() + 180
-                  while time.time() < deadline:
-                      try:
-                          request("GET", discovery_url)
-                          print("Keycloak is reachable.")
-                          return
-                      except Exception as exc:
-                          print(f"Waiting for Keycloak readiness: {exc}")
-                          time.sleep(5)
-                  raise RuntimeError("Timed out waiting for Keycloak readiness")
+                  def wait_for_keycloak():
+                      discovery_url = f"{base_url}/realms/master/.well-known/openid-configuration"
+                      deadline = time.time() + 180
+                      while time.time() < deadline:
+                          try:
+                              request("GET", discovery_url)
+                              print("Keycloak is reachable.")
+                              return
+                          except Exception as exc:
+                              print(f"Waiting for Keycloak readiness: {exc}")
+                              time.sleep(5)
+                      raise RuntimeError("Timed out waiting for Keycloak readiness")
 
-              def admin_token():
-                  token_response = request(
-                      "POST",
-                      f"{base_url}/realms/master/protocol/openid-connect/token",
-                      form={
-                          "grant_type": "password",
-                          "client_id": "admin-cli",
-                          "username": admin_username,
-                          "password": admin_password,
-                      },
-                  )
-                  return token_response["access_token"]
+                  def admin_token():
+                      token_response = request(
+                          "POST",
+                          f"{base_url}/realms/master/protocol/openid-connect/token",
+                          form={
+                              "grant_type": "password",
+                              "client_id": "admin-cli",
+                              "username": admin_username,
+                              "password": admin_password,
+                          },
+                      )
+                      return token_response["access_token"]
 
-              def find_client(token):
-                  url = (
-                      f"{base_url}/admin/realms/{urllib.parse.quote(realm)}/clients"
-                      f"?clientId={urllib.parse.quote(client_id)}"
-                  )
-                  matches = request("GET", url, token=token)
-                  exact = [client for client in matches if client.get("clientId") == client_id]
-                  if not exact:
-                      raise RuntimeError(f"Client {client_id!r} not found in realm {realm!r}")
-                  return exact[0]["id"]
+                  def find_client(token):
+                      url = (
+                          f"{base_url}/admin/realms/{urllib.parse.quote(realm)}/clients"
+                          f"?clientId={urllib.parse.quote(client_id)}"
+                      )
+                      matches = request("GET", url, token=token)
+                      exact = [client for client in matches if client.get("clientId") == client_id]
+                      if not exact:
+                          raise RuntimeError(f"Client {client_id!r} not found in realm {realm!r}")
+                      return exact[0]["id"]
 
-              def wait_for_client(token):
-                  deadline = time.time() + 120
-                  while time.time() < deadline:
-                      try:
-                          return find_client(token)
-                      except Exception as exc:
-                          print(f"Waiting for realm/client import: {exc}")
-                          time.sleep(5)
-                  raise RuntimeError(f"Timed out waiting for client {client_id!r} in realm {realm!r}")
+                  def wait_for_client(token):
+                      deadline = time.time() + 120
+                      while time.time() < deadline:
+                          try:
+                              return find_client(token)
+                          except Exception as exc:
+                              print(f"Waiting for realm/client import: {exc}")
+                              time.sleep(5)
+                      raise RuntimeError(f"Timed out waiting for client {client_id!r} in realm {realm!r}")
 
-              def merge(existing, required):
-                  values = list(existing or [])
-                  for value in required:
-                      if value not in values:
-                          values.append(value)
-                  return values
+                  def merge(existing, required):
+                      values = list(existing or [])
+                      for value in required:
+                          if value not in values:
+                              values.append(value)
+                      return values
 
-              wait_for_keycloak()
-              token = admin_token()
-              client_uuid = wait_for_client(token)
-              client_url = f"{base_url}/admin/realms/{urllib.parse.quote(realm)}/clients/{client_uuid}"
-              client = request("GET", client_url, token=token)
+                  wait_for_keycloak()
+                  token = admin_token()
+                  client_uuid = wait_for_client(token)
+                  client_url = f"{base_url}/admin/realms/{urllib.parse.quote(realm)}/clients/{client_uuid}"
+                  client = request("GET", client_url, token=token)
 
-              before_redirects = list(client.get("redirectUris") or [])
-              before_origins = list(client.get("webOrigins") or [])
-              client["redirectUris"] = merge(before_redirects, required_redirect_uris)
-              client["webOrigins"] = merge(before_origins, required_web_origins)
+                  before_redirects = list(client.get("redirectUris") or [])
+                  before_origins = list(client.get("webOrigins") or [])
+                  client["redirectUris"] = merge(before_redirects, required_redirect_uris)
+                  client["webOrigins"] = merge(before_origins, required_web_origins)
 
-              if client["redirectUris"] == before_redirects and client["webOrigins"] == before_origins:
-                  print(f"Client {client_id} already has required redirect URIs and web origins.")
-                  sys.exit(0)
+                  if client["redirectUris"] == before_redirects and client["webOrigins"] == before_origins:
+                      print(f"Client {client_id} already has required redirect URIs and web origins.")
+                      sys.exit(0)
 
-              request("PUT", client_url, token=token, body=client)
-              print(f"Reconciled Keycloak client {client_id}.")
-              print("Added only missing required redirect URIs/web origins; existing values were preserved.")
+                  request("PUT", client_url, token=token, body=client)
+                  print(f"Reconciled Keycloak client {client_id}.")
+                  print("Added only missing required redirect URIs/web origins; existing values were preserved.")

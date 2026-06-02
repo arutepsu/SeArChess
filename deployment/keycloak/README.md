@@ -148,21 +148,22 @@ When Envoy is exposed through an SSH tunnel at `http://localhost:18000`, open th
 
 ## Kubernetes — reconcile Web UI client redirects
 
-Keycloak imports `realm-searchess.json` at startup, but changed client fields are not guaranteed to update an already-created realm. The university-server overlay therefore includes an Argo CD PostSync hook Job:
+Keycloak imports `realm-searchess.json` at startup, but changed client fields are not guaranteed to update an already-created realm. The university-server overlay therefore includes a normal Kubernetes CronJob rather than relying on a one-shot Argo CD hook:
 
 - `deployment/k8s/overlays/uni-server-registry/keycloak-searchess-web-reconcile-job.yaml`
-- Job name: `keycloak-reconcile-searchess-web-client`
+- CronJob name: `keycloak-reconcile-searchess-web-client`
+- Schedule: every 5 minutes (`*/5 * * * *`)
 - Client reconciled: `searchess-web`
 - Credentials source: `Secret/keycloak-secrets` keys `bootstrap-admin-username` and `bootstrap-admin-password`
 
-The Job calls the Keycloak Admin REST API, fetches the current `searchess-web` client, appends any missing required redirect URIs and web origins, and PUTs the merged client representation back. Existing redirect URIs and web origins are preserved.
+The CronJob calls the Keycloak Admin REST API, fetches the current `searchess-web` client, appends any missing required redirect URIs and web origins, and PUTs the merged client representation back only when changes are needed. Existing redirect URIs and web origins are preserved.
 
-Manual Keycloak UI or `kubectl exec` patches are useful for emergency diagnosis only. They are not the long-term source of truth because Argo CD and Keycloak realm import behavior can drift from manual changes.
+Manual Keycloak UI or `kubectl exec` patches are useful for emergency diagnosis only. They are not the long-term source of truth because Argo CD and Keycloak realm import behavior can drift from manual changes. The CronJob is normal GitOps-managed cluster state, so Argo keeps it present and Kubernetes reruns it on schedule.
 
-Argo reruns the reconciler on sync as a PostSync hook. To force a rerun after the hook has already succeeded, change the hook manifest in Git and let Argo sync it, or delete the completed hook Job and refresh/sync the Argo application:
+To force an immediate reconciliation run:
 
 ```bash
-kubectl delete job -n searchess keycloak-reconcile-searchess-web-client --ignore-not-found
+kubectl create job -n searchess --from=cronjob/keycloak-reconcile-searchess-web-client keycloak-reconcile-searchess-web-client-manual-$(date +%s)
 ```
 
 Verify the live client through the Admin API after port-forwarding Keycloak:

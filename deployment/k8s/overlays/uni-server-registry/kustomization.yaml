@@ -10,8 +10,8 @@ resources:
 - ../../base
 - sealed-secret.yaml
 - keycloak-sealed-secret.yaml
-# GitOps reconciliation Job for existing Keycloak clients; this is a resource,
-# not a patch, so Argo renders and runs it from this overlay.
+# GitOps reconciliation CronJob for existing Keycloak clients; this is a
+# resource, not a patch, so Argo keeps it in normal cluster state.
 - keycloak-searchess-web-reconcile-job.yaml
 - python-ai-service-rollout.yaml
 
