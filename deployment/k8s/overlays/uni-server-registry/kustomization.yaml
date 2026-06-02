@@ -35,10 +35,10 @@ images:
   newTag: "4.4"
 - name: searchess/ai-service
   newName: ghcr.io/arutepsu/searchess-ai-service
-  newTag: sha-ff6c2f2
+  newTag: sha-af35ab9
 - name: searchess/game-service
   newName: ghcr.io/arutepsu/searchess-game-service
-  newTag: sha-ff6c2f2
+  newTag: sha-af35ab9
 - name: searchess/history-service
   newName: ghcr.io/arutepsu/searchess-history-service
   newTag: sha-ff6c2f2
