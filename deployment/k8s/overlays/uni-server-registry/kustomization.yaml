@@ -38,22 +38,22 @@ images:
   newTag: "4.4"
 - name: searchess/ai-service
   newName: ghcr.io/arutepsu/searchess-ai-service
-  newTag: sha-f824b6b
+  newTag: sha-7e1d6f9
 - name: searchess/game-service
   newName: ghcr.io/arutepsu/searchess-game-service
-  newTag: sha-f824b6b
+  newTag: sha-7e1d6f9
 - name: searchess/history-service
   newName: ghcr.io/arutepsu/searchess-history-service
-  newTag: sha-f824b6b
+  newTag: sha-7e1d6f9
 - name: searchess/lichess-bot
   newName: ghcr.io/arutepsu/searchess-lichess-bot
-  newTag: sha-f824b6b
+  newTag: sha-7e1d6f9
 - name: searchess/python-ai-service
   newName: ghcr.io/arutepsu/searchess-python-ai-service
   newTag: sha-2247329
 - name: searchess/web-ui
   newName: ghcr.io/arutepsu/searchess-web-ui
-  newTag: sha-f824b6b
+  newTag: sha-7e1d6f9
 
 # Expose Envoy and Grafana as LoadBalancer — k3d servicelb forwards these
 # through the port mappings in deployment/k3d/server-cluster.yaml.
