@@ -2,6 +2,7 @@ import { defineConfig, loadEnv, type ProxyOptions } from "vite";
 import react from "@vitejs/plugin-react";
 
 const backendProxyPaths = [
+  "/api",
   "/sessions",
   "/games",
   "/notation",

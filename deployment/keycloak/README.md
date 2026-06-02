@@ -138,6 +138,7 @@ npm run dev:deployed
 # loads .env.deployed:
 #   VITE_KEYCLOAK_URL=http://127.0.0.1:8080
 #   VITE_API_BASE_URL=
+#   VITE_API_PATH_PREFIX=/api
 #   VITE_DEV_PROXY_TARGET=http://127.0.0.1:10000
 ```
 
