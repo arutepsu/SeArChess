@@ -27,7 +27,8 @@ class PostgresFlywaySchemaInitializerTestcontainerSpec
     postgres.withDatabase { db =>
       Await.result(
         db.run(
-          sqlu"drop table if exists flyway_schema_history, game_states, sessions, legacy_public_table cascade"
+          // Drop external_game_bindings first (it FK-references sessions and game_states).
+          sqlu"drop table if exists flyway_schema_history, external_game_bindings, game_states, sessions, legacy_public_table cascade"
         ),
         10.seconds
       )
@@ -58,6 +59,7 @@ class PostgresFlywaySchemaInitializerTestcontainerSpec
       tables should contain("flyway_schema_history")
       tables should contain("sessions")
       tables should contain("game_states")
+      tables should contain("external_game_bindings")
     }
   }
 
@@ -107,6 +109,7 @@ class PostgresFlywaySchemaInitializerTestcontainerSpec
       gameTables should contain("flyway_schema_history")
       gameTables should contain("sessions")
       gameTables should contain("game_states")
+      gameTables should contain("external_game_bindings")
       publicTables should contain("legacy_public_table")
       publicTables should not contain "flyway_schema_history"
     }
