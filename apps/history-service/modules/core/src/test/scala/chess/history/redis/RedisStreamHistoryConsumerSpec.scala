@@ -6,11 +6,14 @@ import chess.application.session.model.{SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import chess.domain.model.Color
 import chess.history.{ArchiveRecord, GameArchiveClientError, HistoryIngestionError}
+import org.scalatest.Assertions.cancel
 import org.scalatest.BeforeAndAfterAll
+import org.scalatest.Outcome
 import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Millis, Seconds, Span}
+import org.testcontainers.DockerClientFactory
 import org.testcontainers.containers.GenericContainer
 import redis.clients.jedis.{Jedis, StreamEntryID}
 import redis.clients.jedis.params.XReadGroupParams
@@ -28,9 +31,23 @@ class RedisStreamHistoryConsumerSpec extends AnyFlatSpec with Matchers with Befo
     withExposedPorts(6379)
 
   private val container = new RedisC
+  private var started = false
 
-  override def beforeAll(): Unit = container.start()
-  override def afterAll(): Unit  = container.stop()
+  override protected def withFixture(test: NoArgTest): Outcome =
+    if !DockerClientFactory.instance().isDockerAvailable then
+      cancel("Docker/Testcontainers unavailable; skipping Redis stream consumer integration tests")
+    startContainer()
+    super.withFixture(test)
+
+  private def startContainer(): Unit =
+    if !started then
+      container.start()
+      started = true
+
+  override def afterAll(): Unit =
+    if started then
+      container.stop()
+      started = false
 
   private def redisHost = container.getHost
   private def redisPort = container.getMappedPort(6379)

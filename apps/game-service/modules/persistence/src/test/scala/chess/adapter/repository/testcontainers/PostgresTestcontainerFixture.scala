@@ -9,6 +9,7 @@ import chess.adapter.repository.postgres.{
 }
 import chess.application.migration.SessionMigrationReader
 import chess.application.port.repository.{GameRepository, SessionGameStore, SessionRepository}
+import org.testcontainers.DockerClientFactory
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
 import slick.jdbc.PostgresProfile.api.*
@@ -24,13 +25,21 @@ final class SearchessPostgresContainer
 final class PostgresTestcontainerFixture:
   private val container = SearchessPostgresContainer()
   private lazy val sharedDatabase: Database = database()
+  private var started = false
+
+  def isDockerAvailable: Boolean =
+    DockerClientFactory.instance().isDockerAvailable
 
   def start(): Unit =
-    container.start()
+    if !started then
+      container.start()
+      started = true
 
   def stop(): Unit =
-    sharedDatabase.close()
-    container.stop()
+    if started then
+      sharedDatabase.close()
+      container.stop()
+      started = false
 
   def jdbcUrl: String = container.getJdbcUrl
 

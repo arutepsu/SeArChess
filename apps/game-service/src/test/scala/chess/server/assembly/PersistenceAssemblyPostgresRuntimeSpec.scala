@@ -14,10 +14,13 @@ import chess.server.config.{
   WebSocketConfig
 }
 import chess.application.session.model.{SessionMode, SideController}
+import org.scalatest.Assertions.cancel
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.EitherValues
+import org.scalatest.Outcome
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.testcontainers.DockerClientFactory
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
 import slick.jdbc.PostgresProfile.api.*
@@ -37,13 +40,23 @@ class PersistenceAssemblyPostgresRuntimeSpec
     with BeforeAndAfterAll:
 
   private val postgres = GameServiceRuntimePostgresContainer()
+  private var started = false
 
-  override protected def beforeAll(): Unit =
-    super.beforeAll()
-    postgres.start()
+  override protected def withFixture(test: NoArgTest): Outcome =
+    if !DockerClientFactory.instance().isDockerAvailable then
+      cancel("Docker/Testcontainers unavailable; skipping Postgres runtime assembly integration tests")
+    startContainer()
+    super.withFixture(test)
+
+  private def startContainer(): Unit =
+    if !started then
+      postgres.start()
+      started = true
 
   override protected def afterAll(): Unit =
-    postgres.stop()
+    if started then
+      postgres.stop()
+      started = false
     super.afterAll()
 
   "PersistenceAssembly" should "wire Postgres runtime persistence through Flyway-created schema" in {

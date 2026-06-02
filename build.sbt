@@ -161,12 +161,17 @@ lazy val adapterPersistence = project
 
       // Flyway
       "org.flywaydb" % "flyway-core"                % flywayVersion,
-      "org.flywaydb" % "flyway-database-postgresql" % flywayVersion
+      "org.flywaydb" % "flyway-database-postgresql" % flywayVersion,
+
+      // Testcontainers-backed persistence contract fixtures
+      "org.testcontainers" % "testcontainers" % testcontainersVersion % Test,
+      "org.testcontainers" % "postgresql"     % testcontainersVersion % Test,
+      "org.testcontainers" % "mongodb"        % testcontainersVersion % Test
     )
   )
   .dependsOn(
     gameCore,
-    migration,
+    migration % "compile->compile;test->test",
     adapterEvent % Test,
     gameEventContract % Test,
     gameHistoryDelivery % Test
@@ -475,7 +480,7 @@ lazy val lichessBot = project
       "org.java-websocket" % "Java-WebSocket" % "1.5.7"
     )
   )
-  .dependsOn(domain, notation, aiService)
+  .dependsOn(domain, notation)
 
 // App: chess-streaming
 lazy val chessStreaming = project
