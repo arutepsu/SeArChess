@@ -1,0 +1,11 @@
+NAME                                 READY   STATUS    RESTARTS   AGE     IP           NODE                            NOMINATED NODE   READINESS GATES
+ai-service-5fc766b97b-pq89z          1/1     Running   0          2m27s   10.42.0.59   k3d-searchess-server-server-0   <none>           <none>
+envoy-7f6d87458c-cg5z9               1/1     Running   0          2d      10.42.0.13   k3d-searchess-server-server-0   <none>           <none>
+game-service-f7749c7d-8j5mc          1/1     Running   0          2m27s   10.42.0.58   k3d-searchess-server-server-0   <none>           <none>
+grafana-b4cd46596-vxzx2              1/1     Running   0          2d      10.42.0.9    k3d-searchess-server-server-0   <none>           <none>
+history-service-8595f497d4-cgpnp     1/1     Running   0          2m27s   10.42.0.57   k3d-searchess-server-server-0   <none>           <none>
+mongo-0                              1/1     Running   0          2d      10.42.0.16   k3d-searchess-server-server-0   <none>           <none>
+postgres-0                           1/1     Running   0          2d      10.42.0.17   k3d-searchess-server-server-0   <none>           <none>
+prometheus-68755dfbd6-7kb9j          1/1     Running   0          2d      10.42.0.11   k3d-searchess-server-server-0   <none>           <none>
+python-ai-service-6fbffddfd6-qd2hf   1/1     Running   0          2m27s   10.42.0.56   k3d-searchess-server-server-0   <none>           <none>
+redis-0                              1/1     Running   0          2d      10.42.0.18   k3d-searchess-server-server-0   <none>           <none>

@@ -1,0 +1,563 @@
+name: Build and push Docker images
+
+# One overlay-update run per branch at a time. cancel-in-progress: false so a
+# queued run still lands — preventing a second dispatch from silently dropping
+# the overlay commit that the first run was about to push.
+concurrency:
+  group: build-images-${{ github.ref_name }}
+  cancel-in-progress: false
+
+on:
+  push:
+    branches:
+      - main
+    # Image builds run only when application code, build definitions, or Dockerfiles
+    # change. Commits that touch only docs, deployment manifests, infrastructure YAML,
+    # or evidence files do not trigger image rebuilds — Argo CD syncs those directly.
+    #
+    # CI/CD boundary contract:
+    #   App change (service-specific) → that service's image rebuilt; only its tag updated.
+    #   App change (shared Scala: modules/**, build.sbt, project/**) → all Scala images rebuilt.
+    #   App change (apps/web-ui/**) → web-ui image rebuilt only; Scala images untouched.
+    #   Infra change (deployment/k8s/**) → Argo CD syncs the manifest; no image rebuild.
+    #   Docs change → no CI action; nothing is deployed.
+    #
+    # python-ai-service lives in a separate repo (arutepsu/searchess-ai-service).
+    # There are no tracked app-code paths in this repo that map to it, so it is never
+    # rebuilt on push. Use workflow_dispatch with rebuild_python_ai=true to force a rebuild.
+    #
+    # Loop prevention for the overlay update commit (touches only kustomization.yaml):
+    # 1. GITHUB_TOKEN pushes do not trigger push workflows (GitHub built-in).
+    # 2. kustomization.yaml is not listed in paths below, so the commit never matches.
+    # 3. [skip ci] in the commit message adds a third guard.
+    paths:
+      - 'apps/**'
+      - 'modules/**'
+      - 'project/**'
+      - 'build.sbt'
+      - '**/Dockerfile'
+      - 'Dockerfile*'
+      - '.github/workflows/build-images.yml'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Additional image tag (e.g. a release label). SHA tag is always applied."
+        required: false
+        default: ""
+      rebuild_python_ai:
+        description: "Also rebuild python-ai-service (pulls from arutepsu/searchess-ai-service). Only valid for workflow_dispatch."
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  ORG: arutepsu
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # determine-changes: inspect which files changed and emit per-service flags.
+  #
+  # Separation of concerns:
+  #   Scala shared (modules/, build.sbt, project/) → all Scala services; NOT web-ui.
+  #   Workflow file change                          → all Scala services AND web-ui.
+  #   apps/web-ui/**                                → web-ui only; NOT Scala services.
+  #   apps/<scala-service>/**                       → that service only.
+  #
+  # On workflow_dispatch all Scala services and web-ui are rebuilt;
+  # python-ai only if rebuild_python_ai=true.
+  # ---------------------------------------------------------------------------
+  determine-changes:
+    name: Determine which services need rebuilding
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
+    outputs:
+      build_game:       ${{ steps.changes.outputs.build_game }}
+      build_history:    ${{ steps.changes.outputs.build_history }}
+      build_ai:         ${{ steps.changes.outputs.build_ai }}
+      build_web_ui:     ${{ steps.changes.outputs.build_web_ui }}
+      build_python_ai:  ${{ steps.changes.outputs.build_python_ai }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed services
+        id: changes
+        run: |
+          # workflow_dispatch: rebuild all Scala services and web-ui;
+          # python-ai only if explicitly requested.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "build_game=true"      >> $GITHUB_OUTPUT
+            echo "build_history=true"   >> $GITHUB_OUTPUT
+            echo "build_ai=true"        >> $GITHUB_OUTPUT
+            echo "build_web_ui=true"    >> $GITHUB_OUTPUT
+            echo "build_python_ai=${{ inputs.rebuild_python_ai }}" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.sha }}"
+
+          # First push to a new branch: BEFORE is all zeros — rebuild everything.
+          if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            echo "First push to branch — rebuilding all services."
+            echo "build_game=true"       >> $GITHUB_OUTPUT
+            echo "build_history=true"    >> $GITHUB_OUTPUT
+            echo "build_ai=true"         >> $GITHUB_OUTPUT
+            echo "build_web_ui=true"     >> $GITHUB_OUTPUT
+            echo "build_python_ai=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          CHANGED=$(git diff --name-only "$BEFORE" "$AFTER")
+          echo "Changed files in this push:"
+          echo "$CHANGED"
+
+          # Shared Scala build inputs: modules/, build.sbt, project/.
+          # These affect only the three Scala services — web-ui is a Node.js app
+          # and does not share these inputs.
+          SCALA_SHARED=$(echo "$CHANGED" | grep -E \
+            "^(modules/|build\.sbt$|project/)" || true)
+          if [ -n "$SCALA_SHARED" ]; then
+            echo "Scala shared inputs changed — rebuilding all Scala services."
+            echo "build_game=true"       >> $GITHUB_OUTPUT
+            echo "build_history=true"    >> $GITHUB_OUTPUT
+            echo "build_ai=true"         >> $GITHUB_OUTPUT
+            echo "build_web_ui=false"    >> $GITHUB_OUTPUT
+            echo "build_python_ai=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Workflow file changed: rebuild all services including web-ui so the
+          # updated build config is exercised for every image in the same run.
+          WORKFLOW=$(echo "$CHANGED" | grep -E \
+            "^\.github/workflows/build-images\.yml$" || true)
+          if [ -n "$WORKFLOW" ]; then
+            echo "Build workflow changed — rebuilding all services."
+            echo "build_game=true"       >> $GITHUB_OUTPUT
+            echo "build_history=true"    >> $GITHUB_OUTPUT
+            echo "build_ai=true"         >> $GITHUB_OUTPUT
+            echo "build_web_ui=true"     >> $GITHUB_OUTPUT
+            echo "build_python_ai=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Service-specific paths: rebuild only the affected service(s).
+          GAME=$(echo    "$CHANGED" | grep -E "^apps/game-service/|^Dockerfile$"             || true)
+          HISTORY=$(echo "$CHANGED" | grep -E "^apps/history-service/|^Dockerfile\.history$" || true)
+          AI=$(echo      "$CHANGED" | grep -E "^apps/ai-service/|^Dockerfile\.ai$"           || true)
+          WEB_UI=$(echo  "$CHANGED" | grep -E "^apps/web-ui/"                                || true)
+
+          [ -n "$GAME" ]    && echo "build_game=true"    >> $GITHUB_OUTPUT \
+                            || echo "build_game=false"   >> $GITHUB_OUTPUT
+          [ -n "$HISTORY" ] && echo "build_history=true" >> $GITHUB_OUTPUT \
+                            || echo "build_history=false" >> $GITHUB_OUTPUT
+          [ -n "$AI" ]      && echo "build_ai=true"      >> $GITHUB_OUTPUT \
+                            || echo "build_ai=false"     >> $GITHUB_OUTPUT
+          [ -n "$WEB_UI" ]  && echo "build_web_ui=true"  >> $GITHUB_OUTPUT \
+                            || echo "build_web_ui=false" >> $GITHUB_OUTPUT
+          echo "build_python_ai=false" >> $GITHUB_OUTPUT
+
+  # ---------------------------------------------------------------------------
+  # Build jobs — one per service, each gated on determine-changes output.
+  # ---------------------------------------------------------------------------
+
+  build-game-service:
+    name: Build game-service
+    runs-on: ubuntu-latest
+    needs: determine-changes
+    if: |
+      github.actor != 'github-actions[bot]' &&
+      needs.determine-changes.outputs.build_game == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set short SHA
+        id: sha
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.ORG }}/searchess-game-service
+          tags: |
+            type=raw,value=sha-${{ steps.sha.outputs.SHORT_SHA }}
+            type=raw,value=main-latest
+            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push game-service
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=game-service
+          cache-to: type=gha,mode=max,scope=game-service
+
+  build-history-service:
+    name: Build history-service
+    runs-on: ubuntu-latest
+    needs: determine-changes
+    if: |
+      github.actor != 'github-actions[bot]' &&
+      needs.determine-changes.outputs.build_history == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set short SHA
+        id: sha
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.ORG }}/searchess-history-service
+          tags: |
+            type=raw,value=sha-${{ steps.sha.outputs.SHORT_SHA }}
+            type=raw,value=main-latest
+            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push history-service
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.history
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=history-service
+          cache-to: type=gha,mode=max,scope=history-service
+
+  build-ai-service:
+    name: Build ai-service
+    runs-on: ubuntu-latest
+    needs: determine-changes
+    if: |
+      github.actor != 'github-actions[bot]' &&
+      needs.determine-changes.outputs.build_ai == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set short SHA
+        id: sha
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.ORG }}/searchess-ai-service
+          tags: |
+            type=raw,value=sha-${{ steps.sha.outputs.SHORT_SHA }}
+            type=raw,value=main-latest
+            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push ai-service
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.ai
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=ai-service
+          cache-to: type=gha,mode=max,scope=ai-service
+
+  build-web-ui:
+    name: Build web-ui
+    runs-on: ubuntu-latest
+    needs: determine-changes
+    if: |
+      github.actor != 'github-actions[bot]' &&
+      needs.determine-changes.outputs.build_web_ui == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set short SHA
+        id: sha
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.ORG }}/searchess-web-ui
+          tags: |
+            type=raw,value=sha-${{ steps.sha.outputs.SHORT_SHA }}
+            type=raw,value=main-latest
+            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push web-ui
+        uses: docker/build-push-action@v6
+        with:
+          # Context is apps/web-ui so only web-ui files are sent to the daemon.
+          # VITE_* build args are baked into the static bundle at build time.
+          # Values target the SSH-tunnel / kubectl port-forward scenario:
+          #   Keycloak:  http://127.0.0.1:8080 (kubectl port-forward svc/keycloak 8080:8080)
+          #   API/Envoy: http://127.0.0.1:10000 (k3d load-balancer / port-forward)
+          context: apps/web-ui
+          file: apps/web-ui/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VITE_KEYCLOAK_URL=http://127.0.0.1:8080
+            VITE_KEYCLOAK_REALM=searchess
+            VITE_KEYCLOAK_CLIENT_ID=searchess-web
+            VITE_API_BASE_URL=http://127.0.0.1:10000
+            VITE_WS_URL=ws://127.0.0.1:10000/ws
+          cache-from: type=gha,scope=web-ui
+          cache-to: type=gha,mode=max,scope=web-ui
+
+  build-python-ai-service:
+    name: Build python-ai-service
+    runs-on: ubuntu-latest
+    needs: determine-changes
+    # python-ai-service lives in arutepsu/searchess-ai-service — a separate repository.
+    # There are no app-code paths in the Searchess repo that map to it, so this job
+    # never runs on a push event. It runs only when workflow_dispatch is triggered with
+    # rebuild_python_ai=true, which is the explicit manual override for this service.
+    if: |
+      github.actor != 'github-actions[bot]' &&
+      needs.determine-changes.outputs.build_python_ai == 'true'
+
+    steps:
+      - name: Checkout searchess (for workflow context)
+        uses: actions/checkout@v6
+        with:
+          path: searchess
+
+      - name: Checkout searchess-ai-service
+        uses: actions/checkout@v6
+        with:
+          repository: arutepsu/searchess-ai-service
+          path: searchess-ai-service
+          # Use GITHUB_TOKEN for public repos; add a PAT secret for private repos:
+          # token: ${{ secrets.AI_SERVICE_PAT }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set short SHA
+        id: sha
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.ORG }}/searchess-python-ai-service
+          tags: |
+            type=raw,value=sha-${{ steps.sha.outputs.SHORT_SHA }}
+            type=raw,value=main-latest
+            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push python-ai-service
+        uses: docker/build-push-action@v6
+        with:
+          context: searchess-ai-service
+          file: searchess-ai-service/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=python-ai-service
+          cache-to: type=gha,mode=max,scope=python-ai-service
+
+  # ---------------------------------------------------------------------------
+  # update-overlay: runs after all build jobs (using always() so skipped builds
+  # do not block the job). Updates only the tags for services that were rebuilt,
+  # validates only those services in the rendered output, and commits the result.
+  # ---------------------------------------------------------------------------
+  update-overlay:
+    name: Update registry overlay image tags
+    runs-on: ubuntu-latest
+    needs:
+      - determine-changes
+      - build-game-service
+      - build-history-service
+      - build-ai-service
+      - build-web-ui
+      - build-python-ai-service
+    # Run if no build job failed or was cancelled AND at least one build succeeded.
+    # always() is required so skipped jobs do not prevent this job from running.
+    if: |
+      always() &&
+      github.actor != 'github-actions[bot]' &&
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled') &&
+      (
+        needs.build-game-service.result == 'success' ||
+        needs.build-history-service.result == 'success' ||
+        needs.build-ai-service.result == 'success' ||
+        needs.build-web-ui.result == 'success' ||
+        needs.build-python-ai-service.result == 'success'
+      )
+
+    steps:
+      # Checkout the branch that triggered this workflow, not the default branch.
+      # Without an explicit ref, actions/checkout uses GITHUB_SHA (a detached HEAD
+      # on the triggering commit) which makes the subsequent push fail on feature
+      # branches because "origin/main" does not exist as a valid rebase target there.
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Set short SHA
+        id: sha
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      # Pinned kustomize version for reproducibility.
+      - name: Install kustomize
+        run: |
+          VERSION=v5.4.3
+          curl -sLo kustomize.tar.gz \
+            "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${VERSION}/kustomize_${VERSION}_linux_amd64.tar.gz"
+          tar -xzf kustomize.tar.gz
+          chmod +x kustomize
+          sudo mv kustomize /usr/local/bin/kustomize
+
+      # Update only the image tags for services that were actually rebuilt.
+      # mongo is intentionally not touched — it is pinned to 4.4 in the overlay.
+      - name: Update image tags for rebuilt services
+        id: update
+        run: |
+          SHORT_SHA=${{ steps.sha.outputs.SHORT_SHA }}
+          cd deployment/k8s/overlays/uni-server-registry
+          IMAGES_UPDATED=""
+
+          if [ "${{ needs.build-game-service.result }}" = "success" ]; then
+            kustomize edit set image \
+              searchess/game-service=ghcr.io/${{ env.ORG }}/searchess-game-service:sha-${SHORT_SHA}
+            IMAGES_UPDATED="${IMAGES_UPDATED} game-service"
+          fi
+          if [ "${{ needs.build-history-service.result }}" = "success" ]; then
+            kustomize edit set image \
+              searchess/history-service=ghcr.io/${{ env.ORG }}/searchess-history-service:sha-${SHORT_SHA}
+            IMAGES_UPDATED="${IMAGES_UPDATED} history-service"
+          fi
+          if [ "${{ needs.build-ai-service.result }}" = "success" ]; then
+            kustomize edit set image \
+              searchess/ai-service=ghcr.io/${{ env.ORG }}/searchess-ai-service:sha-${SHORT_SHA}
+            IMAGES_UPDATED="${IMAGES_UPDATED} ai-service"
+          fi
+          if [ "${{ needs.build-web-ui.result }}" = "success" ]; then
+            kustomize edit set image \
+              searchess/web-ui=ghcr.io/${{ env.ORG }}/searchess-web-ui:sha-${SHORT_SHA}
+            IMAGES_UPDATED="${IMAGES_UPDATED} web-ui"
+          fi
+          if [ "${{ needs.build-python-ai-service.result }}" = "success" ]; then
+            kustomize edit set image \
+              searchess/python-ai-service=ghcr.io/${{ env.ORG }}/searchess-python-ai-service:sha-${SHORT_SHA}
+            IMAGES_UPDATED="${IMAGES_UPDATED} python-ai-service"
+          fi
+
+          IMAGES_UPDATED=$(echo "$IMAGES_UPDATED" | xargs)
+          echo "Services with updated tags: ${IMAGES_UPDATED}"
+          echo "images_updated=${IMAGES_UPDATED}" >> $GITHUB_OUTPUT
+
+      # Render the overlay and assert each rebuilt service resolves to the correct
+      # SHA tag. Services not rebuilt in this run are not checked — their existing
+      # tags in kustomization.yaml are left unchanged.
+      - name: Validate rendered overlay
+        run: |
+          SHORT_SHA=${{ steps.sha.outputs.SHORT_SHA }}
+          RENDERED=$(kubectl kustomize deployment/k8s/overlays/uni-server-registry)
+          echo "$RENDERED"
+          for SERVICE in ${{ steps.update.outputs.images_updated }}; do
+            EXPECTED="ghcr.io/${{ env.ORG }}/searchess-${SERVICE}:sha-${SHORT_SHA}"
+            if ! echo "$RENDERED" | grep -qF "$EXPECTED"; then
+              echo "ERROR: expected image not found in rendered output: $EXPECTED"
+              exit 1
+            fi
+          done
+          echo "Validation passed: ${{ steps.update.outputs.images_updated }}"
+
+      # Commit only kustomization.yaml with the list of updated services in the message.
+      # [skip ci] is the third loop-prevention layer (after GITHUB_TOKEN push protection
+      # and the paths filter that excludes kustomization.yaml).
+      # Branch-safe: rebase and push against the branch that triggered this workflow
+      # (github.ref_name). On main this is identical to the previous behaviour;
+      # on feature branches it avoids the add/add conflict that occurred when the
+      # push target was hardcoded to "main" while the checkout was on the feature branch.
+      - name: Commit and push tag update
+        run: |
+          SHORT_SHA=${{ steps.sha.outputs.SHORT_SHA }}
+          BRANCH="${{ github.ref_name }}"
+          SERVICES=$(echo "${{ steps.update.outputs.images_updated }}" | tr ' ' ',')
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add deployment/k8s/overlays/uni-server-registry/kustomization.yaml
+          if git diff --cached --quiet; then
+            echo "kustomization.yaml unchanged — no commit needed."
+            exit 0
+          fi
+          git commit -m "Deploy images sha-${SHORT_SHA} (${SERVICES}) [skip ci]"
+          git pull --rebase origin "${BRANCH}"
+          git push origin HEAD:"${BRANCH}"

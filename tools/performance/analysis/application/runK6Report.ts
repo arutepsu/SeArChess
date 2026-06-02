@@ -1,14 +1,33 @@
-import { spawnSync, type SpawnSyncOptions } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { spawn, spawnSync } from 'node:child_process';
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join, resolve } from 'node:path';
 import type { PerformanceReport } from '../domain/models';
 import { normalizeK6Summary } from '../normalization/k6SummaryNormalizer';
 import type { NormalizerContext } from '../normalization/normalizerModels';
 import { analyze } from './analyzePerformance';
 import { renderPerformanceReview } from './renderPerformanceReview';
+import { renderPerformanceReviewHtml } from './renderPerformanceReviewHtml';
 
 export type K6TestName = 'baseline' | 'load' | 'stress' | 'spike';
 export type K6Phase = 'baseline' | 'optimized';
+export type K6OutputMode = 'inherit' | 'log';
+
+export type K6ProgressStep =
+  | 'k6:start'
+  | 'k6:complete'
+  | 'k6:threshold-warning'
+  | 'summary:found'
+  | 'context:written'
+  | 'normalization:complete'
+  | 'analysis:complete'
+  | 'markdown:written';
+
+export interface K6ReportProgressEvent {
+  step: K6ProgressStep;
+  test: K6TestName;
+  message: string;
+  path?: string;
+}
 
 export interface RunK6ReportOptions {
   test: K6TestName;
@@ -17,6 +36,8 @@ export interface RunK6ReportOptions {
   memory: number;
   phase: K6Phase;
   out?: string;
+  outputMode?: K6OutputMode;
+  onProgress?: (event: K6ReportProgressEvent) => void;
 }
 
 export interface K6TestConfig {
@@ -34,6 +55,8 @@ export interface K6ArtifactPaths {
   inputPath: string;
   reportJsonPath: string;
   markdownPath: string;
+  reportHtmlPath: string;
+  logPath: string;
 }
 
 export interface RunK6ReportResult {
@@ -49,6 +72,10 @@ function repoRoot(): string {
 
 function performanceDir(): string {
   return resolve(__dirname, '../../..');
+}
+
+function emitProgress(options: RunK6ReportOptions, step: K6ProgressStep, message: string, path?: string): void {
+  options.onProgress?.({ step, test: options.test, message, path });
 }
 
 export function getK6TestConfig(test: K6TestName): K6TestConfig {
@@ -99,11 +126,28 @@ export function buildK6ArtifactPaths(test: K6TestName, phase: K6Phase, out?: str
     inputPath: join(outDir, `${prefix}_input.json`),
     reportJsonPath: join(outDir, `${prefix}_report.json`),
     markdownPath: join(outDir, `${prefix}_report.md`),
+    reportHtmlPath: join(outDir, `${prefix}_report.html`),
+    logPath: join(outDir, 'logs', `${prefix}.log`),
   };
 }
 
 export function shouldContinueAfterK6Failure(k6ExitCode: number | null, summaryExists: boolean): boolean {
   return typeof k6ExitCode === 'number' && k6ExitCode !== 0 && summaryExists;
+}
+
+function runIdFromOutputDirectory(out?: string): string {
+  return out ? basename(resolve(process.cwd(), out)) || 'local-dev' : 'local-dev';
+}
+
+export function buildK6ProcessEnv(options: RunK6ReportOptions): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    BASE_URL: options.baseUrl,
+    PERFORMANCE_RUN_ID: runIdFromOutputDirectory(options.out),
+    PERFORMANCE_TOOL: 'k6',
+    PERFORMANCE_WORKLOAD: options.test,
+    PERFORMANCE_PHASE: options.phase ?? 'local',
+  };
 }
 
 function writeJson(path: string, value: unknown): void {
@@ -123,55 +167,144 @@ export function buildK6NormalizerContext(options: RunK6ReportOptions, config: K6
   };
 }
 
-export function buildK6SpawnOptions(baseUrl: string): SpawnSyncOptions {
+export function buildK6SpawnOptions(
+  options: RunK6ReportOptions,
+  outputMode: K6OutputMode = 'inherit',
+  logFileDescriptor?: number,
+): { stdio: 'inherit' | ['ignore', number, number]; env: NodeJS.ProcessEnv } {
+  if (outputMode === 'log' && logFileDescriptor === undefined) {
+    throw new Error('logFileDescriptor is required when k6 outputMode is log');
+  }
   return {
-    stdio: 'inherit',
-    env: { ...process.env, BASE_URL: baseUrl },
+    stdio: outputMode === 'log' ? ['ignore', logFileDescriptor!, logFileDescriptor!] : 'inherit',
+    env: buildK6ProcessEnv(options),
   };
 }
 
-export function runK6Report(options: RunK6ReportOptions): RunK6ReportResult {
-  const config = getK6TestConfig(options.test);
-  const artifactPaths = buildK6ArtifactPaths(options.test, options.phase, options.out);
-  mkdirSync(artifactPaths.outDir, { recursive: true });
-
-  const result = spawnSync(
-    'k6',
-    ['run', config.scriptPath, '--summary-export', artifactPaths.summaryPath],
-    buildK6SpawnOptions(options.baseUrl),
-  );
-
-  const k6ExitCode = result.status;
+function completeK6Report(
+  options: RunK6ReportOptions,
+  config: K6TestConfig,
+  artifactPaths: K6ArtifactPaths,
+  processResult: { status: number | null; error?: Error },
+): RunK6ReportResult {
+  const k6ExitCode = processResult.status;
   const continuedAfterThresholdFailure = shouldContinueAfterK6Failure(
     k6ExitCode,
     existsSync(artifactPaths.summaryPath),
   );
 
+  if (continuedAfterThresholdFailure) {
+    emitProgress(options, 'k6:threshold-warning', `k6 ${options.test} exited non-zero; continuing because summary export exists.`, artifactPaths.summaryPath);
+  }
+
   if (k6ExitCode !== 0 && !continuedAfterThresholdFailure) {
-    const reason = result.error instanceof Error ? ` ${result.error.message}` : '';
+    const reason = processResult.error instanceof Error ? ` ${processResult.error.message}` : '';
     throw new Error(`k6 failed and no summary export was produced.${reason}`);
   }
 
+  emitProgress(options, 'summary:found', `Summary export found for k6 ${options.test}.`, artifactPaths.summaryPath);
+
   const context = buildK6NormalizerContext(options, config);
   writeJson(artifactPaths.contextPath, context);
+  emitProgress(options, 'context:written', `Context written for k6 ${options.test}.`, artifactPaths.contextPath);
 
   const summary = JSON.parse(readFileSync(artifactPaths.summaryPath, 'utf-8'));
   const input = normalizeK6Summary(summary, context);
   writeJson(artifactPaths.inputPath, input);
+  emitProgress(options, 'normalization:complete', `Normalized input written for k6 ${options.test}.`, artifactPaths.inputPath);
 
   const report = analyze(input);
   writeJson(artifactPaths.reportJsonPath, report);
+  emitProgress(options, 'analysis:complete', `Deterministic report generated for k6 ${options.test}.`, artifactPaths.reportJsonPath);
 
   const markdown = renderPerformanceReview({
     performanceReport: report,
     title: `k6 ${options.test} ${options.phase} Performance Report`,
   });
   writeFileSync(artifactPaths.markdownPath, markdown);
+  emitProgress(options, 'markdown:written', `Markdown report generated for k6 ${options.test}.`, artifactPaths.markdownPath);
 
-  return {
-    report,
-    artifactPaths,
-    k6ExitCode,
-    continuedAfterThresholdFailure,
-  };
+  const html = renderPerformanceReviewHtml({
+    performanceReport: report,
+    title: `k6 ${options.test} ${options.phase} Performance Report`,
+  });
+  writeFileSync(artifactPaths.reportHtmlPath, html);
+
+  return { report, artifactPaths, k6ExitCode, continuedAfterThresholdFailure };
+}
+
+function prepareK6Run(options: RunK6ReportOptions): {
+  config: K6TestConfig;
+  artifactPaths: K6ArtifactPaths;
+  outputMode: K6OutputMode;
+} {
+  const config = getK6TestConfig(options.test);
+  const artifactPaths = buildK6ArtifactPaths(options.test, options.phase, options.out);
+  mkdirSync(artifactPaths.outDir, { recursive: true });
+  return { config, artifactPaths, outputMode: options.outputMode ?? 'inherit' };
+}
+
+function runK6ProcessAsync(
+  options: RunK6ReportOptions,
+  config: K6TestConfig,
+  artifactPaths: K6ArtifactPaths,
+  outputMode: K6OutputMode,
+  logFileDescriptor: number | undefined,
+): Promise<{ status: number | null; error?: Error }> {
+  return new Promise((resolveProcess) => {
+    let resolved = false;
+    const spawnOpts = buildK6SpawnOptions(options, outputMode, logFileDescriptor);
+    const child = spawn('k6', ['run', config.scriptPath, '--summary-export', artifactPaths.summaryPath], {
+      stdio: spawnOpts.stdio,
+      env: spawnOpts.env,
+    });
+    child.once('error', (error) => {
+      if (!resolved) { resolved = true; resolveProcess({ status: null, error }); }
+    });
+    child.once('close', (code) => {
+      if (!resolved) { resolved = true; resolveProcess({ status: code }); }
+    });
+  });
+}
+
+export function runK6Report(options: RunK6ReportOptions): RunK6ReportResult {
+  const { config, artifactPaths, outputMode } = prepareK6Run(options);
+  let logFileDescriptor: number | undefined;
+  try {
+    if (outputMode === 'log') {
+      mkdirSync(dirname(artifactPaths.logPath), { recursive: true });
+      logFileDescriptor = openSync(artifactPaths.logPath, 'w');
+    }
+    emitProgress(options, 'k6:start', `Starting k6 ${options.test}.`, artifactPaths.logPath);
+    const spawnOpts = buildK6SpawnOptions(options, outputMode, logFileDescriptor);
+    const result = spawnSync('k6', ['run', config.scriptPath, '--summary-export', artifactPaths.summaryPath], {
+      stdio: spawnOpts.stdio,
+      env: spawnOpts.env,
+    });
+    emitProgress(options, 'k6:complete', `k6 ${options.test} execution completed.`);
+    return completeK6Report(options, config, artifactPaths, { status: result.status, error: result.error });
+  } finally {
+    if (logFileDescriptor !== undefined) {
+      closeSync(logFileDescriptor);
+    }
+  }
+}
+
+export async function runK6ReportAsync(options: RunK6ReportOptions): Promise<RunK6ReportResult> {
+  const { config, artifactPaths, outputMode } = prepareK6Run(options);
+  let logFileDescriptor: number | undefined;
+  try {
+    if (outputMode === 'log') {
+      mkdirSync(dirname(artifactPaths.logPath), { recursive: true });
+      logFileDescriptor = openSync(artifactPaths.logPath, 'w');
+    }
+    emitProgress(options, 'k6:start', `Starting k6 ${options.test}.`, artifactPaths.logPath);
+    const result = await runK6ProcessAsync(options, config, artifactPaths, outputMode, logFileDescriptor);
+    emitProgress(options, 'k6:complete', `k6 ${options.test} execution completed.`);
+    return completeK6Report(options, config, artifactPaths, result);
+  } finally {
+    if (logFileDescriptor !== undefined) {
+      closeSync(logFileDescriptor);
+    }
+  }
 }

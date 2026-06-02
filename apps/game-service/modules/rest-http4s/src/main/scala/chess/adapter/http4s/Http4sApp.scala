@@ -23,23 +23,26 @@ import org.http4s.HttpApp
   * Both route classes depend only on [[GameServiceApi]] — the single Game Service boundary. This
   * replaces the previous three-dependency split
   * ([[chess.application.session.service.GameSessionCommands]],
-  * [[chess.application.session.service.SessionLifecycleService]],
+  * [[chess.application.session.service.SessionLifecycleService]], and
   * [[chess.application.port.repository.GameRepository]]).
   *
   * @param gameService
   *   the Game Service boundary (commands + queries)
+  * @param domainMetrics
+  *   shared domain metrics registry; defaults to a new instance when not provided
   */
 class Http4sApp(
     gameService: GameServiceApi,
     persistentSessionService: PersistentSessionService,
     snapshotTransferService: SessionSnapshotTransferService,
     gameRepository: GameRepository,
-    sessionGameStore: SessionGameStore
+    sessionGameStore: SessionGameStore,
+    domainMetrics: DomainMetricsRegistry = new DomainMetricsRegistry()
 ):
 
   private val combinedRoutes =
-    Http4sSessionRoutes(gameService, persistentSessionService, snapshotTransferService).routes <+>
-      Http4sGameRoutes(gameService).routes <+>
+    Http4sSessionRoutes(gameService, persistentSessionService, snapshotTransferService, domainMetrics).routes <+>
+      Http4sGameRoutes(gameService, domainMetrics).routes <+>
       Http4sNotationRoutes(gameRepository, sessionGameStore).routes <+>
       Http4sArchiveRoutes(gameService).routes <+>
       Http4sStatsRoutes(gameService).routes

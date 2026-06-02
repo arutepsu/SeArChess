@@ -7,20 +7,59 @@ export interface MarkdownReportInput {
   comparisonReport?: PerformanceComparisonReport;
   aiReview?: AIReview;
   title?: string;
+  toolArtifacts?: {
+    gatlingHtmlReportPath?: string;
+  };
+}
+
+function formatLatency(value: number): string {
+  return `${value.toFixed(2)}ms`;
 }
 
 function formatRate(rate: number): string {
   return `${(rate * 100).toFixed(2)}%`;
 }
 
+function formatThroughput(value: number): string {
+  return `${value.toFixed(2)} req/s`;
+}
+
+function formatPercentValue(value: number): string {
+  return `${value.toFixed(2)}%`;
+}
+
 function formatChange(change: number | null): string {
   return change === null ? 'N/A' : `${change.toFixed(2)}%`;
 }
 
-function pushBulletList(lines: string[], items: string[]): void {
+function pushBulletList(lines: string[], items: string[], formatItem: (item: string) => string = (item) => item): void {
   for (const item of items) {
-    lines.push(`- ${item}`);
+    lines.push(`- ${formatItem(item)}`);
   }
+}
+
+function formatObservation(item: string): string {
+  const latency = item.match(/^(p(?:50|95|99) latency is )(-?\d+(?:\.\d+)?)(ms.*)$/);
+  if (latency) {
+    return `${latency[1]}${formatLatency(Number(latency[2]))}${latency[3].slice(2)}`;
+  }
+
+  const errorRate = item.match(/^(error rate is )(-?\d+(?:\.\d+)?)(.*)$/);
+  if (errorRate) {
+    return `${errorRate[1]}${formatRate(Number(errorRate[2]))}${errorRate[3]}`;
+  }
+
+  const throughput = item.match(/^(throughput is )(-?\d+(?:\.\d+)?)( requests\/second.*)$/);
+  if (throughput) {
+    return `${throughput[1]}${Number(throughput[2]).toFixed(2)}${throughput[3]}`;
+  }
+
+  const usage = item.match(/^((?:CPU|memory|DB pool) usage is )(-?\d+(?:\.\d+)?)(%.*)$/);
+  if (usage) {
+    return `${usage[1]}${formatPercentValue(Number(usage[2]))}${usage[3].slice(1)}`;
+  }
+
+  return item;
 }
 
 function isHealthyUnknown(report: PerformanceReport): boolean {
@@ -59,16 +98,16 @@ function appendPerformanceReport(lines: string[], report: PerformanceReport): vo
   lines.push(`- Scenario: ${report.metadata.scenario_name}`);
   lines.push(`- Test type: ${report.metadata.test_type}`);
   lines.push(`- Timestamp: ${report.metadata.timestamp}`);
-  lines.push(`- p95 latency: ${report.summary.p95_latency}ms`);
+  lines.push(`- p95 latency: ${formatLatency(report.summary.p95_latency)}`);
   lines.push(`- error rate: ${formatRate(report.summary.error_rate)}`);
-  lines.push(`- throughput: ${report.summary.throughput} req/s`);
+  lines.push(`- throughput: ${formatThroughput(report.summary.throughput)}`);
   lines.push(`- bottleneck type: ${report.bottleneck.type}`);
   lines.push(`- confidence: ${report.bottleneck.confidence}`);
   lines.push('');
 
   if (report.observations.length > 0) {
     lines.push('### Observations', '');
-    pushBulletList(lines, report.observations);
+    pushBulletList(lines, report.observations, formatObservation);
     lines.push('');
   }
 
@@ -94,14 +133,14 @@ function appendPerformanceReport(lines: string[], report: PerformanceReport): vo
 function appendComparisonReport(lines: string[], report: PerformanceComparisonReport): void {
   lines.push('## Comparison Report', '');
   lines.push(`- Verdict: ${report.verdict}`);
-  lines.push(`- Baseline p95 latency: ${report.baseline_summary.p95_latency}ms`);
-  lines.push(`- Optimized p95 latency: ${report.optimized_summary.p95_latency}ms`);
+  lines.push(`- Baseline p95 latency: ${formatLatency(report.baseline_summary.p95_latency)}`);
+  lines.push(`- Optimized p95 latency: ${formatLatency(report.optimized_summary.p95_latency)}`);
   lines.push(`- Latency change %: ${formatChange(report.improvement.latency_change_percent)}`);
   lines.push(`- Baseline error rate: ${formatRate(report.baseline_summary.error_rate)}`);
   lines.push(`- Optimized error rate: ${formatRate(report.optimized_summary.error_rate)}`);
   lines.push(`- Error change %: ${formatChange(report.improvement.error_change_percent)}`);
-  lines.push(`- Baseline throughput: ${report.baseline_summary.throughput} req/s`);
-  lines.push(`- Optimized throughput: ${report.optimized_summary.throughput} req/s`);
+  lines.push(`- Baseline throughput: ${formatThroughput(report.baseline_summary.throughput)}`);
+  lines.push(`- Optimized throughput: ${formatThroughput(report.optimized_summary.throughput)}`);
   lines.push(`- Throughput change %: ${formatChange(report.improvement.throughput_change_percent)}`);
   lines.push('');
 
@@ -157,6 +196,11 @@ export function renderMarkdownReport(input: MarkdownReportInput): string {
 
   if (input.aiReview) {
     appendAIReview(lines, input.aiReview);
+  }
+
+  if (input.toolArtifacts?.gatlingHtmlReportPath) {
+    lines.push('## Tool Artifacts', '');
+    lines.push(`- Gatling HTML report: ${input.toolArtifacts.gatlingHtmlReportPath}`, '');
   }
 
   return `${lines.join('\n').replace(/\n+$/, '')}\n`;

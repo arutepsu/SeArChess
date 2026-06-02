@@ -17,6 +17,7 @@ import type {
   SubmitMoveRequest
 } from "./backendTypes";
 import type { MigrationReport, MigrationRequest } from "./migrationTypes";
+import keycloak from "../auth/keycloak";
 
 const DEFAULT_API_BASE = "http://localhost:10000";
 
@@ -24,9 +25,17 @@ export const apiBaseUrl =
   import.meta.env.VITE_API_BASE_URL?.toString() || DEFAULT_API_BASE;
 
 async function fetchJson<T>(path: string, options?: RequestInit): Promise<T> {
+  const authHeaders: Record<string, string> = keycloak.token
+    ? { Authorization: `Bearer ${keycloak.token}` }
+    : {};
+
   const response = await fetch(`${apiBaseUrl}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...options
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders,
+      ...(options?.headers as Record<string, string> | undefined),
+    },
   });
 
   if (!response.ok) {

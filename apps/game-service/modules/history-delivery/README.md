@@ -9,16 +9,21 @@ This module owns:
 - `SqliteHistoryEventOutbox`
 - `HistoryOutboxForwarder`
 - `HistoryHttpEventPublisher`
+- `RedisStreamHistoryPublisher`
 - `DurableHistoryEventPublisher`
 
-It is intentionally local/dev delivery infrastructure, not a broker framework.
-It uses the event JSON serializer from `game-event-contract` and persists /
-forwards terminal events to History.
+It is intentionally archive-delivery infrastructure, not a general broker
+framework. It uses the event JSON serializer from `game-event-contract` and
+delivers terminal events to History.
 
 The module does not define the wire schema; it only stores and delivers payloads
 that already follow the Game event contract.
 
 ## Reliability model
+
+Redis Streams mode publishes `history.archive.requested` envelopes to
+`searchess.history.archives`. History Service consumes with the `history-service`
+consumer group and acknowledges after successful archive persistence.
 
 SQLite deployments use `history_event_outbox` as the delivery source of truth.
 Rows with `delivered_at IS NULL` are pending. A pending row with `attempts = 0`

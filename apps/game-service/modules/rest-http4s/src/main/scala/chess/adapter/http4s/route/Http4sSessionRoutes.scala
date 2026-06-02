@@ -1,6 +1,7 @@
 package chess.adapter.http4s.route
 
 import cats.effect.IO
+import chess.adapter.http4s.DomainMetricsRegistry
 import chess.adapter.http4s.mapper.{GameMapper, SessionMapper}
 import chess.adapter.http4s.route.Http4sRouteSupport.*
 import chess.adapter.rest.contract.dto.{
@@ -18,9 +19,9 @@ import chess.application.session.model.SessionIds.SessionId
 import chess.application.session.service.{
   PersistentSessionError,
   PersistentSessionService,
+  SessionError,
   SessionSnapshotTransferError,
-  SessionSnapshotTransferService,
-  SessionError
+  SessionSnapshotTransferService
 }
 import org.http4s.*
 import org.http4s.dsl.io.*
@@ -33,6 +34,8 @@ import org.http4s.dsl.io.*
   *   - `GET /sessions/{id}` -> [[handleGet]] (query - get single session)
   *   - `GET /sessions/{id}/state` -> [[handleGetState]] (query - load full persisted aggregate)
   *   - `PUT /sessions/{id}/state` -> [[handlePutState]] (command - replace persisted aggregate)
+  *   - `GET /sessions/{id}/export` -> [[handleExport]] (query - snapshot export envelope)
+  *   - `POST /sessions/import` -> [[handleImport]] (command - import snapshot envelope)
   *   - `POST /sessions/{id}/cancel` -> [[handleCancel]] (command - cancel session)
   *
   * Session creation/list/get/cancel route through [[GameServiceApi]]. Aggregate read/write flows
@@ -42,7 +45,8 @@ import org.http4s.dsl.io.*
 class Http4sSessionRoutes(
     gameService: GameServiceApi,
     persistentSessionService: PersistentSessionService,
-    snapshotTransferService: SessionSnapshotTransferService
+    snapshotTransferService: SessionSnapshotTransferService,
+    metrics: DomainMetricsRegistry = new DomainMetricsRegistry()
 ):
 
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
@@ -59,6 +63,9 @@ class Http4sSessionRoutes(
     case req @ POST -> Root / "sessions" / "ai-vs-ai" =>
       req.bodyText.compile.string.flatMap(handleCreate(Some(SessionMode.AIVsAI), _))
 
+    case req @ POST -> Root / "sessions" / "import" =>
+      req.bodyText.compile.string.flatMap(handleImport)
+
     case GET -> Root / "sessions" =>
       handleList()
 
@@ -73,9 +80,6 @@ class Http4sSessionRoutes(
 
     case GET -> Root / "sessions" / id / "export" =>
       handleExport(id)
-
-    case req @ POST -> Root / "sessions" / "import" =>
-      req.bodyText.compile.string.flatMap(handleImport)
 
     case POST -> Root / "sessions" / id / "cancel" =>
       handleCancel(id)
@@ -109,8 +113,32 @@ class Http4sSessionRoutes(
       )
 
     result match
-      case Right(resp) => jsonResponse(Status.Created, CreateSessionResponse.toJson(resp))
-      case Left(msg)   => jsonError(Status.BadRequest, "BAD_REQUEST", msg)
+      case Right(resp) =>
+        metrics.recordSessionCreated()
+        jsonResponse(Status.Created, CreateSessionResponse.toJson(resp))
+      case Left(msg) =>
+        jsonError(Status.BadRequest, "BAD_REQUEST", msg)
+
+  private def handleImport(body: String): IO[Response[IO]] =
+    val result: Either[(Status, String, String), SessionStateResponse] =
+      for
+        dto <- SessionExportEnvelope
+          .fromJson(body)
+          .left
+          .map(msg => (Status.BadRequest, "BAD_REQUEST", msg))
+        envelope <- SessionMapper
+          .toSessionSnapshotEnvelope(dto)
+          .left
+          .map(msg => (Status.BadRequest, "BAD_REQUEST", msg))
+        imported <- snapshotTransferService
+          .importSnapshot(envelope)
+          .left
+          .map(snapshotErrToHttpErr)
+      yield SessionMapper.toSessionStateResponse(imported)
+
+    result match
+      case Right(resp)                   => jsonResponse(Status.Created, SessionStateResponse.toJson(resp))
+      case Left((status, code, message)) => jsonError(status, code, message)
 
   private def handleList(): IO[Response[IO]] =
     gameService.listActiveSessions() match
@@ -141,7 +169,10 @@ class Http4sSessionRoutes(
       case Left(msg) =>
         jsonError(Status.BadRequest, "BAD_REQUEST", msg)
       case Right(uuid) =>
-        persistentSessionService.loadAggregate(SessionId(uuid)) match
+        val startNs = System.nanoTime()
+        val result  = persistentSessionService.loadAggregate(SessionId(uuid))
+        metrics.recordFetchState((System.nanoTime() - startNs).toDouble / 1e9)
+        result match
           case Left(err) =>
             val (status, code, message) = persistentErrToHttpErr(err, idStr)
             jsonError(status, code, message)
@@ -195,34 +226,6 @@ class Http4sSessionRoutes(
               SessionExportEnvelope.toJson(SessionMapper.toSessionExportEnvelope(envelope))
             )
 
-  private def handleImport(body: String): IO[Response[IO]] =
-    type HttpErr = (Status, String, String)
-
-    val result =
-      for
-        dto <- SessionExportEnvelope
-          .fromJson(body)
-          .left
-          .map(msg => (Status.BadRequest, "BAD_REQUEST", msg))
-        envelope <- SessionMapper
-          .toSessionSnapshotEnvelope(dto)
-          .left
-          .map(msg => (Status.BadRequest, "BAD_REQUEST", msg))
-        imported <- snapshotTransferService
-          .importSnapshot(envelope)
-          .left
-          .map(snapshotErrToHttpErr)
-      yield imported
-
-    result match
-      case Left((status, code, message)) =>
-        jsonError(status, code, message)
-      case Right(imported) =>
-        jsonResponse(
-          Status.Created,
-          SessionStateResponse.toJson(SessionMapper.toSessionStateResponse(imported))
-        )
-
   private def handleCancel(idStr: String): IO[Response[IO]] =
     parseUUID(idStr) match
       case Left(msg) =>
@@ -271,10 +274,10 @@ class Http4sSessionRoutes(
       err: SessionSnapshotTransferError
   ): (Status, String, String) =
     err match
-      case SessionSnapshotTransferError.BadInput(message) =>
-        (Status.BadRequest, "BAD_REQUEST", message)
       case SessionSnapshotTransferError.NotFound(message) =>
         (Status.NotFound, "SESSION_NOT_FOUND", message)
+      case SessionSnapshotTransferError.BadInput(message) =>
+        (Status.BadRequest, "BAD_REQUEST", message)
       case SessionSnapshotTransferError.Conflict(message) =>
         (Status.Conflict, "CONFLICT", message)
       case SessionSnapshotTransferError.StorageFailure(message) =>

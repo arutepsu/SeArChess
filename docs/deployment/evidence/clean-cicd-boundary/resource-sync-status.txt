@@ -1,0 +1,37 @@
+ConfigMap/ai-service-env sync=Synced health= msg=
+ConfigMap/envoy-config-7459f46tk6 sync=Synced health= msg=
+ConfigMap/game-service-env sync=Synced health= msg=
+ConfigMap/grafana-dashboard-providers-9dm46ffd4f sync=Synced health= msg=
+ConfigMap/grafana-dashboards-8g59tt5c2g sync=Synced health= msg=
+ConfigMap/grafana-datasources-g9c8gdcd4g sync=Synced health= msg=
+ConfigMap/history-service-env sync=Synced health= msg=
+ConfigMap/otel-collector-config sync=Synced health= msg=
+ConfigMap/prometheus-config-ct4tk556b2 sync=Synced health= msg=
+ConfigMap/python-ai-service-env sync=Synced health= msg=
+ConfigMap/tempo-config sync=Synced health= msg=
+Namespace/searchess sync=Synced health= msg=
+Service/ai-service sync=Synced health=Healthy msg=
+Service/envoy sync=Synced health=Healthy msg=
+Service/game-service sync=Synced health=Healthy msg=
+Service/grafana sync=Synced health=Healthy msg=
+Service/history-service sync=Synced health=Healthy msg=
+Service/mongo sync=Synced health=Healthy msg=
+Service/otel-collector sync=Synced health=Healthy msg=
+Service/postgres sync=Synced health=Healthy msg=
+Service/prometheus sync=Synced health=Healthy msg=
+Service/python-ai-service sync=Synced health=Healthy msg=
+Service/redis sync=Synced health=Healthy msg=
+Service/tempo sync=Synced health=Healthy msg=
+Deployment/ai-service sync=Synced health=Healthy msg=
+Deployment/envoy sync=Synced health=Healthy msg=
+Deployment/game-service sync=Synced health=Healthy msg=
+Deployment/grafana sync=Synced health=Healthy msg=
+Deployment/history-service sync=Synced health=Healthy msg=
+Deployment/otel-collector sync=Synced health=Healthy msg=
+Deployment/prometheus sync=Synced health=Healthy msg=
+Deployment/tempo sync=Synced health=Healthy msg=
+StatefulSet/mongo sync=Synced health=Healthy msg=partitioned roll out complete: 1 new pods have been updated...
+StatefulSet/postgres sync=Synced health=Healthy msg=partitioned roll out complete: 1 new pods have been updated...
+StatefulSet/redis sync=Synced health=Healthy msg=partitioned roll out complete: 1 new pods have been updated...
+Rollout/python-ai-service sync=Synced health=Healthy msg=
+SealedSecret/searchess-secrets sync=Synced health=Healthy msg=

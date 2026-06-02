@@ -22,9 +22,9 @@ the current Compose/Envoy topology.
 - History receives terminal event JSON at `POST /internal/events/game`.
 - History uses the event only as a trigger, then calls Game Service over HTTP
   to fetch the archive snapshot.
-- History materializes and owns archival records in its own SQLite database.
+- History materializes and owns archival records in its own Postgres database.
 
-History must not read Game Service SQLite tables.
+History must not read Game Service persistence tables.
 
 ## Runtime Configuration
 
@@ -33,7 +33,6 @@ History must not read Game Service SQLite tables.
 | `HISTORY_HTTP_HOST` | `0.0.0.0` | bind host |
 | `HISTORY_HTTP_PORT` | `8081` | bind port |
 | `GAME_SERVICE_BASE_URL` | `http://127.0.0.1:8080` | base URL used for `GET /archive/games/{gameId}` |
-| `HISTORY_DB_PATH` | `history.sqlite` | History-owned SQLite database path |
 | `HISTORY_GAME_SERVICE_TIMEOUT_MILLIS` | `2000` | timeout for Game archive snapshot fetch |
 | `HISTORY_ACCEPT_LEGACY_INGESTION_PATH` | `false` | opt-in temporary alias for `POST /events/game` |
 
@@ -127,7 +126,7 @@ Response `200 OK`:
 ```
 
 This is process liveness only. It does not verify Game Service reachability or
-SQLite readiness.
+Postgres readiness.
 
 ### POST /internal/events/game
 
@@ -140,7 +139,7 @@ On success, History:
 1. parses the terminal event,
 2. calls `GET {GAME_SERVICE_BASE_URL}/archive/games/{gameId}`,
 3. materializes an `ArchiveRecord`,
-4. upserts it into History SQLite by `gameId`,
+4. upserts it into History Postgres by `gameId`,
 5. returns the materialized record.
 
 Response `201 Created`: `ArchiveRecord`
@@ -154,7 +153,7 @@ Errors:
 | `409` | `ARCHIVE_NOT_READY` | Game Service says the game/session is not closed yet |
 | `422` | `MATERIALIZATION_FAILED` | archive snapshot was fetched, but FEN/PGN/materialization failed |
 | `502` | `GAME_SERVICE_FETCH_FAILED` | Game archive fetch failed due to transport or unexpected Game response |
-| `500` | `PERSISTENCE_FAILED` | History SQLite write failed |
+| `500` | `PERSISTENCE_FAILED` | History Postgres write failed |
 
 ### POST /events/game
 
@@ -180,7 +179,7 @@ Errors:
 |---:|---|---|
 | `400` | `BAD_REQUEST` | invalid UUID path value |
 | `404` | `ARCHIVE_NOT_FOUND` | History has no stored archive for `gameId` |
-| `500` | `PERSISTENCE_FAILED` | History SQLite read failed |
+| `500` | `PERSISTENCE_FAILED` | History Postgres read failed |
 
 ## Idempotency And Delivery Semantics
 

@@ -1,0 +1,8 @@
+       List of schemas
+  Name   |       Owner       
+---------+-------------------
+ game    | searchess
+ history | searchess
+ public  | pg_database_owner
+(3 rows)
+

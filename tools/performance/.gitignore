@@ -1,50 +1,33 @@
-# Dependencies
-node_modules/
-.pnpm-store/
-.yarn/
+# ---------------------------------------------------------------------------
+# Local generated output inside tools/performance
+# ---------------------------------------------------------------------------
+# Keep source folders tracked, including:
+# - analysis/cli/reports/
+# - analysis/application/artifacts/
+# - analysis/reporting/
+# - analysis/cli/ui/
 
-# Build output
-dist/
-build/
-lib/
-out/
-*.tsbuildinfo
+k6/docs/
+k6/results/
+k6/logs/
+k6/*.log
+k6/*_summary.json
 
-# Test and coverage output
-coverage/
-.nyc_output/
-test-results/
-playwright-report/
+analysis/dist/
+analysis/node_modules/
+analysis/.turbo/
+analysis/.cache/
 
-# Performance run artifacts
-results/
-reports/
-artifacts/
-benchmarks/output/
-*.bench.json
-*.perf.json
-*.profile
-*.cpuprofile
-*.heapprofile
-*.heapsnapshot
+analysis/.env
+analysis/.env.*
+*.local.json
 
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# Local environment files
-.env
-.env.*
-!.env.example
-
-# Editor and OS noise
 .DS_Store
 Thumbs.db
+.vscode/
 .idea/
-.vscode/*
-!.vscode/extensions.json
-!.vscode/settings.json
+
+# ---------------------------------------------------------------------------
+# Generated performance workbench artifacts
+# ---------------------------------------------------------------------------
+/docs/performance/

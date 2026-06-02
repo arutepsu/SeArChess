@@ -24,6 +24,7 @@ object GameServiceMain:
       "httpPort" -> config.http.port,
       "webSocketEnabled" -> config.webSocket.enabled,
       "persistence" -> config.persistence.toString,
+      "postgresSchema" -> config.postgres.flatMap(_.schema),
       "ai" -> aiDesc,
       "aiInteraction" -> config.ai.interaction.toString,
       "aiStartupPolicy" -> config.ai.startupPolicy.toString,

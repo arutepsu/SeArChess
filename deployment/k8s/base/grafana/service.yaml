@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: searchess
+  labels:
+    app: grafana
+spec:
+  # Overridden to LoadBalancer in local-k3d overlay.
+  type: ClusterIP
+  selector:
+    app: grafana
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http

@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { AIReview } from './ai/aiReviewModels';
 import type { PerformanceComparisonReport, PerformanceReport } from './domain/models';
+import { renderPerformanceReviewHtml } from './application/renderPerformanceReviewHtml';
 import { renderMarkdownReport } from './reporting/markdownReportBuilder';
 
 const RENDER = join(__dirname, 'cli', 'render.js');
@@ -55,6 +56,87 @@ test('renderMarkdownReport renders PerformanceReport only', () => {
   assert.ok(markdown.includes('CPU_BOUND'));
   assert.ok(markdown.includes('2.00%'));
   assert.ok(markdown.endsWith('\n'));
+});
+
+test('renderPerformanceReviewHtml escapes dynamic content', () => {
+  const html = renderPerformanceReviewHtml({
+    title: '<Searchess Report>',
+    performanceReport: {
+      ...performanceReport,
+      metadata: { ...performanceReport.metadata, scenario_name: '<script>alert("x")</script>' },
+      evidence: ['CPU > 90% & payload <hidden>'],
+      suggestions: ['Inspect "hot" path'],
+    },
+  });
+
+  assert.ok(html.includes('&lt;Searchess Report&gt;'));
+  assert.ok(html.includes('&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;'));
+  assert.ok(html.includes('CPU &gt; 90% &amp; payload &lt;hidden&gt;'));
+  assert.ok(!html.includes('<script>alert("x")</script>'));
+});
+
+test('renderPerformanceReviewHtml includes title and core result metrics', () => {
+  const html = renderPerformanceReviewHtml({ title: 'Workbench HTML', performanceReport });
+
+  assert.ok(html.includes('<title>Workbench HTML</title>'));
+  assert.ok(html.includes('p95 latency'));
+  assert.ok(html.includes('600.00ms'));
+  assert.ok(html.includes('Error rate'));
+  assert.ok(html.includes('2.00%'));
+  assert.ok(html.includes('400.00 req/s'));
+});
+
+test('renderPerformanceReviewHtml includes bottleneck confidence evidence and suggestions', () => {
+  const html = renderPerformanceReviewHtml({ performanceReport });
+
+  assert.ok(html.includes('CPU_BOUND'));
+  assert.ok(html.includes('Diagnosis confidence'));
+  assert.ok(html.includes('HIGH'));
+  assert.ok(html.includes('CPU usage exceeded threshold'));
+  assert.ok(html.includes('Profile CPU-heavy code paths'));
+});
+
+test('renderMarkdownReport rounds performance metrics for display', () => {
+  const report: PerformanceReport = {
+    metadata:     { test_type: 'load', scenario_name: 'gatling-load-baseline', timestamp: '2026-05-05T00:00:00Z' },
+    summary:      { p95_latency: 53, error_rate: 0, throughput: 61.904761904761905 },
+    observations: [
+      'p50 latency is 9ms',
+      'p95 latency is 53ms',
+      'p99 latency is 60ms',
+      'error rate is 0 (0 total errors)',
+      'throughput is 61.904761904761905 requests/second',
+      'CPU usage is 72%',
+      'memory usage is 61%',
+    ],
+    bottleneck:   { type: 'UNKNOWN', confidence: 'LOW' },
+    evidence:     [],
+    suggestions:  [],
+    notes:        [],
+  };
+
+  const markdown = renderMarkdownReport({ performanceReport: report });
+
+  assert.ok(markdown.includes('- p95 latency: 53.00ms'));
+  assert.ok(markdown.includes('- error rate: 0.00%'));
+  assert.ok(markdown.includes('- throughput: 61.90 req/s'));
+  assert.ok(markdown.includes('- p50 latency is 9.00ms'));
+  assert.ok(markdown.includes('- p99 latency is 60.00ms'));
+  assert.ok(markdown.includes('- throughput is 61.90 requests/second'));
+  assert.ok(markdown.includes('- CPU usage is 72.00%'));
+  assert.ok(markdown.includes('- memory usage is 61.00%'));
+});
+
+test('renderMarkdownReport can include a Gatling native HTML report path', () => {
+  const markdown = renderMarkdownReport({
+    performanceReport,
+    toolArtifacts: {
+      gatlingHtmlReportPath: 'C:\\repo\\tools\\performance\\gatling\\target\\gatling\\run\\index.html',
+    },
+  });
+
+  assert.ok(markdown.includes('## Tool Artifacts'));
+  assert.ok(markdown.includes('Gatling HTML report: C:\\repo\\tools\\performance\\gatling\\target\\gatling\\run\\index.html'));
 });
 
 test('renderMarkdownReport summarizes healthy UNKNOWN as no bottleneck detected', () => {

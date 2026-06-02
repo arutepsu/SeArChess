@@ -1,0 +1,1 @@
+ghcr.io/arutepsu/searchess-game-service:sha-a83a2b5

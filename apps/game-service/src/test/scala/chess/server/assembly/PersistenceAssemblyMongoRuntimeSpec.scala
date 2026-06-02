@@ -17,10 +17,13 @@ import chess.server.config.{
   WebSocketConfig
 }
 import chess.server.persistence.MongoPersistenceRuntime
+import org.scalatest.Assertions.cancel
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.EitherValues
+import org.scalatest.Outcome
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.testcontainers.DockerClientFactory
 import org.testcontainers.containers.MongoDBContainer
 import org.testcontainers.utility.DockerImageName
 
@@ -37,13 +40,23 @@ class PersistenceAssemblyMongoRuntimeSpec
     with BeforeAndAfterAll:
 
   private val mongo = GameServiceRuntimeMongoContainer()
+  private var started = false
 
-  override protected def beforeAll(): Unit =
-    super.beforeAll()
-    mongo.start()
+  override protected def withFixture(test: NoArgTest): Outcome =
+    if !DockerClientFactory.instance().isDockerAvailable then
+      cancel("Docker/Testcontainers unavailable; skipping Mongo runtime assembly integration tests")
+    startContainer()
+    super.withFixture(test)
+
+  private def startContainer(): Unit =
+    if !started then
+      mongo.start()
+      started = true
 
   override protected def afterAll(): Unit =
-    mongo.stop()
+    if started then
+      mongo.stop()
+      started = false
     super.afterAll()
 
   "PersistenceAssembly" should "wire Mongo runtime persistence through initialized collections" in {

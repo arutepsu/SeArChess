@@ -10,8 +10,10 @@ import chess.adapter.repository.testcontainers.{
 import chess.application.port.repository.{GameRepository, SessionGameStore, SessionRepository}
 import chess.application.session.model.GameSession
 import chess.domain.state.GameState
+import org.scalatest.Assertions.cancel
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.EitherValues
+import org.scalatest.Outcome
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -28,10 +30,12 @@ class CrossDatabaseMigrationTestcontainerSpec
   private val mongo = MongoTestcontainerFixture()
   private val service = PersistenceMigrationService(() => Instant.parse("2026-04-26T12:00:00Z"))
 
-  override protected def beforeAll(): Unit =
-    super.beforeAll()
+  override protected def withFixture(test: NoArgTest): Outcome =
+    if !postgres.isDockerAvailable || !mongo.isDockerAvailable then
+      cancel("Docker/Testcontainers unavailable; skipping cross-database container integration tests")
     postgres.start()
     mongo.start()
+    super.withFixture(test)
 
   override protected def afterAll(): Unit =
     mongo.stop()

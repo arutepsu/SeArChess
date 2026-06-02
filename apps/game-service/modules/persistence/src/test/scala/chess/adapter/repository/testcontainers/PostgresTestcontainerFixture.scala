@@ -9,6 +9,7 @@ import chess.adapter.repository.postgres.{
 }
 import chess.application.migration.SessionMigrationReader
 import chess.application.port.repository.{GameRepository, SessionGameStore, SessionRepository}
+import org.testcontainers.DockerClientFactory
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
 import slick.jdbc.PostgresProfile.api.*
@@ -24,13 +25,21 @@ final class SearchessPostgresContainer
 final class PostgresTestcontainerFixture:
   private val container = SearchessPostgresContainer()
   private lazy val sharedDatabase: Database = database()
+  private var started = false
+
+  def isDockerAvailable: Boolean =
+    DockerClientFactory.instance().isDockerAvailable
 
   def start(): Unit =
-    container.start()
+    if !started then
+      container.start()
+      started = true
 
   def stop(): Unit =
-    sharedDatabase.close()
-    container.stop()
+    if started then
+      sharedDatabase.close()
+      container.stop()
+      started = false
 
   def jdbcUrl: String = container.getJdbcUrl
 
@@ -43,37 +52,41 @@ final class PostgresTestcontainerFixture:
     try use(db)
     finally db.close()
 
-  def freshStoreParts(): StoreParts =
-    resetWithFlyway()
+  def freshStoreParts(schema: Option[String] = None): StoreParts =
+    resetWithFlyway(schema)
     StoreParts(
-      sessionRepository = PostgresSessionRepository(sharedDatabase, 10.seconds),
-      gameRepository = PostgresGameRepository(sharedDatabase, 10.seconds),
-      store = PostgresSessionGameStore(sharedDatabase, 10.seconds)
+      sessionRepository = PostgresSessionRepository(sharedDatabase, 10.seconds, schema),
+      gameRepository = PostgresGameRepository(sharedDatabase, 10.seconds, schema),
+      store = PostgresSessionGameStore(sharedDatabase, 10.seconds, schema)
     )
 
-  def freshRuntime(): PostgresRuntime =
-    resetWithFlyway()
+  def freshRuntime(schema: Option[String] = None): PostgresRuntime =
+    resetWithFlyway(schema)
     val db = database()
     PostgresRuntime(
       db = db,
-      reader = PostgresSessionMigrationReader(db, 10.seconds),
-      sessionRepository = PostgresSessionRepository(db, 10.seconds),
-      gameRepository = PostgresGameRepository(db, 10.seconds),
-      store = PostgresSessionGameStore(db, 10.seconds)
+      reader = PostgresSessionMigrationReader(db, 10.seconds, schema),
+      sessionRepository = PostgresSessionRepository(db, 10.seconds, schema),
+      gameRepository = PostgresGameRepository(db, 10.seconds, schema),
+      store = PostgresSessionGameStore(db, 10.seconds, schema)
     )
 
-  def resetWithFlyway(): Unit =
+  def resetWithFlyway(schema: Option[String] = None): Unit =
     withDatabase { db =>
       Await.result(
         db.run(
-          sqlu"""
-            drop table if exists flyway_schema_history, game_states, sessions cascade
-          """
+          schema.map(_.trim).filter(_.nonEmpty) match
+            case Some(value) =>
+              sqlu"""drop schema if exists "#$value" cascade"""
+            case None =>
+              sqlu"""
+                drop table if exists flyway_schema_history, game_states, sessions cascade
+              """
         ),
         10.seconds
       )
     }
-    PostgresFlywaySchemaInitializer.migrate(jdbcUrl, username, password)
+    PostgresFlywaySchemaInitializer.migrate(jdbcUrl, username, password, schema)
 
   private def database(): Database =
     Database.forURL(

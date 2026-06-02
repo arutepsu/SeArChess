@@ -65,6 +65,29 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
     config.history.timeoutMillis shouldBe 1500
   }
 
+  it should "parse Redis Streams history delivery config" in {
+    val config = loadDefault(
+      "HISTORY_FORWARDING_ENABLED" -> "true",
+      "HISTORY_DELIVERY_MODE" -> "redis-stream",
+      "HISTORY_REDIS_URL" -> "redis://redis:6379",
+      "HISTORY_REDIS_STREAM" -> "searchess.history.archives"
+    ).value
+
+    config.history.enabled shouldBe true
+    config.history.deliveryMode shouldBe HistoryDeliveryMode.RedisStream
+    config.history.redisUrl.value shouldBe "redis://redis:6379"
+    config.history.redisHost.value shouldBe "redis"
+    config.history.redisPort shouldBe 6379
+    config.history.redisStream shouldBe "searchess.history.archives"
+  }
+
+  it should "reject Redis Streams history delivery without Redis config" in {
+    loadDefault(
+      "HISTORY_FORWARDING_ENABLED" -> "true",
+      "HISTORY_DELIVERY_MODE" -> "redis-stream"
+    ).left.value should include("HISTORY_REDIS_URL or REDIS_HOST is required")
+  }
+
   it should "reject enabled History forwarding without a base URL" in {
     loadDefault("HISTORY_FORWARDING_ENABLED" -> "true").left.value should include(
       "HISTORY_SERVICE_BASE_URL is required"
@@ -111,6 +134,13 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
     config.postgres.value.url shouldBe "jdbc:postgresql://localhost:5432/searchess"
     config.postgres.value.user shouldBe "searchess"
     config.postgres.value.password shouldBe "searchess"
+    config.postgres.value.schema shouldBe None
+  }
+
+  it should "parse the configured Postgres schema" in {
+    val config = loadDefault("SEARCHESS_POSTGRES_SCHEMA" -> "game").value
+
+    config.postgres.value.schema.value shouldBe "game"
   }
 
   it should "reject missing Postgres env vars with a helpful default-backend message" in {

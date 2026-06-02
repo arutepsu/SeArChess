@@ -1,0 +1,349 @@
+# Full local stack — production-like.
+#
+# Networks
+#   edge         — Envoy ↔ game-service (public traffic only)
+#   internal     — app services ↔ data stores (no host exposure)
+#   observability — Prometheus ↔ Grafana ↔ app services (metric scraping)
+#
+# No data-store or Redis ports exposed to the host in this file.
+# Prometheus has no host port here; access it via Grafana or the dev overlay.
+# Grafana is on :3000 (UI endpoint).
+#
+# Run from the repo root:
+#   docker compose -f deployment/compose/docker-compose.yml up -d
+#
+# Add host ports for direct DB/Prometheus access (dev only):
+#   docker compose -f deployment/compose/docker-compose.yml \
+#                  -f deployment/compose/docker-compose.dev-ports.yml up -d
+#
+# Requires a .env file at the repo root (copy from .env.example).
+
+name: searchess
+
+# ---------------------------------------------------------------------------
+# Networks
+# ---------------------------------------------------------------------------
+
+networks:
+  edge:
+    driver: bridge
+  internal:
+    driver: bridge
+  observability:
+    driver: bridge
+
+# ---------------------------------------------------------------------------
+# Services
+# ---------------------------------------------------------------------------
+
+services:
+
+  # --- Edge proxy -----------------------------------------------------------
+
+  envoy:
+    image: envoyproxy/envoy:v1.32-latest
+    networks:
+      - edge
+    depends_on:
+      game-service:
+        condition: service_healthy
+    ports:
+      # 11000 avoids collision with the k3d-searchess-serverlb container on host port 10000.
+      # k3d API:    http://localhost:10000  (k3d load balancer — untouched)
+      # Compose API: http://localhost:11000 (this Envoy — local auth stack)
+      - "11000:10000"
+    volumes:
+      - ../../config/envoy/envoy.yaml:/etc/envoy/envoy.yaml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9901/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+    restart: unless-stopped
+
+  # --- Application services -------------------------------------------------
+
+  game-service:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    networks:
+      - edge
+      - internal
+      - observability
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+      history-service:
+        condition: service_healthy
+    expose:
+      - "8080"
+      - "9090"
+    environment:
+      HTTP_HOST: 0.0.0.0
+      HTTP_PORT: 8080
+      CORS_ENABLED: "true"
+      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:-http://localhost:5173}
+      WS_ENABLED: "true"
+      WS_PORT: 9090
+      PERSISTENCE_MODE: ${PERSISTENCE_MODE:-postgres}
+      SEARCHESS_POSTGRES_URL: jdbc:postgresql://postgres:5432/searchess
+      SEARCHESS_POSTGRES_USER: ${SEARCHESS_POSTGRES_USER:-searchess}
+      SEARCHESS_POSTGRES_PASSWORD: ${SEARCHESS_POSTGRES_PASSWORD:-searchess}
+      SEARCHESS_POSTGRES_SCHEMA: ${SEARCHESS_POSTGRES_SCHEMA:-game}
+      SEARCHESS_MONGO_URI: mongodb://mongo:27017/searchess
+      EVENT_MODE: in-process
+      HISTORY_FORWARDING_ENABLED: "true"
+      HISTORY_SERVICE_BASE_URL: http://history-service:8081
+      HISTORY_FORWARDING_TIMEOUT_MILLIS: 2000
+      HISTORY_DELIVERY_MODE: ${HISTORY_DELIVERY_MODE:-redis-stream}
+      HISTORY_REDIS_URL: ${HISTORY_REDIS_URL:-redis://redis:6379}
+      HISTORY_REDIS_STREAM: ${HISTORY_REDIS_STREAM:-searchess.history.archives}
+      AI_PROVIDER_MODE: remote
+      AI_REMOTE_BASE_URL: http://ai-service:8765
+      AI_TIMEOUT_MILLIS: 2000
+      AI_REMOTE_TEST_MODE: ${AI_REMOTE_TEST_MODE:-}
+      MIGRATION_ADMIN_ENABLED: ${MIGRATION_ADMIN_ENABLED:-false}
+      MIGRATION_ADMIN_TOKEN: ${MIGRATION_ADMIN_TOKEN:-}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
+  history-service:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.history
+    networks:
+      - internal
+      - observability
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "8081"
+    environment:
+      HISTORY_HTTP_HOST: 0.0.0.0
+      HISTORY_HTTP_PORT: 8081
+      GAME_SERVICE_BASE_URL: http://game-service:8080
+      HISTORY_POSTGRES_URL: jdbc:postgresql://postgres:5432/searchess
+      HISTORY_POSTGRES_USER: ${SEARCHESS_POSTGRES_USER:-searchess}
+      HISTORY_POSTGRES_PASSWORD: ${SEARCHESS_POSTGRES_PASSWORD:-searchess}
+      HISTORY_POSTGRES_SCHEMA: ${HISTORY_POSTGRES_SCHEMA:-history}
+      HISTORY_GAME_SERVICE_TIMEOUT_MILLIS: 2000
+      HISTORY_ACCEPT_LEGACY_INGESTION_PATH: "false"
+      HISTORY_INGESTION_MODE: ${HISTORY_INGESTION_MODE:-redis-stream}
+      HISTORY_REDIS_URL: ${HISTORY_REDIS_URL:-redis://redis:6379}
+      HISTORY_REDIS_STREAM: ${HISTORY_REDIS_STREAM:-searchess.history.archives}
+      HISTORY_REDIS_GROUP: ${HISTORY_REDIS_GROUP:-history-service}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8081/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
+  python-ai-service:
+    # Build from the sibling searchess-ai-service repo before running compose:
+    #   docker build -t searchess/python-ai-service:local ../searchess-ai-service
+    image: searchess/python-ai-service:local
+    networks:
+      - internal
+    expose:
+      - "8765"
+    environment:
+      # "fake" requires no artifacts. Set to "supervised" and mount MODEL_ARTIFACT_DIR
+      # (see searchess-ai-service/docker-compose.yml) for the neural-network backend.
+      INFERENCE_BACKEND: ${PYTHON_INFERENCE_BACKEND:-fake}
+    healthcheck:
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/health')"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
+  ai-service:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.ai
+    networks:
+      - internal
+      - observability
+    depends_on:
+      python-ai-service:
+        condition: service_healthy
+    expose:
+      - "8765"
+    environment:
+      AI_HTTP_HOST: 0.0.0.0
+      AI_HTTP_PORT: 8765
+      AI_ENGINE_ID: ${AI_ENGINE_ID:-random-legal}
+      PYTHON_AI_BASE_URL: http://python-ai-service:8765
+      PYTHON_AI_TIMEOUT_MILLIS: ${PYTHON_AI_TIMEOUT_MILLIS:-5000}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8765/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
+  # --- Data stores (internal only, no host ports) ---------------------------
+
+  postgres:
+    image: postgres:16
+    networks:
+      - internal
+    expose:
+      - "5432"
+    environment:
+      POSTGRES_DB: searchess
+      POSTGRES_USER: ${SEARCHESS_POSTGRES_USER:-searchess}
+      POSTGRES_PASSWORD: ${SEARCHESS_POSTGRES_PASSWORD:-searchess}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${SEARCHESS_POSTGRES_USER:-searchess} -d searchess"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7.0
+    networks:
+      - internal
+    expose:
+      - "27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4-alpine
+    networks:
+      - internal
+    expose:
+      - "6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  # --- Observability --------------------------------------------------------
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    networks:
+      - observability
+    # No host port in the canonical file.
+    # Grafana reaches Prometheus over the observability network.
+    # Use the dev overlay (docker-compose.dev-ports.yml) to open :9090 on the host.
+    expose:
+      - "9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.enable-lifecycle'
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    networks:
+      - observability
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    volumes:
+      - ../../tools/performance/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../../tools/performance/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    restart: unless-stopped
+
+  # --- Auth (local Docker Compose only — NOT part of the Kubernetes deployment) ---
+  #
+  # Start standalone:  docker compose -f deployment/compose/docker-compose.yml up keycloak
+  # Admin console:     http://localhost:8080  (admin / admin)
+  # Realm import:      deployment/keycloak/realm-searchess.json
+  # Token test:        see deployment/keycloak/README.md
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.6.2
+    networks:
+      - edge
+    ports:
+      - "8080:8080"
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    volumes:
+      - ../keycloak/realm-searchess.json:/opt/keycloak/data/import/realm-searchess.json:ro
+    command: ["start-dev", "--import-realm"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/realms/master || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 40s
+    restart: unless-stopped
+
+# ---------------------------------------------------------------------------
+# Volumes
+# ---------------------------------------------------------------------------
+
+volumes:
+  postgres_data:
+    name: searchess_postgres_data
+  mongo_data:
+    name: searchess_mongo_data
+  redis_data:
+    name: searchess_redis_data
+  prometheus_data:
+  grafana_data:

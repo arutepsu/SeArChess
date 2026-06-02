@@ -1,0 +1,1 @@
+{"status":"ok","service":"searchess-ai-service","engine":"random-legal","pythonAi":"http://python-ai-service:8765","audience":"internal","check":"process-liveness"}pod "curl-test" deleted

@@ -1,0 +1,35 @@
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+
+# Scrape configurations
+#
+# Default Docker-only mode:
+#   Prometheus joins the main searchess_default network and scrapes game-service:8080.
+#
+# Local host backend mode:
+#   If the backend runs via sbt / java -jar on the host, use host.docker.internal:8080
+#   instead. Only one target should be active for the intended setup.
+
+scrape_configs:
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'searchess-game-service'
+    metrics_path: /metrics
+    static_configs:
+      # Docker-only mode:
+      - targets: ['game-service:8080']
+      # Local sbt / java -jar backend mode:
+      # - targets: ['host.docker.internal:8080']
+
+  # Envoy admin is bound to 127.0.0.1:9901 inside the container and is not
+  # reachable from Prometheus when running externally. Enable this target only
+  # if you publish or proxy the Envoy admin port:
+  #
+  # - job_name: 'envoy'
+  #   metrics_path: /stats/prometheus
+  #   static_configs:
+  #     - targets: ['localhost:9901']

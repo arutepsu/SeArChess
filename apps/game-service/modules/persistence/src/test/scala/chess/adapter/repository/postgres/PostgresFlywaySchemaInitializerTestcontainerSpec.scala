@@ -1,7 +1,9 @@
 package chess.adapter.repository.postgres
 
 import chess.adapter.repository.testcontainers.PostgresTestcontainerFixture
+import org.scalatest.Assertions.cancel
 import org.scalatest.BeforeAndAfterAll
+import org.scalatest.Outcome
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import slick.jdbc.PostgresProfile.api.*
@@ -16,9 +18,11 @@ class PostgresFlywaySchemaInitializerTestcontainerSpec
 
   private val postgres = PostgresTestcontainerFixture()
 
-  override protected def beforeAll(): Unit =
-    super.beforeAll()
+  override protected def withFixture(test: NoArgTest): Outcome =
+    if !postgres.isDockerAvailable then
+      cancel("Docker/Testcontainers unavailable; skipping PostgreSQL container integration tests")
     postgres.start()
+    super.withFixture(test)
 
   override protected def afterAll(): Unit =
     postgres.stop()
@@ -44,5 +48,56 @@ class PostgresFlywaySchemaInitializerTestcontainerSpec
       tables should contain("flyway_schema_history")
       tables should contain("sessions")
       tables should contain("game_states")
+    }
+  }
+
+  it should "initialize the configured schema when public is non-empty" in {
+    postgres.withDatabase { db =>
+      Await.result(
+        db.run(
+          sqlu"""
+            create table if not exists public.legacy_public_table (
+              id integer primary key
+            )
+          """
+        ),
+        10.seconds
+      )
+    }
+
+    postgres.resetWithFlyway(Some("game"))
+
+    postgres.withDatabase { db =>
+      val gameTables =
+        Await.result(
+          db.run(
+            sql"""
+              select table_name
+              from information_schema.tables
+              where table_schema = 'game'
+              order by table_name
+            """.as[String]
+          ),
+          10.seconds
+        ).toSet
+
+      val publicTables =
+        Await.result(
+          db.run(
+            sql"""
+              select table_name
+              from information_schema.tables
+              where table_schema = 'public'
+              order by table_name
+            """.as[String]
+          ),
+          10.seconds
+        ).toSet
+
+      gameTables should contain("flyway_schema_history")
+      gameTables should contain("sessions")
+      gameTables should contain("game_states")
+      publicTables should contain("legacy_public_table")
+      publicTables should not contain "flyway_schema_history"
     }
   }

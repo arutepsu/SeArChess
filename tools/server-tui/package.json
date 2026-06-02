@@ -1,0 +1,22 @@
+{
+  "name": "searchess-server-tui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local read-only SeArChess server readiness TUI.",
+  "scripts": {
+    "server-tui": "tsx src/server-tui.ts",
+    "dev": "tsx src/server-tui.ts",
+    "build": "tsc",
+    "start": "node dist/server-tui.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.8.2",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

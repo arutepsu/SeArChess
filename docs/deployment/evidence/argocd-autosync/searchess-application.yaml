@@ -1,0 +1,721 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"argoproj.io/v1alpha1","kind":"Application","metadata":{"annotations":{},"finalizers":["resources-finalizer.argocd.argoproj.io"],"name":"searchess","namespace":"argocd"},"spec":{"destination":{"namespace":"searchess","server":"https://kubernetes.default.svc"},"ignoreDifferences":[{"group":"apps","jqPathExpressions":[".spec.volumeClaimTemplates[].status"],"kind":"StatefulSet","managedFieldsManagers":["k3s"],"name":"mongo","namespace":"searchess"},{"group":"apps","jqPathExpressions":[".spec.volumeClaimTemplates[].status"],"kind":"StatefulSet","managedFieldsManagers":["k3s"],"name":"postgres","namespace":"searchess"},{"group":"apps","jqPathExpressions":[".spec.volumeClaimTemplates[].status"],"kind":"StatefulSet","managedFieldsManagers":["k3s"],"name":"redis","namespace":"searchess"}],"project":"searchess","source":{"path":"deployment/k8s/overlays/uni-server-registry","repoURL":"https://github.com/arutepsu/SeArChess.git","targetRevision":"main"},"syncPolicy":{"automated":{"prune":false,"selfHeal":true},"syncOptions":["CreateNamespace=true","ServerSideApply=true"]}}}
+  creationTimestamp: "2026-05-23T14:42:57Z"
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  generation: 1077
+  name: searchess
+  namespace: argocd
+  resourceVersion: "63400"
+  uid: f7d10e3f-3957-4d95-a1e1-65d91d0fe32d
+spec:
+  destination:
+    namespace: searchess
+    server: https://kubernetes.default.svc
+  ignoreDifferences:
+  - group: apps
+    jqPathExpressions:
+    - .spec.volumeClaimTemplates[].status
+    kind: StatefulSet
+    managedFieldsManagers:
+    - k3s
+    name: mongo
+    namespace: searchess
+  - group: apps
+    jqPathExpressions:
+    - .spec.volumeClaimTemplates[].status
+    kind: StatefulSet
+    managedFieldsManagers:
+    - k3s
+    name: postgres
+    namespace: searchess
+  - group: apps
+    jqPathExpressions:
+    - .spec.volumeClaimTemplates[].status
+    kind: StatefulSet
+    managedFieldsManagers:
+    - k3s
+    name: redis
+    namespace: searchess
+  project: searchess
+  source:
+    path: deployment/k8s/overlays/uni-server-registry
+    repoURL: https://github.com/arutepsu/SeArChess.git
+    targetRevision: main
+  syncPolicy:
+    automated:
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - ServerSideApply=true
+status:
+  controllerNamespace: argocd
+  health:
+    status: Healthy
+  history:
+  - deployStartedAt: "2026-05-25T08:42:40Z"
+    deployedAt: "2026-05-25T08:42:42Z"
+    id: 3
+    initiatedBy:
+      username: kubectl
+    revision: 93a2da9d08a0d5bd55921e030aee66a69b30b100
+    source:
+      path: deployment/k8s/overlays/uni-server-registry
+      repoURL: https://github.com/arutepsu/SeArChess.git
+      targetRevision: performance
+  - deployStartedAt: "2026-05-25T08:50:31Z"
+    deployedAt: "2026-05-25T08:50:32Z"
+    id: 4
+    initiatedBy:
+      username: kubectl
+    revision: 7cef31e6a19725a236f9cc0f18eef293e23d262f
+    source:
+      path: deployment/k8s/overlays/uni-server-registry
+      repoURL: https://github.com/arutepsu/SeArChess.git
+      targetRevision: performance
+  - deployStartedAt: "2026-05-25T09:54:26Z"
+    deployedAt: "2026-05-25T09:54:27Z"
+    id: 5
+    initiatedBy:
+      username: kubectl
+    revision: 8702a5e78af451bcd3b5b51bd268cdb965925154
+    source:
+      path: deployment/k8s/overlays/uni-server-registry
+      repoURL: https://github.com/arutepsu/SeArChess.git
+      targetRevision: main
+  - deployStartedAt: "2026-05-25T10:18:07Z"
+    deployedAt: "2026-05-25T10:18:08Z"
+    id: 6
+    initiatedBy:
+      username: kubectl
+    revision: 404fa707817ebbbb687a36dad898d1cd6b7577f3
+    source:
+      path: deployment/k8s/overlays/uni-server-registry
+      repoURL: https://github.com/arutepsu/SeArChess.git
+      targetRevision: main
+  - deployStartedAt: "2026-05-25T10:37:45Z"
+    deployedAt: "2026-05-25T10:37:47Z"
+    id: 7
+    initiatedBy:
+      username: kubectl
+    revision: 9f4a51b16f1dd6c5d27a07b5552378a609b95110
+    source:
+      path: deployment/k8s/overlays/uni-server-registry
+      repoURL: https://github.com/arutepsu/SeArChess.git
+      targetRevision: main
+  - deployStartedAt: "2026-05-25T10:51:53Z"
+    deployedAt: "2026-05-25T10:51:54Z"
+    id: 8
+    initiatedBy:
+      username: kubectl
+    revision: 31e98f9736b14642434eeb5f61059c0bfe4974eb
+    source:
+      path: deployment/k8s/overlays/uni-server-registry
+      repoURL: https://github.com/arutepsu/SeArChess.git
+      targetRevision: main
+  - deployStartedAt: "2026-05-25T11:40:18Z"
+    deployedAt: "2026-05-25T11:40:20Z"
+    id: 9
+    initiatedBy:
+      username: kubectl
+    revision: 3c400ab01636842029eec185210d4c0971e8317d
+    source:
+      path: deployment/k8s/overlays/uni-server-registry
+      repoURL: https://github.com/arutepsu/SeArChess.git
+      targetRevision: main
+  - deployStartedAt: "2026-05-25T11:50:12Z"
+    deployedAt: "2026-05-25T11:50:14Z"
+    id: 10
+    initiatedBy:
+      username: kubectl
+    revision: 2e50332f7a8aa5cdbfaaaaec8aea3626657e68b5
+    source:
+      path: deployment/k8s/overlays/uni-server-registry
+      repoURL: https://github.com/arutepsu/SeArChess.git
+      targetRevision: main
+  - deployStartedAt: "2026-05-25T12:00:05Z"
+    deployedAt: "2026-05-25T12:00:07Z"
+    id: 11
+    initiatedBy:
+      username: kubectl
+    revision: 0796b5acb585390efdc2ce829348bd3666d61bf0
+    source:
+      path: deployment/k8s/overlays/uni-server-registry
+      repoURL: https://github.com/arutepsu/SeArChess.git
+      targetRevision: main
+  - deployStartedAt: "2026-05-25T12:17:54Z"
+    deployedAt: "2026-05-25T12:17:56Z"
+    id: 12
+    initiatedBy:
+      automated: true
+    revision: e1282f63530fa4fb877f62e4c8c128dd1661ee6d
+    source:
+      path: deployment/k8s/overlays/uni-server-registry
+      repoURL: https://github.com/arutepsu/SeArChess.git
+      targetRevision: main
+  operationState:
+    finishedAt: "2026-05-25T12:17:56Z"
+    message: successfully synced (all tasks run)
+    operation:
+      initiatedBy:
+        automated: true
+      retry:
+        limit: 5
+      sync:
+        revision: e1282f63530fa4fb877f62e4c8c128dd1661ee6d
+        syncOptions:
+        - CreateNamespace=true
+        - ServerSideApply=true
+    phase: Succeeded
+    startedAt: "2026-05-25T12:17:54Z"
+    syncResult:
+      resources:
+      - group: ""
+        hookPhase: Running
+        kind: Namespace
+        message: namespace/searchess serverside-applied
+        name: searchess
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: ""
+        hookPhase: Running
+        kind: ConfigMap
+        message: configmap/envoy-config-7459f46tk6 serverside-applied
+        name: envoy-config-7459f46tk6
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: ""
+        hookPhase: Running
+        kind: ConfigMap
+        message: configmap/history-service-env serverside-applied
+        name: history-service-env
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: ""
+        hookPhase: Running
+        kind: ConfigMap
+        message: configmap/game-service-env serverside-applied
+        name: game-service-env
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: ""
+        hookPhase: Running
+        kind: ConfigMap
+        message: configmap/python-ai-service-env serverside-applied
+        name: python-ai-service-env
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: ""
+        hookPhase: Running
+        kind: ConfigMap
+        message: configmap/ai-service-env serverside-applied
+        name: ai-service-env
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: ""
+        hookPhase: Running
+        kind: ConfigMap
+        message: configmap/prometheus-config-ct4tk556b2 serverside-applied
+        name: prometheus-config-ct4tk556b2
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: ""
+        hookPhase: Running
+        kind: ConfigMap
+        message: configmap/grafana-dashboard-providers-9dm46ffd4f serverside-applied
+        name: grafana-dashboard-providers-9dm46ffd4f
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: ""
+        hookPhase: Running
+        kind: ConfigMap
+        message: configmap/grafana-dashboards-8g59tt5c2g serverside-applied
+        name: grafana-dashboards-8g59tt5c2g
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: ""
+        hookPhase: Running
+        kind: ConfigMap
+        message: configmap/grafana-datasources-tk25272b52 serverside-applied
+        name: grafana-datasources-tk25272b52
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: ""
+        hookPhase: Running
+        kind: Service
+        message: service/game-service serverside-applied
+        name: game-service
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: ""
+        hookPhase: Running
+        kind: Service
+        message: service/prometheus serverside-applied
+        name: prometheus
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: ""
+        hookPhase: Running
+        kind: Service
+        message: service/ai-service serverside-applied
+        name: ai-service
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: ""
+        hookPhase: Running
+        kind: Service
+        message: service/python-ai-service serverside-applied
+        name: python-ai-service
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: ""
+        hookPhase: Running
+        kind: Service
+        message: service/mongo serverside-applied
+        name: mongo
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: ""
+        hookPhase: Running
+        kind: Service
+        message: service/redis serverside-applied
+        name: redis
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: ""
+        hookPhase: Running
+        kind: Service
+        message: service/history-service serverside-applied
+        name: history-service
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: ""
+        hookPhase: Running
+        kind: Service
+        message: service/envoy serverside-applied
+        name: envoy
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: ""
+        hookPhase: Running
+        kind: Service
+        message: service/postgres serverside-applied
+        name: postgres
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: ""
+        hookPhase: Running
+        kind: Service
+        message: service/grafana serverside-applied
+        name: grafana
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: apps
+        hookPhase: Running
+        kind: Deployment
+        message: deployment.apps/grafana serverside-applied
+        name: grafana
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: apps
+        hookPhase: Running
+        kind: Deployment
+        message: deployment.apps/history-service serverside-applied
+        name: history-service
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: apps
+        hookPhase: Running
+        kind: Deployment
+        message: deployment.apps/ai-service serverside-applied
+        name: ai-service
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: apps
+        hookPhase: Running
+        kind: Deployment
+        message: deployment.apps/prometheus serverside-applied
+        name: prometheus
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: apps
+        hookPhase: Running
+        kind: Deployment
+        message: deployment.apps/game-service serverside-applied
+        name: game-service
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: apps
+        hookPhase: Running
+        kind: Deployment
+        message: deployment.apps/envoy serverside-applied
+        name: envoy
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: apps
+        hookPhase: Running
+        kind: StatefulSet
+        message: statefulset.apps/mongo serverside-applied
+        name: mongo
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: apps
+        hookPhase: Running
+        kind: StatefulSet
+        message: statefulset.apps/postgres serverside-applied
+        name: postgres
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: apps
+        hookPhase: Running
+        kind: StatefulSet
+        message: statefulset.apps/redis serverside-applied
+        name: redis
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: argoproj.io
+        hookPhase: Running
+        kind: Rollout
+        message: rollout.argoproj.io/python-ai-service serverside-applied
+        name: python-ai-service
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1alpha1
+      - group: bitnami.com
+        hookPhase: Running
+        kind: SealedSecret
+        message: sealedsecret.bitnami.com/searchess-secrets serverside-applied
+        name: searchess-secrets
+        namespace: searchess
+        status: Synced
+        syncPhase: Sync
+        version: v1alpha1
+      revision: e1282f63530fa4fb877f62e4c8c128dd1661ee6d
+      source:
+        path: deployment/k8s/overlays/uni-server-registry
+        repoURL: https://github.com/arutepsu/SeArChess.git
+        targetRevision: main
+  reconciledAt: "2026-05-25T12:26:29Z"
+  resources:
+  - kind: ConfigMap
+    name: ai-service-env
+    namespace: searchess
+    status: Synced
+    version: v1
+  - kind: ConfigMap
+    name: envoy-config-7459f46tk6
+    namespace: searchess
+    status: Synced
+    version: v1
+  - kind: ConfigMap
+    name: game-service-env
+    namespace: searchess
+    status: Synced
+    version: v1
+  - kind: ConfigMap
+    name: grafana-dashboard-providers-9dm46ffd4f
+    namespace: searchess
+    status: Synced
+    version: v1
+  - kind: ConfigMap
+    name: grafana-dashboards-8g59tt5c2g
+    namespace: searchess
+    status: Synced
+    version: v1
+  - kind: ConfigMap
+    name: grafana-datasources-tk25272b52
+    namespace: searchess
+    status: Synced
+    version: v1
+  - kind: ConfigMap
+    name: history-service-env
+    namespace: searchess
+    status: Synced
+    version: v1
+  - kind: ConfigMap
+    name: prometheus-config-ct4tk556b2
+    namespace: searchess
+    status: Synced
+    version: v1
+  - kind: ConfigMap
+    name: python-ai-service-env
+    namespace: searchess
+    status: Synced
+    version: v1
+  - kind: Namespace
+    name: searchess
+    status: Synced
+    version: v1
+  - health:
+      status: Healthy
+    kind: Service
+    name: ai-service
+    namespace: searchess
+    status: Synced
+    version: v1
+  - health:
+      status: Healthy
+    kind: Service
+    name: envoy
+    namespace: searchess
+    status: Synced
+    version: v1
+  - health:
+      status: Healthy
+    kind: Service
+    name: game-service
+    namespace: searchess
+    status: Synced
+    version: v1
+  - health:
+      status: Healthy
+    kind: Service
+    name: grafana
+    namespace: searchess
+    status: Synced
+    version: v1
+  - health:
+      status: Healthy
+    kind: Service
+    name: history-service
+    namespace: searchess
+    status: Synced
+    version: v1
+  - health:
+      status: Healthy
+    kind: Service
+    name: mongo
+    namespace: searchess
+    status: Synced
+    version: v1
+  - health:
+      status: Healthy
+    kind: Service
+    name: postgres
+    namespace: searchess
+    status: Synced
+    version: v1
+  - health:
+      status: Healthy
+    kind: Service
+    name: prometheus
+    namespace: searchess
+    status: Synced
+    version: v1
+  - health:
+      status: Healthy
+    kind: Service
+    name: python-ai-service
+    namespace: searchess
+    status: Synced
+    version: v1
+  - health:
+      status: Healthy
+    kind: Service
+    name: redis
+    namespace: searchess
+    status: Synced
+    version: v1
+  - group: apps
+    health:
+      status: Healthy
+    kind: Deployment
+    name: ai-service
+    namespace: searchess
+    status: Synced
+    version: v1
+  - group: apps
+    health:
+      status: Healthy
+    kind: Deployment
+    name: envoy
+    namespace: searchess
+    status: Synced
+    version: v1
+  - group: apps
+    health:
+      status: Healthy
+    kind: Deployment
+    name: game-service
+    namespace: searchess
+    status: Synced
+    version: v1
+  - group: apps
+    health:
+      status: Healthy
+    kind: Deployment
+    name: grafana
+    namespace: searchess
+    status: Synced
+    version: v1
+  - group: apps
+    health:
+      status: Healthy
+    kind: Deployment
+    name: history-service
+    namespace: searchess
+    status: Synced
+    version: v1
+  - group: apps
+    health:
+      status: Healthy
+    kind: Deployment
+    name: prometheus
+    namespace: searchess
+    status: Synced
+    version: v1
+  - group: apps
+    health:
+      message: 'partitioned roll out complete: 1 new pods have been updated...'
+      status: Healthy
+    kind: StatefulSet
+    name: mongo
+    namespace: searchess
+    status: Synced
+    version: v1
+  - group: apps
+    health:
+      message: 'partitioned roll out complete: 1 new pods have been updated...'
+      status: Healthy
+    kind: StatefulSet
+    name: postgres
+    namespace: searchess
+    status: Synced
+    version: v1
+  - group: apps
+    health:
+      message: 'partitioned roll out complete: 1 new pods have been updated...'
+      status: Healthy
+    kind: StatefulSet
+    name: redis
+    namespace: searchess
+    status: Synced
+    version: v1
+  - group: argoproj.io
+    health:
+      status: Healthy
+    kind: Rollout
+    name: python-ai-service
+    namespace: searchess
+    status: Synced
+    version: v1alpha1
+  - group: bitnami.com
+    health:
+      status: Healthy
+    kind: SealedSecret
+    name: searchess-secrets
+    namespace: searchess
+    status: Synced
+    version: v1alpha1
+  sourceType: Kustomize
+  summary:
+    images:
+    - envoyproxy/envoy:v1.32-latest
+    - ghcr.io/arutepsu/searchess-ai-service:sha-5fa4249
+    - ghcr.io/arutepsu/searchess-game-service:sha-5fa4249
+    - ghcr.io/arutepsu/searchess-history-service:sha-5fa4249
+    - ghcr.io/arutepsu/searchess-python-ai-service:sha-5fa4249
+    - grafana/grafana:11.4.0
+    - mongo:4.4
+    - postgres:16
+    - prom/prometheus:v2.55.1
+    - redis:7.4-alpine
+  sync:
+    comparedTo:
+      destination:
+        namespace: searchess
+        server: https://kubernetes.default.svc
+      ignoreDifferences:
+      - group: apps
+        jqPathExpressions:
+        - .spec.volumeClaimTemplates[].status
+        kind: StatefulSet
+        managedFieldsManagers:
+        - k3s
+        name: mongo
+        namespace: searchess
+      - group: apps
+        jqPathExpressions:
+        - .spec.volumeClaimTemplates[].status
+        kind: StatefulSet
+        managedFieldsManagers:
+        - k3s
+        name: postgres
+        namespace: searchess
+      - group: apps
+        jqPathExpressions:
+        - .spec.volumeClaimTemplates[].status
+        kind: StatefulSet
+        managedFieldsManagers:
+        - k3s
+        name: redis
+        namespace: searchess
+      source:
+        path: deployment/k8s/overlays/uni-server-registry
+        repoURL: https://github.com/arutepsu/SeArChess.git
+        targetRevision: main
+    revision: e1282f63530fa4fb877f62e4c8c128dd1661ee6d
+    status: Synced

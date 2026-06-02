@@ -22,7 +22,8 @@ object PostgresSchemaMigrationMain:
               PostgresFlywaySchemaInitializer.migrate(
                 url = config.url,
                 user = config.user,
-                password = config.password
+                password = config.password,
+                schema = config.schema
               )
             println(
               s"Postgres Flyway migration complete. " +

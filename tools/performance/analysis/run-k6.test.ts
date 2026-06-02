@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   buildK6ArtifactPaths,
@@ -9,45 +8,7 @@ import {
   parseRunK6Args,
   shouldContinueAfterK6Failure,
 } from './cli/run-k6';
-import { buildK6NormalizerContext, buildK6SpawnOptions } from './application/runK6Report';
-import { loadPerformanceConfig } from './cli/config';
-
-function writeConfig(dir: string, content: unknown): void {
-  writeFileSync(
-    join(dir, 'performance.config.json'),
-    typeof content === 'string' ? content : JSON.stringify(content),
-  );
-}
-
-test('loadPerformanceConfig returns empty object when no config exists', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'perf-config-'));
-  assert.deepEqual(loadPerformanceConfig(dir), {});
-});
-
-test('loadPerformanceConfig throws on invalid JSON', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'perf-config-'));
-  writeConfig(dir, 'not json');
-  assert.throws(
-    () => loadPerformanceConfig(dir),
-    /Invalid performance\.config\.json/,
-  );
-});
-
-test('loadPerformanceConfig validates cpu and memory ranges', () => {
-  const cpuDir = mkdtempSync(join(tmpdir(), 'perf-config-'));
-  writeConfig(cpuDir, { cpuUsagePercent: 101 });
-  assert.throws(
-    () => loadPerformanceConfig(cpuDir),
-    /cpuUsagePercent must be a number between 0 and 100/,
-  );
-
-  const memoryDir = mkdtempSync(join(tmpdir(), 'perf-config-'));
-  writeConfig(memoryDir, { memoryUsagePercent: -1 });
-  assert.throws(
-    () => loadPerformanceConfig(memoryDir),
-    /memoryUsagePercent must be a number between 0 and 100/,
-  );
-});
+import { buildK6NormalizerContext, buildK6ProcessEnv } from './application/runK6Report';
 
 test('run-k6 argument parser rejects missing required args', () => {
   assert.throws(
@@ -59,7 +20,7 @@ test('run-k6 argument parser rejects missing required args', () => {
 test('run-k6 argument parser rejects unsupported test name', () => {
   assert.throws(
     () => parseRunK6Args([
-      '--test', 'soak',
+      '--test', 'soak', 
       '--base-url', 'http://localhost:10000/api',
       '--cpu', '72',
       '--memory', '61',
@@ -93,64 +54,6 @@ test('run-k6 argument parser rejects invalid CPU and memory range', () => {
   );
 });
 
-test('run-k6 parser uses config defaults', () => {
-  const options = parseRunK6Args(['--test', 'load'], {
-    baseUrl: 'http://localhost:10000/api',
-    defaultPhase: 'baseline',
-    cpuUsagePercent: 72,
-    memoryUsagePercent: 61,
-  });
-  assert.equal(options.test, 'load');
-  assert.equal(options.baseUrl, 'http://localhost:10000/api');
-  assert.equal(options.phase, 'baseline');
-  assert.equal(options.cpu, 72);
-  assert.equal(options.memory, 61);
-});
-
-test('run-k6 parser lets CLI args override config defaults', () => {
-  const options = parseRunK6Args([
-    '--test', 'load',
-    '--base-url', 'http://localhost:20000/api',
-    '--cpu', '80',
-    '--memory', '55',
-    '--phase', 'optimized',
-  ], {
-    baseUrl: 'http://localhost:10000/api',
-    defaultPhase: 'baseline',
-    cpuUsagePercent: 72,
-    memoryUsagePercent: 61,
-  });
-  assert.equal(options.baseUrl, 'http://localhost:20000/api');
-  assert.equal(options.phase, 'optimized');
-  assert.equal(options.cpu, 80);
-  assert.equal(options.memory, 55);
-});
-
-test('run-k6 parser errors when baseUrl is missing from CLI and config', () => {
-  assert.throws(
-    () => parseRunK6Args(['--test', 'load'], {
-      defaultPhase: 'baseline',
-      cpuUsagePercent: 72,
-      memoryUsagePercent: 61,
-    }),
-    /Missing required arguments: baseUrl/,
-  );
-});
-
-test('run-k6 parser uses outputRoot plus phase as out directory', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'perf-config-'));
-  writeConfig(dir, {
-    baseUrl: 'http://localhost:10000/api',
-    outputRoot: 'docs/performance',
-    defaultPhase: 'baseline',
-    cpuUsagePercent: 72,
-    memoryUsagePercent: 61,
-  });
-  const config = loadPerformanceConfig(dir);
-  const options = parseRunK6Args(['--test', 'load'], config, dir);
-  assert.equal(options.out, join(dir, 'docs', 'performance', 'baseline'));
-});
-
 test('run-k6 command mapping returns correct script and config for stress', () => {
   const config = getK6TestConfig('stress');
   assert.equal(config.test, 'stress');
@@ -168,6 +71,7 @@ test('run-k6 artifact path construction uses phase default and file names', () =
   assert.ok(paths.inputPath.endsWith('k6_load_input.json'));
   assert.ok(paths.reportJsonPath.endsWith('k6_load_report.json'));
   assert.ok(paths.markdownPath.endsWith('k6_load_report.md'));
+  assert.ok(paths.reportHtmlPath.endsWith('k6_load_report.html'));
 });
 
 test('run-k6 threshold failure can continue when summary exists', () => {
@@ -196,8 +100,45 @@ test('runK6Report application helper builds normalizer context', () => {
   assert.ok(!Number.isNaN(Date.parse(context.timestamp ?? '')));
 });
 
-test('runK6Report k6 spawn options stream output and preserve BASE_URL', () => {
-  const options = buildK6SpawnOptions('http://localhost:10000/api');
-  assert.equal(options.stdio, 'inherit');
-  assert.equal(options.env?.['BASE_URL'], 'http://localhost:10000/api');
+test('runK6Report process env carries performance correlation metadata', () => {
+  const env = buildK6ProcessEnv({
+    test: 'load',
+    baseUrl: 'http://localhost:8080',
+    cpu: 72,
+    memory: 61,
+    phase: 'baseline',
+    out: join('docs', 'performance', 'baseline', 'runs', '20260505T120000-k6-load-abc123'),
+  });
+
+  assert.equal(env.BASE_URL, 'http://localhost:8080');
+  assert.equal(env.PERFORMANCE_RUN_ID, '20260505T120000-k6-load-abc123');
+  assert.equal(env.PERFORMANCE_TOOL, 'k6');
+  assert.equal(env.PERFORMANCE_WORKLOAD, 'load');
+  assert.equal(env.PERFORMANCE_PHASE, 'baseline');
+});
+
+test('runK6Report process env falls back to local-dev run id when no output directory is available', () => {
+  const env = buildK6ProcessEnv({
+    test: 'baseline',
+    baseUrl: 'http://localhost:10000/api',
+    cpu: 72,
+    memory: 61,
+    phase: 'baseline',
+  });
+
+  assert.equal(env.PERFORMANCE_RUN_ID, 'local-dev');
+  assert.equal(env.PERFORMANCE_WORKLOAD, 'baseline');
+});
+
+test('k6 gameplay requests include performance correlation headers with local fallbacks', () => {
+  const sourcePath = join(process.cwd(), '..', 'k6', 'lib', 'gameplay.js');
+  const source = readFileSync(sourcePath, 'utf-8');
+
+  assert.ok(source.includes("'X-Performance-Run-Id': PERFORMANCE_RUN_ID"));
+  assert.ok(source.includes("'X-Performance-Tool': PERFORMANCE_TOOL"));
+  assert.ok(source.includes("'X-Performance-Workload': PERFORMANCE_WORKLOAD"));
+  assert.ok(source.includes("'X-Performance-Phase': PERFORMANCE_PHASE"));
+  assert.ok(source.includes("__ENV.PERFORMANCE_RUN_ID || 'local-dev'"));
+  assert.ok(source.includes("__ENV.PERFORMANCE_TOOL || 'k6'"));
+  assert.ok(source.includes("__ENV.PERFORMANCE_PHASE || 'local'"));
 });

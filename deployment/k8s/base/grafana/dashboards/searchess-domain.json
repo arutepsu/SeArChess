@@ -1,0 +1,275 @@
+{
+  "__inputs": [],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "11.0.0" },
+    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" }
+  ],
+  "annotations": { "list": [] },
+  "description": "Application-level chess/game metrics for Searchess performance runs.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Domain Operation Rate",
+      "description": "Application-level chess/game operations per second during k6 and Gatling runs.",
+      "datasource": { "type": "prometheus", "uid": "prom" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "lineWidth": 1, "fillOpacity": 10 }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prom" },
+          "expr": "rate(searchess_sessions_created_total{job=\"searchess-game-service\"}[1m])",
+          "legendFormat": "sessions created",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prom" },
+          "expr": "rate(searchess_games_created_total{job=\"searchess-game-service\"}[1m])",
+          "legendFormat": "games created",
+          "refId": "B"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prom" },
+          "expr": "rate(searchess_legal_moves_requested_total{job=\"searchess-game-service\"}[1m])",
+          "legendFormat": "legal moves requested",
+          "refId": "C"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prom" },
+          "expr": "rate(searchess_moves_submitted_total{job=\"searchess-game-service\"}[1m])",
+          "legendFormat": "moves submitted",
+          "refId": "D"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Sessions Created",
+      "description": "Total Searchess sessions created by the game service.",
+      "datasource": { "type": "prometheus", "uid": "prom" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 8 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "palette-classic" } },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "value" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prom" },
+          "expr": "searchess_sessions_created_total{job=\"searchess-game-service\"}",
+          "legendFormat": "sessions",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Games Created",
+      "description": "Total chess games created by the game service.",
+      "datasource": { "type": "prometheus", "uid": "prom" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 8 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "palette-classic" } },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "value" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prom" },
+          "expr": "searchess_games_created_total{job=\"searchess-game-service\"}",
+          "legendFormat": "games",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Legal Moves Requested",
+      "description": "Total legal-move generation requests handled by the domain layer.",
+      "datasource": { "type": "prometheus", "uid": "prom" },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 8 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "palette-classic" } },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "value" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prom" },
+          "expr": "searchess_legal_moves_requested_total{job=\"searchess-game-service\"}",
+          "legendFormat": "legal moves",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Moves Submitted",
+      "description": "Total submitted moves handled by the game service.",
+      "datasource": { "type": "prometheus", "uid": "prom" },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 8 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "palette-classic" } },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "value" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prom" },
+          "expr": "searchess_moves_submitted_total{job=\"searchess-game-service\"}",
+          "legendFormat": "moves",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Legal Move Generation p95",
+      "description": "p95 latency of legal move generation. Useful for identifying chess rule-engine pressure.",
+      "datasource": { "type": "prometheus", "uid": "prom" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 12 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "lineWidth": 2, "fillOpacity": 5 }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prom" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(searchess_legal_move_generation_duration_seconds_bucket{job=\"searchess-game-service\"}[1m])))",
+          "legendFormat": "legal moves p95",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Submit Move p95",
+      "description": "p95 latency of move submission through the game service boundary.",
+      "datasource": { "type": "prometheus", "uid": "prom" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 12 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "lineWidth": 2, "fillOpacity": 5 }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prom" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(searchess_submit_move_duration_seconds_bucket{job=\"searchess-game-service\"}[1m])))",
+          "legendFormat": "submit move p95",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Fetch State p95",
+      "description": "p95 latency of fetching session/game state.",
+      "datasource": { "type": "prometheus", "uid": "prom" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 12 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "lineWidth": 2, "fillOpacity": 5 }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prom" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(searchess_fetch_state_duration_seconds_bucket{job=\"searchess-game-service\"}[1m])))",
+          "legendFormat": "fetch state p95",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Domain Latency Comparison",
+      "description": "Compare p95 latency across domain operations during a performance run.",
+      "datasource": { "type": "prometheus", "uid": "prom" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 20 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "lineWidth": 2, "fillOpacity": 5 }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prom" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(searchess_legal_move_generation_duration_seconds_bucket{job=\"searchess-game-service\"}[1m])))",
+          "legendFormat": "legal moves p95",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prom" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(searchess_submit_move_duration_seconds_bucket{job=\"searchess-game-service\"}[1m])))",
+          "legendFormat": "submit move p95",
+          "refId": "B"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prom" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(searchess_fetch_state_duration_seconds_bucket{job=\"searchess-game-service\"}[1m])))",
+          "legendFormat": "fetch state p95",
+          "refId": "C"
+        }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["searchess", "domain", "performance"],
+  "templating": { "list": [] },
+  "time": { "from": "now-15m", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Searchess \u2014 Domain Metrics",
+  "uid": "searchess-domain",
+  "version": 1
+}

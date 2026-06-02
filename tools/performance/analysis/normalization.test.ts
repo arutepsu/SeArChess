@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from  'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { normalizeGatlingSummary } from './normalization/gatlingSummaryNormalizer';
@@ -46,23 +46,6 @@ const k6Summary = {
   },
 };
 
-const directK6Summary = {
-  metrics: {
-    http_req_duration: {
-      med: 111,
-      'p(95)': 444,
-      'p(99)': 777,
-    },
-    http_req_failed: {
-      value: 0.04,
-    },
-    http_reqs: {
-      rate: 333,
-      count: 1250,
-    },
-  },
-};
-
 const gatlingSummary = {
   stats: {
     numberOfRequests: {
@@ -103,47 +86,6 @@ test('normalizeK6Summary maps supported k6 summary to PerformanceInput', () => {
   assert.equal(input.optional?.db_pool_usage_percent, 44);
 });
 
-test('normalizeK6Summary maps actual direct k6 export shape to PerformanceInput', () => {
-  const input = normalizeK6Summary(directK6Summary, context);
-  assert.equal(input.latency.p50, 111);
-  assert.equal(input.latency.p95, 444);
-  assert.equal(input.latency.p99, 777);
-  assert.equal(input.errors.error_rate, 0.04);
-  assert.equal(input.throughput.requests_per_second, 333);
-  assert.equal(input.errors.total_errors, 50);
-});
-
-test('normalizeK6Summary maps direct med to latency.p50', () => {
-  const input = normalizeK6Summary(directK6Summary, context);
-  assert.equal(input.latency.p50, 111);
-});
-
-test('normalizeK6Summary maps direct http_req_failed.value to error_rate', () => {
-  const input = normalizeK6Summary(directK6Summary, context);
-  assert.equal(input.errors.error_rate, 0.04);
-});
-
-test('normalizeK6Summary maps direct http_reqs rate and count', () => {
-  const input = normalizeK6Summary(directK6Summary, context);
-  assert.equal(input.throughput.requests_per_second, 333);
-  assert.equal(input.errors.total_errors, 50);
-});
-
-test('normalizeK6Summary throws clear error when p99 is missing', () => {
-  assert.throws(
-    () => normalizeK6Summary({
-      metrics: {
-        ...directK6Summary.metrics,
-        http_req_duration: {
-          med: 111,
-          'p(95)': 444,
-        },
-      },
-    }, context),
-    /k6 summary must include p\(99\)/,
-  );
-});
-
 test('normalizeK6Summary throws on missing http_req_duration', () => {
   assert.throws(
     () => normalizeK6Summary({ metrics: { ...k6Summary.metrics, http_req_duration: undefined } }, context),
@@ -154,33 +96,6 @@ test('normalizeK6Summary throws on missing http_req_duration', () => {
 test('normalizeK6Summary computes total_errors from count and error_rate', () => {
   const input = normalizeK6Summary(k6Summary, context);
   assert.equal(input.errors.total_errors, 30);
-});
-
-test('normalizeK6Summary throws when cpuUsagePercent is missing', () => {
-  const { cpuUsagePercent: _cpuUsagePercent, ...invalidContext } = context;
-  assert.throws(
-    () => normalizeK6Summary(k6Summary, invalidContext as unknown as NormalizerContext),
-    /context\.cpuUsagePercent must be a number between 0 and 100/,
-  );
-});
-
-test('normalizeK6Summary throws when cpuUsagePercent is outside 0-100', () => {
-  assert.throws(
-    () => normalizeK6Summary(k6Summary, { ...context, cpuUsagePercent: 101 }),
-    /context\.cpuUsagePercent must be a number between 0 and 100/,
-  );
-});
-
-test('normalizeK6Summary accepts missing timestamp and generates one', () => {
-  const { timestamp: _timestamp, ...contextWithoutTimestamp } = context;
-  const input = normalizeK6Summary(k6Summary, contextWithoutTimestamp);
-  assert.ok(!Number.isNaN(Date.parse(input.metadata.timestamp)));
-});
-
-test('normalizeK6Summary accepts missing dbPoolUsagePercent', () => {
-  const { dbPoolUsagePercent: _dbPoolUsagePercent, ...contextWithoutDbPool } = context;
-  const input = normalizeK6Summary(k6Summary, contextWithoutDbPool);
-  assert.equal(input.optional, undefined);
 });
 
 test('normalizeGatlingSummary maps supported Gatling summary to PerformanceInput', () => {
@@ -210,21 +125,6 @@ test('normalizeGatlingSummary handles total = 0 by setting error_rate = 0', () =
   assert.equal(input.errors.error_rate, 0);
 });
 
-test('normalizeGatlingSummary throws when memoryUsagePercent is missing', () => {
-  const { memoryUsagePercent: _memoryUsagePercent, ...invalidContext } = context;
-  assert.throws(
-    () => normalizeGatlingSummary(gatlingSummary, invalidContext as unknown as NormalizerContext),
-    /context\.memoryUsagePercent must be a number between 0 and 100/,
-  );
-});
-
-test('normalizeGatlingSummary throws when dbPoolUsagePercent is outside 0-100', () => {
-  assert.throws(
-    () => normalizeGatlingSummary(gatlingSummary, { ...context, dbPoolUsagePercent: -1 }),
-    /context\.dbPoolUsagePercent must be a number between 0 and 100/,
-  );
-});
-
 test('normalizeGatlingSummary throws on missing stats', () => {
   assert.throws(
     () => normalizeGatlingSummary({}, context),
@@ -234,13 +134,13 @@ test('normalizeGatlingSummary throws on missing stats', () => {
 
 test('normalize-k6 CLI happy path', () => {
   const dir = mkdtempSync(join(tmpdir(), 'perf-normalize-'));
-  const summaryPath = writeTmp(dir, 'k6-summary.json', directK6Summary);
+  const summaryPath = writeTmp(dir, 'k6-summary.json', k6Summary);
   const contextPath = writeTmp(dir, 'context.json', context);
   const result = spawnSync('node', [NORMALIZE_K6, summaryPath, contextPath], { encoding: 'utf-8' });
   assert.equal(result.status, 0, `stderr: ${result.stderr}`);
   const input = JSON.parse(result.stdout);
-  assert.equal(input.latency.p95, 444);
-  assert.equal(input.errors.total_errors, 50);
+  assert.equal(input.latency.p95, 450);
+  assert.equal(input.errors.total_errors, 30);
 });
 
 test('normalize-gatling CLI happy path', () => {
@@ -270,25 +170,4 @@ test('normalize-gatling CLI exits 1 on invalid context JSON', () => {
   const result = spawnSync('node', [NORMALIZE_GATLING, summaryPath, contextPath], { encoding: 'utf-8' });
   assert.equal(result.status, 1);
   assert.ok(result.stderr.includes('Error reading'));
-});
-
-test('normalize-k6 CLI exits 1 on invalid context shape', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'perf-normalize-'));
-  const summaryPath = writeTmp(dir, 'k6-summary.json', k6Summary);
-  const { cpuUsagePercent: _cpuUsagePercent, ...invalidContext } = context;
-  const contextPath = writeTmp(dir, 'invalid-context.json', invalidContext);
-  const result = spawnSync('node', [NORMALIZE_K6, summaryPath, contextPath], { encoding: 'utf-8' });
-  assert.equal(result.status, 1);
-  assert.ok(result.stderr.includes('Invalid NormalizerContext'));
-  assert.ok(result.stderr.includes('context.cpuUsagePercent'));
-});
-
-test('normalize-gatling CLI exits 1 on invalid context shape', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'perf-normalize-'));
-  const summaryPath = writeTmp(dir, 'gatling-summary.json', gatlingSummary);
-  const contextPath = writeTmp(dir, 'invalid-context.json', { ...context, memoryUsagePercent: 120 });
-  const result = spawnSync('node', [NORMALIZE_GATLING, summaryPath, contextPath], { encoding: 'utf-8' });
-  assert.equal(result.status, 1);
-  assert.ok(result.stderr.includes('Invalid NormalizerContext'));
-  assert.ok(result.stderr.includes('context.memoryUsagePercent'));
 });

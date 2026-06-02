@@ -18,7 +18,7 @@ services:
         condition: service_healthy
       mongo:
         condition: service_healthy
-      ai-service:
+      searchess-ai-service:
         condition: service_healthy
       history-service:
         condition: service_healthy
@@ -42,8 +42,8 @@ services:
       HISTORY_SERVICE_BASE_URL: http://history-service:8081
       HISTORY_FORWARDING_TIMEOUT_MILLIS: 2000
       AI_PROVIDER_MODE: remote
-      AI_REMOTE_BASE_URL: http://ai-service:8765
-      AI_TIMEOUT_MILLIS: 15000
+      AI_REMOTE_BASE_URL: http://searchess-ai-service:8765
+      AI_TIMEOUT_MILLIS: 30000
       AI_REMOTE_TEST_MODE: ${AI_REMOTE_TEST_MODE:-}
       MIGRATION_ADMIN_ENABLED: ${MIGRATION_ADMIN_ENABLED:-false}
       MIGRATION_ADMIN_TOKEN: ${MIGRATION_ADMIN_TOKEN:-}
@@ -63,32 +63,43 @@ services:
       HISTORY_HTTP_HOST: 0.0.0.0
       HISTORY_HTTP_PORT: 8081
       GAME_SERVICE_BASE_URL: http://game-service:8080
-      HISTORY_DB_PATH: /history-data/history.sqlite
       HISTORY_GAME_SERVICE_TIMEOUT_MILLIS: 2000
       HISTORY_ACCEPT_LEGACY_INGESTION_PATH: "false"
-    volumes:
-      - history-service-data:/history-data
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8081/health"]
       interval: 5s
       timeout: 3s
       retries: 12
 
-  ai-service:
+  searchess-ai-service:
     build:
-      context: .
-      dockerfile: Dockerfile.ai
+      context: ../searchess-ai-service
+      dockerfile: Dockerfile
     expose:
       - "8765"
     environment:
-      AI_HTTP_HOST: 0.0.0.0
-      AI_HTTP_PORT: 8765
-      AI_ENGINE_ID: random-legal
+      INFERENCE_BACKEND: supervised
+      # MODEL_RUN_ID selects which run directory under /artifacts to load.
+      # Set MODEL_RUN_ID in .env or your shell before running docker compose up.
+      MODEL_ARTIFACT_DIR: /artifacts/${MODEL_RUN_ID:-run_20260504_063449_ec53ea87}
+    volumes:
+      # Set AI_ARTIFACT_ROOT to the host directory that contains the run_* subdirectories.
+      # Example (Windows): AI_ARTIFACT_ROOT=C:/uni/SA/artifacts docker compose up
+      - type: bind
+        source: ${AI_ARTIFACT_ROOT:-C:/uni/SA/artifacts}
+        target: /artifacts
+        read_only: true
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8765/health"]
-      interval: 5s
-      timeout: 3s
+      # python:3.12-slim has no curl — use stdlib urllib instead.
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/health')"
+      interval: 10s
+      timeout: 5s
       retries: 12
+      start_period: 30s
 
   postgres:
     image: postgres:16
@@ -118,9 +129,22 @@ services:
       timeout: 3s
       retries: 12
 
+  redis:
+    image: redis:7.4-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - searchess_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
 volumes:
-  history-service-data:
   searchess_postgres_data:
     name: searchess_postgres_data
   searchess_mongo_data:
     name: searchess_mongo_data
+  searchess_redis_data:
+    name: searchess_redis_data

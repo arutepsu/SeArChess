@@ -1,0 +1,121 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: searchess
+  labels:
+    app: keycloak
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      # Wait for Postgres to be reachable before starting KC.
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:16
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until pg_isready -h postgres -U keycloak -d keycloak; do
+                echo "waiting for keycloak DB..."; sleep 3
+              done
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-secrets
+                  key: db-password
+      containers:
+        - name: keycloak
+          # Pinned. Do not change without verifying start-mode compatibility.
+          image: quay.io/keycloak/keycloak:26.6.2
+          # start mode (not start-dev): production-shaped startup.
+          # --import-realm: idempotent import of the realm ConfigMap on every boot.
+          # HTTP-only is justified here because all external access is through an
+          # SSH tunnel or kubectl port-forward; TLS is not configured on this server.
+          args: ["start", "--import-realm"]
+          env:
+            - name: KC_DB
+              value: "postgres"
+            - name: KC_DB_URL
+              value: "jdbc:postgresql://postgres:5432/keycloak"
+            - name: KC_DB_USERNAME
+              value: "keycloak"
+            - name: KC_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-secrets
+                  key: db-password
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-secrets
+                  key: bootstrap-admin-username
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-secrets
+                  key: bootstrap-admin-password
+            # Token issuer = http://127.0.0.1:8080/realms/searchess.
+            # This matches the browser-visible address when using port-forward or SSH tunnel.
+            # Envoy's jwt_authn is configured with the same issuer string.
+            - name: KC_HOSTNAME
+              value: "http://127.0.0.1:8080"
+            - name: KC_HTTP_ENABLED
+              value: "true"
+            - name: KC_HEALTH_ENABLED
+              value: "true"
+            # Allow Envoy to fetch JWKS from the internal K8s DNS name (keycloak:8080)
+            # even though KC_HOSTNAME is set to 127.0.0.1:8080 (browser-facing address).
+            # Without this, the backchannel URL is derived from the request host,
+            # which may differ from the configured frontend hostname.
+            - name: KC_HOSTNAME_BACKCHANNEL_DYNAMIC
+              value: "true"
+          ports:
+            - name: http
+              containerPort: 8080
+            # Keycloak 26 with KC_HEALTH_ENABLED=true serves /health/ready and
+            # /health/live on the management interface (port 9000), not on the
+            # main HTTP port (8080). Probes must target port 9000.
+            - name: management
+              containerPort: 9000
+          volumeMounts:
+            - name: realm-import
+              mountPath: /opt/keycloak/data/import/realm-searchess.json
+              subPath: realm-searchess.json
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 9000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 9000
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 3
+          resources:
+            # Low limits for the 4 GB university VM. Keycloak with Postgres backend
+            # is leaner than with embedded H2; 512Mi is sufficient for a single-realm
+            # demo deployment.
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      volumes:
+        - name: realm-import
+          configMap:
+            name: keycloak-realm

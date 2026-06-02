@@ -1,0 +1,56 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-init-keycloak
+  namespace: searchess
+  annotations:
+    # This Job is idempotent and safe to re-run. It creates the 'keycloak' database
+    # and user if they do not already exist, then grants privileges.
+    # Run once before Keycloak starts: kubectl apply -f this file then wait for completion.
+spec:
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: init
+          image: postgres:16
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: searchess-secrets
+                  key: postgres-password
+            - name: KEYCLOAK_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-secrets
+                  key: db-password
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              PGHOST=postgres
+              PGUSER=searchess
+
+              echo "Creating keycloak database if not exists..."
+              psql -h "$PGHOST" -U "$PGUSER" -tc \
+                "SELECT 1 FROM pg_database WHERE datname='keycloak'" \
+                | grep -q 1 || \
+                psql -h "$PGHOST" -U "$PGUSER" -c "CREATE DATABASE keycloak"
+
+              echo "Creating keycloak user if not exists..."
+              psql -h "$PGHOST" -U "$PGUSER" -tc \
+                "SELECT 1 FROM pg_user WHERE usename='keycloak'" \
+                | grep -q 1 || \
+                psql -h "$PGHOST" -U "$PGUSER" \
+                  -c "CREATE USER keycloak WITH PASSWORD '$KEYCLOAK_DB_PASSWORD'"
+
+              echo "Granting privileges..."
+              psql -h "$PGHOST" -U "$PGUSER" \
+                -c "GRANT ALL PRIVILEGES ON DATABASE keycloak TO keycloak"
+              psql -h "$PGHOST" -U "$PGUSER" -d keycloak \
+                -c "GRANT ALL ON SCHEMA public TO keycloak"
+
+              echo "Postgres init for Keycloak complete."

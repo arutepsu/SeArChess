@@ -1,0 +1,8 @@
+NAME                IMAGE
+ai-service          ghcr.io/arutepsu/searchess-ai-service:sha-d9e8546
+envoy               envoyproxy/envoy:v1.32-latest
+game-service        ghcr.io/arutepsu/searchess-game-service:sha-d9e8546
+grafana             grafana/grafana:11.4.0
+history-service     ghcr.io/arutepsu/searchess-history-service:sha-d9e8546
+prometheus          prom/prometheus:v2.55.1
+python-ai-service   ghcr.io/arutepsu/searchess-python-ai-service:sha-d9e8546

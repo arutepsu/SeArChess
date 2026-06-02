@@ -1,0 +1,2 @@
+NAME                            STATUS   ROLES                  AGE     VERSION
+k3d-searchess-server-server-0   Ready    control-plane,master   3h41m   v1.31.5+k3s1

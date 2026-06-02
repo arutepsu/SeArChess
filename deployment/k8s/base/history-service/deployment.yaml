@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: history-service
+  namespace: searchess
+  labels:
+    app: history-service
+spec:
+  # Replicas: 1 for initial validation. Postgres backend enables safe horizontal scaling;
+  # increase after load-testing confirms the archive ingestion flow is idempotent end-to-end.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: history-service
+  template:
+    metadata:
+      labels:
+        app: history-service
+    spec:
+      containers:
+        - name: history-service
+          image: searchess/history-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8081
+          envFrom:
+            - configMapRef:
+                name: history-service-env
+          env:
+            - name: HISTORY_POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: searchess-secrets
+                  key: postgres-password
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"

@@ -1,0 +1,1 @@
+ghcr.io/arutepsu/searchess-ai-service:sha-d710590

@@ -1,0 +1,10 @@
+Picked up JAVA_TOOL_OPTIONS: -javaagent:/app/opentelemetry-javaagent.jar
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+[otel.javaagent 2026-05-25 15:42:31:494 +0000] [main] INFO io.opentelemetry.javaagent.tooling.VersionLogger - opentelemetry-javaagent - version: 2.10.0
+{"ts":"2026-05-25T15:42:40.983232117Z","level":"info","service":"ai-service","event":"startup_config","httpHost":"0.0.0.0","httpPort":8765,"engineId":"random-legal"}
+SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
+{"ts":"2026-05-25T15:42:48.779574718Z","level":"info","service":"ai-service","event":"started","httpHost":"0.0.0.0","httpPort":8765,"healthPath":"/health","inferencePath":"/v1/move-suggestions"}
+{"ts":"2026-05-25T15:51:53.491283311Z","level":"info","service":"ai-service","event":"ai_request_received","requestId":"otel-ai-test-1","gameId":"otel-game","sessionId":"otel-session","sideToMove":"white","engineId":"random-legal","legalMoveCount":1}
+{"ts":"2026-05-25T15:51:54.580902582Z","level":"info","service":"ai-service","event":"ai_proxy_succeeded","requestId":"otel-ai-test-1","gameId":"otel-game","sessionId":"otel-session","sideToMove":"white","engineId":"random-legal","elapsedMillis":1089,"upstreamUrl":"http://python-ai-service:8765","upstreamStatus":200}

@@ -1,0 +1,11 @@
+NAME                TYPE           CLUSTER-IP      EXTERNAL-IP   PORT(S)             AGE
+ai-service          ClusterIP      10.43.144.219   <none>        8765/TCP            3h38m
+envoy               LoadBalancer   10.43.166.148   172.18.0.2    10000:31016/TCP     3h38m
+game-service        ClusterIP      10.43.175.193   <none>        8080/TCP,9090/TCP   3h38m
+grafana             LoadBalancer   10.43.225.245   172.18.0.2    3000:31542/TCP      3h38m
+history-service     ClusterIP      10.43.132.157   <none>        8081/TCP            3h38m
+mongo               ClusterIP      None            <none>        27017/TCP           3h38m
+postgres            ClusterIP      None            <none>        5432/TCP            3h38m
+prometheus          ClusterIP      10.43.244.15    <none>        9090/TCP            3h38m
+python-ai-service   ClusterIP      10.43.172.29    <none>        8765/TCP            7m23s
+redis               ClusterIP      None            <none>        6379/TCP            3h38m

@@ -1,6 +1,7 @@
 package chess.adapter.http4s.route
 
 import cats.effect.IO
+import chess.adapter.http4s.DomainMetricsRegistry
 import chess.adapter.http4s.mapper.{GameMapper, MoveMapper, SessionMapper}
 import chess.adapter.http4s.route.Http4sRouteSupport.*
 import chess.adapter.rest.contract.dto.{
@@ -46,7 +47,10 @@ import org.http4s.dsl.io.*
   *
   * This class is pure logic tested in-memory via `routes.orNotFound.run(req)`.
   */
-class Http4sGameRoutes(gameService: GameServiceApi):
+class Http4sGameRoutes(
+    gameService: GameServiceApi,
+    metrics: DomainMetricsRegistry = new DomainMetricsRegistry()
+):
 
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
 
@@ -89,7 +93,10 @@ class Http4sGameRoutes(gameService: GameServiceApi):
       case Left(msg) =>
         jsonError(Status.BadRequest, "BAD_REQUEST", msg)
       case Right(uuid) =>
-        gameService.getLegalMoves(GameId(uuid)) match
+        val startNs = System.nanoTime()
+        val result  = gameService.getLegalMoves(GameId(uuid))
+        metrics.recordLegalMovesRequested((System.nanoTime() - startNs).toDouble / 1e9)
+        result match
           case Left(RepositoryError.NotFound(_)) =>
             jsonError(Status.NotFound, "GAME_NOT_FOUND", s"Game not found: $gameIdStr")
           case Left(RepositoryError.StorageFailure(msg)) =>
@@ -147,18 +154,23 @@ class Http4sGameRoutes(gameService: GameServiceApi):
 
     val result: Either[HttpErr, SubmitMoveResponse] =
       for
-        uuid <- parseUUID(gameIdStr).left.map(m => (Status.BadRequest, "BAD_REQUEST", m))
-        gameId = GameId(uuid)
-        req <- SubmitMoveRequest.fromJson(body).left.map(m => (Status.BadRequest, "BAD_REQUEST", m))
-        move <- MoveMapper
+        uuid   <- parseUUID(gameIdStr).left.map(m => (Status.BadRequest, "BAD_REQUEST", m))
+        gameId  = GameId(uuid)
+        req    <- SubmitMoveRequest.fromJson(body).left.map(m => (Status.BadRequest, "BAD_REQUEST", m))
+        move   <- MoveMapper
           .toDomain(req)
           .left
           .map(m => (Status.UnprocessableEntity, "INVALID_MOVE", m))
-        ctrl <- SessionMapper
+        ctrl   <- SessionMapper
           .parseController(req.controller)
           .left
           .map(m => (Status.BadRequest, "BAD_REQUEST", m))
-        pair <- gameService.submitMove(gameId, move, ctrl).left.map(moveErrToHttpErr)
+        pair   <- {
+          val startNs = System.nanoTime()
+          val r       = gameService.submitMove(gameId, move, ctrl)
+          metrics.recordMoveSubmitted((System.nanoTime() - startNs).toDouble / 1e9)
+          r.left.map(moveErrToHttpErr)
+        }
         (nextState, nextSess) = pair
       yield SubmitMoveResponse(
         game = GameMapper.toGameResponse(GameView.fromState(gameId, nextState)),
@@ -179,18 +191,18 @@ class Http4sGameRoutes(gameService: GameServiceApi):
 
     val result: Either[HttpErr, SubmitMoveResponse] =
       for
-        uuid <- parseUUID(gameIdStr).left.map(m => (Status.BadRequest, "BAD_REQUEST", m))
-        gameId = GameId(uuid)
+        uuid    <- parseUUID(gameIdStr).left.map(m => (Status.BadRequest, "BAD_REQUEST", m))
+        gameId   = GameId(uuid)
         session <- gameService
           .getSessionByGameId(gameId)
           .left
           .map(e => (Status.NotFound, "GAME_NOT_FOUND", sessionErrMsg(e)))
-        req2 <- ResignRequest.fromJson(body).left.map(m => (Status.BadRequest, "BAD_REQUEST", m))
-        side <- SessionMapper
+        req2    <- ResignRequest.fromJson(body).left.map(m => (Status.BadRequest, "BAD_REQUEST", m))
+        side    <- SessionMapper
           .parseSide(req2.side)
           .left
           .map(m => (Status.BadRequest, "BAD_REQUEST", m))
-        pair <- gameService.resignGame(session.sessionId, side).left.map(e => resignErrToHttpErr(e))
+        pair    <- gameService.resignGame(session.sessionId, side).left.map(e => resignErrToHttpErr(e))
         (nextState, nextSess) = pair
       yield SubmitMoveResponse(
         game = GameMapper.toGameResponse(GameView.fromState(gameId, nextState)),

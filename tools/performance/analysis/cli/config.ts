@@ -7,6 +7,11 @@ export interface PerformanceCliConfig {
   defaultPhase?: 'baseline' | 'optimized';
   cpuUsagePercent?: number;
   memoryUsagePercent?: number;
+  ai?: {
+    enabled?: boolean;
+    provider?: 'stub';
+    autoReview?: boolean;
+  };
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -73,6 +78,21 @@ export function loadPerformanceConfig(startDir = process.cwd()): PerformanceCliC
   }
   if (parsed['outputRoot'] !== undefined && typeof parsed['outputRoot'] !== 'string') {
     throw new Error('Invalid performance.config.json: outputRoot must be a string');
+  }
+  if (parsed['ai'] !== undefined) {
+    if (!isObject(parsed['ai'])) {
+      throw new Error('Invalid performance.config.json: ai must be an object');
+    }
+    const ai = parsed['ai'];
+    if (ai['enabled'] !== undefined && typeof ai['enabled'] !== 'boolean') {
+      throw new Error('Invalid performance.config.json: ai.enabled must be a boolean');
+    }
+    if (ai['provider'] !== undefined && ai['provider'] !== 'stub') {
+      throw new Error('Invalid performance.config.json: ai.provider must be stub');
+    }
+    if (ai['autoReview'] !== undefined && typeof ai['autoReview'] !== 'boolean') {
+      throw new Error('Invalid performance.config.json: ai.autoReview must be a boolean');
+    }
   }
 
   return parsed as PerformanceCliConfig;

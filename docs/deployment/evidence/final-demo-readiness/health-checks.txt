@@ -1,0 +1,9 @@
+=== Envoy/API health ===
+{"status":"ok","service":"searchess-game-service","check":"process-liveness","optionalDependencies":["ai-service","history-service"]}
+{"status":"ok","service":"searchess-game-service","check":"process-liveness","optionalDependencies":["ai-service","history-service"]}
+=== Grafana health ===
+{
+  "database": "ok",
+  "version": "11.4.0",
+  "commit": "b58701869e1a11b696010a6f28bd96b68a2cf0d0"
+}

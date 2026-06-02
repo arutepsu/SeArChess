@@ -5,7 +5,7 @@ import _root_.slick.jdbc.JdbcProfile
 import java.sql.Timestamp
 import java.util.UUID
 
-final class SlickTables(val profile: JdbcProfile):
+final class SlickTables(val profile: JdbcProfile, schema: Option[String] = None):
   import profile.api.*
 
   final case class SlickSessionRow(
@@ -22,7 +22,7 @@ final class SlickTables(val profile: JdbcProfile):
   )
 
   final class SlickSessionTable(tag: Tag)
-      extends Table[SlickSessionRow](tag, "sessions"):
+      extends Table[SlickSessionRow](tag, schema, "sessions"):
 
     def sessionId = column[UUID]("session_id", O.PrimaryKey)
 
@@ -64,7 +64,7 @@ final class SlickTables(val profile: JdbcProfile):
   )
 
   final class SlickGameStateTable(tag: Tag)
-      extends Table[SlickGameStateRow](tag, "game_states"):
+      extends Table[SlickGameStateRow](tag, schema, "game_states"):
 
     def gameId = column[UUID]("game_id", O.PrimaryKey)
 

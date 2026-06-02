@@ -1,0 +1,82 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: searchess
+generatorOptions:
+  annotations:
+    argocd.argoproj.io/compare-options: IgnoreExtraneous
+resources:
+  - namespace.yaml
+  - secret-searchess.yaml
+  # Edge
+  - envoy/deployment.yaml
+  - envoy/service.yaml
+  # Web UI (SPA — served through Envoy at /)
+  - web-ui/deployment.yaml
+  - web-ui/service.yaml
+  # Application services
+  - game-service/configmap.yaml
+  - game-service/deployment.yaml
+  - game-service/service.yaml
+  - history-service/configmap.yaml
+  - history-service/deployment.yaml
+  - history-service/service.yaml
+  - ai-service/configmap.yaml
+  - ai-service/deployment.yaml
+  - ai-service/service.yaml
+  # Python AI service (internal only — proxied by Scala ai-service)
+  - python-ai-service/configmap.yaml
+  - python-ai-service/deployment.yaml
+  - python-ai-service/service.yaml
+  # Data stores
+  - postgres/statefulset.yaml
+  - postgres/service.yaml
+  - postgres/job-keycloak-db-init.yaml
+  - mongo/statefulset.yaml
+  - mongo/service.yaml
+  - redis/statefulset.yaml
+  - redis/service.yaml
+  # Auth
+  - keycloak/secret.yaml
+  - keycloak/deployment.yaml
+  - keycloak/service.yaml
+  # Observability
+  - prometheus/deployment.yaml
+  - prometheus/service.yaml
+  - grafana/deployment.yaml
+  - grafana/service.yaml
+  # Distributed tracing
+  - tempo/configmap.yaml
+  - tempo/deployment.yaml
+  - tempo/service.yaml
+  - otel-collector/configmap.yaml
+  - otel-collector/deployment.yaml
+  - otel-collector/service.yaml
+
+configMapGenerator:
+  - name: envoy-config
+    files:
+      - envoy/envoy.yaml
+
+  - name: keycloak-realm
+    files:
+      - realm-searchess.json=keycloak/realm-searchess.json
+
+  - name: prometheus-config
+    files:
+      - prometheus/prometheus.yml
+
+  - name: grafana-datasources
+    files:
+      - grafana/provisioning/datasources/prometheus.yml
+      - grafana/provisioning/datasources/tempo.yml
+
+  - name: grafana-dashboard-providers
+    files:
+      - grafana/provisioning/dashboards/dashboard.yml
+
+  - name: grafana-dashboards
+    files:
+      - grafana/dashboards/searchess-domain.json
+      - grafana/dashboards/searchess-http.json
+      - grafana/dashboards/searchess-jvm.json

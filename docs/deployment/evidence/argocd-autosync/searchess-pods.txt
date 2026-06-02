@@ -1,0 +1,15 @@
+NAME                                 READY   STATUS    RESTARTS   AGE     IP           NODE                            NOMINATED NODE   READINESS GATES
+ai-service-85f84c5d64-9vqhl          1/1     Running   0          9m37s   10.42.0.89   k3d-searchess-server-server-0   <none>           <none>
+envoy-7f6d87458c-cg5z9               1/1     Running   0          2d2h    10.42.0.13   k3d-searchess-server-server-0   <none>           <none>
+game-service-698747567d-6hk2w        1/1     Running   0          9m37s   10.42.0.91   k3d-searchess-server-server-0   <none>           <none>
+grafana-b4cd46596-vxzx2              1/1     Running   0          2d2h    10.42.0.9    k3d-searchess-server-server-0   <none>           <none>
+history-service-854b45c7d4-rvxhb     1/1     Running   0          9m37s   10.42.0.90   k3d-searchess-server-server-0   <none>           <none>
+mongo-0                              1/1     Running   0          2d2h    10.42.0.16   k3d-searchess-server-server-0   <none>           <none>
+postgres-0                           1/1     Running   0          2d2h    10.42.0.17   k3d-searchess-server-server-0   <none>           <none>
+prometheus-68755dfbd6-7kb9j          1/1     Running   0          2d2h    10.42.0.11   k3d-searchess-server-server-0   <none>           <none>
+python-ai-service-6d4dc8d468-5x66s   1/1     Running   0          4m43s   10.42.0.94   k3d-searchess-server-server-0   <none>           <none>
+python-ai-service-6d4dc8d468-8m6hz   1/1     Running   0          3m41s   10.42.0.96   k3d-searchess-server-server-0   <none>           <none>
+python-ai-service-6d4dc8d468-fnzgw   1/1     Running   0          9m36s   10.42.0.92   k3d-searchess-server-server-0   <none>           <none>
+python-ai-service-6d4dc8d468-mkqss   1/1     Running   0          4m12s   10.42.0.95   k3d-searchess-server-server-0   <none>           <none>
+python-ai-service-6d4dc8d468-nvtmw   1/1     Running   0          5m13s   10.42.0.93   k3d-searchess-server-server-0   <none>           <none>
+redis-0                              1/1     Running   0          2d2h    10.42.0.18   k3d-searchess-server-server-0   <none>           <none>

@@ -1,15 +1,15 @@
 # Game to History Outbox
 
-Status: local/dev durability bridge  
+Status: legacy HTTP fallback bridge  
 Scope: terminal Game events consumed by History  
 Owner: Game Service
 
 ## Purpose
 
-The Game Service now has a small outbox-style bridge for automatic delivery of
-terminal Game events to History. This replaces the important local/dev weakness
-of the earlier best-effort HTTP publisher: if History is down when a terminal
-event is emitted, the event can remain in SQLite and be retried later.
+The Game Service has a small outbox-style bridge for automatic HTTP delivery of
+terminal Game events to History in SQLite development mode. The primary
+Compose/k3d archive delivery path is now Redis Streams; see
+`docs/architecture/redis-history-delivery.md`.
 
 This is intentionally not Kafka, not a broker, and not a general event
 platform.

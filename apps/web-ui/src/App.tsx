@@ -22,6 +22,7 @@ import BackgroundEffectsLayer from "./components/BackgroundEffectsLayer.tsx";
 import BackgroundPanel from "./components/BackgroundPanel.tsx";
 import CapturedPanel from "./components/CapturedPanel.tsx";
 import { Chess } from "chess.js";
+import AuthBar from "./components/AuthBar.tsx";
 import "./App.css";
 
 type ConnectionState = "connected" | "offline" | "loading";
@@ -269,7 +270,6 @@ export default function App() {
     selectedSquare,
     legalMoves,
     busy,
-    message,
     animationPlan,
     gameMode,
     notation,
@@ -282,7 +282,6 @@ export default function App() {
     handleNewGame,
     handleImportNotation,
     handleExportNotation,
-    handleImportSession,
     handleResumeSession,
     handleSaveSession,
     handleResign,
@@ -296,8 +295,8 @@ export default function App() {
   const { session, setSession, getSessionId } = useSession();
   const navigate = useNavigate();
 
-  const [connection, setConnection] = useState<ConnectionState>("loading");
-  const [liveConnection, setLiveConnection] =
+  const [, setConnection] = useState<ConnectionState>("loading");
+  const [, setLiveConnection] =
     useState<LiveConnectionState>("idle");
   const [whiteClockMs, setWhiteClockMs] = useState(baseClockMs);
   const [blackClockMs, setBlackClockMs] = useState(baseClockMs);
@@ -946,6 +945,7 @@ export default function App() {
   return (
     <div className="app">
       <BackgroundEffectsLayer backgroundId={backgroundId} />
+      <AuthBar />
 
       <Routes>
         <Route path="/" element={

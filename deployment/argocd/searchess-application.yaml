@@ -1,0 +1,67 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: searchess
+  namespace: argocd
+  # Cascade-delete app resources when this Application object is deleted.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: searchess
+
+  source:
+    repoURL: https://github.com/arutepsu/SeArChess.git
+    targetRevision: main
+    # Kustomize is detected automatically from the presence of kustomization.yaml.
+    path: deployment/k8s/overlays/uni-server-registry
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: searchess
+
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+
+    # No automated sync block — sync is initiated manually via the UI or argocd CLI.
+    # Enable automated sync later with:
+    #   automated:
+    #     prune: false
+    #     selfHeal: false
+
+  # Ignore fields written by k3s onto these three StatefulSets only.
+  # k3s writes its own managedFields onto resources after they are applied, which
+  # causes Argo CD to report drift even when our desired manifests are fully in sync.
+  # Scope is intentionally narrow: only mongo/postgres/redis, only the k3s manager.
+  # kubectl-set is NOT ignored so that manual image overrides remain visible.
+  ignoreDifferences:
+    - group: apps
+      kind: StatefulSet
+      name: mongo
+      namespace: searchess
+      managedFieldsManagers:
+        - k3s
+      # status.phase is a runtime field that Kubernetes sets on embedded PVC templates;
+      # it cannot be declared in desired manifests and is not tracked in managedFields.
+      jqPathExpressions:
+        - ".spec.volumeClaimTemplates[].status"
+    - group: apps
+      kind: StatefulSet
+      name: postgres
+      namespace: searchess
+      managedFieldsManagers:
+        - k3s
+      jqPathExpressions:
+        - ".spec.volumeClaimTemplates[].status"
+    - group: apps
+      kind: StatefulSet
+      name: redis
+      namespace: searchess
+      managedFieldsManagers:
+        - k3s
+      jqPathExpressions:
+        - ".spec.volumeClaimTemplates[].status"

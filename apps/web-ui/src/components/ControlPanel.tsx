@@ -25,11 +25,6 @@ type ControlPanelProps = {
   onOpenHeatmap: () => void;
 };
 
-type ExportedNotation = {
-  format: "FEN" | "PGN";
-  text: string;
-};
-
 const formatTime = (ms?: number) => {
   const totalSeconds = Math.max(0, Math.floor((ms ?? 0) / 1000));
   const minutes = Math.floor(totalSeconds / 60);
@@ -58,16 +53,12 @@ export default function ControlPanel({
   blackTimeMs,
   activeColor,
   clockRunning,
-  gameMode,
   canResign,
   sessionId,
   gameId,
   fen,
   pgn,
   onImportNotation,
-  onExportNotation,
-  onGameModeChange,
-  onNewGame,
   onSaveSession,
   onResign,
   onBackToMenu,

@@ -1,0 +1,1 @@
+ghcr.io/arutepsu/searchess-ai-service:sha-2e50332

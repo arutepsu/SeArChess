@@ -7,7 +7,7 @@ val scala3Version    = "3.8.2"
 val scalaFxVersion   = "21.0.0-R32"
 val javaFxVersion    = "21.0.1"
 val http4sVersion    = "0.23.29"
-val testcontainersVersion = "1.21.4"
+val gatlingVersion   = "3.11.3"
 
 lazy val osClassifier: String = System.getProperty("os.name") match {
   case n if n.startsWith("Windows") => "win"
@@ -110,33 +110,65 @@ lazy val history = project
   .settings(
     commonSettings,
     libraryDependencies ++= Seq(
-      "com.lihaoyi" %% "ujson"       % "4.0.2",
-      "org.xerial"   % "sqlite-jdbc" % "3.46.1.3"
+      "com.lihaoyi" %% "ujson" % "4.0.2",
+
+      // Slick / PostgreSQL (history persistence adapter)
+      "com.typesafe.slick" %% "slick"          % slickVersion,
+      "com.typesafe.slick" %% "slick-hikaricp" % slickVersion,
+      "org.postgresql"      % "postgresql"     % postgresVersion,
+      "org.flywaydb"        % "flyway-core"                % flywayVersion,
+      "org.flywaydb"        % "flyway-database-postgresql" % flywayVersion,
+
+      // Redis Streams consumer
+      "redis.clients" % "jedis" % jedisVersion,
+
+      // Testcontainers for SlickPostgresArchiveRepositorySpec and RedisStreamHistoryConsumerSpec
+      "org.testcontainers" % "testcontainers" % testcontainersVersion % Test,
+      "org.testcontainers" % "postgresql"     % testcontainersVersion % Test
+    ),
+    excludeFromCoverage(
+      ".*chess.history.postgres.HistoryFlywaySchemaInitializer.*"
     )
   )
   // adapterPersistence and adapterEvent are only needed for legacy test fixtures
   // (InMemoryGameRepository, CollectingEventPublisher, etc.).
-  .dependsOn(gameContract, notation, observability, adapterPersistence % Test, adapterEvent % Test)
+  .dependsOn(gameContract, gameEventContract, notation, observability, adapterPersistence % Test, adapterEvent % Test)
 
 // Module: adapter-persistence
+
+val slickVersion           = "3.6.1"
+val mongoDriverVersion     = "5.7.0"
+val flywayVersion          = "12.5.0"
+val postgresVersion        = "42.7.11"
+val jedisVersion           = "5.1.0"
+val testcontainersVersion  = "1.21.4"
 
 lazy val adapterPersistence = project
   .in(file("apps/game-service/modules/persistence"))
   .settings(
     commonSettings,
     libraryDependencies ++= Seq(
-      "com.lihaoyi" %% "ujson"        % "4.0.2",
-      "org.xerial"   % "sqlite-jdbc"  % "3.46.1.3",
-      "com.typesafe.slick" %% "slick" % "3.6.1",
-      "org.postgresql" % "postgresql" % "42.7.7",
-      "org.flywaydb" % "flyway-core" % "12.3.0",
-      "org.flywaydb" % "flyway-database-postgresql" % "12.3.0",
-      "org.mongodb" % "mongodb-driver-sync" % "5.2.1",
-      "org.testcontainers" % "postgresql" % testcontainersVersion % Test,
-      "org.testcontainers" % "mongodb" % testcontainersVersion % Test
+      "com.lihaoyi" %% "ujson"       % "4.0.2",
+      "org.xerial"   % "sqlite-jdbc" % "3.46.1.3",
+
+      // Slick / PostgreSQL
+      "com.typesafe.slick" %% "slick"          % slickVersion,
+      "com.typesafe.slick" %% "slick-hikaricp" % slickVersion,
+      "org.postgresql"      % "postgresql"     % postgresVersion,
+
+      // MongoDB
+      "org.mongodb" % "mongodb-driver-sync" % mongoDriverVersion,
+
+      // Flyway
+      "org.flywaydb" % "flyway-core"                % flywayVersion,
+      "org.flywaydb" % "flyway-database-postgresql" % flywayVersion,
+
+      // Testcontainers-backed persistence contract fixtures
+      "org.testcontainers" % "testcontainers" % testcontainersVersion % Test,
+      "org.testcontainers" % "postgresql"     % testcontainersVersion % Test,
+      "org.testcontainers" % "mongodb"        % testcontainersVersion % Test
     )
   )
-  // Event modules are only needed for test fixtures and transactional outbox specs.
   .dependsOn(
     gameCore,
     migration % "compile->compile;test->test",
@@ -144,6 +176,7 @@ lazy val adapterPersistence = project
     gameEventContract % Test,
     gameHistoryDelivery % Test
   )
+
 
 // Module: migration
 
@@ -188,8 +221,10 @@ lazy val gameHistoryDelivery = project
   .settings(
     commonSettings,
     libraryDependencies ++= Seq(
-      "com.lihaoyi" %% "ujson"       % "4.0.2",
-      "org.xerial"   % "sqlite-jdbc" % "3.46.1.3"
+      "com.lihaoyi"        %% "ujson"       % "4.0.2",
+      "org.xerial"          % "sqlite-jdbc" % "3.46.1.3",
+      "redis.clients"       % "jedis"       % jedisVersion,
+      "org.testcontainers"  % "testcontainers" % testcontainersVersion % Test
     )
   )
   .dependsOn(gameContract, gameEventContract, observability)
@@ -347,9 +382,10 @@ lazy val gameService = project
     run / fork          := true,
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-ember-server" % http4sVersion,
-      "org.http4s" %% "http4s-dsl" % http4sVersion,
-      "org.testcontainers" % "postgresql" % testcontainersVersion % Test,
-      "org.testcontainers" % "mongodb" % testcontainersVersion % Test
+      "org.http4s" %% "http4s-dsl"          % http4sVersion,
+      "org.testcontainers" % "testcontainers" % testcontainersVersion % Test,
+      "org.testcontainers" % "postgresql"     % testcontainersVersion % Test,
+      "org.testcontainers" % "mongodb"        % testcontainersVersion % Test
     ),
     excludeFromCoverage(
       ".*chess.server.ServerMain.*",
@@ -366,7 +402,9 @@ lazy val gameService = project
       ".*chess.server.assembly.PersistenceWiring.*",
       ".*chess.server.config.*",
       ".*chess.server.http.HealthRoutes.*",
-      ".*chess.server.http.CorsMiddleware.*"
+      ".*chess.server.http.MetricsRoutes.*",
+      ".*chess.server.http.CorsMiddleware.*",
+      ".*chess.server.http.HttpMetricsMiddleware.*"
     )
   )
   .dependsOn(
@@ -376,7 +414,6 @@ lazy val gameService = project
     adapterEvent,
     gameEventContract,
     gameHistoryDelivery,
-    migration,
     adapterPersistence,
     observability
   )
@@ -443,7 +480,7 @@ lazy val lichessBot = project
       "org.java-websocket" % "Java-WebSocket" % "1.5.7"
     )
   )
-  .dependsOn(domain, notation, aiService)
+  .dependsOn(domain, notation)
 
 // App: chess-streaming
 lazy val chessStreaming = project
@@ -468,23 +505,33 @@ lazy val loadTests = project
   .enablePlugins(GatlingPlugin)
   .disablePlugins(wartremover.WartRemover)
   .settings(
-    scalaVersion := "2.13.12",
+    scalaVersion    := "2.13.14",
+    coverageEnabled := false,
     libraryDependencies ++= Seq(
-      "io.gatling.highcharts" % "gatling-charts-highcharts" % "3.11.3" % "test",
-      "io.gatling"            % "gatling-test-framework"    % "3.11.3" % "test"
+      "io.gatling.highcharts" % "gatling-charts-highcharts" % gatlingVersion % Test,
+      "io.gatling"            % "gatling-test-framework"    % gatlingVersion % Test
     )
   )
 
-// Module: benchmarks
+// Performance: internal JVM microbenchmarks.
+// Intentionally excluded from the root aggregate: JMH benchmarks are run explicitly
+// and should not slow down normal compile/test workflows.
+
 lazy val benchmarks = project
   .in(file("modules/benchmarks"))
-  .dependsOn(domain)
   .enablePlugins(JmhPlugin)
   .disablePlugins(wartremover.WartRemover)
   .settings(
-    commonSettings,
-    name := "sear-chess-benchmarks"
+    scalaVersion    := scala3Version,
+    name            := "searchess-benchmarks",
+    coverageEnabled := false,
+    libraryDependencies ++= Seq(
+      "org.testcontainers" % "testcontainers" % testcontainersVersion,
+      "org.testcontainers" % "postgresql"     % testcontainersVersion,
+      "org.testcontainers" % "mongodb"        % testcontainersVersion
+    )
   )
+  .dependsOn(domain, gameCore, adapterPersistence, adapterRestHttp4s)
 
 // ── Aliases ───────────────────────────────────────────────────────────────────
 //
@@ -537,7 +584,6 @@ addCommandAlias("testAiContract",         "aiContract/test")
 addCommandAlias("testGameCore",           "gameCore/test")
 addCommandAlias("testHistory",            "history/test")
 addCommandAlias("testAdapterPersistence", "adapterPersistence/test")
-addCommandAlias("testMigration",          "migration/test")
 addCommandAlias("testAdapterAi",          "adapterAi/test")
 addCommandAlias("testAdapterEvent",       "adapterEvent/test")
 addCommandAlias("testGameEventContract",  "gameEventContract/test")
@@ -560,7 +606,7 @@ addCommandAlias("testCore",
   ";domain/test;observability/test;notation/test;gameContract/test;aiContract/test;gameCore/test;history/test")
 
 addCommandAlias("testInfra",
-  ";adapterPersistence/test;migration/test;adapterEvent/test;gameEventContract/test;gameHistoryDelivery/test" +
+  ";adapterPersistence/test;adapterEvent/test;gameEventContract/test;gameHistoryDelivery/test" +
   ";adapterAi/test;adapterWebsocket/test")
 
 addCommandAlias("testRest",
@@ -570,7 +616,7 @@ addCommandAlias("testUi",
   ";adapterGui/test;adapterTui/test")
 
 addCommandAlias("testAllAdapters",
-  ";adapterPersistence/test;migration/test;adapterEvent/test;gameEventContract/test;gameHistoryDelivery/test" +
+  ";adapterPersistence/test;adapterEvent/test;gameEventContract/test;gameHistoryDelivery/test" +
   ";adapterAi/test;adapterWebsocket/test" +
   ";adapterRestContract/test;adapterRestHttp4s/test" +
   ";adapterGui/test;adapterTui/test")

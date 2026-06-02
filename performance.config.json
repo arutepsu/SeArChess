@@ -3,5 +3,10 @@
   "outputRoot": "docs/performance",
   "defaultPhase": "baseline",
   "cpuUsagePercent": 72,
-  "memoryUsagePercent": 61
+  "memoryUsagePercent": 61,
+  "ai": {
+    "enabled": true,
+    "provider": "stub",
+    "autoReview": false
+  }
 }
