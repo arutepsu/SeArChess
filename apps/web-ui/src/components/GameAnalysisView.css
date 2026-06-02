@@ -1,0 +1,129 @@
+.analysis-page {
+    display: grid;
+    place-items: start center;
+    padding: 24px;
+}
+
+.analysis-shell {
+    width: min(1500px, calc(100vw - 48px));
+}
+
+.analysis-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.analysis-header h1 {
+    margin: 0 0 8px;
+}
+
+.analysis-header p {
+    margin: 0;
+    opacity: 0.85;
+}
+
+.analysis-header button {
+    border: none;
+    border-radius: 999px;
+    padding: 10px 16px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #f4efe6;
+    cursor: pointer;
+}
+
+.analysis-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+}
+
+.analysis-replay {
+    display: grid;
+    gap: 14px;
+    margin-bottom: 20px;
+    padding: 16px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(5, 10, 18, 0.45);
+}
+
+.analysis-replay-header h2 {
+    margin: 0 0 6px;
+}
+
+.analysis-replay-header p {
+    margin: 0;
+    opacity: 0.85;
+}
+
+.analysis-replay-board {
+    display: grid;
+    place-items: center;
+}
+
+.analysis-replay-loading,
+.analysis-replay-error {
+    padding: 12px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.analysis-replay-error {
+    border: 1px solid rgba(255, 120, 120, 0.55);
+}
+
+.analysis-timeline {
+    display: grid;
+    gap: 8px;
+}
+
+.analysis-timeline input[type="range"] {
+    width: 100%;
+}
+
+.analysis-timeline-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 0.9rem;
+    opacity: 0.92;
+}
+
+.analysis-timeline-meta span:last-child {
+    text-align: right;
+}
+
+.analysis-grid>* {
+    min-width: 0;
+}
+
+@media (max-width: 1200px) {
+    .analysis-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 900px) {
+    .analysis-page {
+        padding: 16px;
+    }
+
+    .analysis-shell {
+        width: min(100vw - 32px, 1500px);
+    }
+
+    .analysis-header {
+        flex-direction: column;
+    }
+
+    .analysis-timeline-meta {
+        flex-direction: column;
+    }
+
+    .analysis-timeline-meta span:last-child {
+        text-align: left;
+    }
+}

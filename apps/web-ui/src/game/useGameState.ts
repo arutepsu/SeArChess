@@ -57,18 +57,7 @@ function isClosedLifecycle(session: SessionContext | null): boolean {
   return session?.lifecycle === "Finished" || session?.lifecycle === "Cancelled";
 }
 
-function promotionChoiceFromUser(): PromotionPiece | undefined {
-  const raw = window.prompt(
-    "Promote pawn to Queen, Rook, Bishop, or Knight",
-    "Queen"
-  );
 
-  if (raw === null) return undefined;
-
-  return promotionChoices[
-    raw.trim().toLowerCase()
-  ] as PromotionPiece | undefined;
-}
 
 function controllerFor(
   session: SessionContext | null,
@@ -101,6 +90,7 @@ export type UseGameStateReturn = {
   gameMode: PlayableGameMode;
   notation: GameNotationResponse | undefined;
   sessionLifecycle: SessionContext["lifecycle"] | undefined;
+  promotionPending: { from: string; to: string } | null;
 
   // ── Actions ───────────────────────────────────────────────────────────────
   loadGame: () => Promise<void>;
@@ -118,6 +108,8 @@ export type UseGameStateReturn = {
   handleSaveSession: () => Promise<void>;
   handleResign: () => Promise<void>;
   handleAnimationFinished: (id: number) => void;
+  handleResolvePromotion: (piece: PromotionPiece) => Promise<void>;
+  handleCancelPromotion: () => void;
 
   // ── Transitional setters ──────────────────────────────────────────────────
   setMessage: (msg: string | undefined) => void;
@@ -146,6 +138,7 @@ export function useGameState(): UseGameStateReturn {
   const [notation, setNotation] = useState<GameNotationResponse | undefined>(
     undefined
   );
+  const [promotionPending, setPromotionPending] = useState<{ from: string; to: string } | null>(null);
 
   const boardRef = useRef<BoardMatrix | null>(null);
   const animationCounter = useRef(0);
@@ -329,48 +322,42 @@ export function useGameState(): UseGameStateReturn {
     }
   }, [runRefreshFromServer]);
 
-  const applyAiMoveIfNeeded = useCallback(
-    async (
-      gameId: string,
-      sessionSnapshot: SessionContext | null,
-      currentGame: GameState,
-      thisGen: number
-    ): Promise<void> => {
-      if (!isAiTurn(sessionSnapshot, currentGame)) return;
+  const lastAiRequestedTurn = useRef<string>("");
 
-      setMessageState(`AI is thinking for ${currentGame.activeColor}...`);
+  useEffect(() => {
+    if (!game || !session || !game.id) return;
+
+    if (isAiTurn(session, game)) {
+      const turnKey = `${game.id}-${game.fullMove}-${game.activeColor}`;
+      if (lastAiRequestedTurn.current === turnKey) return;
+      lastAiRequestedTurn.current = turnKey;
+
+      setMessageState(`AI is thinking for ${game.activeColor}...`);
       setBusyState(true);
 
-      const previousBoard = currentGame.board;
-
-      try {
-        const response = await requestAiMove(gameId);
-
-        if (thisGen !== generation.current) return;
-
-        commitGameSnapshot(response.game, { previousBoard });
-        void refreshNotation(gameId, thisGen);
-
-        if (sessionSnapshot) {
-          setSession({
-            ...sessionSnapshot,
-            lifecycle: response.sessionLifecycle
-          });
-        }
-
-        setMessageState(undefined);
-      } catch (error) {
-        if (thisGen !== generation.current) return;
-
-        setMessageState(
-          error instanceof Error
-            ? `AI move failed. ${error.message}`
-            : "AI move failed."
-        );
-      }
-    },
-    [commitGameSnapshot, refreshNotation, setSession]
-  );
+      const thisGen = generation.current;
+      
+      requestAiMove(game.id)
+        .then(response => {
+          if (thisGen !== generation.current) return;
+          commitGameSnapshot(response.game);
+          void refreshNotation(game.id, thisGen);
+          setSession(prev => prev ? { ...prev, lifecycle: response.sessionLifecycle } : null);
+          setMessageState(undefined);
+        })
+        .catch(error => {
+          if (thisGen !== generation.current) return;
+          setMessageState(
+            error instanceof Error ? `AI move failed. ${error.message}` : "AI move failed."
+          );
+        })
+        .finally(() => {
+          if (thisGen === generation.current) {
+            setBusyState(false);
+          }
+        });
+    }
+  }, [game, session, commitGameSnapshot, refreshNotation, setSession]);
 
   const handleSelect = useCallback(
     async (square: string): Promise<void> => {
@@ -475,55 +462,12 @@ export function useGameState(): UseGameStateReturn {
         }
 
         setMessageState(undefined);
-        await applyAiMoveIfNeeded(gameId, session, nextGame, thisGen);
       } catch (error) {
         if (thisGen !== generation.current) return;
 
         if (error instanceof Error && error.message.startsWith("PROMOTION_REQUIRED:")) {
-          const promotion = promotionChoiceFromUser();
-
-          if (!promotion) {
-            setMessageState(
-              "Promotion cancelled. Choose a promotion piece to complete that move."
-            );
-
-            return;
-          }
-
-          try {
-            const response = await submitMove(gameId, {
-              from: selectedSquare,
-              to: normalizedSquare,
-              promotion
-            });
-
-            if (thisGen !== generation.current) return;
-
-            const nextGame = commitGameSnapshot(response.game, {
-              previousBoard: prevBoard
-            });
-
-            void refreshNotation(gameId, thisGen);
-
-            if (session) {
-              setSession({
-                ...session,
-                lifecycle: response.sessionLifecycle
-              });
-            }
-
-            setMessageState(undefined);
-            await applyAiMoveIfNeeded(gameId, session, nextGame, thisGen);
-          } catch (retryError) {
-            if (thisGen !== generation.current) return;
-
-            setMessageState(
-              retryError instanceof Error
-                ? retryError.message
-                : "Promotion rejected by service."
-            );
-          }
-
+          setPromotionPending({ from: selectedSquare, to: normalizedSquare });
+          setMessageState("Choose a promotion piece.");
           return;
         }
 
@@ -535,7 +479,6 @@ export function useGameState(): UseGameStateReturn {
       }
     },
     [
-      applyAiMoveIfNeeded,
       busy,
       commitGameSnapshot,
       game,
@@ -547,6 +490,62 @@ export function useGameState(): UseGameStateReturn {
       setSession
     ]
   );
+
+  const handleResolvePromotion = useCallback(
+    async (promotion: PromotionPiece): Promise<void> => {
+      if (!promotionPending || !game) return;
+
+      const { from, to } = promotionPending;
+      const gameId = game.id;
+      if (!gameId) return;
+
+      const prevBoard = game.board;
+      const thisGen = ++generation.current;
+
+      setPromotionPending(null);
+      setBusyState(true);
+      setMessageState(`Promoting to ${promotion}...`);
+
+      try {
+        const response = await submitMove(gameId, {
+          from,
+          to,
+          promotion
+        });
+
+        if (thisGen !== generation.current) return;
+
+        commitGameSnapshot(response.game, {
+          previousBoard: prevBoard
+        });
+
+        void refreshNotation(gameId, thisGen);
+
+        if (session) {
+          setSession({
+            ...session,
+            lifecycle: response.sessionLifecycle
+          });
+        }
+
+        setMessageState(undefined);
+      } catch (error) {
+        if (thisGen !== generation.current) return;
+
+        setMessageState(
+          error instanceof Error ? error.message : "Promotion failed."
+        );
+      } finally {
+        setBusyState(false);
+      }
+    },
+    [commitGameSnapshot, game, promotionPending, refreshNotation, session, setSession]
+  );
+
+  const handleCancelPromotion = useCallback(() => {
+    setPromotionPending(null);
+    setMessageState("Promotion cancelled.");
+  }, []);
 
   const handleNewGame = useCallback(async (overrideMode?: PlayableGameMode): Promise<void> => {
     const thisGen = ++generation.current;
@@ -813,6 +812,7 @@ export function useGameState(): UseGameStateReturn {
     gameMode,
     notation,
     sessionLifecycle: session?.lifecycle,
+    promotionPending,
     loadGame,
     refreshFromServer,
     handleSelect,
@@ -825,6 +825,8 @@ export function useGameState(): UseGameStateReturn {
     handleSaveSession,
     handleResign,
     handleAnimationFinished,
+    handleResolvePromotion,
+    handleCancelPromotion,
     setMessage,
     setBusy
   };

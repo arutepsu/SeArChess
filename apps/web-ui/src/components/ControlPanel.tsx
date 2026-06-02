@@ -22,6 +22,7 @@ type ControlPanelProps = {
   onSaveSession: () => Promise<void>;
   onResign: () => void;
   onBackToMenu: () => void;
+  onOpenHeatmap: () => void;
 };
 
 const formatTime = (ms?: number) => {
@@ -60,7 +61,8 @@ export default function ControlPanel({
   onImportNotation,
   onSaveSession,
   onResign,
-  onBackToMenu
+  onBackToMenu,
+  onOpenHeatmap
 }: ControlPanelProps) {
   const whiteActive = activeColor === "white" && clockRunning;
   const blackActive = activeColor === "black" && clockRunning;
@@ -342,6 +344,10 @@ export default function ControlPanel({
       </div>
 
       <div className="actions">
+
+        <button type="button" disabled={!gameId || busy} onClick={onOpenHeatmap}>
+          Heatmap
+        </button>
 
         <button type="button" disabled={!canResign} onClick={onResign}>
           Resign

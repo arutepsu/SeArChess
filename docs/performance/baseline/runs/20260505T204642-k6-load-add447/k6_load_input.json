@@ -1,0 +1,28 @@
+{
+  "metadata": {
+    "test_type": "load",
+    "scenario_name": "k6-load-baseline",
+    "timestamp": "2026-05-05T20:47:47.482Z"
+  },
+  "load_profile": {
+    "max_users": 50,
+    "duration": "1m",
+    "ramp_up_pattern": "constant-vus"
+  },
+  "latency": {
+    "p50": 493.5898,
+    "p95": 1053.5786,
+    "p99": 1278.1947600000003
+  },
+  "throughput": {
+    "requests_per_second": 75.48368735733814
+  },
+  "errors": {
+    "error_rate": 0,
+    "total_errors": 0
+  },
+  "system": {
+    "cpu_usage_percent": 72,
+    "memory_usage_percent": 61
+  }
+}

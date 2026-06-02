@@ -17,7 +17,7 @@ import chess.application.session.service.{
 }
 import chess.domain.model.{Color, Move}
 import chess.domain.rules.GameStateRules
-import chess.domain.state.GameState
+import chess.domain.state.{GameState, GameStateFactory}
 import java.time.Instant
 
 /** Default implementation of [[GameServiceApi]].
@@ -25,8 +25,8 @@ import java.time.Instant
   * Thin orchestration facade: delegates every command and query to the appropriate existing
   * application service. Business logic and event policy stay inside
   * [[chess.application.session.service.SessionGameCommandService]] and
-  * [[chess.application.session.service.SessionLifecycleService]]; this class only routes calls and maps
-  * errors for the transport boundary.
+  * [[chess.application.session.service.SessionLifecycleService]]; this class only routes calls and
+  * maps errors for the transport boundary.
   *
   * ===Dependency map===
   *   - [[commands]] — authoritative write boundary for moves and new games
@@ -77,9 +77,9 @@ class DefaultGameService(
     * [[AppEvent.MoveRejected]] is an '''interaction/audit event''', not a state- transition event:
     * it records that a move was attempted and rejected, but the game state does not change. It is
     * published here — at the facade level — because
-    * [[chess.application.session.service.SessionGameCommandService]] only sees successful paths and cannot
-    * observe rejections. The facade is the only place that holds both the session identity (needed
-    * for the event) and the domain rejection error.
+    * [[chess.application.session.service.SessionGameCommandService]] only sees successful paths and
+    * cannot observe rejections. The facade is the only place that holds both the session identity
+    * (needed for the event) and the domain rejection error.
     *
     * Only [[SessionMoveError.DomainRejection]] triggers [[AppEvent.MoveRejected]]. Infrastructure
     * failures (persistence errors, session not found) and unauthorized-controller rejections are
@@ -234,3 +234,29 @@ class DefaultGameService(
       createdAt = session.createdAt,
       closedAt = session.updatedAt
     )
+
+  def getReplayFrame(id: GameId, ply: Int): Either[ReplayError, GameView] =
+    gameRepository
+      .load(id)
+      .left
+      .map {
+        case RepositoryError.NotFound(_)         => ReplayError.GameNotFound(id)
+        case RepositoryError.Conflict(msg)       => ReplayError.ReconstructionFailed(msg)
+        case RepositoryError.StorageFailure(msg) => ReplayError.ReconstructionFailed(msg)
+      }
+      .flatMap { state =>
+        val totalPlies = state.moveHistory.length
+        if ply < 0 || ply > totalPlies then Left(ReplayError.InvalidPly(ply, totalPlies))
+        else
+          state.moveHistory
+            .take(ply)
+            .foldLeft[Either[ReplayError, GameState]](Right(GameStateFactory.initial())) {
+              case (Right(current), move) =>
+                GameStateRules
+                  .applyMove(current, move)
+                  .left
+                  .map(error => ReplayError.ReconstructionFailed(error.toString))
+              case (left @ Left(_), _) => left
+            }
+            .map(GameView.fromState(id, _))
+      }

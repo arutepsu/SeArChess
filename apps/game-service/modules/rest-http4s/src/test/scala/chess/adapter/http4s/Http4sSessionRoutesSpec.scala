@@ -55,7 +55,11 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers with EitherValue
       SessionSnapshotTransferService(persistentSessionService, store)
     val svc = SessionGameCommandService(sessionLifecycleService, store, _ => ())
     val gameService = DefaultGameService(svc, sessionLifecycleService, gameRepo, _ => ())
-    Http4sSessionRoutes(gameService, persistentSessionService, snapshotTransferService).routes.orNotFound
+    Http4sSessionRoutes(
+      gameService,
+      persistentSessionService,
+      snapshotTransferService
+    ).routes.orNotFound
 
   /** Run a request through the route under test and return the response. */
   private def run(routes: HttpApp[IO], req: Request[IO]): Response[IO] =
@@ -91,6 +95,52 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers with EitherValue
     json("game")("currentPlayer").str shouldBe "White"
     json("game")("status").str shouldBe "Ongoing"
     json("game")("board").arr should have size 32
+  }
+
+  "POST /sessions/human-vs-human" should "create a HumanVsHuman session" in {
+    val routes = makeRoutes()
+    val req = Request[IO](Method.POST, uri"/sessions/human-vs-human")
+      .withBodyStream(fs2.Stream.emits("{}".getBytes("UTF-8")).covary[IO])
+
+    val resp = run(routes, req)
+    resp.status shouldBe Status.Created
+    bodyJson(resp)("session")("mode").str shouldBe "HumanVsHuman"
+  }
+
+  it should "create a HumanVsAI session" in {
+    val routes = makeRoutes()
+    val req = Request[IO](Method.POST, uri"/sessions/human-vs-ai")
+      .withBodyStream(fs2.Stream.emits("{}".getBytes("UTF-8")).covary[IO])
+
+    val resp = run(routes, req)
+    resp.status shouldBe Status.Created
+    val json = bodyJson(resp)
+    json("session")("mode").str shouldBe "HumanVsAI"
+    json("session")("blackController").str shouldBe "AI"
+  }
+
+  it should "create an AIVsAI session" in {
+    val routes = makeRoutes()
+    val req = Request[IO](Method.POST, uri"/sessions/ai-vs-ai")
+      .withBodyStream(fs2.Stream.emits("{}".getBytes("UTF-8")).covary[IO])
+
+    val resp = run(routes, req)
+    resp.status shouldBe Status.Created
+    val json = bodyJson(resp)
+    json("session")("mode").str shouldBe "AIVsAI"
+    json("session")("whiteController").str shouldBe "AI"
+    json("session")("blackController").str shouldBe "AI"
+  }
+
+  it should "reject a mismatched mode on a fixed-mode endpoint" in {
+    val routes = makeRoutes()
+    val body = """{"mode":"HumanVsAI"}"""
+    val req = Request[IO](Method.POST, uri"/sessions/human-vs-human")
+      .withBodyStream(fs2.Stream.emits(body.getBytes("UTF-8")).covary[IO])
+
+    val resp = run(routes, req)
+    resp.status shouldBe Status.BadRequest
+    bodyJson(resp)("code").str shouldBe "BAD_REQUEST"
   }
 
   it should "accept explicit mode and controller fields" in {
@@ -588,7 +638,10 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers with EitherValue
     )
     val sessionId = created("session")("sessionId").str
     val stateJson = bodyJson(
-      run(createRoutes, Request[IO](Method.GET, Uri.unsafeFromString(s"/sessions/$sessionId/state")))
+      run(
+        createRoutes,
+        Request[IO](Method.GET, Uri.unsafeFromString(s"/sessions/$sessionId/state"))
+      )
     )
 
     val resp = run(
@@ -647,4 +700,3 @@ class Http4sSessionRoutesSpec extends AnyFlatSpec with Matchers with EitherValue
     resp.status shouldBe Status.BadRequest
     bodyJson(resp)("code").str shouldBe "BAD_REQUEST"
   }
-

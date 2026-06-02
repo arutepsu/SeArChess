@@ -458,14 +458,43 @@ lazy val aiService = project
       ".*chess.aiservice.*"
     )
   )
-  .dependsOn(aiContract, observability)
+  .dependsOn(aiContract, observability, domain, notation)
 
-// ── Performance: Gatling load tests ──────────────────────────────────────────
-// Intentionally excluded from the root aggregate: Gatling runs are triggered
-// via the performance workbench CLI, not the standard sbt build pipeline.
+// App: lichess-bot
+lazy val lichessBot = project
+  .in(file("apps/lichess-bot"))
+  .settings(
+    commonSettings,
+    name := "searchess-lichess-bot",
+    Compile / mainClass := Some("chess.lichessbot.LichessBotMain"),
+    run / mainClass     := Some("chess.lichessbot.LichessBotMain"),
+    run / fork          := true,
+    libraryDependencies ++= Seq(
+      "com.softwaremill.sttp.client3" %% "core" % "3.9.7",
+      "com.lihaoyi" %% "ujson" % "4.0.2",
+      "org.java-websocket" % "Java-WebSocket" % "1.5.7"
+    )
+  )
+  .dependsOn(domain, notation, aiService)
 
-lazy val gatlingPerf = project
-  .in(file("tools/performance/gatling"))
+// App: chess-streaming
+lazy val chessStreaming = project
+  .in(file("apps/chess-streaming"))
+  .settings(
+    commonSettings,
+    name := "searchess-chess-streaming",
+    Compile / mainClass := Some("chess.streaming.ChessStreamingMain"),
+    run / mainClass     := Some("chess.streaming.ChessStreamingMain"),
+    run / fork          := true,
+    libraryDependencies ++= Seq(
+      "org.apache.pekko" %% "pekko-stream" % "1.1.2"
+    )
+  )
+  .dependsOn(domain)
+
+// Module: load-tests
+lazy val loadTests = project
+  .in(file("modules/load-tests"))
   .enablePlugins(GatlingPlugin)
   .disablePlugins(wartremover.WartRemover)
   .settings(
@@ -614,28 +643,10 @@ lazy val root = project
     coverageEnabled := false
   )
   .aggregate(
-    domain,
-    observability,
-    notation,
-    gameContract,
-    aiContract,
-    gameCore,
-    history,
-    migration,
-    adapterPersistence,
-    adapterAi,
-    adapterEvent,
-    gameEventContract,
-    gameHistoryDelivery,
-    adapterRestContract,
-    adapterRestHttp4s,
-    adapterWebsocket,
-    adapterGui,
-    adapterTui,
-    startupShared,
-    gameService,
-    historyService,
-    aiService,
-    desktopGui,
-    tuiCli
+    domain, observability, notation, gameContract, aiContract, gameCore, history,
+    adapterPersistence, migration, adapterAi, adapterEvent, gameEventContract, gameHistoryDelivery,
+    adapterRestContract, adapterRestHttp4s,
+    adapterWebsocket, adapterGui, adapterTui,
+    startupShared, gameService, historyService, aiService, desktopGui, tuiCli, loadTests, benchmarks,
+    lichessBot, chessStreaming
   )

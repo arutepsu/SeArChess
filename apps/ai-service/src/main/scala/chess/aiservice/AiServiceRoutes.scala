@@ -72,29 +72,21 @@ class AiServiceRoutes(config: AiServiceConfig):
       case Right(request) =>
         val started = Instant.now()
         logInfo("ai_request_received", request, "legalMoveCount" -> request.legalMoves.size)
-        config.pythonAiBaseUrl match
-          case Some(baseUrl) => proxyToPython(body, request, baseUrl, started)
-          case None          => selectLocal(request, started)
 
-  private def proxyToPython(
-      body: String,
-      request: RemoteAiMoveSuggestionRequest,
-      baseUrl: String,
-      started: Instant
-  ): IO[Response[IO]] =
-    IO.blocking {
-      val httpRequest = HttpRequest.newBuilder()
-        .uri(URI.create(s"$baseUrl/v1/move-suggestions"))
-        .header("Content-Type", "application/json")
-        .timeout(Duration.ofMillis(config.pythonAiTimeoutMillis.toLong))
-        .POST(HttpRequest.BodyPublishers.ofString(body))
-        .build()
-      httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString())
-    }.flatMap { response =>
-      val status       = response.statusCode()
-      val responseBody = response.body()
-      if status >= 200 && status < 300 then
-        val elapsedMs = elapsed(started)
+        val selected = chess.notation.fen.FenNotationFacade.parseAndImport(
+          chess.notation.api.NotationFormat.FEN,
+          request.fen,
+          chess.notation.api.ImportTarget.PositionTarget
+        ) match
+          case Right(res: chess.notation.api.ImportResult.PositionImportResult[chess.domain.state.GameState]) =>
+            chess.aiservice.engine.MinimaxEngine.selectBestMove(res.data, request.legalMoves, 4).getOrElse(request.legalMoves.head)
+          case Right(res: chess.notation.api.ImportResult.GameImportResult[chess.domain.state.GameState]) =>
+            chess.aiservice.engine.MinimaxEngine.selectBestMove(res.data, request.legalMoves, 4).getOrElse(request.legalMoves.head)
+          case _ =>
+            request.legalMoves.head
+
+        val elapsed =
+          math.max(0L, java.time.Duration.between(started, Instant.now()).toMillis).toInt
         logInfo(
           "ai_proxy_succeeded",
           request,

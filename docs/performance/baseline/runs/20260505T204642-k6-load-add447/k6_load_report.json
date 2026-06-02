@@ -1,0 +1,36 @@
+{
+  "metadata": {
+    "test_type": "load",
+    "scenario_name": "k6-load-baseline",
+    "timestamp": "2026-05-05T20:47:47.482Z"
+  },
+  "summary": {
+    "p95_latency": 1053.5786,
+    "error_rate": 0,
+    "throughput": 75.48368735733814
+  },
+  "observations": [
+    "p50 latency is 493.5898ms",
+    "p95 latency is 1053.5786ms",
+    "p99 latency is 1278.1947600000003ms",
+    "error rate is 0 (0 total errors)",
+    "throughput is 75.48368735733814 requests/second",
+    "CPU usage is 72%",
+    "memory usage is 61%",
+    "max concurrent users is 50"
+  ],
+  "bottleneck": {
+    "type": "UNKNOWN",
+    "confidence": "LOW"
+  },
+  "evidence": [
+    "no rule condition matched the observed metrics"
+  ],
+  "suggestions": [
+    "No immediate optimization action is required for this load profile",
+    "Add DB pool, GC, and queue metrics for deeper observability if further diagnosis is needed"
+  ],
+  "notes": [
+    "db_pool_usage_percent not provided; database connection pressure is unknown"
+  ]
+}

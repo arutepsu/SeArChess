@@ -160,7 +160,8 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val svc = SessionGameCommandService(sessionLifecycleService, store, collector)
     val provider: AiMoveSuggestionClient = _ => Left(AIError.MalformedResponse("missing move.to"))
     val ai = AITurnService(provider, svc, collector)
-    val gameService = DefaultGameService(svc, sessionLifecycleService, gameRepo, collector, Some(ai))
+    val gameService =
+      DefaultGameService(svc, sessionLifecycleService, gameRepo, collector, Some(ai))
     val gameRoutes = Http4sGameRoutes(gameService).routes.orNotFound
     val persistentSessionService =
       PersistentSessionService(sessionRepo, gameRepo, store, sessionLifecycleService)
@@ -187,7 +188,8 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val svc = SessionGameCommandService(sessionLifecycleService, store, collector)
     val provider: AiMoveSuggestionClient = _ => Left(AIError.Unavailable("connection refused"))
     val ai = AITurnService(provider, svc, collector)
-    val gameService = DefaultGameService(svc, sessionLifecycleService, gameRepo, collector, Some(ai))
+    val gameService =
+      DefaultGameService(svc, sessionLifecycleService, gameRepo, collector, Some(ai))
     val gameRoutes = Http4sGameRoutes(gameService).routes.orNotFound
     val persistentSessionService =
       PersistentSessionService(sessionRepo, gameRepo, store, sessionLifecycleService)
@@ -234,6 +236,45 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val json = bodyJson(resp)
     json("moveHistory").arr shouldBe empty
     json("lastMove").isNull shouldBe true
+  }
+
+  "GET /games/{gameId}/replay?ply={n}" should "return reconstructed state and raw moves" in {
+    val (gameRoutes, sessRoutes) = makeRoutes()
+    val gameId = createSession(sessRoutes)
+
+    val move1 = Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/moves"))
+      .withBodyStream(jsonBody("""{"from":"e2","to":"e4"}"""))
+    run(gameRoutes, move1).status shouldBe Status.Ok
+
+    val move2 = Request[IO](Method.POST, Uri.unsafeFromString(s"/games/$gameId/moves"))
+      .withBodyStream(jsonBody("""{"from":"e7","to":"e5"}"""))
+    run(gameRoutes, move2).status shouldBe Status.Ok
+
+    val replayResp =
+      run(gameRoutes, Request[IO](Method.GET, Uri.unsafeFromString(s"/games/$gameId/replay?ply=1")))
+
+    replayResp.status shouldBe Status.Ok
+    val json = bodyJson(replayResp)
+    json("ply").num.toInt shouldBe 1
+    json("totalPlies").num.toInt shouldBe 2
+    json("rawMoves").arr should have size 2
+    json("game")("moveHistory").arr should have size 1
+    json("game")("currentPlayer").str shouldBe "Black"
+  }
+
+  it should "return 400 INVALID_PLY when replay ply is out of range" in {
+    val (gameRoutes, sessRoutes) = makeRoutes()
+    val gameId = createSession(sessRoutes)
+
+    val replayResp =
+      run(
+        gameRoutes,
+        Request[IO](Method.GET, Uri.unsafeFromString(s"/games/$gameId/replay?ply=99"))
+      )
+
+    replayResp.status shouldBe Status.BadRequest
+    val json = bodyJson(replayResp)
+    json("code").str shouldBe "INVALID_PLY"
   }
 
   "GET /games/{gameId}/legal-moves" should "return legal moves for the current player" in {
@@ -607,7 +648,8 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val sessionLifecycleService = SessionLifecycleService(sessionRepo, _ => ())
     val store = InMemorySessionGameStore(sessionRepo, InMemoryGameRepository())
     val svc = SessionGameCommandService(sessionLifecycleService, store, _ => ())
-    val gameService = DefaultGameService(svc, sessionLifecycleService, FailingGameRepository(), _ => ())
+    val gameService =
+      DefaultGameService(svc, sessionLifecycleService, FailingGameRepository(), _ => ())
     val failingRoutes = Http4sGameRoutes(gameService).routes.orNotFound
 
     val resp = run(
@@ -635,7 +677,8 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
       val sessionLifecycleService = SessionLifecycleService(sessionRepo, _ => ())
       val store = InMemorySessionGameStore(sessionRepo, InMemoryGameRepository())
       val svc = SessionGameCommandService(sessionLifecycleService, store, _ => ())
-      val gameService = DefaultGameService(svc, sessionLifecycleService, FailingGameRepository(), _ => ())
+      val gameService =
+        DefaultGameService(svc, sessionLifecycleService, FailingGameRepository(), _ => ())
       val failingRoutes = Http4sGameRoutes(gameService).routes.orNotFound
       val gameId = GameId.random()
       sessionRepo.save(
@@ -668,7 +711,8 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val gameId = createSession(sessRoutes)
 
     // Rebuild with a store that fails on every save.
-    val failingSvc = SessionGameCommandService(sessionLifecycleService, FailingSessionGameStore(), _ => ())
+    val failingSvc =
+      SessionGameCommandService(sessionLifecycleService, FailingSessionGameStore(), _ => ())
     val failingService = DefaultGameService(failingSvc, sessionLifecycleService, gameRepo, _ => ())
     val failingRoutes = Http4sGameRoutes(failingService).routes.orNotFound
 
@@ -869,7 +913,8 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
         .head
       Right(AIResponse(move))
     val ai = AITurnService(provider, svc, collector)
-    val gameService = DefaultGameService(svc, sessionLifecycleService, gameRepo, collector, Some(ai))
+    val gameService =
+      DefaultGameService(svc, sessionLifecycleService, gameRepo, collector, Some(ai))
     val gameRoutes = Http4sGameRoutes(gameService).routes.orNotFound
     val persistentSessionService =
       PersistentSessionService(sessionRepo, gameRepo, store, sessionLifecycleService)
@@ -914,7 +959,8 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val dummyProvider: AiMoveSuggestionClient =
       _ => Right(AIResponse(Move(Position.from(4, 1).value, Position.from(4, 3).value)))
     val ai = AITurnService(dummyProvider, svc, collector)
-    val gameService = DefaultGameService(svc, sessionLifecycleService, gameRepo, collector, Some(ai))
+    val gameService =
+      DefaultGameService(svc, sessionLifecycleService, gameRepo, collector, Some(ai))
     val gameRoutes = Http4sGameRoutes(gameService).routes.orNotFound
     val persistentSessionService =
       PersistentSessionService(sessionRepo, gameRepo, store, sessionLifecycleService)
@@ -941,7 +987,8 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val dummyProvider: AiMoveSuggestionClient =
       _ => Right(AIResponse(Move(Position.from(4, 1).value, Position.from(4, 3).value)))
     val ai = AITurnService(dummyProvider, svc, collector)
-    val gameService = DefaultGameService(svc, sessionLifecycleService, gameRepo, collector, Some(ai))
+    val gameService =
+      DefaultGameService(svc, sessionLifecycleService, gameRepo, collector, Some(ai))
     val gameRoutes = Http4sGameRoutes(gameService).routes.orNotFound
 
     val resp = run(
@@ -951,4 +998,3 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     resp.status shouldBe Status.NotFound
     bodyJson(resp)("code").str shouldBe "GAME_NOT_FOUND"
   }
-

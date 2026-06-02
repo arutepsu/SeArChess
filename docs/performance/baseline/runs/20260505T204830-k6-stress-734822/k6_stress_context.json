@@ -1,0 +1,10 @@
+{
+  "testType": "stress",
+  "scenarioName": "k6-stress-baseline",
+  "timestamp": "2026-05-05T20:52:05.664Z",
+  "maxUsers": 1000,
+  "duration": "3m",
+  "rampUpPattern": "staged-ramp",
+  "cpuUsagePercent": 72,
+  "memoryUsagePercent": 61
+}

@@ -40,6 +40,6 @@ ENV HTTP_HOST=0.0.0.0 \
     EVENT_MODE=in-process \
     AI_PROVIDER_MODE=remote \
     AI_REMOTE_BASE_URL=http://ai-service:8765 \
-    AI_TIMEOUT_MILLIS=2000
+    AI_TIMEOUT_MILLIS=15000
 
 CMD ["bin/searchess-game-service"]

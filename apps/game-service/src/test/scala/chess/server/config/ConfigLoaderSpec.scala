@@ -28,7 +28,7 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
 
     config.ai.mode shouldBe AiProviderMode.Remote
     config.ai.remote.value.baseUrl shouldBe "http://ai-service:8765"
-    config.ai.timeoutMillis shouldBe 2000
+    config.ai.timeoutMillis shouldBe 15000
     config.ai.defaultEngineId shouldBe None
     config.ai.interaction shouldBe ServiceInteraction.InternalSynchronousHttp
     config.ai.startupPolicy shouldBe DependencyStartupPolicy.NotRequired

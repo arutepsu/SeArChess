@@ -4,7 +4,9 @@ import type {
   CreateGameResponse,
   ErrorResponse,
   GameNotationResponse,
+  ReplayFrameResponse,
   GameSnapshot,
+  HeatmapResponse,
   HealthResponse,
   ImportNotationRequest,
   NotationTextResponse,
@@ -64,6 +66,15 @@ export async function getGameState(gameId: string): Promise<GameSnapshot> {
   return fetchJson<GameSnapshot>(`/api/games/${gameId}`);
 }
 
+export async function getReplayFrame(
+  gameId: string,
+  ply: number
+): Promise<ReplayFrameResponse> {
+  return fetchJson<ReplayFrameResponse>(
+    `/api/games/${gameId}/replay?ply=${encodeURIComponent(ply.toString())}`
+  );
+}
+
 export async function getGameNotation(
   gameId: string
 ): Promise<GameNotationResponse> {
@@ -86,10 +97,22 @@ export async function exportPgn(gameId: string): Promise<NotationTextResponse> {
 export async function createGame(
   payload: CreateGameRequest
 ): Promise<CreateGameResponse> {
-  return fetchJson<CreateGameResponse>("/api/sessions", {
+  return fetchJson<CreateGameResponse>(createGamePathForMode(payload.mode), {
     method: "POST",
     body: JSON.stringify(payload)
   });
+}
+
+function createGamePathForMode(mode?: CreateGameRequest["mode"]): string {
+  switch (mode) {
+    case "HumanVsAI":
+      return "/api/sessions/human-vs-ai";
+    case "AIVsAI":
+      return "/api/sessions/ai-vs-ai";
+    case "HumanVsHuman":
+    default:
+      return "/api/sessions/human-vs-human";
+  }
 }
 
 export async function importGameFromNotation(
@@ -183,4 +206,13 @@ export async function runMigration(
     headers,
     body: JSON.stringify(request)
   });
+}
+
+export async function getHeatmapStats(
+  gameId: string,
+  player: "White" | "Black"
+): Promise<HeatmapResponse> {
+  return fetchJson<HeatmapResponse>(
+    `/api/stats/heatmap?sessionId=${encodeURIComponent(gameId)}&player=${encodeURIComponent(player)}`
+  );
 }
