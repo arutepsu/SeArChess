@@ -33,7 +33,7 @@ object ChessStreamingServerMain {
           val boardJson = ujson.Obj.from(state.board.map { case (square, piece) =>
             square -> ujson.Str(piece)
           })
-          val movesJson = ujson.Arr(state.moveHistory.map(m => ujson.Str(s"${m.from}-${m.to}")): _*)
+          val movesJson = ujson.Arr(state.moveHistory.map(m => ujson.Str(s"${m.from}-${m.to}"))*)
           val response = ujson.Obj(
             "status" -> "success",
             "activeColor" -> state.activeColor,
@@ -68,13 +68,27 @@ object ChessStreamingServerMain {
 
     val bindingFuture = Http().newServerAt(host, port).bind(route)
 
+    import scala.concurrent.Promise
+    import scala.concurrent.duration.Duration
+    import scala.concurrent.Await
+
     println(s"=========================================================")
     println(s"    PEKKO HTTP CHESS WEB SOCKET SERVER STARTED          ")
     println(s"    URL: ws://$host:$port/game                           ")
     println(s"=========================================================")
-    println("Press RETURN to stop...")
+    println("Server is running. Press Ctrl+C to stop.")
 
-    StdIn.readLine() // Keep server running until user hits Return
+    val keepAlive = Promise[Unit]()
+    sys.addShutdownHook {
+      keepAlive.trySuccess(())
+    }
+
+    try {
+      Await.result(keepAlive.future, Duration.Inf)
+    } catch {
+      case _: InterruptedException => // ignore
+    }
+
     bindingFuture
       .flatMap(_.unbind())
       .onComplete(_ => system.terminate())
