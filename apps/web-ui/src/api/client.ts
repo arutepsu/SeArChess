@@ -11,6 +11,7 @@ import type {
   ImportNotationRequest,
   NotationTextResponse,
   ResignRequest,
+  RunAiTurnsResponse,
   SessionExportEnvelope,
   SessionListResponse,
   SessionStateResponse,
@@ -103,6 +104,18 @@ export async function createGame(
   });
 }
 
+export function createHumanVsHuman(): Promise<CreateGameResponse> {
+  return createGame({ mode: "HumanVsHuman" });
+}
+
+export function createHumanVsAi(): Promise<CreateGameResponse> {
+  return createGame({ mode: "HumanVsAI" });
+}
+
+export function createAiVsAi(): Promise<CreateGameResponse> {
+  return createGame({ mode: "AIVsAI" });
+}
+
 function createGamePathForMode(mode?: CreateGameRequest["mode"]): string {
   switch (mode) {
     case "HumanVsAI":
@@ -146,6 +159,18 @@ export async function requestAiMove(
   return fetchJson<CommandGameResponse>(`/api/games/${gameId}/ai-move`, {
     method: "POST"
   });
+}
+
+export async function runAiTurns(
+  gameId: string,
+  maxPlies: number
+): Promise<RunAiTurnsResponse> {
+  return fetchJson<RunAiTurnsResponse>(
+    `/api/games/${gameId}/ai-turns?maxPlies=${encodeURIComponent(maxPlies.toString())}`,
+    {
+      method: "POST"
+    }
+  );
 }
 
 export async function resignGame(

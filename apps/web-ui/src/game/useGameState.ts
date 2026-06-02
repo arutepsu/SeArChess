@@ -11,6 +11,7 @@ import type {
   GameSnapshot,
   ImportNotationRequest,
   PromotionPiece,
+  RunAiTurnsResponse,
   SessionExportEnvelope
 } from "../api/backendTypes";
 import {
@@ -25,6 +26,7 @@ import {
   loadSessionState,
   requestAiMove,
   resignGame,
+  runAiTurns,
   saveSessionState,
   submitMove
 } from "../api/client";
@@ -107,6 +109,7 @@ export type UseGameStateReturn = {
   handleResumeSession: (sessionId: string) => Promise<void>;
   handleSaveSession: () => Promise<void>;
   handleResign: () => Promise<void>;
+  handleRunAiTurns: (maxPlies: number) => Promise<RunAiTurnsResponse>;
   handleAnimationFinished: (id: number) => void;
   handleResolvePromotion: (piece: PromotionPiece) => Promise<void>;
   handleCancelPromotion: () => void;
@@ -326,6 +329,7 @@ export function useGameState(): UseGameStateReturn {
 
   useEffect(() => {
     if (!game || !session || !game.id) return;
+    if (session.mode === "AIVsAI") return;
 
     if (isAiTurn(session, game)) {
       const turnKey = `${game.id}-${game.fullMove}-${game.activeColor}`;
@@ -358,6 +362,56 @@ export function useGameState(): UseGameStateReturn {
         });
     }
   }, [game, session, commitGameSnapshot, refreshNotation, setSession]);
+
+  const handleRunAiTurns = useCallback(
+    async (maxPlies: number): Promise<RunAiTurnsResponse> => {
+      const gameId = getGameId();
+      if (!gameId) {
+        throw new Error("Start an AI vs AI game before running AI turns.");
+      }
+
+      const boundedMaxPlies = Math.max(1, Math.min(1000, Math.floor(maxPlies)));
+      const thisGen = ++generation.current;
+      const previousBoard = boardRef.current;
+
+      setBusyState(true);
+      setMessageState(`Running up to ${boundedMaxPlies} AI plies...`);
+
+      try {
+        const response = await runAiTurns(gameId, boundedMaxPlies);
+
+        if (thisGen !== generation.current) return response;
+
+        commitGameSnapshot(response.game, { previousBoard });
+        void refreshNotation(gameId, thisGen);
+
+        if (session) {
+          setSession({
+            ...session,
+            lifecycle: response.sessionLifecycle
+          });
+        }
+
+        setMessageState(
+          `AI turns complete. Plies run: ${response.pliesRun}. Stop: ${response.stopReason}.`
+        );
+
+        return response;
+      } catch (error) {
+        if (thisGen === generation.current) {
+          setMessageState(
+            error instanceof Error ? error.message : "AI turn run failed."
+          );
+        }
+        throw error;
+      } finally {
+        if (thisGen === generation.current) {
+          setBusyState(false);
+        }
+      }
+    },
+    [commitGameSnapshot, getGameId, refreshNotation, session, setSession]
+  );
 
   const handleSelect = useCallback(
     async (square: string): Promise<void> => {
@@ -824,6 +878,7 @@ export function useGameState(): UseGameStateReturn {
     handleResumeSession,
     handleSaveSession,
     handleResign,
+    handleRunAiTurns,
     handleAnimationFinished,
     handleResolvePromotion,
     handleCancelPromotion,

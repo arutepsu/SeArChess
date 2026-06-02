@@ -17,7 +17,6 @@ import MoveList from "./components/MoveList.tsx";
 //import ResumeGamePanel from "./components/ResumeGamePanel.tsx";
 import SessionTransferPanel from "./components/SessionTransferPanel.tsx";
 import StatusBanner from "./components/StatusBanner.tsx";
-import StatusBanner from "./components/StatusBanner.tsx";
 import Homepage from "./components/Homepage.tsx";
 import BackgroundEffectsLayer from "./components/BackgroundEffectsLayer.tsx";
 import BackgroundPanel from "./components/BackgroundPanel.tsx";
@@ -192,6 +191,7 @@ export default function App() {
     handleResumeSession,
     handleSaveSession,
     handleResign,
+    handleRunAiTurns,
     handleAnimationFinished,
     handleResolvePromotion,
     handleCancelPromotion,
@@ -202,8 +202,8 @@ export default function App() {
   const { session, setSession, getSessionId } = useSession();
   const navigate = useNavigate();
 
-  const [, setConnection] = useState<ConnectionState>("loading");
-  const [, setLiveConnection] =
+  const [connection, setConnection] = useState<ConnectionState>("loading");
+  const [liveConnection, setLiveConnection] =
     useState<LiveConnectionState>("idle");
   const [whiteClockMs, setWhiteClockMs] = useState(baseClockMs);
   const [blackClockMs, setBlackClockMs] = useState(baseClockMs);
@@ -341,7 +341,7 @@ export default function App() {
       })
       .catch((error) => {
         if (!active) return;
-        setReplayError(
+        setTimelineError(
           error instanceof Error
             ? error.message
             : "Replay timeline could not be loaded."
@@ -849,6 +849,7 @@ export default function App() {
                 onNewGame={handleNewGame}
                 onSaveSession={handleSaveSession}
                 onResign={handleResign}
+                onRunAiTurns={handleRunAiTurns}
                 onBackToMenu={handleBackToMenu}
                 onOpenHeatmap={() => navigate("/analysis")}
               />

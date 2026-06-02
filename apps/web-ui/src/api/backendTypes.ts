@@ -125,6 +125,19 @@ export interface CommandGameResponse {
   sessionLifecycle: SessionLifecycle;
 }
 
+export type AiTurnsStopReason =
+  | "GameFinished"
+  | "AwaitingHuman"
+  | "MaxPliesReached"
+  | "MoveFailed";
+
+export interface RunAiTurnsResponse {
+  game: GameSnapshot;
+  sessionLifecycle: SessionLifecycle;
+  pliesRun: number;
+  stopReason: AiTurnsStopReason;
+}
+
 export interface GameNotationResponse {
   fen: string;
   pgn: string;
