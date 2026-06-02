@@ -156,7 +156,7 @@ Keycloak imports `realm-searchess.json` at startup, but changed client fields ar
 - Client reconciled: `searchess-web`
 - Credentials source: `Secret/keycloak-secrets` keys `bootstrap-admin-username` and `bootstrap-admin-password`
 
-The CronJob calls the Keycloak Admin REST API, fetches the current `searchess-web` client, appends any missing required redirect URIs and web origins, and PUTs the merged client representation back only when changes are needed. Existing redirect URIs and web origins are preserved.
+The CronJob calls the Keycloak Admin REST API, fetches the current `searchess-web` client, appends any missing required redirect URIs and web origins, and PUTs the merged client representation back only when changes are needed. Existing redirect URIs and web origins are preserved. The exact root redirect entries are required because the deployed Web UI can send `redirect_uri=http://localhost:18000/`, which must be accepted independently of the wildcard path entry.
 
 Manual Keycloak UI or `kubectl exec` patches are useful for emergency diagnosis only. They are not the long-term source of truth because Argo CD and Keycloak realm import behavior can drift from manual changes. The CronJob is normal GitOps-managed cluster state, so Argo keeps it present and Kubernetes reruns it on schedule.
 
@@ -198,7 +198,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" \
 
 The deployed Web UI SSH tunnel origin must be present:
 
-- Redirect URIs: `http://localhost:18000/*`, `http://127.0.0.1:18000/*`
+- Redirect URIs: `http://localhost:18000`, `http://localhost:18000/`, `http://localhost:18000/*`, `http://127.0.0.1:18000`, `http://127.0.0.1:18000/`, `http://127.0.0.1:18000/*`
 - Web origins: `http://localhost:18000`, `http://127.0.0.1:18000`
 
 ---
@@ -225,7 +225,11 @@ When updating the realm, update both files.
 - `http://127.0.0.1:5173/*` — local Vite dev (alternate)
 - `http://127.0.0.1:10000/*` — K8s via SSH tunnel / port-forward
 - `http://localhost:10000/*` — K8s via SSH tunnel / port-forward
+- `http://localhost:18000` — deployed Web UI via SSH tunnel root redirect
+- `http://localhost:18000/` — deployed Web UI via SSH tunnel root redirect
 - `http://localhost:18000/*` — deployed Web UI via SSH tunnel
+- `http://127.0.0.1:18000` — deployed Web UI via SSH tunnel root redirect (alternate)
+- `http://127.0.0.1:18000/` — deployed Web UI via SSH tunnel root redirect (alternate)
 - `http://127.0.0.1:18000/*` — deployed Web UI via SSH tunnel (alternate)
 
 **Valid web origins (searchess-web):**
