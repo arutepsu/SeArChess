@@ -17,6 +17,7 @@ import MoveList from "./components/MoveList.tsx";
 //import ResumeGamePanel from "./components/ResumeGamePanel.tsx";
 import SessionTransferPanel from "./components/SessionTransferPanel.tsx";
 import StatusBanner from "./components/StatusBanner.tsx";
+import StatusBanner from "./components/StatusBanner.tsx";
 import Homepage from "./components/Homepage.tsx";
 import BackgroundEffectsLayer from "./components/BackgroundEffectsLayer.tsx";
 import BackgroundPanel from "./components/BackgroundPanel.tsx";
