@@ -146,6 +146,62 @@ When Envoy is exposed through an SSH tunnel at `http://localhost:18000`, open th
 
 ---
 
+## Kubernetes — reconcile Web UI client redirects
+
+Keycloak imports `realm-searchess.json` at startup, but changed client fields are not guaranteed to update an already-created realm. The university-server overlay therefore includes an Argo CD PostSync hook Job:
+
+- `deployment/k8s/overlays/uni-server-registry/keycloak-searchess-web-reconcile-job.yaml`
+- Job name: `keycloak-reconcile-searchess-web-client`
+- Client reconciled: `searchess-web`
+- Credentials source: `Secret/keycloak-secrets` keys `bootstrap-admin-username` and `bootstrap-admin-password`
+
+The Job calls the Keycloak Admin REST API, fetches the current `searchess-web` client, appends any missing required redirect URIs and web origins, and PUTs the merged client representation back. Existing redirect URIs and web origins are preserved.
+
+Manual Keycloak UI or `kubectl exec` patches are useful for emergency diagnosis only. They are not the long-term source of truth because Argo CD and Keycloak realm import behavior can drift from manual changes.
+
+Argo reruns the reconciler on sync as a PostSync hook. To force a rerun after the hook has already succeeded, change the hook manifest in Git and let Argo sync it, or delete the completed hook Job and refresh/sync the Argo application:
+
+```bash
+kubectl delete job -n searchess keycloak-reconcile-searchess-web-client --ignore-not-found
+```
+
+Verify the live client through the Admin API after port-forwarding Keycloak:
+
+```bash
+kubectl port-forward -n searchess svc/keycloak 8080:8080
+
+ADMIN_USERNAME="$(kubectl get secret -n searchess keycloak-secrets -o jsonpath='{.data.bootstrap-admin-username}' | base64 -d)"
+read -r -s -p "Keycloak admin password: " ADMIN_PASSWORD
+echo
+
+TOKEN="$(
+  curl -sS -X POST http://127.0.0.1:8080/realms/master/protocol/openid-connect/token \
+    -H 'Content-Type: application/x-www-form-urlencoded' \
+    --data-urlencode grant_type=password \
+    --data-urlencode client_id=admin-cli \
+    --data-urlencode username="$ADMIN_USERNAME" \
+    --data-urlencode password="$ADMIN_PASSWORD" \
+    | jq -r '.access_token'
+)"
+
+CLIENT_UUID="$(
+  curl -sS -H "Authorization: Bearer $TOKEN" \
+    'http://127.0.0.1:8080/admin/realms/searchess/clients?clientId=searchess-web' \
+    | jq -r '.[] | select(.clientId == "searchess-web") | .id'
+)"
+
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:8080/admin/realms/searchess/clients/$CLIENT_UUID" \
+  | jq '{redirectUris, webOrigins}'
+```
+
+The deployed Web UI SSH tunnel origin must be present:
+
+- Redirect URIs: `http://localhost:18000/*`, `http://127.0.0.1:18000/*`
+- Web origins: `http://localhost:18000`, `http://127.0.0.1:18000`
+
+---
+
 ## Realm summary
 
 | Item | Value |
