@@ -9,7 +9,8 @@ const backendProxyPaths = [
   "/archives",
   "/stats",
   "/health",
-  "/admin/migrations"
+  "/admin/migrations",
+  "/ws"
 ];
 
 export default defineConfig(({ mode }) => {
@@ -21,7 +22,8 @@ export default defineConfig(({ mode }) => {
     for (const path of backendProxyPaths) {
       proxy[path] = {
         target: proxyTarget,
-        changeOrigin: true
+        changeOrigin: true,
+        ws: path === "/ws"
       };
     }
   }

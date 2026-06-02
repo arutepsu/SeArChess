@@ -137,7 +137,8 @@ ssh -L 10000:localhost:10000 -L 8080:localhost:8080 -L 33001:localhost:33001 che
 npm run dev:deployed
 # loads .env.deployed:
 #   VITE_KEYCLOAK_URL=http://127.0.0.1:8080
-#   VITE_API_BASE_URL=http://127.0.0.1:10000
+#   VITE_API_BASE_URL=
+#   VITE_DEV_PROXY_TARGET=http://127.0.0.1:10000
 ```
 
 Requires both port-forwards (or SSH tunnel) to be active.

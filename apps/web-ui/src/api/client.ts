@@ -20,13 +20,11 @@ import type {
 import type { MigrationReport, MigrationRequest } from "./migrationTypes";
 import keycloak from "../auth/keycloak";
 
-const DEFAULT_API_BASE = "http://localhost:10000";
-
 const devProxyTarget = import.meta.env.VITE_DEV_PROXY_TARGET?.toString().trim() ?? "";
 
 function configuredApiBaseUrl(): string {
   if (devProxyTarget) return "";
-  if (import.meta.env.VITE_API_BASE_URL === undefined) return DEFAULT_API_BASE;
+  if (import.meta.env.VITE_API_BASE_URL === undefined) return "";
   return import.meta.env.VITE_API_BASE_URL.toString().trim();
 }
 

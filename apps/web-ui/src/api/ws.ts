@@ -1,9 +1,14 @@
 import type { WsEvent } from "./wsTypes";
 
-const DEFAULT_WS_BASE = "ws://localhost:10000/ws";
+const DEFAULT_WS_PATH = "/ws";
+
+function defaultWsBaseUrl(): string {
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${window.location.host}${DEFAULT_WS_PATH}`;
+}
 
 export const wsBaseUrl =
-  import.meta.env.VITE_WS_URL?.toString() || DEFAULT_WS_BASE;
+  import.meta.env.VITE_WS_URL?.toString().trim() || defaultWsBaseUrl();
 
 export interface WsClient {
   close: () => void;
