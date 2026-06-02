@@ -76,19 +76,30 @@ In `uni-server-registry`, `searchess-secrets` is managed by Sealed Secrets. Do
 not commit plaintext values. Regenerate the sealed secret outside Git with real
 values only when explicitly performing a production secret rotation.
 
-The Kubernetes `lichess-bot` Deployment is committed with `replicas: 0` so it
-cannot accidentally start. After secrets are present and a smoke test window is
-planned:
+The Kubernetes base `lichess-bot` Deployment is committed with `replicas: 0` so
+local and generic overlays do not accidentally start a real Lichess bot. The
+uni-server Argo CD app tracks `deployment/k8s/overlays/uni-server-registry`, and
+that overlay intentionally patches `lichess-bot` to `replicas: 1` when the server
+bot should be active.
+
+Do not use manual `kubectl scale` to enable or disable the bot on the Argo-managed
+server. Argo CD has `selfHeal: true`, so manual drift is reconciled back to the
+Git desired state. Enable or disable the server bot through Git by changing
+`deployment/k8s/overlays/uni-server-registry/patches/lichess-bot-replicas.yaml`.
+
+Confirm the desired replica count after Argo syncs:
 
 ```bash
-kubectl scale deployment/lichess-bot -n searchess --replicas=1
+kubectl get deployment lichess-bot -n searchess -o jsonpath='{.spec.replicas}'
 kubectl rollout status deployment/lichess-bot -n searchess
 ```
 
-Scale it back down after the test if continuous bot operation is not desired:
+To disable the bot again for the uni-server, commit this Git change:
 
-```bash
-kubectl scale deployment/lichess-bot -n searchess --replicas=0
+```yaml
+# deployment/k8s/overlays/uni-server-registry/patches/lichess-bot-replicas.yaml
+spec:
+  replicas: 0
 ```
 
 ## External-Game API Smoke Test
@@ -142,7 +153,7 @@ Expected: a JSON response containing `uciMove`.
 ## Controlled Lichess Challenge Smoke Test
 
 1. Confirm Game Service has durable persistence and the external-game bot key.
-2. Start or scale up `lichess-bot`.
+2. Confirm Argo has synced the uni-server overlay and `lichess-bot` desired replicas is `1`.
 3. Challenge bot account `selinasa` from a test account.
 4. Watch logs:
 

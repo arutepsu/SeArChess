@@ -66,6 +66,12 @@ patches:
   target:
     kind: Service
     name: grafana
+- path: patches/lichess-bot-replicas.yaml
+  target:
+    group: apps
+    kind: Deployment
+    name: lichess-bot
+    version: v1
 - path: patches/delete-plain-secret.yaml
   target:
     kind: Secret
