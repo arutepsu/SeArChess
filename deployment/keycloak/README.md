@@ -142,6 +142,8 @@ npm run dev:deployed
 
 Requires both port-forwards (or SSH tunnel) to be active.
 
+When Envoy is exposed through an SSH tunnel at `http://localhost:18000`, open the deployed Web UI at that origin. The `searchess-web` Keycloak client allows this localhost tunnel redirect for deployed testing; keep this as a dev/test redirect and do not bypass Keycloak.
+
 ---
 
 ## Realm summary
@@ -166,6 +168,16 @@ When updating the realm, update both files.
 - `http://127.0.0.1:5173/*` — local Vite dev (alternate)
 - `http://127.0.0.1:10000/*` — K8s via SSH tunnel / port-forward
 - `http://localhost:10000/*` — K8s via SSH tunnel / port-forward
+- `http://localhost:18000/*` — deployed Web UI via SSH tunnel
+- `http://127.0.0.1:18000/*` — deployed Web UI via SSH tunnel (alternate)
+
+**Valid web origins (searchess-web):**
+- `http://localhost:5173`
+- `http://127.0.0.1:5173`
+- `http://127.0.0.1:10000`
+- `http://localhost:10000`
+- `http://localhost:18000`
+- `http://127.0.0.1:18000`
 
 ---
 
