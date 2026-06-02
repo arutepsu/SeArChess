@@ -10,7 +10,7 @@ Game Service:
 ```text
 EXTERNAL_GAME_BOT_API_KEY=<shared secret>
 EXTERNAL_GAME_BOT_PLATFORM=Lichess
-EXTERNAL_GAME_BOT_ACTOR_ID=selinasa
+EXTERNAL_GAME_BOT_ACTOR_ID=arutepsu
 AI_PROVIDER_MODE=remote
 PERSISTENCE_MODE=postgres
 SEARCHESS_POSTGRES_URL=jdbc:postgresql://postgres:5432/searchess
@@ -26,7 +26,7 @@ LICHESS_BOT_TOKEN=<lichess oauth token>
 GAME_SERVICE_BASE_URL=http://game-service:8080
 EXTERNAL_GAME_BOT_API_KEY=<same shared secret as Game Service>
 EXTERNAL_GAME_BOT_PLATFORM=Lichess
-EXTERNAL_GAME_BOT_ACTOR_ID=selinasa
+EXTERNAL_GAME_BOT_ACTOR_ID=arutepsu
 ```
 
 Never commit real values for `EXTERNAL_GAME_BOT_API_KEY` or `LICHESS_BOT_TOKEN`.
@@ -38,7 +38,7 @@ Copy `.env.example` to `.env`, then fill only local values:
 ```bash
 EXTERNAL_GAME_BOT_API_KEY=<strong local shared key>
 EXTERNAL_GAME_BOT_PLATFORM=Lichess
-EXTERNAL_GAME_BOT_ACTOR_ID=selinasa
+EXTERNAL_GAME_BOT_ACTOR_ID=arutepsu
 LICHESS_BOT_TOKEN=<lichess bot token>
 ```
 
@@ -154,7 +154,7 @@ Expected: a JSON response containing `uciMove`.
 
 1. Confirm Game Service has durable persistence and the external-game bot key.
 2. Confirm Argo has synced the uni-server overlay and `lichess-bot` desired replicas is `1`.
-3. Challenge bot account `selinasa` from a test account.
+3. Challenge bot account `arutepsu` from a test account.
 4. Watch logs:
 
 ```bash

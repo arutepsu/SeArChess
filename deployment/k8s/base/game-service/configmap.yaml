@@ -27,7 +27,7 @@ data:
   AI_TIMEOUT_MILLIS: "2000"
   AI_REMOTE_TEST_MODE: ""
   EXTERNAL_GAME_BOT_PLATFORM: "Lichess"
-  EXTERNAL_GAME_BOT_ACTOR_ID: "selinasa"
+  EXTERNAL_GAME_BOT_ACTOR_ID: "arutepsu"
   MIGRATION_ADMIN_ENABLED: "false"
   JAVA_TOOL_OPTIONS: "-javaagent:/app/opentelemetry-javaagent.jar"
   OTEL_SERVICE_NAME: "searchess-game-service"

@@ -6,4 +6,4 @@ metadata:
 data:
   GAME_SERVICE_BASE_URL: "http://game-service:8080"
   EXTERNAL_GAME_BOT_PLATFORM: "Lichess"
-  EXTERNAL_GAME_BOT_ACTOR_ID: "selinasa"
+  EXTERNAL_GAME_BOT_ACTOR_ID: "arutepsu"
