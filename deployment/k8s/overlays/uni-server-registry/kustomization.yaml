@@ -10,6 +10,7 @@ resources:
 - ../../base
 - sealed-secret.yaml
 - keycloak-sealed-secret.yaml
+- keycloak-searchess-web-reconcile-job.yaml
 - python-ai-service-rollout.yaml
 
 # Image tags are managed by CI (.github/workflows/build-images.yml).
