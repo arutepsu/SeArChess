@@ -98,6 +98,9 @@ object PersistenceAssembly:
 
   private def assemblePostgres(cfg: PostgresConfig): PersistenceWiring =
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 966317ea (added bot container)
     PostgresPersistenceRuntime.open(cfg.url, cfg.user, cfg.password, schema = cfg.schema) match
       case Left(error) => throw IllegalArgumentException(s"Postgres persistence initialization failed: $error")
       case Right(runtime) =>

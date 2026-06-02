@@ -187,8 +187,13 @@
         }
 
         function connect() {
+<<<<<<< HEAD
             log(`Verbinde mit ws://localhost:8080/game?gameId=${activeRoomId}...`);
             ws = new WebSocket(`ws://localhost:8080/game?gameId=${activeRoomId}`);
+=======
+            log(`Verbinde mit ws://localhost:8082/game?gameId=${activeRoomId}...`);
+            ws = new WebSocket(`ws://localhost:8082/game?gameId=${activeRoomId}`);
+>>>>>>> 966317ea (added bot container)
 
             ws.onopen = () => {
                 document.getElementById('statusDot').className = 'status-dot connected';

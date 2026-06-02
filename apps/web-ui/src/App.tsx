@@ -4,6 +4,7 @@ import { Routes, Route, useNavigate } from "react-router-dom";
 import type { PlayerColor, PlayableGameMode, GameState, BoardMatrix, PieceCode } from "./api/types";
 import type { MoveHistoryEntryDto } from "./api/backendTypes";
 import { getReplayFrame } from "./api/client";
+import keycloak from "./auth/keycloak";
 import { mapGameSnapshotToGameState, computeCapturedPieces } from "./api/mapper";
 import type { SpriteCatalog } from "./assets/spriteCatalog";
 import { loadSpriteCatalog } from "./assets/spriteCatalog";
@@ -38,9 +39,12 @@ import BackgroundPanel from "./components/BackgroundPanel.tsx";
 import CapturedPanel from "./components/CapturedPanel.tsx";
 import { Chess } from "chess.js";
 import AuthBar from "./components/AuthBar.tsx";
+<<<<<<< HEAD
 =======
 import StatusBanner from "./components/StatusBanner.tsx";
 >>>>>>> 3bfa20a2 (polish web ui)
+=======
+>>>>>>> 966317ea (added bot container)
 import "./App.css";
 
 type ConnectionState = "connected" | "offline" | "loading";
@@ -283,8 +287,11 @@ function mapPekkoDataToGameState(
   };
 }
 
+<<<<<<< HEAD
 =======
 >>>>>>> ce08c01e (local microservices)
+=======
+>>>>>>> 966317ea (added bot container)
 export default function App() {
   const {
     game,
@@ -876,7 +883,11 @@ export default function App() {
     let active = true;
     const fetchStatus = async () => {
       try {
-        const res = await fetch("/api/dev-bot/status");
+        const headers: Record<string, string> = {};
+        if (keycloak.token) {
+          headers["Authorization"] = `Bearer ${keycloak.token}`;
+        }
+        const res = await fetch("/api/bot/status", { headers });
         if (active && res.ok) {
           const data = await res.json();
           setDevBotStatus(data.status);
@@ -905,7 +916,11 @@ export default function App() {
     setPekkoSelectedSquare(undefined);
     setPekkoLegalMoves([]);
 
+<<<<<<< HEAD
     const ws = new WebSocket(`ws://localhost:8080/game?gameId=${encodeURIComponent(pekkoRoomId)}`);
+=======
+    const ws = new WebSocket(`ws://localhost:8082/game?gameId=${encodeURIComponent(pekkoRoomId)}`);
+>>>>>>> 966317ea (added bot container)
     pekkoWsRef.current = ws;
 
     ws.onopen = () => {

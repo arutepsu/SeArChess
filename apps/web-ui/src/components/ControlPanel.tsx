@@ -28,11 +28,14 @@ type ControlPanelProps = {
   onResign: () => void;
   onBackToMenu: () => void;
   onOpenHeatmap: () => void;
+<<<<<<< HEAD
 =======
   gameMode: SessionMode;
   onGameModeChange: (mode: SessionMode) => void;
   onNewGame: () => void;
 >>>>>>> 3bfa20a2 (polish web ui)
+=======
+>>>>>>> 966317ea (added bot container)
 };
 
 const formatTime = (ms?: number) => {
@@ -64,6 +67,9 @@ export default function ControlPanel({
   activeColor,
   clockRunning,
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 966317ea (added bot container)
   canResign,
   sessionId,
   gameId,

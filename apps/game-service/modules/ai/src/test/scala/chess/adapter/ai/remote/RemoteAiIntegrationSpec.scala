@@ -81,6 +81,9 @@ class RemoteAiIntegrationSpec extends AnyFlatSpec with Matchers with EitherValue
     )
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 966317ea (added bot container)
   // 30 s to absorb supervised-model cold-start on first inference; warm calls are <2 s.
   private lazy val provider = RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 30000)
 

@@ -26,14 +26,20 @@ object HistoryServiceMain:
       "httpPort" -> config.port,
       "gameServiceArchiveBaseUrl" -> config.gameServiceBaseUrl,
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 966317ea (added bot container)
       "storage" -> "postgres-slick",
       "postgresSchema" -> config.postgresSchema,
       "deliveryMode" -> config.deliveryMode.toString,
       "redisStream" -> config.redisStream,
       "redisGroup" -> config.redisGroup,
+<<<<<<< HEAD
 =======
       "dbPath" -> config.dbPath,
 >>>>>>> ce08c01e (local microservices)
+=======
+>>>>>>> 966317ea (added bot container)
       "acceptLegacyIngestionPath" -> config.acceptLegacyIngestionPath
     )
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { PlayableGameMode } from "../api/types";
 import ResumeGamePanel from "./ResumeGamePanel.tsx";
+import keycloak from "../auth/keycloak";
 import "./Homepage.css";
 
 interface HomepageProps {
@@ -23,7 +24,11 @@ export default function Homepage({ hasActiveGame, busy, onStart, onContinueActiv
     let active = true;
     const fetchStatus = async () => {
       try {
-        const res = await fetch("/api/dev-bot/status");
+        const headers: Record<string, string> = {};
+        if (keycloak.token) {
+          headers["Authorization"] = `Bearer ${keycloak.token}`;
+        }
+        const res = await fetch("/api/bot/status", { headers });
         if (!active) return;
         if (res.ok) {
           const data = await res.json();
@@ -53,7 +58,11 @@ export default function Homepage({ hasActiveGame, busy, onStart, onContinueActiv
   const handleStartBot = async () => {
     setActionLoading(true);
     try {
-      const res = await fetch("/api/dev-bot/start", { method: "POST" });
+      const headers: Record<string, string> = {};
+      if (keycloak.token) {
+        headers["Authorization"] = `Bearer ${keycloak.token}`;
+      }
+      const res = await fetch("/api/bot/start", { method: "POST", headers });
       if (res.ok) {
         const data = await res.json();
         setBotStatus(data.status);
@@ -68,7 +77,11 @@ export default function Homepage({ hasActiveGame, busy, onStart, onContinueActiv
   const handleStopBot = async () => {
     setActionLoading(true);
     try {
-      const res = await fetch("/api/dev-bot/stop", { method: "POST" });
+      const headers: Record<string, string> = {};
+      if (keycloak.token) {
+        headers["Authorization"] = `Bearer ${keycloak.token}`;
+      }
+      const res = await fetch("/api/bot/stop", { method: "POST", headers });
       if (res.ok) {
         const data = await res.json();
         setBotStatus(data.status);

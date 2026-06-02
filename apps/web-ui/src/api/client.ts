@@ -34,6 +34,7 @@ import type {
 <<<<<<< HEAD
 import type { MigrationReport, MigrationRequest } from "./migrationTypes";
 import keycloak from "../auth/keycloak";
+<<<<<<< HEAD
 =======
 import { mapGameResponseToGameState } from "./mapper";
 import type { ErrorResponse } from "./backendTypes";
@@ -42,6 +43,8 @@ import type { SessionContext } from "../session/sessionStore";
 =======
 import type { MigrationReport, MigrationRequest } from "./migrationTypes";
 >>>>>>> 2b1aa125 (real migration ok)
+=======
+>>>>>>> 966317ea (added bot container)
 
 const DEFAULT_API_BASE = "http://localhost:10000";
 

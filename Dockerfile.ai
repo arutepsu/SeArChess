@@ -12,6 +12,9 @@ COPY modules/ modules/
 RUN sbt "aiService / stage"
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 966317ea (added bot container)
 FROM eclipse-temurin:21-jre AS otel-agent
 ARG OTEL_AGENT_VERSION=2.10.0
 RUN apt-get update \
@@ -20,8 +23,11 @@ RUN apt-get update \
     && curl -fsSL -o /opentelemetry-javaagent.jar \
        "https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v${OTEL_AGENT_VERSION}/opentelemetry-javaagent.jar"
 
+<<<<<<< HEAD
 =======
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
+=======
+>>>>>>> 966317ea (added bot container)
 FROM eclipse-temurin:21-jre
 
 WORKDIR /app
@@ -32,9 +38,13 @@ RUN apt-get update \
 
 COPY --from=build /build/apps/ai-service/target/universal/stage/ ./
 <<<<<<< HEAD
+<<<<<<< HEAD
 COPY --from=otel-agent /opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
 =======
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
+=======
+COPY --from=otel-agent /opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
+>>>>>>> 966317ea (added bot container)
 
 EXPOSE 8765
 

@@ -12,6 +12,9 @@ if (!container) {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 966317ea (added bot container)
 keycloak
   .init({ onLoad: "login-required", pkceMethod: "S256" })
   .then((authenticated: boolean) => {
@@ -33,6 +36,7 @@ keycloak
     container.textContent =
       "Auth initialization failed. Is Keycloak running on http://localhost:8080?";
   });
+<<<<<<< HEAD
 =======
 const root = createRoot(container);
 
@@ -46,3 +50,5 @@ if (window.location.pathname === "/admin/persistence") {
   );
 }
 >>>>>>> 2b1aa125 (real migration ok)
+=======
+>>>>>>> 966317ea (added bot container)

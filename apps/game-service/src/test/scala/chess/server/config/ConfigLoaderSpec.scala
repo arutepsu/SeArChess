@@ -110,6 +110,9 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
   }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 966317ea (added bot container)
   it should "parse Redis Streams history delivery config" in {
     val config = loadDefault(
       "HISTORY_FORWARDING_ENABLED" -> "true",

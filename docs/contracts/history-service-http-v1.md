@@ -154,6 +154,7 @@ Errors:
 | `422` | `MATERIALIZATION_FAILED` | archive snapshot was fetched, but FEN/PGN/materialization failed |
 | `502` | `GAME_SERVICE_FETCH_FAILED` | Game archive fetch failed due to transport or unexpected Game response |
 | `500` | `PERSISTENCE_FAILED` | History Postgres write failed |
+<<<<<<< HEAD
 
 ### POST /events/game
 
@@ -162,6 +163,8 @@ Temporary compatibility alias for older local/dev callers.
 This path is disabled by default. It is available only when
 `HISTORY_ACCEPT_LEGACY_INGESTION_PATH=true`, and it should not be routed through
 the public edge. New callers must use `POST /internal/events/game`.
+=======
+>>>>>>> 966317ea (added bot container)
 
 ### POST /events/game
 

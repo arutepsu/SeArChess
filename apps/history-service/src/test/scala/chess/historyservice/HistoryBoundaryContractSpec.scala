@@ -4,6 +4,7 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import chess.adapter.event.GameHistoryIngestionContract
 <<<<<<< HEAD
+<<<<<<< HEAD
 import chess.application.session.model.SessionIds.GameId
 import chess.history.{ArchiveMaterializer, ArchiveRecord, ArchiveRepository, ArchiveRepositoryError, HistoryIngestionService, RemoteGameArchiveClient}
 import fs2.Stream
@@ -29,21 +30,36 @@ class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherV
 =======
 import chess.history.{ArchiveMaterializer, HistoryIngestionService, RemoteGameArchiveClient}
 import chess.history.sqlite.SqliteArchiveRepository
+=======
+import chess.application.session.model.SessionIds.GameId
+import chess.history.{ArchiveMaterializer, ArchiveRecord, ArchiveRepository, ArchiveRepositoryError, HistoryIngestionService, RemoteGameArchiveClient}
+>>>>>>> 966317ea (added bot container)
 import fs2.Stream
 import org.http4s.{HttpApp, Method, Request, Status, Uri}
-import org.scalatest.EitherValues
+import org.scalatest.{EitherValues, OptionValues}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.nio.charset.StandardCharsets
-import java.nio.file.Files
+import scala.collection.mutable
 
-class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherValues:
+import scala.collection.mutable
+
+class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherValues with OptionValues:
+
+  private val minimalEnv: Map[String, String] = Map(
+    "HISTORY_POSTGRES_URL" -> "jdbc:postgresql://localhost/test"
+  )
+  private def withEnv(extra: (String, String)*)(key: String): Option[String] =
+    (minimalEnv ++ extra.toMap).get(key)
 
   "HistoryServiceConfig" should "disable the legacy ingestion alias by default" in {
+<<<<<<< HEAD
     val config = HistoryServiceConfig.load(_ => None).value
 
 >>>>>>> ce08c01e (local microservices)
+=======
+    val config = HistoryServiceConfig.load(withEnv()).value
+>>>>>>> 966317ea (added bot container)
     config.acceptLegacyIngestionPath shouldBe false
   }
 
@@ -52,12 +68,15 @@ class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherV
     val config = HistoryServiceConfig
       .load(withEnv("HISTORY_ACCEPT_LEGACY_INGESTION_PATH" -> "true"))
       .value
+<<<<<<< HEAD
 =======
     val config = HistoryServiceConfig.load(key =>
       Map("HISTORY_ACCEPT_LEGACY_INGESTION_PATH" -> "true").get(key)
     ).value
 
 >>>>>>> ce08c01e (local microservices)
+=======
+>>>>>>> 966317ea (added bot container)
     config.acceptLegacyIngestionPath shouldBe true
   }
 
@@ -103,9 +122,12 @@ class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherV
       .load(withEnv("HISTORY_INGESTION_MODE" -> "redis-stream"))
       .left
       .value should include("HISTORY_REDIS_URL or REDIS_HOST is required")
+<<<<<<< HEAD
 =======
       .value should include ("HISTORY_ACCEPT_LEGACY_INGESTION_PATH must be true or false")
 >>>>>>> ce08c01e (local microservices)
+=======
+>>>>>>> 966317ea (added bot container)
   }
 
   "HistoryRoutes" should "keep the legacy ingestion alias disabled by default" in {
@@ -113,10 +135,13 @@ class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherV
 <<<<<<< HEAD
       val response =
         http.run(post(GameHistoryIngestionContract.LegacyGameEventsPath, "{}")).unsafeRunSync()
+<<<<<<< HEAD
 =======
       val response = http.run(post(GameHistoryIngestionContract.LegacyGameEventsPath, "{}")).unsafeRunSync()
 
 >>>>>>> ce08c01e (local microservices)
+=======
+>>>>>>> 966317ea (added bot container)
       response.status shouldBe Status.NotFound
     }
   }
@@ -126,10 +151,13 @@ class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherV
 <<<<<<< HEAD
       val response =
         http.run(post(GameHistoryIngestionContract.LegacyGameEventsPath, "{}")).unsafeRunSync()
+<<<<<<< HEAD
 =======
       val response = http.run(post(GameHistoryIngestionContract.LegacyGameEventsPath, "{}")).unsafeRunSync()
 
 >>>>>>> ce08c01e (local microservices)
+=======
+>>>>>>> 966317ea (added bot container)
       response.status shouldBe Status.BadRequest
     }
   }
@@ -155,6 +183,7 @@ class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherV
 
   private def withRoutes(acceptLegacy: Boolean = false)(test: HttpApp[IO] => Unit): Unit =
 <<<<<<< HEAD
+<<<<<<< HEAD
     val historyRepo = TestArchiveRepository()
     val ingestion = HistoryIngestionService(
       archiveClient = RemoteGameArchiveClient("http://127.0.0.1:1", timeoutMillis = 50),
@@ -170,11 +199,15 @@ class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherV
 =======
     val historyDb = Files.createTempFile("searchess-history-boundary-", ".sqlite")
     val historyRepo = SqliteArchiveRepository(historyDb.toString)
+=======
+    val historyRepo = TestArchiveRepository()
+>>>>>>> 966317ea (added bot container)
     val ingestion = HistoryIngestionService(
       archiveClient = RemoteGameArchiveClient("http://127.0.0.1:1", timeoutMillis = 50),
-      materializer = ArchiveMaterializer(),
-      repository = historyRepo
+      materializer  = ArchiveMaterializer(),
+      repository    = historyRepo
     )
+<<<<<<< HEAD
 
     try
       val http = HistoryRoutes(
@@ -187,10 +220,19 @@ class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherV
       historyRepo.close()
       Files.deleteIfExists(historyDb)
 >>>>>>> ce08c01e (local microservices)
+=======
+    val http = HistoryRoutes(
+      ingestion,
+      historyRepo,
+      acceptLegacyIngestionPath = acceptLegacy
+    ).routes.orNotFound
+    test(http)
+>>>>>>> 966317ea (added bot container)
 
   private def post(path: String, body: String): Request[IO] =
     Request[IO](
       method = Method.POST,
+<<<<<<< HEAD
 <<<<<<< HEAD
       uri    = Uri.unsafeFromString(path),
       body   = Stream.emits(body.getBytes("UTF-8")).covary[IO]
@@ -210,3 +252,18 @@ private class TestArchiveRepository extends ArchiveRepository:
       body = Stream.emits(body.getBytes(StandardCharsets.UTF_8)).covary[IO]
     )
 >>>>>>> ce08c01e (local microservices)
+=======
+      uri    = Uri.unsafeFromString(path),
+      body   = Stream.emits(body.getBytes("UTF-8")).covary[IO]
+    )
+
+private class TestArchiveRepository extends ArchiveRepository:
+  import chess.application.session.model.SessionIds.GameId
+  import chess.history.{ArchiveRecord, ArchiveRepositoryError}
+
+  private val store = mutable.Map.empty[GameId, ArchiveRecord]
+  override def upsert(r: ArchiveRecord): Either[ArchiveRepositoryError, Unit] =
+    store(r.gameId) = r; Right(())
+  override def findByGameId(id: GameId): Either[ArchiveRepositoryError, Option[ArchiveRecord]] =
+    Right(store.get(id))
+>>>>>>> 966317ea (added bot container)

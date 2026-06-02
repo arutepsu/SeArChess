@@ -4,6 +4,7 @@ import cats.effect.IO
 import cats.syntax.semigroupk.*
 import chess.adapter.http4s.route.{
   Http4sArchiveRoutes,
+  Http4sBotRoutes,
   Http4sGameRoutes,
   Http4sNotationRoutes,
   Http4sSessionRoutes,
@@ -45,7 +46,8 @@ class Http4sApp(
       Http4sGameRoutes(gameService, domainMetrics).routes <+>
       Http4sNotationRoutes(gameRepository, sessionGameStore).routes <+>
       Http4sArchiveRoutes(gameService).routes <+>
-      Http4sStatsRoutes(gameService).routes
+      Http4sStatsRoutes(gameService).routes <+>
+      Http4sBotRoutes().routes
 
   /** Combined [[HttpApp]] for all REST routes.
     *

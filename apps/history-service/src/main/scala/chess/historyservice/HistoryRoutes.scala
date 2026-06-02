@@ -7,6 +7,7 @@ import cats.syntax.semigroupk.*
 import chess.adapter.event.GameHistoryIngestionContract
 import chess.application.session.model.SessionIds.GameId
 import chess.history.*
+<<<<<<< HEAD
 =======
 =======
 import cats.syntax.semigroupk.*
@@ -16,6 +17,8 @@ import chess.application.session.model.SessionIds.GameId
 import chess.history.*
 import chess.history.sqlite.SqliteArchiveRepository
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
+=======
+>>>>>>> 966317ea (added bot container)
 import fs2.Stream
 import org.http4s.*
 import org.http4s.dsl.io.*
@@ -165,6 +168,9 @@ class HistoryRoutes(
       case Left(msg) => error(Status.BadRequest, "BAD_REQUEST", msg)
       case Right(gameId) =>
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 966317ea (added bot container)
         repository.findByGameId(gameId) match
           case Right(Some(record)) => json(Status.Ok, ArchiveRecordJson.toJson(record))
           case Right(None) =>

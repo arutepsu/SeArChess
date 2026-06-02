@@ -71,6 +71,9 @@ static_resources:
                               inline_string: "not found\n"
                 http_filters:
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 966317ea (added bot container)
                   # ---------------------------------------------------------------------------
                   # JWT validation — local Compose only.
                   #
@@ -107,8 +110,11 @@ static_resources:
                             provider_name: "keycloak"
                       # Let OPTIONS preflight pass without a token.
                       bypass_cors_preflight: true
+<<<<<<< HEAD
 =======
 >>>>>>> abcc8c8c (envoy + ai service prerp)
+=======
+>>>>>>> 966317ea (added bot container)
                   - name: envoy.filters.http.router
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
@@ -139,6 +145,9 @@ static_resources:
                       address: game-service
                       port_value: 9090
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 966317ea (added bot container)
     - name: keycloak
       type: STRICT_DNS
       connect_timeout: 5s
@@ -151,8 +160,11 @@ static_resources:
                     socket_address:
                       address: keycloak
                       port_value: 8080
+<<<<<<< HEAD
 =======
 >>>>>>> abcc8c8c (envoy + ai service prerp)
+=======
+>>>>>>> 966317ea (added bot container)
 
 admin:
   address:

@@ -134,10 +134,14 @@ lazy val history = project
   // adapterPersistence and adapterEvent are only needed for legacy test fixtures
   // (InMemoryGameRepository, CollectingEventPublisher, etc.).
 <<<<<<< HEAD
+<<<<<<< HEAD
   .dependsOn(gameContract, gameEventContract, notation, observability, adapterPersistence % Test, adapterEvent % Test)
 =======
   .dependsOn(gameContract, notation, observability, adapterPersistence % Test, adapterEvent % Test)
 >>>>>>> ce08c01e (local microservices)
+=======
+  .dependsOn(gameContract, gameEventContract, notation, observability, adapterPersistence % Test, adapterEvent % Test)
+>>>>>>> 966317ea (added bot container)
 
 // Module: adapter-persistence
 
@@ -155,6 +159,7 @@ lazy val adapterPersistence = project
     libraryDependencies ++= Seq(
       "com.lihaoyi" %% "ujson"       % "4.0.2",
       "org.xerial"   % "sqlite-jdbc" % "3.46.1.3",
+<<<<<<< HEAD
 =======
 // ── Module: history ───────────────────────────────────────────────────────────
 
@@ -185,6 +190,8 @@ lazy val adapterPersistence = project
   // adapterEvent is only needed for test fixtures (CollectingEventPublisher).
   .dependsOn(application, adapterEvent % Test)
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
+=======
+>>>>>>> 966317ea (added bot container)
 
       // Slick / PostgreSQL
       "com.typesafe.slick" %% "slick"          % slickVersion,
@@ -432,15 +439,21 @@ lazy val bootstrapServer = project
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-ember-server" % http4sVersion,
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 966317ea (added bot container)
       "org.http4s" %% "http4s-dsl"          % http4sVersion,
       "org.testcontainers" % "testcontainers" % testcontainersVersion % Test,
       "org.testcontainers" % "postgresql"     % testcontainersVersion % Test,
       "org.testcontainers" % "mongodb"        % testcontainersVersion % Test
+<<<<<<< HEAD
 =======
       "org.http4s" %% "http4s-dsl" % http4sVersion,
       "org.testcontainers" % "postgresql" % testcontainersVersion % Test,
       "org.testcontainers" % "mongodb" % testcontainersVersion % Test
 >>>>>>> 2b1aa125 (real migration ok)
+=======
+>>>>>>> 966317ea (added bot container)
     ),
     excludeFromCoverage(
       ".*chess.server.ServerMain.*",
@@ -535,6 +548,7 @@ lazy val aiService = project
 // App: lichess-bot
 lazy val lichessBot = project
   .in(file("apps/lichess-bot"))
+  .enablePlugins(JavaAppPackaging)
   .settings(
     commonSettings,
     name := "searchess-lichess-bot",
@@ -602,6 +616,7 @@ lazy val benchmarks = project
     )
   )
   .dependsOn(domain, gameCore, adapterPersistence, adapterRestHttp4s)
+<<<<<<< HEAD
 =======
   .dependsOn(history)
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
@@ -611,6 +626,8 @@ lazy val benchmarks = project
 =======
   .dependsOn(aiContract, observability)
 >>>>>>> ce08c01e (local microservices)
+=======
+>>>>>>> 966317ea (added bot container)
 
 // ── Aliases ───────────────────────────────────────────────────────────────────
 //

@@ -13,6 +13,7 @@ final case class AiServiceConfig(
       */
     pythonAiBaseUrl: Option[String],
     pythonAiTimeoutMillis: Int
+<<<<<<< HEAD
 =======
 final case class AiServiceConfig(
   host:      String,
@@ -24,6 +25,8 @@ final case class AiServiceConfig(
 =======
   engineId:  String
 >>>>>>> ce08c01e (local microservices)
+=======
+>>>>>>> 966317ea (added bot container)
 )
 
 object AiServiceConfig:
@@ -49,6 +52,7 @@ object AiServiceConfig:
       pythonAiTimeoutMillis = env("PYTHON_AI_TIMEOUT_MILLIS")
         .flatMap(_.toIntOption)
         .getOrElse(5000)
+<<<<<<< HEAD
 =======
       err => { System.err.println(s"[ai] Configuration error: $err"); sys.exit(1) },
       identity
@@ -67,6 +71,8 @@ object AiServiceConfig:
 =======
       engineId = env("AI_ENGINE_ID").getOrElse("random-legal")
 >>>>>>> ce08c01e (local microservices)
+=======
+>>>>>>> 966317ea (added bot container)
     )
 
   private def parsePort(name: String, value: String): Either[String, Int] =

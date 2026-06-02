@@ -20,6 +20,9 @@ import org.http4s.dsl.io.*
 import org.http4s.headers.`Content-Type`
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 966317ea (added bot container)
 import java.net.URI
 import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.time.{Duration, Instant}
@@ -99,6 +102,7 @@ class AiServiceRoutes(config: AiServiceConfig):
         val started = Instant.now()
         logInfo("ai_request_received", request, "legalMoveCount" -> request.legalMoves.size)
 <<<<<<< HEAD
+<<<<<<< HEAD
         config.pythonAiBaseUrl match
           case Some(baseUrl) => proxyWithFallback(request, body, baseUrl, started)
           case None          => selectLocal(request, started)
@@ -141,6 +145,33 @@ class AiServiceRoutes(config: AiServiceConfig):
         val elapsed =
           math.max(0L, java.time.Duration.between(started, Instant.now()).toMillis).toInt
 >>>>>>> 97d0df0b (added ai for lichess)
+=======
+        config.pythonAiBaseUrl match
+          case Some(baseUrl) => proxyWithFallback(request, body, baseUrl, started)
+          case None          => selectLocal(request, started)
+
+  /** Forwards the original request body to the Python AI service.
+    * Falls back to local Minimax selection on any non-2xx response or exception.
+    */
+  private def proxyWithFallback(
+      request: RemoteAiMoveSuggestionRequest,
+      originalBody: String,
+      baseUrl: String,
+      started: Instant
+  ): IO[Response[IO]] =
+    val upstreamUrl = s"$baseUrl/v1/move-suggestions"
+    IO.blocking {
+      val httpRequest = HttpRequest.newBuilder()
+        .uri(URI.create(upstreamUrl))
+        .header("Content-Type", "application/json")
+        .POST(HttpRequest.BodyPublishers.ofString(originalBody))
+        .timeout(Duration.ofMillis(config.pythonAiTimeoutMillis.toLong))
+        .build()
+      httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString())
+    }.flatMap { response =>
+      if response.statusCode() >= 200 && response.statusCode() < 300 then
+        val elapsedMs = elapsed(started)
+>>>>>>> 966317ea (added bot container)
         logInfo(
           "ai_proxy_succeeded",
           request,

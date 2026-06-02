@@ -69,6 +69,9 @@ class Http4sSessionRoutes(
 =======
 >>>>>>> 97d0df0b (added ai for lichess)
 
+    case req @ POST -> Root / "sessions" / "import" =>
+      req.bodyText.compile.string.flatMap(handleImport)
+
     case GET -> Root / "sessions" =>
       handleList()
 

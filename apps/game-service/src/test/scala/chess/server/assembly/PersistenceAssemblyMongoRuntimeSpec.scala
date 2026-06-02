@@ -18,6 +18,7 @@ import chess.server.config.{
 }
 import chess.server.persistence.MongoPersistenceRuntime
 <<<<<<< HEAD
+<<<<<<< HEAD
 import org.scalatest.Assertions.cancel
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.EitherValues
@@ -26,11 +27,19 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.testcontainers.DockerClientFactory
 =======
+=======
+import org.scalatest.Assertions.cancel
+>>>>>>> 966317ea (added bot container)
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.EitherValues
+import org.scalatest.Outcome
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+<<<<<<< HEAD
 >>>>>>> 2b1aa125 (real migration ok)
+=======
+import org.testcontainers.DockerClientFactory
+>>>>>>> 966317ea (added bot container)
 import org.testcontainers.containers.MongoDBContainer
 import org.testcontainers.utility.DockerImageName
 
@@ -47,6 +56,7 @@ class PersistenceAssemblyMongoRuntimeSpec
     with BeforeAndAfterAll:
 
   private val mongo = GameServiceRuntimeMongoContainer()
+<<<<<<< HEAD
 <<<<<<< HEAD
   private var started = false
 
@@ -66,14 +76,30 @@ class PersistenceAssemblyMongoRuntimeSpec
       mongo.stop()
       started = false
 =======
+=======
+  private var started = false
+>>>>>>> 966317ea (added bot container)
 
-  override protected def beforeAll(): Unit =
-    super.beforeAll()
-    mongo.start()
+  override protected def withFixture(test: NoArgTest): Outcome =
+    if !DockerClientFactory.instance().isDockerAvailable then
+      cancel("Docker/Testcontainers unavailable; skipping Mongo runtime assembly integration tests")
+    startContainer()
+    super.withFixture(test)
+
+  private def startContainer(): Unit =
+    if !started then
+      mongo.start()
+      started = true
 
   override protected def afterAll(): Unit =
+<<<<<<< HEAD
     mongo.stop()
 >>>>>>> 2b1aa125 (real migration ok)
+=======
+    if started then
+      mongo.stop()
+      started = false
+>>>>>>> 966317ea (added bot container)
     super.afterAll()
 
   "PersistenceAssembly" should "wire Mongo runtime persistence through initialized collections" in {

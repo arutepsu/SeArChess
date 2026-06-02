@@ -4,7 +4,12 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.Http
 import org.apache.pekko.http.scaladsl.model.ws.{Message, TextMessage}
 import org.apache.pekko.http.scaladsl.server.Directives._
+<<<<<<< HEAD
 import org.apache.pekko.stream.scaladsl.{BroadcastHub, Flow, Keep, MergeHub, Sink, Source}
+=======
+import org.apache.pekko.stream.ClosedShape
+import org.apache.pekko.stream.scaladsl.{Broadcast, BroadcastHub, Flow, GraphDSL, Keep, MergeHub, RunnableGraph, Sink, Source}
+>>>>>>> 966317ea (added bot container)
 import java.util.concurrent.ConcurrentHashMap
 import scala.concurrent.ExecutionContext
 
@@ -13,6 +18,7 @@ class GameRoom(val gameId: String)(implicit system: ActorSystem) {
 
   @volatile var currentState: GameState = GameState.initial
 
+<<<<<<< HEAD
   val (hubSink, hubSource) = MergeHub.source[Either[Throwable, Move]]
     .via(ChessStreamingEngine.validatorFlow)
     .map { result =>
@@ -23,6 +29,42 @@ class GameRoom(val gameId: String)(implicit system: ActorSystem) {
     }
     .toMat(BroadcastHub.sink[Either[String, GameState]])(Keep.both)
     .run()
+=======
+  // Materialisiert den Raum-Stream mithilfe der Pekko GraphDSL (nicht-lineare Topologie)
+  val (hubSink, hubSource) = RunnableGraph.fromGraph(
+    GraphDSL.createGraph(MergeHub.source[Either[Throwable, Move]], BroadcastHub.sink[Either[String, GameState]])(Keep.both) { implicit builder => (mergeSource, broadcastSink) =>
+      import GraphDSL.Implicits._
+
+      val validator = builder.add(ChessStreamingEngine.validatorFlow)
+
+      // Aktualisiert den internen Zustand des Raums
+      val stateUpdater = builder.add(Flow[Either[String, GameState]].map { result =>
+        result.foreach { state =>
+          currentState = state
+        }
+        result
+      })
+
+      // Broadcast Junction, um den Datenstrom aufzuteilen (Duplizierung)
+      val broadcast = builder.add(Broadcast[Either[String, GameState]](2))
+
+      // Zweite Senke (Sink): Ein raumspezifischer Logger fuer die Konsole
+      val loggingSink = builder.add(Sink.foreach[Either[String, GameState]] {
+        case Right(state) =>
+          println(s"[Room-Logger-$gameId] Valider Zug! Zuege gespielt: ${state.moveHistory.length}. Letzter Zug: ${state.moveHistory.lastOption.map(m => s"${m.from}-${m.to}").getOrElse("-")}")
+        case Left(error) =>
+          System.err.println(s"[Room-Logger-$gameId] Warnung: $error")
+      })
+
+      // Verdrahtung des Graphen: Ingress -> Validator -> StateUpdater -> Broadcast -> Sinks
+      mergeSource ~> validator ~> stateUpdater ~> broadcast.in
+      broadcast.out(0) ~> broadcastSink
+      broadcast.out(1) ~> loggingSink
+
+      ClosedShape
+    }
+  ).run()
+>>>>>>> 966317ea (added bot container)
 }
 
 object GameRoomRegistry {
@@ -108,7 +150,7 @@ object ChessStreamingServerMain {
       }
 
     val host = "localhost"
-    val port = 8080
+    val port = 8082
 
     val bindingFuture = Http().newServerAt(host, port).bind(route)
 

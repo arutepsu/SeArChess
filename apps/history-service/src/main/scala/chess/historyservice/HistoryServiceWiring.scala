@@ -3,11 +3,15 @@ package chess.historyservice
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 966317ea (added bot container)
 import chess.history.{ArchiveMaterializer, ArchiveRepository, HistoryIngestionService, RemoteGameArchiveClient}
 import chess.history.postgres.HistoryFlywaySchemaInitializer
 import chess.history.redis.RedisStreamHistoryConsumer
 import chess.history.slick.SlickPostgresArchiveRepository
 import chess.observability.StructuredLog
+<<<<<<< HEAD
 import com.comcast.ip4s.{Host, Port}
 import org.http4s.ember.server.EmberServerBuilder
 import slick.jdbc.PostgresProfile.api.Database
@@ -17,16 +21,25 @@ import chess.history.sqlite.SqliteArchiveRepository
 import com.comcast.ip4s.{Host, Port}
 import org.http4s.ember.server.EmberServerBuilder
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
+=======
+import com.comcast.ip4s.{Host, Port}
+import org.http4s.ember.server.EmberServerBuilder
+import slick.jdbc.PostgresProfile.api.Database
+>>>>>>> 966317ea (added bot container)
 
 /** History Service composition root and HTTP runtime startup. */
 object HistoryServiceWiring:
 
   def start(config: HistoryServiceConfig): HistoryServiceRuntime =
 <<<<<<< HEAD
+<<<<<<< HEAD
     val (repository, closeStorage) = buildRepository(config)
 =======
     val repository = SqliteArchiveRepository(config.dbPath)
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
+=======
+    val (repository, closeStorage) = buildRepository(config)
+>>>>>>> 966317ea (added bot container)
     val ingestion = HistoryIngestionService(
       archiveClient = RemoteGameArchiveClient(config.gameServiceBaseUrl, config.timeoutMillis),
       materializer  = ArchiveMaterializer(),
@@ -67,6 +80,9 @@ object HistoryServiceWiring:
       .unsafeRunSync()
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 966317ea (added bot container)
     val stopConsumer = startConsumer(config, ingestion)
     HistoryServiceRuntime(shutdown, closeStorage, stopConsumer)
 
@@ -112,6 +128,9 @@ object HistoryServiceWiring:
     )
     val repo = SlickPostgresArchiveRepository(db, config.postgresSchema)
     (repo, () => db.close())
+<<<<<<< HEAD
 =======
     HistoryServiceRuntime(shutdown, repository)
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
+=======
+>>>>>>> 966317ea (added bot container)

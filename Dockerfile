@@ -19,9 +19,12 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && curl -fsSL -o /opentelemetry-javaagent.jar \
        "https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v${OTEL_AGENT_VERSION}/opentelemetry-javaagent.jar"
+<<<<<<< HEAD
 =======
 RUN sbt "bootstrapServer / stage"
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
+=======
+>>>>>>> 966317ea (added bot container)
 
 FROM eclipse-temurin:21-jre
 
@@ -35,9 +38,12 @@ RUN apt-get update \
 <<<<<<< HEAD
 COPY --from=build /build/apps/game-service/target/universal/stage/ ./
 COPY --from=otel-agent /opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
+<<<<<<< HEAD
 =======
 COPY --from=build /build/apps/bootstrap-server/target/universal/stage/ ./
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
+=======
+>>>>>>> 966317ea (added bot container)
 
 EXPOSE 8080 9090
 

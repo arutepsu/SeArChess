@@ -32,10 +32,16 @@ import chess.adapter.http4s.Http4sApp
 import chess.server.assembly.{AppContext, EventWiring}
 import chess.server.config.{AiConfig, AppConfig}
 <<<<<<< HEAD
+<<<<<<< HEAD
 import chess.server.http.{CorsMiddleware, HealthRoutes, HistoryOutboxOpsRoutes}
 >>>>>>> f7a07f01 (runnable mains, hardered event contracts)
 =======
 import chess.server.http.{CorsMiddleware, HealthRoutes, HistoryOutboxOpsRoutes, MigrationAdminRoutes}
+=======
+import chess.adapter.http4s.DomainMetricsRegistry
+import chess.server.http.{CorsMiddleware, HealthRoutes, HistoryOutboxOpsRoutes, HttpMetricsMiddleware, HttpMetricsRegistry, HttpRequestLoggingMiddleware, MigrationAdminRoutes}
+import chess.server.http.MetricsRoutes
+>>>>>>> 966317ea (added bot container)
 import chess.server.migration.MigrationCliRunner
 >>>>>>> 2b1aa125 (real migration ok)
 import com.comcast.ip4s.{Host, Port}
@@ -49,6 +55,9 @@ object ServerWiring:
     val (ctx, events) = GameServiceComposition.assemble(config)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 966317ea (added bot container)
     val metricsRegistry = new HttpMetricsRegistry
     val domainMetrics   = new DomainMetricsRegistry
 
@@ -62,6 +71,7 @@ object ServerWiring:
         domainMetrics
       ).httpApp
 
+<<<<<<< HEAD
 <<<<<<< HEAD
     val baseOpsRoutes = HealthRoutes.routes <+> MetricsRoutes.routes(metricsRegistry, domainMetrics) <+> HistoryOutboxOpsRoutes(events.historyOutbox).routes
     val internalOpsRoutes =
@@ -80,6 +90,9 @@ object ServerWiring:
 =======
     val baseOpsRoutes = HealthRoutes.routes <+> HistoryOutboxOpsRoutes(events.historyOutbox).routes
 >>>>>>> 2b1aa125 (real migration ok)
+=======
+    val baseOpsRoutes = HealthRoutes.routes <+> MetricsRoutes.routes(metricsRegistry, domainMetrics) <+> HistoryOutboxOpsRoutes(events.historyOutbox).routes
+>>>>>>> 966317ea (added bot container)
     val internalOpsRoutes =
       if config.migrationAdminEnabled then
         val token = config.migrationAdminToken.getOrElse(
@@ -98,6 +111,15 @@ object ServerWiring:
 
     val loggedApp: HttpApp[IO] =
       HttpRequestLoggingMiddleware(composedApp)
+<<<<<<< HEAD
+=======
+
+    val instrumentedApp: HttpApp[IO] =
+      HttpMetricsMiddleware(metricsRegistry, loggedApp)
+
+    val httpApp: HttpApp[IO] =
+      CorsMiddleware(config.cors, instrumentedApp)
+>>>>>>> 966317ea (added bot container)
 
     val instrumentedApp: HttpApp[IO] =
       HttpMetricsMiddleware(metricsRegistry, loggedApp)

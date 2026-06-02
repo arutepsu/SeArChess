@@ -12,6 +12,8 @@ import scala.util.control.NonFatal
 import chess.domain.model.{Color, GameStatus, Move, Piece, PieceType, Position}
 import chess.domain.rules.GameStateRules
 import chess.domain.state.GameStateFactory
+import com.sun.net.httpserver.{HttpServer, HttpHandler, HttpExchange}
+import java.net.InetSocketAddress
 
 /** Lichess Bot client to connect to the Lichess API using sttp (for requests) and Java HttpClient
   * (for ND-JSON streaming) along with ujson for parsing.
@@ -45,6 +47,11 @@ class LichessBot(val token: String)(implicit ec: ExecutionContext) {
 
   // Cache to track if the bot has already sent the end game message
   private val finishedGames = new ConcurrentHashMap[String, java.lang.Boolean]()
+
+  @volatile private var isActive: Boolean = false
+  @volatile private var currentInputStream: Option[InputStream] = None
+  @volatile private var botIdOpt: Option[String] = None
+  private val activeGameStreams = new ConcurrentHashMap[String, InputStream]()
 
   /** Sends a chat message to the game chat room.
     */
@@ -90,13 +97,120 @@ class LichessBot(val token: String)(implicit ec: ExecutionContext) {
   def start(): Unit = {
     println("[LichessBot] Loading account details...")
     val botId = fetchBotId()
+    botIdOpt = Some(botId)
     println(s"[LichessBot] Successfully logged in as bot ID: $botId")
 
     println("[LichessBot] Starting WebSocket Server on port 9323...")
     wsServer.start()
 
-    println("[LichessBot] Starting event stream listening...")
-    connectToEventStream(botId)
+    println("[LichessBot] Starting HTTP Server on port 9324...")
+    startHttpServer()
+  }
+
+  private def startHttpServer(): Unit = {
+    val server = HttpServer.create(new InetSocketAddress(9324), 0)
+
+    val corsHandler = new HttpHandler {
+      override def handle(exchange: HttpExchange): Unit = {
+        exchange.getResponseHeaders.add("Access-Control-Allow-Origin", "*")
+        exchange.getResponseHeaders.add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        exchange.getResponseHeaders.add("Access-Control-Allow-Headers", "Content-Type")
+
+        if (exchange.getRequestMethod == "OPTIONS") {
+          exchange.sendResponseHeaders(204, -1)
+          exchange.close()
+        } else {
+          val path = exchange.getRequestURI.getPath
+          path match {
+            case "/api/bot/status" =>
+              val statusStr = if (isActive) "running" else "stopped"
+              val response = ujson.Obj(
+                "status" -> statusStr,
+                "logs" -> ujson.Arr(
+                  "[LichessBot] Bot is running permanently in container.",
+                  s"[LichessBot] Stream state: ${if (isActive) "Active" else "Inactive"}"
+                )
+              )
+              sendJsonResponse(exchange, 200, response)
+
+            case "/api/bot/activate" if exchange.getRequestMethod == "POST" =>
+              activate()
+              val response = ujson.Obj("status" -> "running")
+              sendJsonResponse(exchange, 200, response)
+
+            case "/api/bot/deactivate" if exchange.getRequestMethod == "POST" =>
+              deactivate()
+              val response = ujson.Obj("status" -> "stopped")
+              sendJsonResponse(exchange, 200, response)
+
+            case _ =>
+              exchange.sendResponseHeaders(404, -1)
+              exchange.close()
+          }
+        }
+      }
+    }
+
+    server.createContext("/api/bot/status", corsHandler)
+    server.createContext("/api/bot/activate", corsHandler)
+    server.createContext("/api/bot/deactivate", corsHandler)
+
+    server.setExecutor(null)
+    server.start()
+    println("[LichessBot] HTTP Server started on port 9324")
+  }
+
+  private def sendJsonResponse(exchange: HttpExchange, statusCode: Int, json: ujson.Value): Unit = {
+    exchange.getResponseHeaders.add("Content-Type", "application/json")
+    val bytes = ujson.write(json).getBytes("UTF-8")
+    exchange.sendResponseHeaders(statusCode, bytes.length)
+    val os = exchange.getResponseBody
+    try {
+      os.write(bytes)
+    } finally {
+      os.close()
+    }
+  }
+
+  def activate(): Unit = synchronized {
+    if (!isActive) {
+      println("[LichessBot] Activating bot event stream connection...")
+      isActive = true
+      botIdOpt.foreach { botId =>
+        val _ = Future {
+          try {
+            connectToEventStream(botId)
+          } catch {
+            case NonFatal(e) =>
+              println(s"[LichessBot] connectToEventStream exited with error: ${e.getMessage}")
+          }
+        }
+      }
+    }
+  }
+
+  def deactivate(): Unit = synchronized {
+    if (isActive) {
+      println("[LichessBot] Deactivating bot event stream connection...")
+      isActive = false
+      currentInputStream.foreach { is =>
+        try {
+          is.close()
+        } catch {
+          case NonFatal(e) => println(s"[LichessBot] Error closing event stream input stream: ${e.getMessage}")
+        }
+      }
+      currentInputStream = None
+
+      activeGameStreams.forEach { (gameId, is) =>
+        try {
+          is.close()
+        } catch {
+          case NonFatal(e) => println(s"[LichessBot] Error closing game stream input stream for $gameId: ${e.getMessage}")
+        }
+      }
+      activeGameStreams.clear()
+    }
   }
 
   /** Fetches the profile account data of the bot to dynamically determine its username/id.
@@ -120,6 +234,8 @@ class LichessBot(val token: String)(implicit ec: ExecutionContext) {
   /** Starts a persistent connection to the Lichess Event Stream.
     */
   private def connectToEventStream(botId: String): Unit = {
+    if (!isActive) return
+
     val request = HttpRequest
       .newBuilder()
       .uri(URI.create("https://lichess.org/api/stream/event"))
@@ -130,27 +246,34 @@ class LichessBot(val token: String)(implicit ec: ExecutionContext) {
     try {
       val response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream())
       if (response.statusCode() == 200) {
-        val reader = new BufferedReader(new InputStreamReader(response.body(), "UTF-8"))
+        val stream = response.body()
+        currentInputStream = Some(stream)
+        val reader = new BufferedReader(new InputStreamReader(stream, "UTF-8"))
         try {
           readEventLines(reader, botId)
         } finally {
           reader.close()
-          response.body().close()
+          stream.close()
+          currentInputStream = None
         }
       } else {
         println(
           s"[LichessBot] Event Stream returned status ${response.statusCode()}. Reconnecting in 5 seconds..."
         )
         Thread.sleep(5000)
-        connectToEventStream(botId)
+        if (isActive) connectToEventStream(botId)
       }
     } catch {
       case NonFatal(e) =>
-        println(
-          s"[LichessBot] Event Stream disconnected: ${e.getMessage}. Reconnecting in 5 seconds..."
-        )
-        Thread.sleep(5000)
-        connectToEventStream(botId)
+        if (isActive) {
+          println(
+            s"[LichessBot] Event Stream disconnected: ${e.getMessage}. Reconnecting in 5 seconds..."
+          )
+          Thread.sleep(5000)
+          if (isActive) connectToEventStream(botId)
+        } else {
+          println("[LichessBot] Event Stream disconnected via deactivation.")
+        }
     }
   }
 
@@ -159,6 +282,7 @@ class LichessBot(val token: String)(implicit ec: ExecutionContext) {
     */
   @scala.annotation.tailrec
   private def readEventLines(reader: BufferedReader, botId: String): Unit = {
+    if (!isActive) return
     val line = reader.readLine()
     if (line != null) {
       val trimmed = line.trim
@@ -228,6 +352,8 @@ class LichessBot(val token: String)(implicit ec: ExecutionContext) {
   /** Connects to a specific game's stream and processes move updates.
     */
   private def connectToGameStream(gameId: String, botId: String): Unit = {
+    if (!isActive) return
+
     val request = HttpRequest
       .newBuilder()
       .uri(URI.create(s"https://lichess.org/api/bot/game/stream/$gameId"))
@@ -238,12 +364,15 @@ class LichessBot(val token: String)(implicit ec: ExecutionContext) {
     try {
       val response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream())
       if (response.statusCode() == 200) {
-        val reader = new BufferedReader(new InputStreamReader(response.body(), "UTF-8"))
+        val stream = response.body()
+        activeGameStreams.put(gameId, stream)
+        val reader = new BufferedReader(new InputStreamReader(stream, "UTF-8"))
         try {
           readGameLines(reader, gameId, botId, isWhite = false)
         } finally {
           reader.close()
-          response.body().close()
+          stream.close()
+          activeGameStreams.remove(gameId)
           val _ = lastMovesCountMap.remove(gameId)
           val _ = activeGames.remove(gameId)
           println(s"[LichessBot] [Game $gameId] Stream closed.")
@@ -253,7 +382,11 @@ class LichessBot(val token: String)(implicit ec: ExecutionContext) {
       }
     } catch {
       case NonFatal(e) =>
-        println(s"[LichessBot] [Game $gameId] Failed to connect to game stream: ${e.getMessage}")
+        if (isActive) {
+          println(s"[LichessBot] [Game $gameId] Failed to connect to game stream: ${e.getMessage}")
+        } else {
+          println(s"[LichessBot] [Game $gameId] Game stream closed due to deactivation.")
+        }
     }
   }
 
@@ -266,6 +399,7 @@ class LichessBot(val token: String)(implicit ec: ExecutionContext) {
       botId: String,
       isWhite: Boolean
   ): Unit = {
+    if (!isActive) return
     val line = reader.readLine()
     if (line != null) {
       val trimmed = line.trim
@@ -330,9 +464,11 @@ class LichessBot(val token: String)(implicit ec: ExecutionContext) {
           }
         } catch {
           case NonFatal(e) =>
-            println(
-              s"[LichessBot] [Game $gameId] Error parsing game stream line: $trimmed, error: ${e.getMessage}"
-            )
+            if (isActive) {
+              println(
+                s"[LichessBot] [Game $gameId] Error parsing game stream line: $trimmed, error: ${e.getMessage}"
+              )
+            }
             isWhite
         }
       } else {
@@ -583,7 +719,7 @@ class LichessBot(val token: String)(implicit ec: ExecutionContext) {
 
 object LichessBotMain {
   // Hinterlegen Sie hier Ihren Lichess-API-Token
-  val token = Option(System.getenv("LICHESS_BOT_TOKEN")).getOrElse("LICHES_TOKEN_HERE")
+  val token = Option(System.getenv("LICHESS_BOT_TOKEN")).getOrElse("")
 
   def main(args: Array[String]): Unit = {
     implicit val ec: ExecutionContext = ExecutionContext.global

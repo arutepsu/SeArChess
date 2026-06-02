@@ -52,6 +52,7 @@ class Http4sGameRoutes(
     gameService: GameServiceApi,
     metrics: DomainMetricsRegistry = new DomainMetricsRegistry()
 ):
+<<<<<<< HEAD
 =======
  *
  *  Routes:
@@ -74,6 +75,8 @@ class Http4sGameRoutes(
  */
 class Http4sGameRoutes(gameService: GameServiceApi):
 >>>>>>> 14542117 (fix ai flow)
+=======
+>>>>>>> 966317ea (added bot container)
 
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
 

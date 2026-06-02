@@ -23,6 +23,7 @@ final case class HistoryServiceConfig(
     redisStream: String = "searchess.history.archives",
     redisGroup: String = "history-service",
     redisConsumerName: String = defaultConsumerName()
+<<<<<<< HEAD
 =======
 final case class HistoryServiceConfig(
 <<<<<<< HEAD
@@ -40,6 +41,8 @@ final case class HistoryServiceConfig(
   timeoutMillis:             Int,
   acceptLegacyIngestionPath: Boolean
 >>>>>>> ce08c01e (local microservices)
+=======
+>>>>>>> 966317ea (added bot container)
 )
 
 object HistoryServiceConfig:
@@ -99,6 +102,7 @@ object HistoryServiceConfig:
       redisStream               = redisStream,
       redisGroup                = redisGroup,
       redisConsumerName         = redisConsumer
+<<<<<<< HEAD
     )
 
   private def parseDeliveryMode(raw: (String, String)): Either[String, HistoryDeliveryMode] =
@@ -175,14 +179,68 @@ object HistoryServiceConfig:
       dbPath                    = dbPath,
       timeoutMillis             = timeout,
       acceptLegacyIngestionPath = legacy
+=======
+>>>>>>> 966317ea (added bot container)
     )
+
+  private def parseDeliveryMode(raw: (String, String)): Either[String, HistoryDeliveryMode] =
+    val (value, name) = raw
+    value.trim.toLowerCase match
+      case "http"                         => Right(HistoryDeliveryMode.Http)
+      case "redis-stream" | "redisstream" => Right(HistoryDeliveryMode.RedisStream)
+      case other                          => Left(s"$name must be 'http' or 'redis-stream', got: '$other'")
+
+  private final case class RedisEndpoint(url: String, host: String, port: Int)
+
+  private def parseRedisEndpoint(
+      url: Option[String],
+      host: Option[String],
+      rawPort: String
+  ): Either[String, Option[RedisEndpoint]] =
+    url.map(_.trim).filter(_.nonEmpty) match
+      case Some(value) =>
+        try
+          val uri  = java.net.URI(value)
+          val port = if uri.getPort == -1 then 6379 else uri.getPort
+          Option(uri.getHost).filter(_.nonEmpty) match
+            case Some(h) => Right(Some(RedisEndpoint(value, h, port)))
+            case None    => Left(s"HISTORY_REDIS_URL must include a host, got: '$value'")
+        catch case _: java.net.URISyntaxException => Left(s"HISTORY_REDIS_URL is invalid: '$value'")
+      case None =>
+        host.map(_.trim).filter(_.nonEmpty) match
+          case Some(h) => parsePort("REDIS_PORT", rawPort).map(p => Some(RedisEndpoint(s"redis://$h:$p", h, p)))
+          case None    => Right(None)
+
+  private def validateRedisConfig(
+      mode: HistoryDeliveryMode,
+      endpoint: Option[RedisEndpoint],
+      stream: String,
+      group: String,
+      consumer: String
+  ): Either[String, Unit] =
+    mode match
+      case HistoryDeliveryMode.Http => Right(())
+      case HistoryDeliveryMode.RedisStream =>
+        if endpoint.isEmpty then Left("HISTORY_REDIS_URL or REDIS_HOST is required when HISTORY_INGESTION_MODE=redis-stream")
+        else if stream.isEmpty then Left("HISTORY_REDIS_STREAM is required when HISTORY_INGESTION_MODE=redis-stream")
+        else if group.isEmpty then Left("HISTORY_REDIS_GROUP is required when HISTORY_INGESTION_MODE=redis-stream")
+        else if consumer.isEmpty then Left("HISTORY_REDIS_CONSUMER_NAME must not be blank when HISTORY_INGESTION_MODE=redis-stream")
+        else Right(())
+
+  private def defaultConsumerName(): String =
+    Option(System.getenv("HOSTNAME")).map(_.trim).filter(_.nonEmpty).getOrElse("history-service-1")
 
   private def parsePort(name: String, value: String): Either[String, Int] =
     value.toIntOption match
       case Some(p) if p >= 1 && p <= 65535 => Right(p)
+<<<<<<< HEAD
       case Some(p) => Left(s"$name must be between 1 and 65535, got: $p")
       case None => Left(s"$name must be an integer, got: '$value'")
 >>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
+=======
+      case Some(p)                          => Left(s"$name must be between 1 and 65535, got: $p")
+      case None                             => Left(s"$name must be an integer, got: '$value'")
+>>>>>>> 966317ea (added bot container)
 
   private def parsePositiveInt(name: String, value: String): Either[String, Int] =
     value.toIntOption match
