@@ -4,9 +4,12 @@ import chess.application.event.AppEvent
 import chess.application.session.model.{SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import chess.domain.model.{Color, DrawReason, GameStatus}
+import org.scalatest.Assertions.cancel
 import org.scalatest.BeforeAndAfterAll
+import org.scalatest.Outcome
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.testcontainers.DockerClientFactory
 import org.testcontainers.containers.GenericContainer
 import redis.clients.jedis.{Jedis, JedisPooled, StreamEntryID}
 import redis.clients.jedis.params.XReadParams
@@ -18,9 +21,26 @@ class RedisStreamHistoryPublisherSpec extends AnyFlatSpec with Matchers with Bef
     withExposedPorts(6379)
 
   private val container = new RedisC
+  private var started = false
 
-  override def beforeAll(): Unit = container.start()
-  override def afterAll(): Unit  = container.stop()
+  override protected def withFixture(test: NoArgTest): Outcome =
+    if requiresContainer(test.name) && !DockerClientFactory.instance().isDockerAvailable
+    then cancel("Docker/Testcontainers unavailable; skipping Redis stream publisher integration tests")
+    startContainerIfNeeded(test.name)
+    super.withFixture(test)
+
+  private def requiresContainer(testName: String): Boolean =
+    !testName.contains("absorb Redis connection errors")
+
+  private def startContainerIfNeeded(testName: String): Unit =
+    if requiresContainer(testName) && !started then
+      container.start()
+      started = true
+
+  override def afterAll(): Unit =
+    if started then
+      container.stop()
+      started = false
 
   private def host = container.getHost
   private def port = container.getMappedPort(6379)

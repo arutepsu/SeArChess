@@ -13,6 +13,7 @@ import chess.application.migration.SessionMigrationReader
 import chess.application.port.repository.{GameRepository, SessionGameStore, SessionRepository}
 import com.mongodb.client.MongoClients
 import org.bson.Document
+import org.testcontainers.DockerClientFactory
 import org.testcontainers.containers.MongoDBContainer
 import org.testcontainers.utility.DockerImageName
 
@@ -25,14 +26,22 @@ final class SearchessMongoContainer
 final class MongoTestcontainerFixture:
   private val container = SearchessMongoContainer()
   private val closeActions = ListBuffer.empty[() => Unit]
+  private var started = false
+
+  def isDockerAvailable: Boolean =
+    DockerClientFactory.instance().isDockerAvailable
 
   def start(): Unit =
-    container.start()
+    if !started then
+      container.start()
+      started = true
 
   def stop(): Unit =
-    closeActions.reverse.foreach(close => close())
-    closeActions.clear()
-    container.stop()
+    if started then
+      closeActions.reverse.foreach(close => close())
+      closeActions.clear()
+      container.stop()
+      started = false
 
   def connectionString: String = container.getConnectionString
 

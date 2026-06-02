@@ -7,10 +7,13 @@ import chess.domain.model.Color
 import chess.history.ArchiveRecord
 import chess.history.postgres.HistoryFlywaySchemaInitializer
 import org.scalatest.BeforeAndAfterAll
+import org.scalatest.Assertions.cancel
 import org.scalatest.EitherValues.*
 import org.scalatest.OptionValues.*
+import org.scalatest.Outcome
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.testcontainers.DockerClientFactory
 import org.testcontainers.containers.PostgreSQLContainer
 import slick.jdbc.PostgresProfile.api.Database
 import java.time.Instant
@@ -23,9 +26,22 @@ class SlickPostgresArchiveRepositorySpec extends AnyFlatSpec with Matchers with 
   private val container = new PostgreSQLContainer("postgres:16")
   private var db: Database                            = scala.compiletime.uninitialized
   private var repo: SlickPostgresArchiveRepository    = scala.compiletime.uninitialized
+  private var started: Boolean                        = false
 
-  override def beforeAll(): Unit =
-    container.start()
+  override protected def withFixture(test: NoArgTest): Outcome =
+    if !DockerClientFactory.instance().isDockerAvailable then
+      cancel("Docker/Testcontainers unavailable; skipping PostgreSQL archive repository integration tests")
+    startContainer()
+    super.withFixture(test)
+
+  private def startContainer(): Unit =
+    if started then ()
+    else
+      container.start()
+      started = true
+      initializeRepository()
+
+  private def initializeRepository(): Unit =
     Class.forName("org.postgresql.Driver")
     val conn = DriverManager.getConnection(container.getJdbcUrl, container.getUsername, container.getPassword)
     try
@@ -46,8 +62,10 @@ class SlickPostgresArchiveRepositorySpec extends AnyFlatSpec with Matchers with 
     repo = SlickPostgresArchiveRepository(db, Some(HistorySchema))
 
   override def afterAll(): Unit =
-    db.close()
-    container.stop()
+    if started then
+      db.close()
+      container.stop()
+      started = false
 
   private def sampleRecord(gameId: GameId): ArchiveRecord = ArchiveRecord(
     gameId          = gameId,
