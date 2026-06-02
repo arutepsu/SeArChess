@@ -1,9 +1,5 @@
-<<<<<<< HEAD
 import { useState } from "react";
 import type { GameState, PlayableGameMode, PlayerColor } from "../api/types";
-=======
-import type { GameState, PlayerColor, SessionMode } from "../api/types";
->>>>>>> 3bfa20a2 (polish web ui)
 import "./ControlPanel.css";
 
 type ControlPanelProps = {
@@ -13,7 +9,6 @@ type ControlPanelProps = {
   blackTimeMs?: number;
   activeColor?: PlayerColor;
   clockRunning?: boolean;
-<<<<<<< HEAD
   gameMode: PlayableGameMode;
   canResign: boolean;
   sessionId?: string;
@@ -28,14 +23,6 @@ type ControlPanelProps = {
   onResign: () => void;
   onBackToMenu: () => void;
   onOpenHeatmap: () => void;
-<<<<<<< HEAD
-=======
-  gameMode: SessionMode;
-  onGameModeChange: (mode: SessionMode) => void;
-  onNewGame: () => void;
->>>>>>> 3bfa20a2 (polish web ui)
-=======
->>>>>>> 966317ea (added bot container)
 };
 
 const formatTime = (ms?: number) => {
@@ -66,10 +53,6 @@ export default function ControlPanel({
   blackTimeMs,
   activeColor,
   clockRunning,
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 966317ea (added bot container)
   canResign,
   sessionId,
   gameId,
@@ -80,11 +63,6 @@ export default function ControlPanel({
   onResign,
   onBackToMenu,
   onOpenHeatmap
-=======
-  gameMode,
-  onGameModeChange,
-  onNewGame
->>>>>>> 3bfa20a2 (polish web ui)
 }: ControlPanelProps) {
   const whiteActive = activeColor === "white" && clockRunning;
   const blackActive = activeColor === "black" && clockRunning;
@@ -366,7 +344,6 @@ export default function ControlPanel({
       </div>
 
       <div className="actions">
-<<<<<<< HEAD
 
         <button type="button" disabled={!gameId || busy} onClick={onOpenHeatmap}>
           Heatmap
@@ -379,22 +356,6 @@ export default function ControlPanel({
         <button type="button" disabled={busy} onClick={onBackToMenu}>
           Back to Menu
         </button>
-=======
-        <label className="mode-select">
-          <span className="label">Mode</span>
-          <select
-            value={gameMode}
-            disabled={busy}
-            onChange={(event) => onGameModeChange(event.target.value as SessionMode)}
-          >
-            <option value="HumanVsHuman">Human vs Human</option>
-            <option value="HumanVsAI">Human vs AI</option>
-          </select>
-        </label>
-        <button type="button" disabled={busy} onClick={onNewGame}>
-          New Game
-        </button>
->>>>>>> 3bfa20a2 (polish web ui)
       </div>
     </section>
   );
