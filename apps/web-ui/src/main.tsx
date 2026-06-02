@@ -11,10 +11,6 @@ if (!container) {
   throw new Error("Missing #app root element");
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 966317ea (added bot container)
 keycloak
   .init({ onLoad: "login-required", pkceMethod: "S256" })
   .then((authenticated: boolean) => {
@@ -24,31 +20,21 @@ keycloak
       void keycloak.updateToken(30).catch(() => void keycloak.login());
     };
 
-    createRoot(container).render(
-      <BrowserRouter>
-        <SessionProvider>
-          <App />
-        </SessionProvider>
-      </BrowserRouter>
-    );
+    const root = createRoot(container);
+
+    if (window.location.pathname === "/admin/persistence") {
+      root.render(<PersistenceAdminPage onBack={() => { window.location.href = "/"; }} />);
+    } else {
+      root.render(
+        <BrowserRouter>
+          <SessionProvider>
+            <App />
+          </SessionProvider>
+        </BrowserRouter>
+      );
+    }
   })
   .catch(() => {
     container.textContent =
       "Auth initialization failed. Is Keycloak running on http://localhost:8080?";
   });
-<<<<<<< HEAD
-=======
-const root = createRoot(container);
-
-if (window.location.pathname === "/admin/persistence") {
-  root.render(<PersistenceAdminPage onBack={() => { window.location.href = "/"; }} />);
-} else {
-  root.render(
-    <SessionProvider>
-      <App />
-    </SessionProvider>
-  );
-}
->>>>>>> 2b1aa125 (real migration ok)
-=======
->>>>>>> 966317ea (added bot container)

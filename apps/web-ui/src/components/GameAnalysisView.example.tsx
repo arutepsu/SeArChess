@@ -5,7 +5,7 @@
  * This is a template demonstrating the integration pattern.
  */
 
-import React from "react";
+
 import { HeatmapPanel } from "../components/HeatmapPanel";
 import { useHeatmapStats } from "../game/useHeatmapStats";
 import type { GameSnapshot } from "../api/backendTypes";
@@ -72,48 +72,4 @@ export function GameAnalysisView({
     );
 }
 
-/* Suggested CSS for the analysis view */
-const analysisStyles = `
-  .game-analysis-container {
-    padding: 2rem;
-    max-width: 1400px;
-    margin: 0 auto;
-  }
 
-  .game-analysis-container h2 {
-    margin-bottom: 1.5rem;
-    color: #1a1a1a;
-  }
-
-  .heatmap-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
-    gap: 2rem;
-    margin-bottom: 2rem;
-  }
-
-  .heatmap-section {
-    flex: 1;
-  }
-
-  .heatmap-section h3 {
-    margin-bottom: 1rem;
-    color: #333;
-    font-size: 1.1rem;
-  }
-
-  .analysis-info {
-    background: #e3f2fd;
-    border-left: 4px solid #2196f3;
-    padding: 1rem;
-    border-radius: 4px;
-    color: #1565c0;
-    font-size: 0.95rem;
-  }
-
-  @media (max-width: 1024px) {
-    .heatmap-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-`;

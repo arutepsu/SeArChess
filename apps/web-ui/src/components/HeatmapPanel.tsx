@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import type { HeatmapResponse } from "../api/backendTypes";
 import "./HeatmapPanel.css";
 

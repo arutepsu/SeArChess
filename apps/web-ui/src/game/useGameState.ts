@@ -34,16 +34,7 @@ import { planAnimation } from "../animation/planAnimation";
 import { useSession } from "../session/SessionProvider";
 import type { SessionContext } from "../session/sessionStore";
 
-const promotionChoices: Record<string, string> = {
-  q: "Queen",
-  queen: "Queen",
-  r: "Rook",
-  rook: "Rook",
-  b: "Bishop",
-  bishop: "Bishop",
-  n: "Knight",
-  knight: "Knight"
-};
+
 
 function isTerminal(game: GameState): boolean {
   return (
@@ -342,7 +333,7 @@ export function useGameState(): UseGameStateReturn {
           if (thisGen !== generation.current) return;
           commitGameSnapshot(response.game);
           void refreshNotation(game.id, thisGen);
-          setSession(prev => prev ? { ...prev, lifecycle: response.sessionLifecycle } : null);
+          setSession(session ? { ...session, lifecycle: response.sessionLifecycle } : null);
           setMessageState(undefined);
         })
         .catch(error => {
@@ -448,7 +439,7 @@ export function useGameState(): UseGameStateReturn {
 
         if (thisGen !== generation.current) return;
 
-        const nextGame = commitGameSnapshot(response.game, {
+        commitGameSnapshot(response.game, {
           previousBoard: prevBoard
         });
 

@@ -15,11 +15,7 @@ import type {
 } from "./types";
 import { squareToIndex } from "../domain/board";
 
-<<<<<<< HEAD
 function mapPieceCode(color: Color, pieceType: PieceType): PieceCode | null {
-=======
-function mapPieceCode(color: string, pieceType: string): PieceCode | null {
->>>>>>> ce08c01e (local microservices)
   const prefix = color === "White" ? "w" : color === "Black" ? "b" : null;
   if (!prefix) return null;
 
@@ -60,11 +56,7 @@ function mapStatus(status: BackendGameStatus, inCheck: boolean): GameStatus {
   return inCheck ? "check" : "active";
 }
 
-<<<<<<< HEAD
 function mapColor(color: Color | null): PlayerColor | undefined {
-=======
-function mapColor(color: string | null): PlayerColor | undefined {
->>>>>>> 3bfa20a2 (polish web ui)
   if (color === "White") return "white";
   if (color === "Black") return "black";
   return undefined;

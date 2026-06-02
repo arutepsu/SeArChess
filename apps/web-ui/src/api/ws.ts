@@ -10,17 +10,8 @@ export interface WsClient {
 }
 
 export function connectWebSocket(handlers: {
-<<<<<<< HEAD
-<<<<<<< HEAD
   gameId: string;
   getSessionId?: () => string | null;
-=======
-  getSessionId: () => string | null;
->>>>>>> ce08c01e (local microservices)
-=======
-  gameId: string;
-  getSessionId?: () => string | null;
->>>>>>> 3bfa20a2 (polish web ui)
   onOpen?: () => void;
   onClose?: () => void;
   onError?: (event: Event) => void;
@@ -44,31 +35,12 @@ export function connectWebSocket(handlers: {
   socket.onmessage = (messageEvent) => {
     try {
       const parsed = JSON.parse(messageEvent.data) as WsEvent;
-<<<<<<< HEAD
-<<<<<<< HEAD
       if (parsed.gameId !== handlers.gameId) {
         return;
       }
 
       const sessionId = handlers.getSessionId?.();
       if (sessionId && parsed.sessionId !== sessionId) {
-=======
-      const sessionId = handlers.getSessionId();
-
-      if (!sessionId) {
-        return;
-      }
-
-      if (parsed.sessionId !== sessionId) {
->>>>>>> ce08c01e (local microservices)
-=======
-      if (parsed.gameId !== handlers.gameId) {
-        return;
-      }
-
-      const sessionId = handlers.getSessionId?.();
-      if (sessionId && parsed.sessionId !== sessionId) {
->>>>>>> 3bfa20a2 (polish web ui)
         return;
       }
 
