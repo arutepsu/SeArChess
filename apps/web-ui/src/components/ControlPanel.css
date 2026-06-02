@@ -167,6 +167,46 @@
   color: #ff9d9d;
 }
 
+.control-panel .ai-turn-runner {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid rgba(129, 194, 255, 0.28);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.control-panel .ai-turn-runner label {
+  color: #d6c6b2;
+  font-size: 0.78rem;
+}
+
+.control-panel .ai-turn-runner input {
+  width: 100%;
+  border: 1px solid #5a3a3a;
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: rgba(0, 0, 0, 0.3);
+  color: #f0e6d2;
+  font-family: 'Courier New', monospace;
+}
+
+.control-panel .ai-turn-result,
+.control-panel .ai-turn-error {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.control-panel .ai-turn-result {
+  color: #baf0c3;
+}
+
+.control-panel .ai-turn-error {
+  color: #ff9d9d;
+}
+
 /* --- Notation display --- */
 .control-panel .notation {
   display: grid;

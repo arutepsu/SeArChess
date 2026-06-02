@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { PlayableGameMode } from "../api/types";
+import { gameModes, isPlayableGameMode, type GameModeId } from "../gameModes";
 import ResumeGamePanel from "./ResumeGamePanel.tsx";
 import "./Homepage.css";
 
@@ -22,33 +23,41 @@ export default function Homepage({ hasActiveGame, busy, onStart, onContinueActiv
           <p className="homepage-subtitle">Wähle deinen Spielmodus, um zu beginnen.</p>
         </header>
 
-        <div className="mode-selection">
-          <button
-            type="button"
-            className={`mode-btn ${mode === "HumanVsHuman" ? "is-active" : ""}`}
-            onClick={() => setMode("HumanVsHuman")}
-          >
-            Mensch vs Mensch
-          </button>
-          <button
-            type="button"
-            className={`mode-btn ${mode === "HumanVsAI" ? "is-active" : ""}`}
-            onClick={() => setMode("HumanVsAI")}
-          >
-            Mensch vs AI
-          </button>
-          <button
-            type="button"
-            className={`mode-btn ${mode === "AIVsAI" ? "is-active" : ""}`}
-            onClick={() => setMode("AIVsAI")}
-          >
-            AI vs AI
-          </button>
+        <div className="mode-selection" aria-label="Game modes">
+          {gameModes.map((item) => {
+            const selected = item.id === mode;
+            const startMode = (id: GameModeId) => {
+              if (isPlayableGameMode(id)) {
+                setMode(id);
+              }
+            };
+
+            return (
+              <article
+                key={item.id}
+                className={`mode-card ${selected ? "is-active" : ""} ${item.active ? "" : "is-disabled"}`}
+              >
+                <header>
+                  <h2>{item.title}</h2>
+                  <span>{item.active ? "Available" : "Coming Next"}</span>
+                </header>
+                <p>{item.summary}</p>
+                <button
+                  type="button"
+                  disabled={busy || !item.active}
+                  onClick={() => startMode(item.id)}
+                >
+                  {item.startLabel}
+                </button>
+              </article>
+            );
+          })}
         </div>
 
         <button
           className="start-btn"
           type="button"
+          disabled={busy}
           onClick={() => onStart(mode)}
         >
           Spiel Starten

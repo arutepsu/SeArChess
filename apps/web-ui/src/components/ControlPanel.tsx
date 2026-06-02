@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { GameState, PlayableGameMode, PlayerColor } from "../api/types";
+import type { RunAiTurnsResponse } from "../api/backendTypes";
 import "./ControlPanel.css";
 
 type ControlPanelProps = {
@@ -21,6 +22,7 @@ type ControlPanelProps = {
   onNewGame: () => void;
   onSaveSession: () => Promise<void>;
   onResign: () => void;
+  onRunAiTurns: (maxPlies: number) => Promise<RunAiTurnsResponse>;
   onBackToMenu: () => void;
   onOpenHeatmap: () => void;
 };
@@ -53,6 +55,7 @@ export default function ControlPanel({
   blackTimeMs,
   activeColor,
   clockRunning,
+  gameMode,
   canResign,
   sessionId,
   gameId,
@@ -61,6 +64,7 @@ export default function ControlPanel({
   onImportNotation,
   onSaveSession,
   onResign,
+  onRunAiTurns,
   onBackToMenu,
   onOpenHeatmap
 }: ControlPanelProps) {
@@ -80,6 +84,9 @@ export default function ControlPanel({
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [notationFormat, setNotationFormat] = useState<"FEN" | "PGN">("FEN");
+  const [aiMaxPlies, setAiMaxPlies] = useState(20);
+  const [aiRunResult, setAiRunResult] = useState<RunAiTurnsResponse | null>(null);
+  const [aiRunError, setAiRunError] = useState<string | null>(null);
 
   const readNotationFile = async (
     file: File | undefined,
@@ -131,6 +138,18 @@ export default function ControlPanel({
       setSaveError(
         error instanceof Error ? error.message : "Session save failed."
       );
+    }
+  };
+
+  const runAiTurnBatch = async () => {
+    setAiRunResult(null);
+    setAiRunError(null);
+
+    try {
+      const result = await onRunAiTurns(aiMaxPlies);
+      setAiRunResult(result);
+    } catch (error) {
+      setAiRunError(error instanceof Error ? error.message : "AI turn run failed.");
     }
   };
 
@@ -213,6 +232,39 @@ export default function ControlPanel({
           <p className="session-save-error">{saveError}</p>
         ) : null}
       </div>
+
+      {gameMode === "AIVsAI" ? (
+        <div className="ai-turn-runner">
+          <span className="label">AI vs AI control</span>
+          <label htmlFor="ai-max-plies">Max plies</label>
+          <input
+            id="ai-max-plies"
+            type="number"
+            min={1}
+            max={1000}
+            step={1}
+            value={aiMaxPlies}
+            disabled={busy}
+            onChange={(event) => {
+              const next = Number(event.currentTarget.value);
+              setAiMaxPlies(Number.isFinite(next) ? next : 20);
+            }}
+          />
+          <button
+            type="button"
+            disabled={busy || !gameId || !game}
+            onClick={() => void runAiTurnBatch()}
+          >
+            Run AI Turns
+          </button>
+          {aiRunResult ? (
+            <p className="ai-turn-result">
+              Plies run: {aiRunResult.pliesRun}. Stop: {aiRunResult.stopReason}.
+            </p>
+          ) : null}
+          {aiRunError ? <p className="ai-turn-error">{aiRunError}</p> : null}
+        </div>
+      ) : null}
 
 
       <div className="notation-format-select">

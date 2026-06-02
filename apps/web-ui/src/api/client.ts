@@ -11,6 +11,7 @@ import type {
   ImportNotationRequest,
   NotationTextResponse,
   ResignRequest,
+  RunAiTurnsResponse,
   SessionExportEnvelope,
   SessionListResponse,
   SessionStateResponse,
@@ -21,15 +22,40 @@ import keycloak from "../auth/keycloak";
 
 const DEFAULT_API_BASE = "http://localhost:10000";
 
-export const apiBaseUrl =
-  import.meta.env.VITE_API_BASE_URL?.toString() || DEFAULT_API_BASE;
+const devProxyTarget = import.meta.env.VITE_DEV_PROXY_TARGET?.toString().trim() ?? "";
+
+function configuredApiBaseUrl(): string {
+  if (devProxyTarget) return "";
+  if (import.meta.env.VITE_API_BASE_URL === undefined) return DEFAULT_API_BASE;
+  return import.meta.env.VITE_API_BASE_URL.toString().trim();
+}
+
+export const apiBaseUrl = configuredApiBaseUrl();
+
+function normalizePathPrefix(raw: unknown): string {
+  const value = raw?.toString().trim() ?? "";
+  if (!value || value === "/") return "";
+  const withLeadingSlash = value.startsWith("/") ? value : `/${value}`;
+  return withLeadingSlash.endsWith("/")
+    ? withLeadingSlash.slice(0, -1)
+    : withLeadingSlash;
+}
+
+export const apiPathPrefix = normalizePathPrefix(
+  import.meta.env.VITE_API_PATH_PREFIX
+);
+
+function apiPath(path: string): string {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${apiPathPrefix}${normalizedPath}`;
+}
 
 async function fetchJson<T>(path: string, options?: RequestInit): Promise<T> {
   const authHeaders: Record<string, string> = keycloak.token
     ? { Authorization: `Bearer ${keycloak.token}` }
     : {};
 
-  const response = await fetch(`${apiBaseUrl}${path}`, {
+  const response = await fetch(`${apiBaseUrl}${apiPath(path)}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -63,7 +89,7 @@ export async function getStatus(): Promise<HealthResponse> {
 }
 
 export async function getGameState(gameId: string): Promise<GameSnapshot> {
-  return fetchJson<GameSnapshot>(`/api/games/${gameId}`);
+  return fetchJson<GameSnapshot>(`/games/${gameId}`);
 }
 
 export async function getReplayFrame(
@@ -71,7 +97,7 @@ export async function getReplayFrame(
   ply: number
 ): Promise<ReplayFrameResponse> {
   return fetchJson<ReplayFrameResponse>(
-    `/api/games/${gameId}/replay?ply=${encodeURIComponent(ply.toString())}`
+    `/games/${gameId}/replay?ply=${encodeURIComponent(ply.toString())}`
   );
 }
 
@@ -87,11 +113,11 @@ export async function getGameNotation(
 }
 
 export async function exportFen(gameId: string): Promise<NotationTextResponse> {
-  return fetchJson<NotationTextResponse>(`/api/games/${gameId}/notation/fen`);
+  return fetchJson<NotationTextResponse>(`/games/${gameId}/notation/fen`);
 }
 
 export async function exportPgn(gameId: string): Promise<NotationTextResponse> {
-  return fetchJson<NotationTextResponse>(`/api/games/${gameId}/notation/pgn`);
+  return fetchJson<NotationTextResponse>(`/games/${gameId}/notation/pgn`);
 }
 
 export async function createGame(
@@ -103,15 +129,27 @@ export async function createGame(
   });
 }
 
+export function createHumanVsHuman(): Promise<CreateGameResponse> {
+  return createGame({ mode: "HumanVsHuman" });
+}
+
+export function createHumanVsAi(): Promise<CreateGameResponse> {
+  return createGame({ mode: "HumanVsAI" });
+}
+
+export function createAiVsAi(): Promise<CreateGameResponse> {
+  return createGame({ mode: "AIVsAI" });
+}
+
 function createGamePathForMode(mode?: CreateGameRequest["mode"]): string {
   switch (mode) {
     case "HumanVsAI":
-      return "/api/sessions/human-vs-ai";
+      return "/sessions/human-vs-ai";
     case "AIVsAI":
-      return "/api/sessions/ai-vs-ai";
+      return "/sessions/ai-vs-ai";
     case "HumanVsHuman":
     default:
-      return "/api/sessions/human-vs-human";
+      return "/sessions/human-vs-human";
   }
 }
 
@@ -124,7 +162,7 @@ export async function importGameFromNotation(
 export async function importNotation(
   payload: ImportNotationRequest
 ): Promise<CreateGameResponse> {
-  return fetchJson<CreateGameResponse>("/api/sessions/import-notation", {
+  return fetchJson<CreateGameResponse>("/sessions/import-notation", {
     method: "POST",
     body: JSON.stringify(payload)
   });
@@ -134,7 +172,7 @@ export async function submitMove(
   gameId: string,
   payload: SubmitMoveRequest
 ): Promise<CommandGameResponse> {
-  return fetchJson<CommandGameResponse>(`/api/games/${gameId}/moves`, {
+  return fetchJson<CommandGameResponse>(`/games/${gameId}/moves`, {
     method: "POST",
     body: JSON.stringify(payload)
   });
@@ -143,41 +181,53 @@ export async function submitMove(
 export async function requestAiMove(
   gameId: string
 ): Promise<CommandGameResponse> {
-  return fetchJson<CommandGameResponse>(`/api/games/${gameId}/ai-move`, {
+  return fetchJson<CommandGameResponse>(`/games/${gameId}/ai-move`, {
     method: "POST"
   });
+}
+
+export async function runAiTurns(
+  gameId: string,
+  maxPlies: number
+): Promise<RunAiTurnsResponse> {
+  return fetchJson<RunAiTurnsResponse>(
+    `/games/${gameId}/ai-turns?maxPlies=${encodeURIComponent(maxPlies.toString())}`,
+    {
+      method: "POST"
+    }
+  );
 }
 
 export async function resignGame(
   gameId: string,
   payload: ResignRequest
 ): Promise<CommandGameResponse> {
-  return fetchJson<CommandGameResponse>(`/api/games/${gameId}/resign`, {
+  return fetchJson<CommandGameResponse>(`/games/${gameId}/resign`, {
     method: "POST",
     body: JSON.stringify(payload)
   });
 }
 
 export async function listSessions(): Promise<SessionListResponse> {
-  return fetchJson<SessionListResponse>("/api/sessions");
+  return fetchJson<SessionListResponse>("/sessions");
 }
 
 export async function loadSessionState(
   sessionId: string
 ): Promise<SessionStateResponse> {
-  return fetchJson<SessionStateResponse>(`/api/sessions/${sessionId}/state`);
+  return fetchJson<SessionStateResponse>(`/sessions/${sessionId}/state`);
 }
 
 export async function exportSession(
   sessionId: string
 ): Promise<SessionExportEnvelope> {
-  return fetchJson<SessionExportEnvelope>(`/api/sessions/${sessionId}/export`);
+  return fetchJson<SessionExportEnvelope>(`/sessions/${sessionId}/export`);
 }
 
 export async function importSession(
   envelope: SessionExportEnvelope
 ): Promise<SessionStateResponse> {
-  return fetchJson<SessionStateResponse>("/api/sessions/import", {
+  return fetchJson<SessionStateResponse>("/sessions/import", {
     method: "POST",
     body: JSON.stringify(envelope)
   });
@@ -187,7 +237,7 @@ export async function saveSessionState(
   sessionId: string,
   state: SessionStateResponse
 ): Promise<SessionStateResponse> {
-  return fetchJson<SessionStateResponse>(`/api/sessions/${sessionId}/state`, {
+  return fetchJson<SessionStateResponse>(`/sessions/${sessionId}/state`, {
     method: "PUT",
     body: JSON.stringify(state)
   });
@@ -213,6 +263,6 @@ export async function getHeatmapStats(
   player: "White" | "Black"
 ): Promise<HeatmapResponse> {
   return fetchJson<HeatmapResponse>(
-    `/api/stats/heatmap?sessionId=${encodeURIComponent(gameId)}&player=${encodeURIComponent(player)}`
+    `/stats/heatmap?sessionId=${encodeURIComponent(gameId)}&player=${encodeURIComponent(player)}`
   );
 }

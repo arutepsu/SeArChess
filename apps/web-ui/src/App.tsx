@@ -17,7 +17,6 @@ import MoveList from "./components/MoveList.tsx";
 //import ResumeGamePanel from "./components/ResumeGamePanel.tsx";
 import SessionTransferPanel from "./components/SessionTransferPanel.tsx";
 import StatusBanner from "./components/StatusBanner.tsx";
-import StatusBanner from "./components/StatusBanner.tsx";
 import Homepage from "./components/Homepage.tsx";
 import BackgroundEffectsLayer from "./components/BackgroundEffectsLayer.tsx";
 import BackgroundPanel from "./components/BackgroundPanel.tsx";
@@ -36,6 +35,9 @@ const backgrounds = [
   { id: "sakura-grove", label: "Grove", url: "/assets/backgrounds/sakuratrees.jpg" },
   { id: "forest", label: "Forest", url: "/assets/backgrounds/new.jpg" }
 ];
+
+const lichessBotWsUrl =
+  import.meta.env.VITE_LICHESS_BOT_WS_URL?.toString().trim() ?? "";
 
 function isGameStateRefreshHint(event: WsEvent): boolean {
   switch (event.eventType) {
@@ -177,6 +179,7 @@ export default function App() {
     selectedSquare,
     legalMoves,
     busy,
+    message,
     animationPlan,
     gameMode,
     notation,
@@ -192,6 +195,7 @@ export default function App() {
     handleResumeSession,
     handleSaveSession,
     handleResign,
+    handleRunAiTurns,
     handleAnimationFinished,
     handleResolvePromotion,
     handleCancelPromotion,
@@ -202,8 +206,8 @@ export default function App() {
   const { session, setSession, getSessionId } = useSession();
   const navigate = useNavigate();
 
-  const [, setConnection] = useState<ConnectionState>("loading");
-  const [, setLiveConnection] =
+  const [connection, setConnection] = useState<ConnectionState>("loading");
+  const [liveConnection, setLiveConnection] =
     useState<LiveConnectionState>("idle");
   const [whiteClockMs, setWhiteClockMs] = useState(baseClockMs);
   const [blackClockMs, setBlackClockMs] = useState(baseClockMs);
@@ -341,7 +345,7 @@ export default function App() {
       })
       .catch((error) => {
         if (!active) return;
-        setReplayError(
+        setTimelineError(
           error instanceof Error
             ? error.message
             : "Replay timeline could not be loaded."
@@ -533,6 +537,11 @@ export default function App() {
   const prevBotGameIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (!lichessBotWsUrl) {
+      setBotConnectionState("idle");
+      return;
+    }
+
     let ws: WebSocket | null = null;
     let reconnectTimeoutId: any = null;
     let isComponentMounted = true;
@@ -541,7 +550,7 @@ export default function App() {
       if (!isComponentMounted) return;
       setBotConnectionState("connecting");
 
-      ws = new WebSocket("ws://localhost:9323");
+      ws = new WebSocket(lichessBotWsUrl);
 
       ws.onopen = () => {
         if (!isComponentMounted) return;
@@ -686,7 +695,11 @@ export default function App() {
     : liveConnection;
 
   const displayedMessage = activeTab === "bot"
-    ? (botConnectionState === "disconnected" ? "Verbindung zum Bot-Server getrennt. Reconnect in 3s... / Disconnected from bot server. Reconnecting..." : (!botGameData ? "Warte auf Bot-Spiele... / Waiting for bot games..." : undefined))
+    ? (!lichessBotWsUrl
+      ? "Bot live monitor is disabled. Set VITE_LICHESS_BOT_WS_URL for local bot debugging."
+      : botConnectionState === "disconnected"
+        ? "Verbindung zum Bot-Server getrennt. Reconnect in 3s... / Disconnected from bot server. Reconnecting..."
+        : (!botGameData ? "Warte auf Bot-Spiele... / Waiting for bot games..." : undefined))
     : message;
 
   return (
@@ -849,6 +862,7 @@ export default function App() {
                 onNewGame={handleNewGame}
                 onSaveSession={handleSaveSession}
                 onResign={handleResign}
+                onRunAiTurns={handleRunAiTurns}
                 onBackToMenu={handleBackToMenu}
                 onOpenHeatmap={() => navigate("/analysis")}
               />

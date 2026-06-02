@@ -2,6 +2,9 @@
 
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL?: string;
+  readonly VITE_API_PATH_PREFIX?: string;
+  readonly VITE_DEV_PROXY_TARGET?: string;
+  readonly VITE_LICHESS_BOT_WS_URL?: string;
   readonly VITE_WS_URL?: string;
 }
 
