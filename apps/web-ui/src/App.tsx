@@ -36,6 +36,9 @@ const backgrounds = [
   { id: "forest", label: "Forest", url: "/assets/backgrounds/new.jpg" }
 ];
 
+const lichessBotWsUrl =
+  import.meta.env.VITE_LICHESS_BOT_WS_URL?.toString().trim() ?? "";
+
 function isGameStateRefreshHint(event: WsEvent): boolean {
   switch (event.eventType) {
     case "MoveApplied":
@@ -176,6 +179,7 @@ export default function App() {
     selectedSquare,
     legalMoves,
     busy,
+    message,
     animationPlan,
     gameMode,
     notation,
@@ -533,6 +537,11 @@ export default function App() {
   const prevBotGameIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (!lichessBotWsUrl) {
+      setBotConnectionState("idle");
+      return;
+    }
+
     let ws: WebSocket | null = null;
     let reconnectTimeoutId: any = null;
     let isComponentMounted = true;
@@ -541,7 +550,7 @@ export default function App() {
       if (!isComponentMounted) return;
       setBotConnectionState("connecting");
 
-      ws = new WebSocket("ws://localhost:9323");
+      ws = new WebSocket(lichessBotWsUrl);
 
       ws.onopen = () => {
         if (!isComponentMounted) return;
@@ -686,7 +695,11 @@ export default function App() {
     : liveConnection;
 
   const displayedMessage = activeTab === "bot"
-    ? (botConnectionState === "disconnected" ? "Verbindung zum Bot-Server getrennt. Reconnect in 3s... / Disconnected from bot server. Reconnecting..." : (!botGameData ? "Warte auf Bot-Spiele... / Waiting for bot games..." : undefined))
+    ? (!lichessBotWsUrl
+      ? "Bot live monitor is disabled. Set VITE_LICHESS_BOT_WS_URL for local bot debugging."
+      : botConnectionState === "disconnected"
+        ? "Verbindung zum Bot-Server getrennt. Reconnect in 3s... / Disconnected from bot server. Reconnecting..."
+        : (!botGameData ? "Warte auf Bot-Spiele... / Waiting for bot games..." : undefined))
     : message;
 
   return (
