@@ -342,3 +342,14 @@ pre {
   0% { transform: scale(0.8); opacity: 0.5; }
   100% { transform: scale(1.2); opacity: 1; }
 }
+
+.bot-live-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  background-color: #2ecc71;
+  border-radius: 50%;
+  margin-left: 4px;
+  box-shadow: 0 0 6px #2ecc71;
+  animation: pulse-dot 1.5s infinite alternate;
+}

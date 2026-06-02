@@ -831,9 +831,9 @@ export default function ChessBoard({
               const mappedCol = orientation === "black" ? 7 - colIndex : colIndex;
               const square = displayToSquare(mappedRow, mappedCol);
               const piece = boardPieceAt(mappedRow, mappedCol);
-              const suppressed = square === suppressedSquare || 
-                                 square === suppressedCapturedSquare || 
-                                 square === suppressedCastlingRookSquare;
+              const suppressed = square === suppressedSquare ||
+                square === suppressedCapturedSquare ||
+                square === suppressedCastlingRookSquare;
               const spriteClass = piece ? spriteClasses(piece) : "";
               return (
                 <button

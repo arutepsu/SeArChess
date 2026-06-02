@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pekko HTTP Chess WebSocket Test Client</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1e1e24;
+            color: #f4efe6;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
+        h1 {
+            color: #e6b347;
+            margin-bottom: 5px;
+        }
+        .container {
+            display: flex;
+            gap: 40px;
+            margin-top: 20px;
+            max-width: 900px;
+            width: 100%;
+        }
+        .controls, .board-container {
+            background: #2b181c;
+            border: 1px solid rgba(197, 160, 89, 0.4);
+            border-radius: 12px;
+            padding: 20px;
+            flex: 1;
+        }
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ef4444;
+            box-shadow: 0 0 8px #ef4444;
+            transition: all 0.3s;
+        }
+        .status-dot.connected {
+            background: #22c55e;
+            box-shadow: 0 0 8px #22c55e;
+        }
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #c5a059;
+            background: #1e1e24;
+            color: #fff;
+            font-size: 1rem;
+        }
+        button {
+            padding: 10px 20px;
+            border-radius: 6px;
+            border: none;
+            background: #e6b347;
+            color: #120a0c;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #ffc75f;
+        }
+        .log-panel {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 6px;
+            padding: 10px;
+            height: 150px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+        .log-entry.error { color: #ef4444; }
+        .log-entry.success { color: #22c55e; }
+        .log-entry.info { color: #a3a3a3; }
+        
+        /* Board Grid Styling */
+        table.chess-board {
+            border-collapse: collapse;
+            margin: 0 auto;
+        }
+        td.square {
+            width: 45px;
+            height: 45px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        .square.light { background: #f0d9b5; color: #b58863; }
+        .square.dark { background: #b58863; color: #f0d9b5; }
+        .rank-label, .file-label {
+            font-weight: bold;
+            color: #e6b347;
+            padding: 4px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Chess WebSocket Stream Visualizer</h1>
+    <p>Interaktiver Pekko HTTP WebSocket-Verbindungstest</p>
+
+    <div class="container">
+        <!-- Controls & Logs -->
+        <div class="controls">
+            <div class="status-bar">
+                <div id="statusDot" class="status-dot"></div>
+                <span id="statusText">Getrennt / Disconnected</span>
+            </div>
+            
+            <div class="input-group">
+                <input type="text" id="moveInput" placeholder="z. B. e2-e4" value="e2-e4">
+                <button id="sendBtn" onclick="sendMove()">Senden</button>
+            </div>
+            
+            <h3>Protokoll / Event Log</h3>
+            <div id="logPanel" class="log-panel">
+                <div class="log-entry info">Warte auf Verbindung...</div>
+            </div>
+        </div>
+
+        <!-- ASCII Chess Board -->
+        <div class="board-container">
+            <h3 style="text-align: center; margin-top: 0;" id="turnIndicator">Am Zug: -</h3>
+            <div id="boardWrapper"></div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        
+        // Initial setup for the 8x8 Board Grid
+        const initialBoard = {
+            "a1": "wR", "b1": "wN", "c1": "wB", "d1": "wQ", "e1": "wK", "f1": "wB", "g1": "wN", "h1": "wR",
+            "a2": "wP", "b2": "wP", "c2": "wP", "d2": "wP", "e2": "wP", "f2": "wP", "g2": "wP", "h2": "wP",
+            "a7": "bP", "b7": "bP", "c7": "bP", "d7": "bP", "e7": "bP", "f7": "bP", "g7": "bP", "h7": "bP",
+            "a8": "bR", "b8": "bN", "c8" : "bB", "d8": "bQ", "e8": "bK", "f8": "bB", "g8": "bN", "h8": "bR"
+        };
+        
+        const pieceSymbols = {
+            "wK": "♔", "wQ": "♕", "wR": "♖", "wB": "♗", "wN": "♘", "wP": "♙",
+            "bK": "♚", "bQ": "♛", "bR": "♜", "bB": "♝", "bN": "♞", "bP": "♟"
+        };
+
+        function log(message, type = 'info') {
+            const logPanel = document.getElementById('logPanel');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.innerText = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logPanel.appendChild(entry);
+            logPanel.scrollTop = logPanel.scrollHeight;
+        }
+
+        function connect() {
+            log("Verbinde mit ws://localhost:8080/game...");
+            ws = new WebSocket("ws://localhost:8080/game");
+
+            ws.onopen = () => {
+                document.getElementById('statusDot').className = 'status-dot connected';
+                document.getElementById('statusText').innerText = 'Verbunden / Connected (Port 8080)';
+                log("WebSocket-Verbindung erfolgreich hergestellt!", "success");
+                renderBoard(initialBoard);
+                document.getElementById('turnIndicator').innerText = "Am Zug: WEISS";
+            };
+
+            ws.onmessage = (event) => {
+                log(`Server-Antwort empfangen!`);
+                console.log("Empfangener GameState:", event.data);
+                
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.status === "success") {
+                        log(`Zug erfolgreich! Nächste Farbe: ${data.activeColor.toUpperCase()}`, "success");
+                        document.getElementById('turnIndicator').innerText = `Am Zug: ${data.activeColor.toUpperCase()}`;
+                        renderBoard(data.board);
+                    } else if (data.status === "error") {
+                        log(`Fehler: ${data.message}`, "error");
+                    }
+                } catch(e) {
+                    log(`Fehler beim Parsen der Serverdaten: ${e.message}`, "error");
+                }
+            };
+
+            ws.onclose = () => {
+                document.getElementById('statusDot').className = 'status-dot';
+                document.getElementById('statusText').innerText = 'Getrennt / Disconnected';
+                log("Verbindung getrennt. Reconnect in 3s...", "error");
+                setTimeout(connect, 3000);
+            };
+
+            ws.onerror = () => {
+                ws.close();
+            };
+        }
+
+        function sendMove() {
+            const input = document.getElementById('moveInput');
+            const moveVal = input.value.trim();
+            if (!moveVal) return;
+            
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                // Send as JSON format containing the "move" string
+                const payload = JSON.stringify({ move: moveVal });
+                ws.send(payload);
+                log(`Sende Zug: "${moveVal}"`);
+                input.value = ""; // Clear input
+            } else {
+                log("Fehler: WebSocket-Verbindung ist nicht offen.", "error");
+            }
+        }
+
+        function renderBoard(boardState) {
+            const wrapper = document.getElementById('boardWrapper');
+            let html = '<table class="chess-board">';
+            
+            const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+            
+            for (let rank = 8; rank >= 1; rank--) {
+                html += '<tr>';
+                // Rank label left
+                html += `<td class="rank-label">${rank}</td>`;
+                
+                for (let f = 0; f < 8; f++) {
+                    const square = `${files[f]}${rank}`;
+                    const piece = boardState[square] || "";
+                    const symbol = pieceSymbols[piece] || "";
+                    const squareColor = (rank + f) % 2 === 1 ? 'light' : 'dark';
+                    html += `<td class="square ${squareColor}" title="${square}">${symbol}</td>`;
+                }
+                html += '</tr>';
+            }
+            
+            // Bottom files labels
+            html += '<tr><td></td>';
+            for (let f = 0; f < 8; f++) {
+                html += `<td class="file-label">${files[f].toUpperCase()}</td>`;
+            }
+            html += '</tr></table>';
+            
+            wrapper.innerHTML = html;
+        }
+
+        // Initialize connection
+        connect();
+    </script>
+</body>
+</html>

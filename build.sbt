@@ -455,7 +455,9 @@ lazy val chessStreaming = project
     run / mainClass     := Some("chess.streaming.ChessStreamingMain"),
     run / fork          := true,
     libraryDependencies ++= Seq(
-      "org.apache.pekko" %% "pekko-stream" % "1.1.2"
+      "org.apache.pekko" %% "pekko-stream" % "1.1.2",
+      "org.apache.pekko" %% "pekko-http"   % "1.1.0",
+      "com.lihaoyi"       %% "ujson"        % "4.0.2"
     )
   )
   .dependsOn(domain)
