@@ -277,3 +277,51 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
     config.migrationAdminEnabled shouldBe false
     config.migrationAdminToken shouldBe Some("ignored-token")
   }
+
+  it should "leave external-game bot credentials disabled by default" in {
+    val config = loadDefault().value
+
+    config.externalGameBot shouldBe None
+  }
+
+  it should "parse external-game bot credentials with default platform and actor" in {
+    val config = loadDefault("EXTERNAL_GAME_BOT_API_KEY" -> "super-secret").value
+
+    val bot = config.externalGameBot.value
+    bot.platform shouldBe "Lichess"
+    bot.actorId shouldBe "searchess-bot"
+    bot.apiKey shouldBe "super-secret"
+  }
+
+  it should "parse configured external-game bot platform and actor" in {
+    val config = loadDefault(
+      "EXTERNAL_GAME_BOT_API_KEY" -> "super-secret",
+      "EXTERNAL_GAME_BOT_PLATFORM" -> "lichess",
+      "EXTERNAL_GAME_BOT_ACTOR_ID" -> "searchess-prod-bot"
+    ).value
+
+    val bot = config.externalGameBot.value
+    bot.platform shouldBe "lichess"
+    bot.actorId shouldBe "searchess-prod-bot"
+    bot.apiKey shouldBe "super-secret"
+  }
+
+  it should "reject unsupported external-game bot platforms without echoing the API key" in {
+    val error = loadDefault(
+      "EXTERNAL_GAME_BOT_API_KEY" -> "do-not-print-me",
+      "EXTERNAL_GAME_BOT_PLATFORM" -> "chesscom"
+    ).left.value
+
+    error should include("EXTERNAL_GAME_BOT_PLATFORM")
+    error should not include "do-not-print-me"
+  }
+
+  it should "reject blank external-game bot actor IDs without echoing the API key" in {
+    val error = loadDefault(
+      "EXTERNAL_GAME_BOT_API_KEY" -> "do-not-print-me",
+      "EXTERNAL_GAME_BOT_ACTOR_ID" -> "   "
+    ).left.value
+
+    error should include("EXTERNAL_GAME_BOT_ACTOR_ID")
+    error should not include "do-not-print-me"
+  }

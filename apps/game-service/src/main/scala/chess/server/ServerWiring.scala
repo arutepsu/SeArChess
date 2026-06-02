@@ -5,8 +5,11 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import cats.syntax.semigroupk.*
 import chess.adapter.http4s.Http4sApp
+import chess.adapter.http4s.route.{BotCredentials, ExternalGameRouteAuth}
+import chess.application.external.VerifiedExternalCaller
+import chess.application.session.model.ExternalPlatform
 import chess.server.assembly.{AppContext, EventWiring}
-import chess.server.config.{AiConfig, AppConfig}
+import chess.server.config.{AiConfig, AppConfig, ExternalGameBotConfig}
 import chess.adapter.http4s.DomainMetricsRegistry
 import chess.server.http.{CorsMiddleware, HealthRoutes, HistoryOutboxOpsRoutes, HttpMetricsMiddleware, HttpMetricsRegistry, HttpRequestLoggingMiddleware, MigrationAdminRoutes}
 import chess.server.http.MetricsRoutes
@@ -25,14 +28,7 @@ object ServerWiring:
     val domainMetrics   = new DomainMetricsRegistry
 
     val publicGameplayApi: HttpApp[IO] =
-      Http4sApp(
-        ctx.gameService,
-        ctx.persistentSessionService,
-        ctx.snapshotTransferService,
-        ctx.gameRepository,
-        ctx.sessionGameStore,
-        domainMetrics
-      ).httpApp
+      buildPublicGameplayApi(ctx, config, domainMetrics)
 
     val baseOpsRoutes = HealthRoutes.routes <+> MetricsRoutes.routes(metricsRegistry, domainMetrics) <+> HistoryOutboxOpsRoutes(events.historyOutbox).routes
     val internalOpsRoutes =
@@ -95,3 +91,40 @@ object ServerWiring:
       config: AiConfig
   ): Option[chess.application.port.ai.AiMoveSuggestionClient] =
     GameServiceComposition.aiClientFor(config)
+
+  private[server] def buildPublicGameplayApi(
+      ctx: AppContext,
+      config: AppConfig,
+      domainMetrics: DomainMetricsRegistry = new DomainMetricsRegistry
+  ): HttpApp[IO] =
+    Http4sApp(
+      ctx.gameService,
+      ctx.persistentSessionService,
+      ctx.snapshotTransferService,
+      ctx.gameRepository,
+      ctx.sessionGameStore,
+      domainMetrics,
+      externalGameService = ctx.externalGameService,
+      externalGameAuth = externalGameAuth(config.externalGameBot)
+    ).httpApp
+
+  private[server] def externalGameAuth(
+      config: Option[ExternalGameBotConfig]
+  ): Option[ExternalGameRouteAuth] =
+    config.flatMap { bot =>
+      parseExternalPlatform(bot.platform).map { platform =>
+        ExternalGameRouteAuth(
+          List(
+            BotCredentials(
+              apiKey = bot.apiKey,
+              caller = VerifiedExternalCaller(platform, bot.actorId)
+            )
+          )
+        )
+      }
+    }
+
+  private def parseExternalPlatform(value: String): Option[ExternalPlatform] =
+    value.trim.toLowerCase match
+      case "lichess" => Some(ExternalPlatform.Lichess)
+      case _         => None
