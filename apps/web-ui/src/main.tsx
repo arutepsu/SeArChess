@@ -28,6 +28,6 @@ keycloak
     );
   })
   .catch(() => {
-    container.textContent =
-      "Auth initialization failed. Is Keycloak running on http://localhost:8080?";
+    const keycloakUrl = import.meta.env.VITE_KEYCLOAK_URL ?? "http://localhost:8080";
+    container.textContent = `Auth initialization failed. Is Keycloak reachable at ${keycloakUrl}?`;
   });

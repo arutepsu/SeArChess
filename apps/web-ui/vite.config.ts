@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 
 const backendProxyPaths = [
   "/api",
+  "/auth",
   "/sessions",
   "/games",
   "/notation",

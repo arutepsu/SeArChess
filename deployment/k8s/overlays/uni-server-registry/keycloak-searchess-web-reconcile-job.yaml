@@ -20,7 +20,7 @@ spec:
               image: python:3.12-alpine
               env:
                 - name: KEYCLOAK_BASE_URL
-                  value: http://keycloak:8080
+                  value: http://keycloak:8080/auth
                 - name: KEYCLOAK_REALM
                   value: searchess
                 - name: KEYCLOAK_CLIENT_ID

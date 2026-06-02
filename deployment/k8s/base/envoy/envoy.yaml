@@ -26,6 +26,10 @@ static_resources:
                           route:
                             cluster: game_service_http
                         - match:
+                            prefix: /auth
+                          route:
+                            cluster: keycloak
+                        - match:
                             prefix: /api/
                           route:
                             cluster: game_service_http
@@ -48,7 +52,7 @@ static_resources:
                   # JWT validation — Kubernetes deployment.
                   #
                   # Issuer matches the token iss claim: browser authenticates against
-                  # http://127.0.0.1:8080 (via kubectl port-forward or SSH tunnel).
+                  # http://localhost:18000/auth through Envoy.
                   # JWKS is fetched internally: Envoy reaches Keycloak via K8s DNS keycloak:8080.
                   #
                   # Protected:  /api/*  (except /api/health)
@@ -59,12 +63,12 @@ static_resources:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication
                       providers:
                         keycloak:
-                          issuer: "http://127.0.0.1:8080/realms/searchess"
+                          issuer: "http://localhost:18000/auth/realms/searchess"
                           audiences:
                             - searchess-api
                           remote_jwks:
                             http_uri:
-                              uri: "http://keycloak:8080/realms/searchess/protocol/openid-connect/certs"
+                              uri: "http://keycloak:8080/auth/realms/searchess/protocol/openid-connect/certs"
                               cluster: keycloak
                               timeout: 5s
                             cache_duration:

@@ -63,17 +63,21 @@ spec:
                 secretKeyRef:
                   name: keycloak-secrets
                   key: bootstrap-admin-password
-            # Token issuer = http://127.0.0.1:8080/realms/searchess.
-            # This matches the browser-visible address when using port-forward or SSH tunnel.
-            # Envoy's jwt_authn is configured with the same issuer string.
+            # Token issuer = http://localhost:18000/auth/realms/searchess.
+            # Keycloak serves under /auth so login, action, and discovery URLs stay
+            # on the same browser-visible Envoy origin as the Web UI.
             - name: KC_HOSTNAME
-              value: "http://127.0.0.1:8080"
+              value: "http://localhost:18000"
+            - name: KC_HTTP_RELATIVE_PATH
+              value: "/auth"
+            - name: KC_PROXY_HEADERS
+              value: "xforwarded"
             - name: KC_HTTP_ENABLED
               value: "true"
             - name: KC_HEALTH_ENABLED
               value: "true"
             # Allow Envoy to fetch JWKS from the internal K8s DNS name (keycloak:8080)
-            # even though KC_HOSTNAME is set to 127.0.0.1:8080 (browser-facing address).
+            # even though KC_HOSTNAME is set to the browser-facing Envoy address.
             # Without this, the backchannel URL is derived from the request host,
             # which may differ from the configured frontend hostname.
             - name: KC_HOSTNAME_BACKCHANNEL_DYNAMIC

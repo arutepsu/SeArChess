@@ -3,7 +3,7 @@
 Keycloak provides OpenID Connect authentication for SeArChess.
 
 - **Local Compose**: Keycloak runs alongside the application stack. Fully working.
-- **Kubernetes (university server)**: Keycloak is deployed in the `searchess` namespace. Access is via `kubectl port-forward` or SSH tunnel.
+- **Kubernetes (university server)**: Keycloak is deployed in the `searchess` namespace. Browser login is routed through Envoy at `/auth`; admin access still uses `kubectl port-forward` when needed.
 
 ---
 
@@ -27,7 +27,7 @@ Keycloak provides OpenID Connect authentication for SeArChess.
 | Frontend client | `searchess-web` — public, no client secret |
 | Token audience | `searchess-api` injected by audience mapper |
 | Envoy → backend | JWT validation against Keycloak JWKS |
-| Public routes | `/health`, `/api/health`, `/ws/*`, `/admin/migrations`, `/*` (web-ui static) |
+| Public routes | `/health`, `/api/health`, `/auth/*`, `/ws/*`, `/admin/migrations`, `/*` (web-ui static) |
 | Protected routes | `/api/*` (except `/api/health`) |
 
 ---
@@ -39,9 +39,9 @@ The issuer in the JWT `iss` claim must exactly match the string configured in En
 | Deployment | Browser Keycloak URL | Token issuer | Envoy issuer config | JWKS (internal) |
 |---|---|---|---|---|
 | Local Compose | `http://localhost:8080` | `http://localhost:8080/realms/searchess` | `http://localhost:8080/realms/searchess` | `http://keycloak:8080/...` |
-| Kubernetes (port-forward/SSH) | `http://127.0.0.1:8080` | `http://127.0.0.1:8080/realms/searchess` | `http://127.0.0.1:8080/realms/searchess` | `http://keycloak:8080/...` |
+| Kubernetes (Envoy SSH tunnel) | `http://localhost:18000/auth` | `http://localhost:18000/auth/realms/searchess` | `http://localhost:18000/auth/realms/searchess` | `http://keycloak:8080/auth/...` |
 
-Envoy inside the cluster cannot use `127.0.0.1` to reach Keycloak (that would be Envoy's own loopback). It fetches JWKS via the K8s DNS name `keycloak:8080`. The `issuer` field in Envoy config validates the token claim only — it does not determine where JWKS is fetched from.
+Envoy inside the cluster cannot use browser localhost to reach Keycloak (that would be Envoy's own loopback). It fetches JWKS via the K8s DNS name `keycloak:8080` under Keycloak's `/auth` relative path. The `issuer` field in Envoy config validates the token claim only — it does not determine where JWKS is fetched from.
 
 ---
 
@@ -116,16 +116,18 @@ First startup takes 60–90 seconds while Keycloak builds its provider registry.
 
 ## Kubernetes — access Keycloak
 
-Keycloak is not exposed through Envoy (keeps admin console off the public port). Access via port-forward:
+Browser OIDC traffic is exposed through Envoy at `http://localhost:18000/auth`, so deployed Web UI testing needs only one SSH tunnel:
+
+```bash
+ssh -N -L 18000:127.0.0.1:10000 chess@141.37.74.145
+# Then open: http://localhost:18000/
+```
+
+The Keycloak admin console should still be treated as operational/admin access. Use a port-forward when needed:
 
 ```bash
 kubectl port-forward -n searchess svc/keycloak 8080:8080
-# Then: http://127.0.0.1:8080
-```
-
-Or add to the SSH tunnel from the university server:
-```bash
-ssh -L 10000:localhost:10000 -L 8080:localhost:8080 -L 33001:localhost:33001 chess@141.37.74.145
+# Then: http://127.0.0.1:8080/auth
 ```
 
 ---
@@ -136,15 +138,15 @@ ssh -L 10000:localhost:10000 -L 8080:localhost:8080 -L 33001:localhost:33001 che
 # In apps/web-ui/:
 npm run dev:deployed
 # loads .env.deployed:
-#   VITE_KEYCLOAK_URL=http://127.0.0.1:8080
+#   VITE_KEYCLOAK_URL=/auth
 #   VITE_API_BASE_URL=
 #   VITE_API_PATH_PREFIX=/api
-#   VITE_DEV_PROXY_TARGET=http://127.0.0.1:10000
+#   VITE_DEV_PROXY_TARGET=http://127.0.0.1:18000
 ```
 
-Requires both port-forwards (or SSH tunnel) to be active.
+Requires the single Envoy SSH tunnel above to be active.
 
-When Envoy is exposed through an SSH tunnel at `http://localhost:18000`, open the deployed Web UI at that origin. The `searchess-web` Keycloak client allows this localhost tunnel redirect for deployed testing; keep this as a dev/test redirect and do not bypass Keycloak.
+When Envoy is exposed through an SSH tunnel at `http://localhost:18000`, open the deployed Web UI at that origin. Keycloak is served from the same origin under `/auth`, so the browser should not need a separate `127.0.0.1:8080` Keycloak tunnel for login. The `searchess-web` Keycloak client allows this localhost tunnel redirect for deployed testing; keep this as a dev/test redirect and do not bypass Keycloak.
 
 ---
 
@@ -178,7 +180,7 @@ read -r -s -p "Keycloak admin password: " ADMIN_PASSWORD
 echo
 
 TOKEN="$(
-  curl -sS -X POST http://127.0.0.1:8080/realms/master/protocol/openid-connect/token \
+  curl -sS -X POST http://127.0.0.1:8080/auth/realms/master/protocol/openid-connect/token \
     -H 'Content-Type: application/x-www-form-urlencoded' \
     --data-urlencode grant_type=password \
     --data-urlencode client_id=admin-cli \
@@ -189,12 +191,12 @@ TOKEN="$(
 
 CLIENT_UUID="$(
   curl -sS -H "Authorization: Bearer $TOKEN" \
-    'http://127.0.0.1:8080/admin/realms/searchess/clients?clientId=searchess-web' \
+    'http://127.0.0.1:8080/auth/admin/realms/searchess/clients?clientId=searchess-web' \
     | jq -r '.[] | select(.clientId == "searchess-web") | .id'
 )"
 
 curl -sS -H "Authorization: Bearer $TOKEN" \
-  "http://127.0.0.1:8080/admin/realms/searchess/clients/$CLIENT_UUID" \
+  "http://127.0.0.1:8080/auth/admin/realms/searchess/clients/$CLIENT_UUID" \
   | jq '{redirectUris, webOrigins}'
 ```
 
@@ -262,25 +264,23 @@ curl -i -H "Authorization: Bearer <token>" http://localhost:11000/api/sessions  
 ## Validate Kubernetes
 
 ```bash
-# 1. Start port-forwards
-kubectl port-forward -n searchess svc/envoy 10000:10000 &
-kubectl port-forward -n searchess svc/keycloak 8080:8080 &
+# 1. Start the single Envoy tunnel from your workstation
+ssh -N -L 18000:127.0.0.1:10000 chess@141.37.74.145
 
-# 2. Keycloak health
-curl http://127.0.0.1:8080/health/ready
-curl http://127.0.0.1:8080/realms/searchess/.well-known/openid-configuration
+# 2. Keycloak discovery through Envoy. Issuer should include /auth, not bare /realms.
+curl http://localhost:18000/auth/realms/searchess/.well-known/openid-configuration
 
 # 3. Envoy public routes
-curl -i http://127.0.0.1:10000/health       # 200 OK
-curl -i http://127.0.0.1:10000/api/health   # 200 OK
-curl -i http://127.0.0.1:10000/api/sessions # 401 Unauthorized
+curl -i http://localhost:18000/health       # 200 OK
+curl -i http://localhost:18000/api/health   # 200 OK
+curl -i http://localhost:18000/api/sessions # 401 Unauthorized
 
 # 4. Web UI
-open http://127.0.0.1:10000   # → served by web-ui nginx, redirects to Keycloak login
+open http://localhost:18000   # → served by web-ui nginx, redirects to /auth login
 # login: demo / demo
 # After login: open DevTools → Network → any /api/ request
 TOKEN="<paste from Authorization header>"
-curl -i -H "Authorization: Bearer $TOKEN" http://127.0.0.1:10000/api/sessions  # 200 OK
+curl -i -H "Authorization: Bearer $TOKEN" http://localhost:18000/api/sessions  # 200 OK
 ```
 
 ---
@@ -291,11 +291,11 @@ curl -i -H "Authorization: Bearer $TOKEN" http://127.0.0.1:10000/api/sessions  #
 |---|---|
 | `start` mode (not `start-dev`) | Production-shaped startup; validates config, uses Postgres, builds provider registry |
 | HTTP-only (no TLS) | All access via SSH tunnel or port-forward; TLS termination not available on this server; cert-manager + domain not yet configured |
-| `KC_HOSTNAME=http://127.0.0.1:8080` | Token issuer matches the browser-visible address via tunnel; Envoy validates the same issuer string |
+| `KC_HOSTNAME=http://localhost:18000` and `KC_HTTP_RELATIVE_PATH=/auth` | Token issuer and generated Keycloak URLs stay on the browser-visible Envoy origin under `/auth`; Envoy validates the same issuer string |
 | Postgres backend (not embedded H2) | Persistent data survives pod restarts; H2 loses realm data on restart |
 | SealedSecrets | Bootstrap credentials encrypted at rest in Git; never plaintext in any committed file |
 | Separate `keycloak-secrets` Secret | Avoids mixing with existing `searchess-secrets`; can be replaced independently |
-| Keycloak NOT behind Envoy | Admin console not exposed on the public Envoy port; port-forward is the access path |
+| Keycloak browser OIDC behind Envoy at `/auth` | Web UI login uses one browser-visible origin; admin access remains an operational port-forward concern |
 | replicas: 1 | University VM has 4 GB RAM; single replica uses ~256–512 MB heap; multiple replicas would require shared session storage |
 
 ---
@@ -304,8 +304,11 @@ curl -i -H "Authorization: Bearer $TOKEN" http://127.0.0.1:10000/api/sessions  #
 
 ```
 # Internal (used by Envoy inside K8s):
-http://keycloak:8080/realms/searchess/protocol/openid-connect/certs
+http://keycloak:8080/auth/realms/searchess/protocol/openid-connect/certs
 
-# External (used for debugging, requires port-forward):
-http://127.0.0.1:8080/realms/searchess/protocol/openid-connect/certs
+# External through Envoy:
+http://localhost:18000/auth/realms/searchess/protocol/openid-connect/certs
+
+# Admin/debug via direct Keycloak port-forward:
+http://127.0.0.1:8080/auth/realms/searchess/protocol/openid-connect/certs
 ```

@@ -26,6 +26,7 @@ The Compose Game Service enables CORS for the Vite dev origin
 
 - `VITE_API_BASE_URL` (default: empty; deployed builds use same-origin relative API URLs)
 - `VITE_API_PATH_PREFIX` (production default: `/api`; dev default: empty unless `.env.deployed` is used)
+- `VITE_KEYCLOAK_URL` (deployed default: `/auth`; local auth default: `http://localhost:8080`)
 - `VITE_DEV_PROXY_TARGET` (dev server only; set to the tunneled backend target for same-origin local testing)
 - `VITE_WS_URL` (default: same-origin `/ws`; games connect at `/games/{gameId}`)
 - `VITE_LICHESS_BOT_WS_URL` (optional; use `ws://localhost:9323` only for local bot live-monitor debugging)
@@ -35,13 +36,15 @@ The deployed Web UI image is served by Envoy and must use same-origin URLs:
 
 - `VITE_API_BASE_URL=`
 - `VITE_API_PATH_PREFIX=/api`
+- `VITE_KEYCLOAK_URL=/auth`
 - `VITE_WS_URL=`
 
 With those values, browser requests are same-origin API paths such as
 `/api/sessions`, `/api/health`, `/api/games/{gameId}/ai-move`, and
-`/ws/games/{gameId}`. Envoy routes `/api/*` to Game Service and strips the
-`/api` prefix before forwarding, so Game Service still sees `/sessions`,
-`/health`, and `/games/...`.
+`/ws/games/{gameId}`. Keycloak login and token refresh use same-origin
+`/auth/*` URLs. Envoy routes `/api/*` to Game Service and strips the `/api`
+prefix before forwarding, so Game Service still sees `/sessions`, `/health`,
+and `/games/...`.
 
 For SSH tunnel testing against the deployed backend, run Vite with relative API URLs
 and the dev proxy. In PowerShell:
@@ -49,7 +52,8 @@ and the dev proxy. In PowerShell:
 ```powershell
 Remove-Item Env:\VITE_API_BASE_URL -ErrorAction SilentlyContinue
 Remove-Item Env:\VITE_API_PATH_PREFIX -ErrorAction SilentlyContinue
-$env:VITE_DEV_PROXY_TARGET="http://127.0.0.1:10000"
+$env:VITE_DEV_PROXY_TARGET="http://127.0.0.1:18000"
+$env:VITE_KEYCLOAK_URL="/auth"
 $env:VITE_API_PATH_PREFIX="/api"
 $env:VITE_LICHESS_BOT_WS_URL=""
 npm run dev:deployed -- --host 127.0.0.1 --port 5173

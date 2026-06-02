@@ -409,15 +409,14 @@ jobs:
           # Context is apps/web-ui so only web-ui files are sent to the daemon.
           # VITE_* build args are baked into the static bundle at build time.
           # Values target deployed Envoy serving the SPA and API on one origin:
-          #   Keycloak:  http://127.0.0.1:8080 (kubectl port-forward svc/keycloak 8080:8080)
-          #   API/WS:    same-origin relative URLs through Envoy
+          #   Keycloak/API/WS: same-origin relative URLs through Envoy
           context: apps/web-ui
           file: apps/web-ui/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            VITE_KEYCLOAK_URL=http://127.0.0.1:8080
+            VITE_KEYCLOAK_URL=/auth
             VITE_KEYCLOAK_REALM=searchess
             VITE_KEYCLOAK_CLIENT_ID=searchess-web
             VITE_API_BASE_URL=
