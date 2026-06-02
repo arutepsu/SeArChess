@@ -10,6 +10,7 @@ import chess.adapter.rest.contract.dto.{
   MoveHistoryEntry,
   ReplayFrameResponse,
   ResignRequest,
+  RunAiTurnsResponse,
   SessionResponse,
   SubmitMoveRequest,
   SubmitMoveResponse
@@ -17,7 +18,7 @@ import chess.adapter.rest.contract.dto.{
 import chess.application.ApplicationError
 import chess.application.GameServiceApi
 import chess.application.ReplayError
-import chess.application.ai.service.AITurnError
+import chess.application.ai.service.{AITurnError, AITurnRunStopReason}
 import chess.application.port.ai.AIError
 import chess.application.port.repository.RepositoryError
 import chess.application.query.game.GameView
@@ -52,6 +53,9 @@ class Http4sGameRoutes(
     metrics: DomainMetricsRegistry = new DomainMetricsRegistry()
 ):
 
+  private val DefaultMaxPlies    = 200
+  private val MaxPliesUpperBound = 1000
+
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
 
     case GET -> Root / "games" / id =>
@@ -71,6 +75,9 @@ class Http4sGameRoutes(
 
     case POST -> Root / "games" / id / "ai-move" =>
       handleAIMove(id)
+
+    case req @ POST -> Root / "games" / id / "ai-turns" =>
+      handleAITurns(id, req)
   }
 
   // ── handlers ──────────────────────────────────────────────────────────────
@@ -241,6 +248,60 @@ class Http4sGameRoutes(
             val (status, code, message) = aiErrToHttpErr(err, gameIdStr)
             jsonError(status, code, message)
 
+  /** Run AI turns in a bounded loop for `POST /games/{gameId}/ai-turns`.
+    *
+    * Optional query parameter `maxPlies` (default [[DefaultMaxPlies]], max [[MaxPliesUpperBound]]).
+    * Always returns 200 when the run completes, regardless of stop reason. Callers should inspect
+    * `stopReason` in the response body to distinguish the four possible outcomes.
+    */
+  private def handleAITurns(gameIdStr: String, req: Request[IO]): IO[Response[IO]] =
+    type HttpErr = (Status, String, String)
+
+    def parseMaxPlies: Either[HttpErr, Int] =
+      req.uri.query.params.get("maxPlies") match
+        case None => Right(DefaultMaxPlies)
+        case Some(raw) =>
+          raw.toIntOption match
+            case Some(n) if n >= 1 && n <= MaxPliesUpperBound => Right(n)
+            case Some(n) if n <= 0 =>
+              Left((Status.BadRequest, "BAD_REQUEST", "maxPlies must be >= 1"))
+            case Some(_) =>
+              Left(
+                (
+                  Status.BadRequest,
+                  "BAD_REQUEST",
+                  s"maxPlies must be <= $MaxPliesUpperBound"
+                )
+              )
+            case None =>
+              Left((Status.BadRequest, "BAD_REQUEST", "maxPlies must be an integer"))
+
+    val result: Either[HttpErr, RunAiTurnsResponse] =
+      for
+        uuid     <- parseUUID(gameIdStr).left.map(m => (Status.BadRequest, "BAD_REQUEST", m))
+        gameId    = GameId(uuid)
+        maxPlies <- parseMaxPlies
+        run      <- gameService
+          .runAiTurnsByGameId(gameId, maxPlies)
+          .left
+          .map(aiErrToHttpErr(_, gameIdStr))
+      yield RunAiTurnsResponse(
+        game             = GameMapper.toGameResponse(GameView.fromState(gameId, run.state)),
+        sessionLifecycle = run.session.lifecycle.toString,
+        pliesRun         = run.pliesRun,
+        stopReason       = stopReasonStr(run.stopReason)
+      )
+
+    result match
+      case Right(resp)                   => jsonResponse(Status.Ok, RunAiTurnsResponse.toJson(resp))
+      case Left((status, code, message)) => jsonError(status, code, message)
+
+  private def stopReasonStr(reason: AITurnRunStopReason): String = reason match
+    case AITurnRunStopReason.GameFinished    => "GameFinished"
+    case AITurnRunStopReason.AwaitingHuman   => "AwaitingHuman"
+    case AITurnRunStopReason.MaxPliesReached => "MaxPliesReached"
+    case AITurnRunStopReason.MoveFailed(_)   => "MoveFailed"
+
   // ── error mapping ──────────────────────────────────────────────────────────
 
   private def moveErrToHttpErr(err: SessionMoveError): (Status, String, String) = err match
@@ -280,6 +341,8 @@ class Http4sGameRoutes(
     */
   private def aiErrToHttpErr(err: AITurnError, gameIdStr: String): (Status, String, String) =
     err match
+      case AITurnError.InvalidMaxPlies(v) =>
+        (Status.BadRequest, "BAD_REQUEST", s"maxPlies must be >= 1, got $v")
       case AITurnError.NotConfigured =>
         (
           Status.UnprocessableEntity,

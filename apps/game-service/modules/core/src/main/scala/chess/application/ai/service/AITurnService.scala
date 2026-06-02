@@ -6,7 +6,7 @@ import chess.application.port.ai.{AIError, AiMoveSuggestionClient, AIRequestCont
 import chess.application.port.event.EventPublisher
 import chess.application.session.model.{GameSession, SideController}
 import chess.application.session.service.GameSessionCommands
-import chess.domain.model.Move
+import chess.domain.model.{GameStatus, Move}
 import chess.domain.rules.GameStateRules
 import chess.domain.state.GameState
 import java.time.Instant
@@ -27,7 +27,7 @@ import java.time.Instant
   * `AI(_)` regardless of engine id.
   *
   * ===Explicitly not responsible for===
-  *   - AI-vs-AI looping or scheduling
+  *   - AI-vs-AI unbounded looping or scheduling — use [[runTurns]] for bounded runs
   *   - Choosing or registering engine implementations
   *   - Async or background processing
   *
@@ -102,6 +102,50 @@ class AITurnService(
           Left(err)
     }
 
+  /** Advance AI turns in a loop until one of the following stop conditions is met:
+    *
+    *   1. The game reaches a terminal state (`stopReason = GameFinished`).
+    *   2. The side to move is no longer AI-controlled (`stopReason = AwaitingHuman`).
+    *   3. `maxPlies` AI turns have been applied (`stopReason = MaxPliesReached`).
+    *   4. An AI turn fails mid-run (`stopReason = MoveFailed`).
+    *
+    * Each iteration calls [[requestAIMove]], which goes through the same guard, provider, and
+    * `GameSessionCommands.submitMove` path as a single AI turn. State is threaded in memory between
+    * iterations; the repository is not re-read on each step.
+    *
+    * @param session  current session (caller must have loaded it)
+    * @param state    current chess state (caller must have loaded it)
+    * @param maxPlies upper bound on the number of AI turns to apply; must be ≥ 1
+    */
+  def runTurns(
+      session: GameSession,
+      state: GameState,
+      maxPlies: Int
+  ): AITurnRunResult =
+    @scala.annotation.tailrec
+    def loop(
+        current: GameSession,
+        s: GameState,
+        remaining: Int,
+        pliesRun: Int
+    ): AITurnRunResult =
+      s.status match
+        case GameStatus.Ongoing(_) =>
+          if !AITurnPolicy.isAITurn(current, s.currentPlayer) then
+            AITurnRunResult(s, current, pliesRun, AITurnRunStopReason.AwaitingHuman)
+          else if remaining == 0 then
+            AITurnRunResult(s, current, pliesRun, AITurnRunStopReason.MaxPliesReached)
+          else
+            requestAIMove(current, s) match
+              case Right((nextState, nextSession)) =>
+                loop(nextSession, nextState, remaining - 1, pliesRun + 1)
+              case Left(err) =>
+                AITurnRunResult(s, current, pliesRun, AITurnRunStopReason.MoveFailed(err))
+        case _ =>
+          AITurnRunResult(s, current, pliesRun, AITurnRunStopReason.GameFinished)
+
+    loop(session, state, maxPlies, 0)
+
   private def guardAITurn(session: GameSession, state: GameState): Either[AITurnError, Unit] =
     if AITurnPolicy.isAITurn(session, state.currentPlayer) then Right(())
     else Left(AITurnError.NotAITurn)
@@ -111,6 +155,7 @@ class AITurnService(
     else Left(AITurnError.IllegalSuggestedMove(move))
 
   private def reasonFor(err: AITurnError): String = err match
+    case AITurnError.InvalidMaxPlies(v)                        => s"invalid maxPlies: $v"
     case AITurnError.ProviderFailure(AIError.NoLegalMove)      => "no legal moves available"
     case AITurnError.ProviderFailure(AIError.Unavailable(msg)) => s"provider unavailable: $msg"
     case AITurnError.ProviderFailure(AIError.Timeout(msg))     => s"provider timeout: $msg"

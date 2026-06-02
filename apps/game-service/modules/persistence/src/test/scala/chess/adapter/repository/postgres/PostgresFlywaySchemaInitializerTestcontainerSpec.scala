@@ -22,6 +22,16 @@ class PostgresFlywaySchemaInitializerTestcontainerSpec
     if !postgres.isDockerAvailable then
       cancel("Docker/Testcontainers unavailable; skipping PostgreSQL container integration tests")
     postgres.start()
+    // Drop managed public tables before each test so state from a prior test cannot
+    // contaminate subsequent ones (e.g. flyway_schema_history left by a previous run).
+    postgres.withDatabase { db =>
+      Await.result(
+        db.run(
+          sqlu"drop table if exists flyway_schema_history, game_states, sessions, legacy_public_table cascade"
+        ),
+        10.seconds
+      )
+    }
     super.withFixture(test)
 
   override protected def afterAll(): Unit =

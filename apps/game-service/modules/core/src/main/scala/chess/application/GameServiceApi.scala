@@ -1,6 +1,6 @@
 package chess.application
 
-import chess.application.ai.service.AITurnError
+import chess.application.ai.service.{AITurnError, AITurnRunResult}
 import chess.application.port.repository.RepositoryError
 import chess.application.query.game.{GameArchiveSnapshot, GameView, LegalMovesView}
 import chess.application.query.session.SessionView
@@ -135,6 +135,32 @@ trait GameServiceApi:
       gameId: GameId,
       now: Instant = Instant.now()
   ): Either[AITurnError, (GameState, GameSession)]
+
+  /** Run AI turns in a bounded loop until the game finishes, a human turn is reached, `maxPlies`
+    * is exhausted, or a provider failure occurs.
+    *
+    * Loads session and state once, then delegates to [[chess.application.ai.service.AITurnService.runTurns]].
+    * Each iteration goes through the same guard / provider / `GameSessionCommands.submitMove` path
+    * as a single [[triggerAIMoveByGameId]] call; state is threaded in memory between iterations.
+    *
+    * @param gameId   identifies the game and its session
+    * @param maxPlies upper bound on AI plies to apply; must be ≥ 1
+    *
+    * ===Error cases===
+    *   - [[AITurnError.NotConfigured]] — no AI service is wired
+    *   - [[AITurnError.SessionLookupFailed]] — session could not be loaded
+    *   - [[AITurnError.GameStateLookupFailed]] — game state could not be loaded
+    *
+    * Stop conditions (encoded as [[AITurnRunResult.stopReason]]):
+    *   - `GameFinished` — terminal position reached
+    *   - `AwaitingHuman` — current side is not AI-controlled
+    *   - `MaxPliesReached` — `maxPlies` consumed
+    *   - `MoveFailed` — provider or move-path failure mid-run
+    */
+  def runAiTurnsByGameId(
+      gameId: GameId,
+      maxPlies: Int
+  ): Either[AITurnError, AITurnRunResult]
 
   // ── Queries ─────────────────────────────────────────────────────────────────
 
