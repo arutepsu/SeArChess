@@ -82,6 +82,12 @@ spec:
             # which may differ from the configured frontend hostname.
             - name: KC_HOSTNAME_BACKCHANNEL_DYNAMIC
               value: "true"
+            # KC_HTTP_RELATIVE_PATH=/auth shifts the main HTTP base path, but
+            # Keycloak 26 also shifts the management interface path by default.
+            # Pin the management path to / so that /health/* is always reachable
+            # on port 9000 regardless of the main path offset.
+            - name: KC_HTTP_MANAGEMENT_RELATIVE_PATH
+              value: "/"
           ports:
             - name: http
               containerPort: 8080
@@ -95,29 +101,41 @@ spec:
               mountPath: /opt/keycloak/data/import/realm-searchess.json
               subPath: realm-searchess.json
               readOnly: true
+          startupProbe:
+            httpGet:
+              path: /health/started
+              port: 9000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            # 30 s initial delay + 60 × 10 s = up to 630 s for KC to finish
+            # importing the realm and completing production-mode startup.
+            failureThreshold: 60
           readinessProbe:
             httpGet:
               path: /health/ready
               port: 9000
             initialDelaySeconds: 30
             periodSeconds: 10
-            failureThreshold: 12
+            timeoutSeconds: 5
+            failureThreshold: 30
           livenessProbe:
             httpGet:
               path: /health/live
               port: 9000
             initialDelaySeconds: 60
             periodSeconds: 15
+            timeoutSeconds: 5
             failureThreshold: 3
           resources:
-            # Low limits for the 4 GB university VM. Keycloak with Postgres backend
-            # is leaner than with embedded H2; 512Mi is sufficient for a single-realm
-            # demo deployment.
+            # Keycloak 26.6.2 in start (production) mode with realm import needs at
+            # least 512 Mi to avoid OOMKill (exit 137) during startup. 1 Gi limit
+            # provides headroom for realm-import spikes and is safe on the 4 GB VM.
             requests:
-              memory: "256Mi"
+              memory: "512Mi"
               cpu: "100m"
             limits:
-              memory: "512Mi"
+              memory: "1Gi"
               cpu: "500m"
       volumes:
         - name: realm-import

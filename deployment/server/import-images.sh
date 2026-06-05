@@ -17,6 +17,7 @@ k3d image import \
   searchess/history-service:local \
   searchess/ai-service:local \
   searchess/python-ai-service:local \
+  searchess/web-ui:local \
   --cluster "$CLUSTER"
 
 echo "==> Import complete. Verify:"
