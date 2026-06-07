@@ -1,9 +1,19 @@
+import { useNavigate } from "react-router-dom";
 import keycloak from "../auth/keycloak";
 
+const btnStyle: React.CSSProperties = {
+  background: "transparent",
+  border: "1px solid #777",
+  color: "#aaa",
+  cursor: "pointer",
+  padding: "2px 8px",
+  borderRadius: "3px",
+  fontSize: "12px",
+};
+
 export default function AuthBar() {
-  const username = keycloak.tokenParsed?.["preferred_username"] as
-    | string
-    | undefined;
+  const navigate = useNavigate();
+  const username = keycloak.tokenParsed?.["preferred_username"] as string | undefined;
 
   return (
     <div
@@ -24,19 +34,10 @@ export default function AuthBar() {
       }}
     >
       <span>{username ?? "—"}</span>
-      <button
-        type="button"
-        onClick={() => void keycloak.logout()}
-        style={{
-          background: "transparent",
-          border: "1px solid #777",
-          color: "#aaa",
-          cursor: "pointer",
-          padding: "2px 8px",
-          borderRadius: "3px",
-          fontSize: "12px",
-        }}
-      >
+      <button type="button" style={btnStyle} onClick={() => navigate("/settings")}>
+        Profile
+      </button>
+      <button type="button" style={btnStyle} onClick={() => void keycloak.logout()}>
         Logout
       </button>
     </div>

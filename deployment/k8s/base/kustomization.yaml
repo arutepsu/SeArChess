@@ -18,6 +18,9 @@ resources:
   - game-service/configmap.yaml
   - game-service/deployment.yaml
   - game-service/service.yaml
+  - user-service/configmap.yaml
+  - user-service/deployment.yaml
+  - user-service/service.yaml
   - lichess-bot/configmap.yaml
   - lichess-bot/deployment.yaml
   - history-service/configmap.yaml

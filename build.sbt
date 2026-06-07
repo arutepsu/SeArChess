@@ -465,6 +465,43 @@ lazy val aiService = project
   )
   .dependsOn(aiContract, observability, domain, notation)
 
+// ── App: user-service ────────────────────────────────────────────────────────
+
+lazy val userService = project
+  .in(file("apps/user-service"))
+  .enablePlugins(JavaAppPackaging)
+  .settings(
+    commonSettings,
+    name := "searchess-user-service",
+    coverageMinimumStmtTotal := 0,
+    Compile / mainClass := Some("chess.userservice.UserServiceMain"),
+    run / mainClass     := Some("chess.userservice.UserServiceMain"),
+    run / fork          := true,
+    libraryDependencies ++= Seq(
+      "org.http4s" %% "http4s-ember-server" % http4sVersion,
+      "org.http4s" %% "http4s-dsl"          % http4sVersion,
+      "com.lihaoyi" %% "ujson"              % "4.0.2",
+      // Slick / PostgreSQL (same versions as other services)
+      "com.typesafe.slick" %% "slick"          % slickVersion,
+      "com.typesafe.slick" %% "slick-hikaricp" % slickVersion,
+      "org.postgresql"      % "postgresql"     % postgresVersion,
+      // Flyway
+      "org.flywaydb" % "flyway-core"                % flywayVersion,
+      "org.flywaydb" % "flyway-database-postgresql" % flywayVersion,
+      // Testcontainers (for future Postgres integration tests)
+      "org.testcontainers" % "testcontainers" % testcontainersVersion % Test,
+      "org.testcontainers" % "postgresql"     % testcontainersVersion % Test
+    ),
+    excludeFromCoverage(
+      ".*chess.userservice.UserServiceMain.*",
+      ".*chess.userservice.UserServiceConfig.*",
+      ".*chess.userservice.UserServiceWiring.*",
+      ".*chess.userservice.UserServiceRuntime.*",
+      ".*chess.userservice.postgres.UserFlywayInitializer.*"
+    )
+  )
+  .dependsOn(observability)
+
 // App: lichess-bot
 lazy val lichessBot = project
   .in(file("apps/lichess-bot"))
@@ -595,6 +632,7 @@ addCommandAlias("testAdapterTui",         "adapterTui/test")
 addCommandAlias("testStartupShared",      "startupShared/test")
 addCommandAlias("testGameService",        "gameService/test")
 addCommandAlias("testHistoryService",     "historyService/test")
+addCommandAlias("testUserService",        "userService/test")
 addCommandAlias("testAiService",          "aiService/test")
 addCommandAlias("testDesktopGui",         "desktopGui/test")
 addCommandAlias("testTuiCli",             "tuiCli/test")
@@ -621,7 +659,7 @@ addCommandAlias("testAllAdapters",
   ";adapterGui/test;adapterTui/test")
 
 addCommandAlias("testApps",
-  ";startupShared/test;gameService/test;historyService/test;aiService/test;desktopGui/test;tuiCli/test")
+  ";startupShared/test;gameService/test;historyService/test;userService/test;aiService/test;desktopGui/test;tuiCli/test")
 
 // ── Compile slices ────────────────────────────────────────────────────────────
 
@@ -653,6 +691,6 @@ lazy val root = project
     adapterPersistence, migration, adapterAi, adapterEvent, gameEventContract, gameHistoryDelivery,
     adapterRestContract, adapterRestHttp4s,
     adapterWebsocket, adapterGui, adapterTui,
-    startupShared, gameService, historyService, aiService, desktopGui, tuiCli, loadTests, benchmarks,
+    startupShared, gameService, historyService, userService, aiService, desktopGui, tuiCli, loadTests, benchmarks,
     lichessBot, chessStreaming
   )

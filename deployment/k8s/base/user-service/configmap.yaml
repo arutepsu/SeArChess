@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: user-service-env
+  namespace: searchess
+data:
+  USER_HTTP_HOST: "0.0.0.0"
+  USER_HTTP_PORT: "8082"
+  USER_POSTGRES_URL: "jdbc:postgresql://postgres:5432/searchess"
+  USER_POSTGRES_USER: "searchess"
+  USER_POSTGRES_SCHEMA: "users"
+  JAVA_TOOL_OPTIONS: "-javaagent:/app/opentelemetry-javaagent.jar"
+  OTEL_SERVICE_NAME: "searchess-user-service"
+  OTEL_TRACES_EXPORTER: "otlp"
+  OTEL_METRICS_EXPORTER: "none"
+  OTEL_LOGS_EXPORTER: "none"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+  OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"

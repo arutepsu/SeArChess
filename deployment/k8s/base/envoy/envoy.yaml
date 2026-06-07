@@ -29,6 +29,13 @@ static_resources:
                             prefix: /auth
                           route:
                             cluster: keycloak
+                        # user-service: must be listed before the catch-all /api/ rule.
+                        # Envoy rewrites /api/users/* → /users/* on the upstream.
+                        - match:
+                            prefix: /api/users
+                          route:
+                            cluster: user_service
+                            prefix_rewrite: /users
                         - match:
                             prefix: /api/
                           route:
@@ -126,6 +133,18 @@ static_resources:
                     socket_address:
                       address: web-ui
                       port_value: 80
+    - name: user_service
+      type: STRICT_DNS
+      connect_timeout: 1s
+      load_assignment:
+        cluster_name: user_service
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: user-service
+                      port_value: 8082
     - name: keycloak
       type: STRICT_DNS
       connect_timeout: 5s

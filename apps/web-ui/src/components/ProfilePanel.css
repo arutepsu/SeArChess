@@ -1,0 +1,165 @@
+.profile-panel {
+  max-width: 540px;
+  margin: 80px auto 0;
+  padding: 2rem;
+  background: rgba(20, 20, 30, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #d0d0d0;
+  font-family: sans-serif;
+}
+
+.profile-panel h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.4rem;
+  color: #eee;
+}
+
+.profile-panel .subtitle {
+  font-size: 0.85rem;
+  color: #888;
+  margin: 0 0 1.5rem;
+}
+
+.profile-section {
+  margin-bottom: 1.5rem;
+}
+
+.profile-section h3 {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #aaa;
+  margin: 0 0 0.5rem;
+}
+
+.profile-field {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  font-size: 0.95rem;
+  margin-bottom: 0.25rem;
+}
+
+.profile-field .label {
+  color: #888;
+  min-width: 90px;
+  font-size: 0.8rem;
+}
+
+.link-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.link-card .link-provider {
+  font-weight: 600;
+  color: #c8a;
+  font-size: 0.9rem;
+}
+
+.link-card .link-username {
+  font-size: 1rem;
+  margin: 0.25rem 0;
+}
+
+.link-card .link-meta {
+  font-size: 0.75rem;
+  color: #777;
+}
+
+.link-card .verified-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  background: rgba(80, 160, 80, 0.2);
+  color: #8c8;
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin-left: 6px;
+}
+
+.link-card .unverified-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  background: rgba(160, 130, 50, 0.2);
+  color: #ca8;
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin-left: 6px;
+}
+
+.manual-link-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.manual-link-form label {
+  font-size: 0.85rem;
+  color: #aaa;
+}
+
+.manual-link-form input {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  color: #e0e0e0;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.95rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.manual-link-form input:focus {
+  outline: none;
+  border-color: rgba(200, 170, 120, 0.5);
+}
+
+.manual-link-form button {
+  background: rgba(200, 170, 100, 0.15);
+  border: 1px solid rgba(200, 170, 100, 0.3);
+  border-radius: 4px;
+  color: #c8a;
+  cursor: pointer;
+  padding: 0.45rem 1rem;
+  font-size: 0.9rem;
+  align-self: flex-start;
+  transition: background 0.15s;
+}
+
+.manual-link-form button:hover:not(:disabled) {
+  background: rgba(200, 170, 100, 0.25);
+}
+
+.manual-link-form button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.profile-notice {
+  font-size: 0.8rem;
+  margin-top: 0.4rem;
+}
+
+.profile-notice.success { color: #8c8; }
+.profile-notice.error   { color: #c88; }
+
+.profile-back-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  color: #888;
+  cursor: pointer;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.85rem;
+  margin-top: 1.5rem;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.profile-back-btn:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #ccc;
+}

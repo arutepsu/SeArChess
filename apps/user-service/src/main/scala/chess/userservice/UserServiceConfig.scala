@@ -1,0 +1,43 @@
+package chess.userservice
+
+import chess.observability.StructuredLog
+
+final case class UserServiceConfig(
+    host: String,
+    port: Int,
+    postgresUrl: String,
+    postgresUser: String,
+    postgresPassword: String,
+    postgresSchema: Option[String]
+)
+
+object UserServiceConfig:
+  def loadOrExit(): UserServiceConfig =
+    load().fold(
+      err => {
+        StructuredLog.error("user-service", "configuration_error", "error" -> err)
+        sys.exit(1)
+      },
+      identity
+    )
+
+  def load(
+      env: String => Option[String] = key => Option(System.getenv(key)).filter(_.nonEmpty)
+  ): Either[String, UserServiceConfig] =
+    for
+      port <- parsePort("USER_HTTP_PORT", env("USER_HTTP_PORT").getOrElse("8082"))
+      postgresUrl <- env("USER_POSTGRES_URL").toRight("USER_POSTGRES_URL is required")
+    yield UserServiceConfig(
+      host           = env("USER_HTTP_HOST").getOrElse("0.0.0.0"),
+      port           = port,
+      postgresUrl    = postgresUrl,
+      postgresUser   = env("USER_POSTGRES_USER").getOrElse("searchess"),
+      postgresPassword = env("USER_POSTGRES_PASSWORD").getOrElse(""),
+      postgresSchema = env("USER_POSTGRES_SCHEMA")
+    )
+
+  private def parsePort(name: String, value: String): Either[String, Int] =
+    value.toIntOption match
+      case Some(p) if p >= 1 && p <= 65535 => Right(p)
+      case Some(p)                          => Left(s"$name must be between 1 and 65535, got: $p")
+      case None                             => Left(s"$name must be an integer, got: '$value'")

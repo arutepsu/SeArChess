@@ -23,6 +23,7 @@ import BackgroundPanel from "./components/BackgroundPanel.tsx";
 import CapturedPanel from "./components/CapturedPanel.tsx";
 import { Chess } from "chess.js";
 import AuthBar from "./components/AuthBar.tsx";
+import ProfilePanel from "./components/ProfilePanel.tsx";
 import "./App.css";
 
 type ConnectionState = "connected" | "offline" | "loading";
@@ -873,6 +874,10 @@ export default function App() {
         <Route
           path="/analysis"
           element={<GameAnalysisView gameId={game?.id ?? session?.gameId ?? null} />}
+        />
+        <Route
+          path="/settings"
+          element={<ProfilePanel onBack={() => navigate("/")} />}
         />
       </Routes>
     </div>

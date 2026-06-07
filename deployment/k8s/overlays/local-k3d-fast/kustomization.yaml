@@ -1,0 +1,109 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# LOCAL-ONLY overlay — Windows / local k3d development.
+#
+# Purpose: faster inner-loop iteration while implementing the Lichess bot feature.
+#          Only services actively changed locally are built and imported.
+#          Stable/heavy services are pulled from GHCR and cached on first apply.
+#
+# Cluster:  deployment/k3d/cluster.yaml  (name: searchess, same as local-k3d)
+# Overlay:  deployment/k8s/overlays/local-k3d-fast  (this file)
+#
+# Do NOT apply on the university server.
+# Do NOT use as a reference for uni-server-k3d changes.
+# Do NOT commit real secrets — patch them with kubectl after apply.
+# For server-like strict reproduction use deployment/k8s/overlays/local-k3d instead.
+
+namespace: searchess
+
+resources:
+  - ../../base
+
+# Actively developed for the Lichess bot feature (build locally, import via k3d):
+#   game-service, web-ui, lichess-bot
+#
+# Stable / heavy services (pulled from GHCR, cached in k3d node on first apply):
+#   history-service, ai-service, python-ai-service (~1.3 GB — avoids local import)
+#
+# GHCR sha tags are copied from uni-server-registry/kustomization.yaml.
+# Update a tag here when you need a newer version of a stable service locally.
+# Prerequisite: GHCR packages must be publicly readable, or run 'docker login ghcr.io' first.
+images:
+  # --- locally built and imported: imagePullPolicy: Never (patched below) ---
+  - name: searchess/game-service
+    newTag: local
+  - name: searchess/web-ui
+    newTag: local
+  - name: searchess/lichess-bot
+    newTag: local
+  - name: searchess/user-service
+    newTag: local
+
+  # --- stable: pulled from GHCR, base imagePullPolicy: IfNotPresent applies ---
+  - name: searchess/history-service
+    newName: ghcr.io/arutepsu/searchess-history-service
+    newTag: sha-769fc27
+  - name: searchess/ai-service
+    newName: ghcr.io/arutepsu/searchess-ai-service
+    newTag: sha-769fc27
+  - name: searchess/python-ai-service
+    newName: ghcr.io/arutepsu/searchess-python-ai-service
+    newTag: sha-2247329
+
+patches:
+  # Expose Envoy and Grafana as LoadBalancer so k3d servicelb forwards through
+  # the port mappings declared in deployment/k3d/cluster.yaml:
+  #   10000:10000 (Envoy)   3001:3000 (Grafana)
+  - path: patches/envoy-loadbalancer.yaml
+    target:
+      kind: Service
+      name: envoy
+  - path: patches/grafana-loadbalancer.yaml
+    target:
+      kind: Service
+      name: grafana
+
+  # Dev-only secret defaults. Real Lichess token and bot API key must be patched
+  # with 'kubectl patch secret' after apply — never committed to the repo.
+  - path: patches/secret-dev.yaml
+    target:
+      kind: Secret
+      name: searchess-secrets
+
+  # Never pull locally-imported images from any registry.
+  # k3d containerd must have them from 'k3d image import' before apply.
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never
+    target:
+      kind: Deployment
+      name: game-service
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never
+    target:
+      kind: Deployment
+      name: web-ui
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never
+    target:
+      kind: Deployment
+      name: lichess-bot
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never
+    target:
+      kind: Deployment
+      name: user-service
+  # history-service, ai-service, python-ai-service: base already sets
+  # imagePullPolicy: IfNotPresent — no patch needed for GHCR images.
+  #
+  # lichess-bot replicas: base sets replicas: 0 — no patch needed here.
+  # Scale up manually after patching real secrets:
+  #   kubectl scale deployment lichess-bot -n searchess --replicas=1
