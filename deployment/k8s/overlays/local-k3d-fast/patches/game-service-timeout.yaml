@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: game-service-env
+  namespace: searchess
+data:
+  AI_TIMEOUT_MILLIS: "10000"

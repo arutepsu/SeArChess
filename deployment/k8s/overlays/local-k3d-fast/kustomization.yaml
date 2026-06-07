@@ -51,6 +51,16 @@ images:
     newName: ghcr.io/arutepsu/searchess-python-ai-service
     newTag: sha-2247329
 
+# Override the base envoy-config ConfigMap with a local copy whose JWT issuer
+# matches the KC_HOSTNAME patch: http://localhost:10000/auth/realms/searchess.
+# behavior: replace regenerates the ConfigMap (with a new hash) so the Envoy pod
+# rolls automatically on apply.
+configMapGenerator:
+  - name: envoy-config
+    behavior: replace
+    files:
+      - envoy.yaml=patches/envoy-local.yaml
+
 patches:
   # Expose Envoy and Grafana as LoadBalancer so k3d servicelb forwards through
   # the port mappings declared in deployment/k3d/cluster.yaml:
@@ -64,12 +74,27 @@ patches:
       kind: Service
       name: grafana
 
+  # Keycloak browser-facing hostname: must match the host port that the browser
+  # can actually reach.  local-k3d-fast only exposes port 10000 (Envoy); port
+  # 18000 (base default) is not mapped in deployment/k3d/cluster.yaml.
+  - path: patches/keycloak-hostname.yaml
+    target:
+      kind: Deployment
+      name: keycloak
+
   # Dev-only secret defaults. Real Lichess token and bot API key must be patched
   # with 'kubectl patch secret' after apply — never committed to the repo.
   - path: patches/secret-dev.yaml
     target:
       kind: Secret
       name: searchess-secrets
+
+  # python-ai-service takes ~6 s locally; raise game-service's AI call timeout
+  # so it doesn't 503 before the response arrives.  Local-only: base keeps 2 s.
+  - path: patches/game-service-timeout.yaml
+    target:
+      kind: ConfigMap
+      name: game-service-env
 
   # Never pull locally-imported images from any registry.
   # k3d containerd must have them from 'k3d image import' before apply.
