@@ -53,6 +53,47 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
     config.history.failureBehaviour shouldBe DependencyFailureBehaviour.LogAndContinue
   }
 
+  it should "default user-service integration to the Kubernetes service name" in {
+    val config = loadDefault().value
+
+    config.userService.baseUrl shouldBe "http://user-service:8082"
+    config.userService.timeoutMillis shouldBe 2000
+  }
+
+  it should "parse configured user-service integration values" in {
+    val config = loadDefault(
+      "USER_SERVICE_BASE_URL" -> "http://user-service.local:18082",
+      "USER_SERVICE_TIMEOUT_MILLIS" -> "3500"
+    ).value
+
+    config.userService.baseUrl shouldBe "http://user-service.local:18082"
+    config.userService.timeoutMillis shouldBe 3500
+  }
+
+  it should "reject invalid user-service integration values" in {
+    loadDefault("USER_SERVICE_BASE_URL" -> "   ").left.value should include("USER_SERVICE_BASE_URL")
+    loadDefault("USER_SERVICE_TIMEOUT_MILLIS" -> "0").left.value should include(
+      "USER_SERVICE_TIMEOUT_MILLIS must be >= 1"
+    )
+  }
+
+  it should "parse configured Lichess bot integration values" in {
+    val config = loadDefault(
+      "LICHESS_BOT_BASE_URL" -> "http://lichess-bot.local:19324",
+      "LICHESS_BOT_TIMEOUT_MILLIS" -> "4500"
+    ).value
+
+    config.lichessBot.baseUrl shouldBe "http://lichess-bot.local:19324"
+    config.lichessBot.timeoutMillis shouldBe 4500
+  }
+
+  it should "reject invalid Lichess bot integration values" in {
+    loadDefault("LICHESS_BOT_BASE_URL" -> "   ").left.value should include("LICHESS_BOT_BASE_URL")
+    loadDefault("LICHESS_BOT_TIMEOUT_MILLIS" -> "0").left.value should include(
+      "LICHESS_BOT_TIMEOUT_MILLIS must be >= 1"
+    )
+  }
+
   it should "parse enabled History forwarding with base URL and timeout" in {
     val config = loadDefault(
       "HISTORY_FORWARDING_ENABLED" -> "true",

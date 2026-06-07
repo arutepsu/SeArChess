@@ -516,6 +516,8 @@ lazy val lichessBot = project
     libraryDependencies ++= Seq(
       "com.softwaremill.sttp.client3" %% "core" % "3.9.7",
       "com.lihaoyi" %% "ujson" % "4.0.2",
+      "org.http4s" %% "http4s-ember-server" % http4sVersion,
+      "org.http4s" %% "http4s-dsl"          % http4sVersion,
       "org.java-websocket" % "Java-WebSocket" % "1.5.7"
     )
   )

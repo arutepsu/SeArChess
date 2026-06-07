@@ -140,6 +140,29 @@ export interface RunAiTurnsResponse {
   stopReason: AiTurnsStopReason;
 }
 
+export interface BotChallengeRequest {
+  clockLimitSeconds: number;
+  clockIncrementSeconds: number;
+  color: "white" | "black" | "random";
+  rated: false;
+}
+
+export interface BotChallengeResponse {
+  id: string;
+  requestedByNicknameSnapshot: string;
+  lichessUsername: string;
+  lichessChallengeId: string | null;
+  lichessChallengeUrl: string | null;
+  status: "Requested" | "Sent" | "Failed";
+  clockLimitSeconds: number;
+  clockIncrementSeconds: number;
+  color: "White" | "Black" | "Random";
+  rated: false;
+  createdAt: string;
+  updatedAt: string;
+  failureReason: string | null;
+}
+
 export interface GameNotationResponse {
   fen: string;
   pgn: string;

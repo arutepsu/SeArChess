@@ -90,6 +90,11 @@ final case class UserServiceConfig(
     timeoutMillis: Int = 2000
 )
 
+final case class LichessBotConfig(
+    baseUrl: String = "http://lichess-bot:9324",
+    timeoutMillis: Int = 5000
+)
+
 /** Fully resolved Game Service runtime configuration. */
 final case class AppConfig(
     http: HttpConfig,
@@ -103,6 +108,7 @@ final case class AppConfig(
     history: HistoryForwardingConfig,
     ai: AiConfig,
     userService: UserServiceConfig = UserServiceConfig("http://user-service:8082"),
+    lichessBot: LichessBotConfig = LichessBotConfig(),
     externalGameBot: Option[ExternalGameBotConfig] = None,
     migrationAdminEnabled: Boolean = false,
     migrationAdminToken: Option[String] = None

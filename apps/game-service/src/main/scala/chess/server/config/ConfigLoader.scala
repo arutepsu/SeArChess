@@ -27,6 +27,8 @@ object ConfigLoader:
   private val DefaultExternalGameBotActorId: String = "searchess-bot"
   private val DefaultUserServiceBaseUrl: String = "http://user-service:8082"
   private val DefaultUserServiceTimeout: String = "2000"
+  private val DefaultLichessBotBaseUrl: String = "http://lichess-bot:9324"
+  private val DefaultLichessBotTimeout: String = "5000"
 
   def load(): Either[String, AppConfig] =
     loadFrom(key => Option(System.getenv(key)).filter(_.nonEmpty))
@@ -90,6 +92,12 @@ object ConfigLoader:
       )
       userServiceBaseUrl = env("USER_SERVICE_BASE_URL").getOrElse(DefaultUserServiceBaseUrl).trim
       _ <- Either.cond(userServiceBaseUrl.nonEmpty, (), "USER_SERVICE_BASE_URL must be non-empty")
+      lichessBotTimeout <- parsePositiveInt(
+        "LICHESS_BOT_TIMEOUT_MILLIS",
+        env("LICHESS_BOT_TIMEOUT_MILLIS").getOrElse(DefaultLichessBotTimeout)
+      )
+      lichessBotBaseUrl = env("LICHESS_BOT_BASE_URL").getOrElse(DefaultLichessBotBaseUrl).trim
+      _ <- Either.cond(lichessBotBaseUrl.nonEmpty, (), "LICHESS_BOT_BASE_URL must be non-empty")
       externalGameBot <- parseExternalGameBotConfig(
         env("EXTERNAL_GAME_BOT_API_KEY"),
         env("EXTERNAL_GAME_BOT_PLATFORM").getOrElse(DefaultExternalGameBotPlatform),
@@ -113,6 +121,7 @@ object ConfigLoader:
         defaultEngineId = engineId
       ),
       userService = UserServiceConfig(userServiceBaseUrl, userServiceTimeout),
+      lichessBot = LichessBotConfig(lichessBotBaseUrl, lichessBotTimeout),
       externalGameBot = externalGameBot,
       migrationAdminEnabled = migrationAdmin,
       migrationAdminToken = migrationToken

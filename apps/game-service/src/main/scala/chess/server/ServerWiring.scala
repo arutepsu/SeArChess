@@ -5,7 +5,7 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import cats.syntax.semigroupk.*
 import chess.adapter.http4s.Http4sApp
-import chess.adapter.http4s.route.{BotCredentials, ExternalGameRouteAuth, HttpAuthenticatedUserClient, HttpHistoryArchiveClient}
+import chess.adapter.http4s.route.{BotCredentials, ExternalGameRouteAuth, HttpAuthenticatedUserClient, HttpHistoryArchiveClient, HttpLichessBotChallengeClient}
 import chess.application.external.VerifiedExternalCaller
 import chess.application.session.model.ExternalPlatform
 import chess.server.assembly.{AppContext, EventWiring}
@@ -103,11 +103,19 @@ object ServerWiring:
       ctx.snapshotTransferService,
       ctx.gameRepository,
       ctx.sessionGameStore,
+      ctx.botChallengeSessionRepository,
       domainMetrics,
       externalGameService = ctx.externalGameService,
       externalGameAuth = externalGameAuth(config.externalGameBot),
       userClient = Some(HttpAuthenticatedUserClient(config.userService.baseUrl, config.userService.timeoutMillis)),
-      historyArchiveClient = config.history.baseUrl.map(url => HttpHistoryArchiveClient(url, config.history.timeoutMillis))
+      historyArchiveClient = config.history.baseUrl.map(url => HttpHistoryArchiveClient(url, config.history.timeoutMillis)),
+      lichessBotChallengeClient = config.externalGameBot.map(bot =>
+        HttpLichessBotChallengeClient(
+          baseUrl = config.lichessBot.baseUrl,
+          apiKey = bot.apiKey,
+          timeoutMillis = config.lichessBot.timeoutMillis
+        )
+      )
     ).httpApp
 
   private[server] def externalGameAuth(

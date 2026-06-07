@@ -26,6 +26,7 @@ case class GameStateCache(
   */
 class LichessBot(
     val token: String,
+    acceptIncomingChallenges: Boolean = false,
     gameServiceClient: Option[GameServiceClient] =
       GameServiceClientConfig.fromEnv().map(GameServiceClient(_))
 )(implicit ec: ExecutionContext):
@@ -141,8 +142,11 @@ class LichessBot(
       case "challenge" =>
         val challengeId = json("challenge")("id").str
         val challenger = json("challenge")("challenger")("id").str
-        println(s"[LichessBot] Received challenge $challengeId from $challenger. Accepting...")
-        acceptChallenge(challengeId)
+        if acceptIncomingChallenges then
+          println(s"[LichessBot] Received challenge $challengeId from $challenger. Accepting...")
+          acceptChallenge(challengeId)
+        else
+          println(s"[LichessBot] Received challenge $challengeId from $challenger. Ignoring because incoming challenges are disabled.")
 
       case "gameStart" =>
         val gameId = json("game")("id").str
@@ -454,10 +458,23 @@ object LichessBotMain:
   def main(args: Array[String]): Unit =
     implicit val ec: ExecutionContext = ExecutionContext.global
     val token = Option(System.getenv("LICHESS_BOT_TOKEN")).filter(_.nonEmpty).getOrElse(DefaultToken)
-    val bot = LichessBot(token)
+    val acceptIncomingChallenges =
+      Option(System.getenv("LICHESS_BOT_ACCEPT_INCOMING_CHALLENGES"))
+        .exists(value => Set("true", "1", "yes").contains(value.trim.toLowerCase))
+    val challengePort = Option(System.getenv("CHALLENGE_HTTP_PORT")).flatMap(_.toIntOption).getOrElse(9324)
+    val shutdownChallenge =
+      Option(System.getenv("EXTERNAL_GAME_BOT_API_KEY")).map(_.trim).filter(_.nonEmpty) match
+        case Some(apiKey) =>
+          println(s"[LichessBot] Starting internal challenge API on port $challengePort...")
+          Some(LichessChallengeServer.start(challengePort, apiKey, HttpLichessChallengeClient(token)))
+        case None =>
+          println("[LichessBot] Internal challenge API disabled: EXTERNAL_GAME_BOT_API_KEY is not configured.")
+          None
+    val bot = LichessBot(token, acceptIncomingChallenges = acceptIncomingChallenges)
 
     try bot.start()
     catch
       case NonFatal(e) =>
         println(s"[LichessBot] Critical error on startup: ${e.getMessage}")
         e.printStackTrace()
+    finally shutdownChallenge.foreach(_.apply())

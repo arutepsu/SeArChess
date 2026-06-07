@@ -1,6 +1,7 @@
 package chess.server.assembly
 
 import chess.adapter.repository.{
+  InMemoryBotChallengeSessionRepository,
   InMemoryGameRepository,
   InMemorySessionGameStore,
   InMemorySessionRepository
@@ -16,6 +17,7 @@ import chess.adapter.repository.sqlite.{
 }
 import chess.adapter.repository.postgres.PostgresPersistenceRuntime
 import chess.application.port.repository.{
+  BotChallengeSessionRepository,
   ExternalGameBindingRepository,
   ExternalGameCommandStore,
   GameRepository,
@@ -29,6 +31,7 @@ final case class PersistenceWiring(
     sessionRepository: SessionRepository,
     gameRepository: GameRepository,
     store: SessionGameStore,
+    botChallengeSessionRepository: BotChallengeSessionRepository,
     externalGameBindingRepository: Option[ExternalGameBindingRepository] = None,
     externalGameCommandStore: Option[ExternalGameCommandStore] = None,
     shutdown: () => Unit = () => ()
@@ -69,7 +72,7 @@ object PersistenceAssembly:
     val sessionRepo = InMemorySessionRepository()
     val gameRepo = InMemoryGameRepository()
     val store = InMemorySessionGameStore(sessionRepo, gameRepo)
-    PersistenceWiring(sessionRepo, gameRepo, store)
+    PersistenceWiring(sessionRepo, gameRepo, store, InMemoryBotChallengeSessionRepository())
 
   private def assembleSQLite(cfg: SqliteConfig): PersistenceWiring =
     val ds = SqliteDataSource(cfg.path)
@@ -83,6 +86,7 @@ object PersistenceAssembly:
       sessionRepo,
       gameRepo,
       store,
+      botChallengeSessionRepository = InMemoryBotChallengeSessionRepository(),
       externalGameBindingRepository = Some(bindingRepo),
       externalGameCommandStore = Some(commandStore)
     )
@@ -95,6 +99,7 @@ object PersistenceAssembly:
           runtime.sessionRepository,
           runtime.gameRepository,
           runtime.store,
+          runtime.botChallengeSessionRepository,
           externalGameBindingRepository = Some(runtime.externalGameBindingRepository),
           externalGameCommandStore = Some(runtime.externalGameCommandStore),
           shutdown = runtime.close
@@ -108,5 +113,6 @@ object PersistenceAssembly:
           runtime.sessionRepository,
           runtime.gameRepository,
           runtime.store,
+          botChallengeSessionRepository = InMemoryBotChallengeSessionRepository(),
           shutdown = () => runtime.close()
         )

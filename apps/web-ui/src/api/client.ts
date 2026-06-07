@@ -6,6 +6,8 @@ import type {
   GameNotationResponse,
   ReplayFrameResponse,
   GameSnapshot,
+  BotChallengeRequest,
+  BotChallengeResponse,
   HeatmapResponse,
   HealthResponse,
   ImportNotationRequest,
@@ -212,6 +214,15 @@ export async function listSessions(): Promise<SessionListResponse> {
 
 export async function listMyArchive(): Promise<{ archives: unknown[] }> {
   return fetchJson<{ archives: unknown[] }>("/archive/mine");
+}
+
+export async function createBotChallenge(
+  payload: BotChallengeRequest
+): Promise<BotChallengeResponse> {
+  return fetchJson<BotChallengeResponse>("/bot/challenges", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
 }
 
 export async function loadSessionState(

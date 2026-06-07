@@ -4,6 +4,7 @@ import type { PlayerColor, PlayableGameMode, GameState, BoardMatrix, PieceCode }
 import type { MoveHistoryEntryDto } from "./api/backendTypes";
 import { getReplayFrame } from "./api/client";
 import { getMyProfile } from "./api/userServiceClient";
+import type { UserProfileResponse } from "./api/userServiceTypes";
 import { mapGameSnapshotToGameState, computeCapturedPieces } from "./api/mapper";
 import type { SpriteCatalog } from "./assets/spriteCatalog";
 import { loadSpriteCatalog } from "./assets/spriteCatalog";
@@ -231,10 +232,12 @@ export default function App() {
   const [hasNewBotMoveNotification, setHasNewBotMoveNotification] = useState(false);
   const [botConnectionState, setBotConnectionState] = useState<"idle" | "connecting" | "live" | "disconnected">("idle");
   const [onboardingRequired, setOnboardingRequired] = useState(false);
+  const [profile, setProfile] = useState<UserProfileResponse | null>(null);
 
   useEffect(() => {
     getMyProfile()
       .then((profile) => {
+        setProfile(profile);
         setOnboardingRequired(profile.onboardingRequired);
         if (profile.onboardingRequired) navigate("/onboarding");
       })
@@ -730,12 +733,15 @@ export default function App() {
             hasActiveGame={Boolean(game)}
             busy={busy}
             onboardingRequired={onboardingRequired}
+            profile={profile}
             onStart={handleStartGame}
             onContinueActiveGame={() => navigate("/game")}
             onResumeSession={async (sessionId) => {
               await handleResumeSession(sessionId);
               navigate("/game");
             }}
+            onOpenSettings={() => navigate("/settings")}
+            onOpenOnboarding={() => navigate("/onboarding")}
           />
         } />
         <Route path="/onboarding" element={

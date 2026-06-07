@@ -9,7 +9,16 @@ import scala.util.control.NonFatal
 final case class AuthenticatedSearchessUser(
     userId: UUID,
     nickname: Option[String],
-    onboardingRequired: Boolean
+    onboardingRequired: Boolean,
+    links: List[AuthenticatedExternalAccountLink] = Nil
+)
+
+final case class AuthenticatedExternalAccountLink(
+    provider: String,
+    externalId: Option[String],
+    externalUsername: String,
+    verified: Boolean,
+    verificationSource: String
 )
 
 trait AuthenticatedUserClient:
@@ -56,8 +65,28 @@ final class HttpAuthenticatedUserClient(
             case ujson.Null => None
             case value      => Some(value.str)
           },
-          onboardingRequired = json("onboardingRequired").bool
+          onboardingRequired = json("onboardingRequired").bool,
+          links = json.obj
+            .get("links")
+            .map(_.arr.toList.flatMap(parseLink))
+            .getOrElse(Nil)
         )
       )
     catch case NonFatal(e) =>
       Left(AuthenticatedUserClientError.InvalidResponse(s"Invalid user-service response: ${e.getMessage}"))
+
+  private def parseLink(json: ujson.Value): Option[AuthenticatedExternalAccountLink] =
+    try
+      Some(
+        AuthenticatedExternalAccountLink(
+          provider = json("provider").str,
+          externalId = json.obj.get("externalId").flatMap {
+            case ujson.Null => None
+            case value      => Some(value.str)
+          },
+          externalUsername = json("externalUsername").str,
+          verified = json("verified").bool,
+          verificationSource = json("verificationSource").str
+        )
+      )
+    catch case NonFatal(_) => None

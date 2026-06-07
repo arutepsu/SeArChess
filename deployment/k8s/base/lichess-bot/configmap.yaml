@@ -5,5 +5,7 @@ metadata:
   namespace: searchess
 data:
   GAME_SERVICE_BASE_URL: "http://game-service:8080"
+  CHALLENGE_HTTP_PORT: "9324"
+  LICHESS_BOT_ACCEPT_INCOMING_CHALLENGES: "false"
   EXTERNAL_GAME_BOT_PLATFORM: "Lichess"
   EXTERNAL_GAME_BOT_ACTOR_ID: "arutepsu"
