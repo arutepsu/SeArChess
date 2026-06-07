@@ -18,7 +18,9 @@ final class SlickTables(val profile: JdbcProfile, schema: Option[String] = None)
       blackControllerEngineId: Option[String],
       lifecycle: String,
       createdAt: Timestamp,
-      updatedAt: Timestamp
+      updatedAt: Timestamp,
+      ownerUserId: Option[UUID],
+      ownerNicknameSnapshot: Option[String]
   )
 
   final class SlickSessionTable(tag: Tag)
@@ -44,6 +46,10 @@ final class SlickTables(val profile: JdbcProfile, schema: Option[String] = None)
 
     def updatedAt = column[Timestamp]("updated_at")
 
+    def ownerUserId = column[Option[UUID]]("owner_user_id")
+
+    def ownerNicknameSnapshot = column[Option[String]]("owner_nickname_snapshot")
+
     def * =
       (
         sessionId,
@@ -55,7 +61,9 @@ final class SlickTables(val profile: JdbcProfile, schema: Option[String] = None)
         blackControllerEngineId,
         lifecycle,
         createdAt,
-        updatedAt
+        updatedAt,
+        ownerUserId,
+        ownerNicknameSnapshot
       ).mapTo[SlickSessionRow]
 
   final case class SlickGameStateRow(

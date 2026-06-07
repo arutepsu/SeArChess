@@ -6,6 +6,7 @@ import chess.application.session.model.GameSession
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import chess.domain.state.GameState
 import java.time.Instant
+import java.util.UUID
 import scala.collection.mutable
 
 /** Minimal [[SessionRepository]] for use in external-game service tests only. */
@@ -23,6 +24,8 @@ class StubSessionRepository extends SessionRepository:
     byGameId.get(id).flatMap(store.get).toRight(RepositoryError.NotFound(id.value.toString))
   def listActive(): Either[RepositoryError, List[GameSession]] =
     Right(store.values.toList)
+  def findByOwner(ownerUserId: UUID): Either[RepositoryError, List[GameSession]] =
+    Right(store.values.filter(_.ownerUserId.contains(ownerUserId)).toList)
 
 /** Minimal [[GameRepository]] for use in external-game service tests only. */
 class StubGameRepository extends GameRepository:

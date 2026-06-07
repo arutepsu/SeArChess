@@ -33,6 +33,8 @@ final case class ArchiveSnapshotResponse(
     mode: String,
     whiteController: String,
     blackController: String,
+    ownerUserId: Option[String] = None,
+    ownerNicknameSnapshot: Option[String] = None,
     closure: ArchiveClosureResponse,
     finalState: ArchiveGameStateResponse,
     createdAt: String,
@@ -47,6 +49,8 @@ object ArchiveSnapshotResponse:
       "mode" -> r.mode,
       "whiteController" -> r.whiteController,
       "blackController" -> r.blackController,
+      "ownerUserId" -> r.ownerUserId.fold(ujson.Null: Value)(ujson.Str(_)),
+      "ownerNicknameSnapshot" -> r.ownerNicknameSnapshot.fold(ujson.Null: Value)(ujson.Str(_)),
       "closure" -> ujson.Obj(
         "kind" -> r.closure.kind,
         "winner" -> r.closure.winner.fold(ujson.Null: Value)(ujson.Str(_)),

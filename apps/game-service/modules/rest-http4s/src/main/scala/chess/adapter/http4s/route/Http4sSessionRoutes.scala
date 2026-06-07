@@ -25,6 +25,7 @@ import chess.application.session.service.{
 }
 import org.http4s.*
 import org.http4s.dsl.io.*
+import org.typelevel.ci.CIString
 
 /** http4s routes for the `/sessions` resource.
   *
@@ -46,28 +47,32 @@ class Http4sSessionRoutes(
     gameService: GameServiceApi,
     persistentSessionService: PersistentSessionService,
     snapshotTransferService: SessionSnapshotTransferService,
-    metrics: DomainMetricsRegistry = new DomainMetricsRegistry()
+    metrics: DomainMetricsRegistry = new DomainMetricsRegistry(),
+    userClient: Option[AuthenticatedUserClient] = None
 ):
 
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
 
     case req @ POST -> Root / "sessions" =>
-      req.bodyText.compile.string.flatMap(handleCreate(None, _))
+      req.bodyText.compile.string.flatMap(handleCreate(req, None, _))
 
     case req @ POST -> Root / "sessions" / "human-vs-human" =>
-      req.bodyText.compile.string.flatMap(handleCreate(Some(SessionMode.HumanVsHuman), _))
+      req.bodyText.compile.string.flatMap(handleCreate(req, Some(SessionMode.HumanVsHuman), _))
 
     case req @ POST -> Root / "sessions" / "human-vs-ai" =>
-      req.bodyText.compile.string.flatMap(handleCreate(Some(SessionMode.HumanVsAI), _))
+      req.bodyText.compile.string.flatMap(handleCreate(req, Some(SessionMode.HumanVsAI), _))
 
     case req @ POST -> Root / "sessions" / "ai-vs-ai" =>
-      req.bodyText.compile.string.flatMap(handleCreate(Some(SessionMode.AIVsAI), _))
+      req.bodyText.compile.string.flatMap(handleCreate(req, Some(SessionMode.AIVsAI), _))
 
     case req @ POST -> Root / "sessions" / "import" =>
       req.bodyText.compile.string.flatMap(handleImport)
 
     case GET -> Root / "sessions" =>
       handleList()
+
+    case req @ GET -> Root / "sessions" / "mine" =>
+      handleListMine(req)
 
     case GET -> Root / "sessions" / id =>
       handleGet(id)
@@ -85,26 +90,36 @@ class Http4sSessionRoutes(
       handleCancel(id)
   }
 
-  private def handleCreate(fixedMode: Option[SessionMode], body: String): IO[Response[IO]] =
-    val result =
+  private def handleCreate(req0: Request[IO], fixedMode: Option[SessionMode], body: String): IO[Response[IO]] =
+    val result: Either[(Status, String, String), CreateSessionResponse] =
       for
-        req <- CreateSessionRequest.fromJson(body)
+        authUser <- resolveOwnerIfConfigured(req0)
+        req <- CreateSessionRequest.fromJson(body).left.map(msg => (Status.BadRequest, "BAD_REQUEST", msg))
         mode <- fixedMode match
           case Some(expectedMode) =>
             req.mode match
               case Some(rawMode) if rawMode != expectedMode.toString =>
                 Left(
-                  s"Mode mismatch for this endpoint: expected ${expectedMode.toString}, got $rawMode"
+                  (Status.BadRequest, "BAD_REQUEST", s"Mode mismatch for this endpoint: expected ${expectedMode.toString}, got $rawMode")
                 )
               case _ => Right(expectedMode)
-          case None => SessionMapper.parseMode(req.mode)
+          case None => SessionMapper.parseMode(req.mode).left.map(msg => (Status.BadRequest, "BAD_REQUEST", msg))
         controllers <- SessionMapper.resolveCreateControllers(
           mode,
           req.whiteController,
           req.blackController
-        )
+        ).left.map(msg => (Status.BadRequest, "BAD_REQUEST", msg))
         (white, black) = controllers
-        pair <- gameService.createGame(mode, white, black).left.map(sessionErrMsg)
+        pair <- gameService
+          .createGame(
+            mode,
+            white,
+            black,
+            ownerUserId = authUser.map(_.userId),
+            ownerNicknameSnapshot = authUser.flatMap(_.nickname)
+          )
+          .left
+          .map(err => (Status.BadRequest, "BAD_REQUEST", sessionErrMsg(err)))
         (state, session) = pair
       yield SessionMapper.toCreateSessionResponse(
         session,
@@ -116,8 +131,8 @@ class Http4sSessionRoutes(
       case Right(resp) =>
         metrics.recordSessionCreated()
         jsonResponse(Status.Created, CreateSessionResponse.toJson(resp))
-      case Left(msg) =>
-        jsonError(Status.BadRequest, "BAD_REQUEST", msg)
+      case Left((status, code, msg)) =>
+        jsonError(status, code, msg)
 
   private def handleImport(body: String): IO[Response[IO]] =
     val result: Either[(Status, String, String), SessionStateResponse] =
@@ -147,6 +162,17 @@ class Http4sSessionRoutes(
       case Right(sessions) =>
         val items = sessions.map(SessionMapper.toSessionResponse)
         jsonResponse(Status.Ok, SessionListResponse.toJson(SessionListResponse(items)))
+
+  private def handleListMine(req: Request[IO]): IO[Response[IO]] =
+    resolveRequiredOwner(req) match
+      case Left((status, code, message)) => jsonError(status, code, message)
+      case Right(user) =>
+        gameService.listSessionsByOwner(user.userId) match
+          case Left(err) =>
+            jsonError(Status.InternalServerError, "INTERNAL_ERROR", sessionErrMsg(err))
+          case Right(sessions) =>
+            val items = sessions.map(SessionMapper.toSessionResponse)
+            jsonResponse(Status.Ok, SessionListResponse.toJson(SessionListResponse(items)))
 
   private def handleGet(idStr: String): IO[Response[IO]] =
     parseUUID(idStr) match
@@ -253,6 +279,33 @@ class Http4sSessionRoutes(
     case SessionError.GameSessionNotFound(id)       => s"Game session not found: ${id.value}"
     case SessionError.PersistenceFailed(cause)      => s"Storage error: $cause"
     case SessionError.InvalidLifecycleTransition(r) => s"Invalid lifecycle transition: $r"
+
+  private def resolveOwnerIfConfigured(
+      req: Request[IO]
+  ): Either[(Status, String, String), Option[AuthenticatedSearchessUser]] =
+    userClient match
+      case None => Right(None)
+      case Some(_) => resolveRequiredOwner(req).map(Some(_))
+
+  private def resolveRequiredOwner(
+      req: Request[IO]
+  ): Either[(Status, String, String), AuthenticatedSearchessUser] =
+    userClient match
+      case None => Left((Status.InternalServerError, "AUTH_NOT_CONFIGURED", "Authenticated user client is not configured"))
+      case Some(client) =>
+        req.headers.get(CIString("Authorization")).map(_.head.value) match
+          case None => Left((Status.Unauthorized, "UNAUTHORIZED", "Missing Authorization header"))
+          case Some(authHeader) =>
+            client.getCurrentUser(authHeader) match
+              case Right(user) if user.onboardingRequired =>
+                Left((Status.Forbidden, "ONBOARDING_REQUIRED", "Complete onboarding before creating games"))
+              case Right(user) => Right(user)
+              case Left(AuthenticatedUserClientError.Unauthorized(message)) =>
+                Left((Status.Unauthorized, "UNAUTHORIZED", message))
+              case Left(AuthenticatedUserClientError.UpstreamFailure(message)) =>
+                Left((Status.BadGateway, "USER_SERVICE_UNAVAILABLE", message))
+              case Left(AuthenticatedUserClientError.InvalidResponse(message)) =>
+                Left((Status.BadGateway, "USER_SERVICE_INVALID_RESPONSE", message))
 
   private def persistentErrToHttpErr(
       err: PersistentSessionError,

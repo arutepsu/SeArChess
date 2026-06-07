@@ -85,6 +85,11 @@ final case class ExternalGameBotConfig(
     apiKey: String
 )
 
+final case class UserServiceConfig(
+    baseUrl: String,
+    timeoutMillis: Int = 2000
+)
+
 /** Fully resolved Game Service runtime configuration. */
 final case class AppConfig(
     http: HttpConfig,
@@ -97,6 +102,7 @@ final case class AppConfig(
     cors: CorsConfig,
     history: HistoryForwardingConfig,
     ai: AiConfig,
+    userService: UserServiceConfig = UserServiceConfig("http://user-service:8082"),
     externalGameBot: Option[ExternalGameBotConfig] = None,
     migrationAdminEnabled: Boolean = false,
     migrationAdminToken: Option[String] = None

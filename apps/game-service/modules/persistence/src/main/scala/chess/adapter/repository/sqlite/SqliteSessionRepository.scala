@@ -69,6 +69,20 @@ class SqliteSessionRepository(ds: SqliteDataSource) extends SessionRepository:
       finally ps.close()
     }
 
+  override def findByOwner(ownerUserId: UUID): Either[RepositoryError, List[GameSession]] =
+    ds.withConnection { conn =>
+      val ps = conn.prepareStatement("SELECT * FROM sessions WHERE owner_user_id = ?")
+      try
+        ps.setString(1, ownerUserId.toString)
+        val rs = ps.executeQuery()
+        try
+          val buf = collection.mutable.ListBuffer.empty[GameSession]
+          while rs.next() do buf += rowToSession(rs)
+          Right(buf.toList)
+        finally rs.close()
+      finally ps.close()
+    }
+
   /** Persist a cancelled session and its outbox payload in one JDBC transaction.
     *
     * When `outboxPayload` is [[None]] (no-op serialiser or history disabled), delegates to [[save]]
@@ -100,8 +114,8 @@ class SqliteSessionRepository(ds: SqliteDataSource) extends SessionRepository:
     val ps = conn.prepareStatement(
       """INSERT OR REPLACE INTO sessions
         |  (session_id, game_id, mode, white_controller, black_controller,
-        |   lifecycle, created_at, updated_at)
-        |VALUES (?, ?, ?, ?, ?, ?, ?, ?)""".stripMargin
+        |   lifecycle, created_at, updated_at, owner_user_id, owner_nickname_snapshot)
+        |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""".stripMargin
     )
     try
       ps.setString(1, session.sessionId.value.toString)
@@ -112,6 +126,8 @@ class SqliteSessionRepository(ds: SqliteDataSource) extends SessionRepository:
       ps.setString(6, lifecycleStr(session.lifecycle))
       ps.setString(7, session.createdAt.toString)
       ps.setString(8, session.updatedAt.toString)
+      ps.setString(9, session.ownerUserId.map(_.toString).orNull)
+      ps.setString(10, session.ownerNicknameSnapshot.orNull)
       ps.executeUpdate()
     finally ps.close()
 
@@ -126,7 +142,9 @@ class SqliteSessionRepository(ds: SqliteDataSource) extends SessionRepository:
       blackController = parseController(rs.getString("black_controller")),
       lifecycle = parseLifecycle(rs.getString("lifecycle")),
       createdAt = Instant.parse(rs.getString("created_at")),
-      updatedAt = Instant.parse(rs.getString("updated_at"))
+      updatedAt = Instant.parse(rs.getString("updated_at")),
+      ownerUserId = Option(rs.getString("owner_user_id")).map(UUID.fromString),
+      ownerNicknameSnapshot = Option(rs.getString("owner_nickname_snapshot"))
     )
 
   // ── Encoders ──────────────────────────────────────────────────────────────

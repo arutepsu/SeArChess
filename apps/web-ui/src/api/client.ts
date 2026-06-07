@@ -207,7 +207,11 @@ export async function resignGame(
 }
 
 export async function listSessions(): Promise<SessionListResponse> {
-  return fetchJson<SessionListResponse>("/sessions");
+  return fetchJson<SessionListResponse>("/sessions/mine");
+}
+
+export async function listMyArchive(): Promise<{ archives: unknown[] }> {
+  return fetchJson<{ archives: unknown[] }>("/archive/mine");
 }
 
 export async function loadSessionState(

@@ -4,6 +4,7 @@ import chess.application.session.model.{SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import chess.domain.model.{Color, DrawReason, GameStatus}
 import java.time.Instant
+import java.util.UUID
 
 /** The reason a game session was closed.
   *
@@ -33,6 +34,8 @@ final case class GameArchiveSnapshot(
     mode: SessionMode,
     whiteController: SideController,
     blackController: SideController,
+    ownerUserId: Option[UUID] = None,
+    ownerNicknameSnapshot: Option[String] = None,
     closure: GameClosure,
     finalState: GameView,
     createdAt: Instant,

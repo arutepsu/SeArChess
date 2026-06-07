@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: user-service-env
+  namespace: searchess
+data:
+  # Lichess OAuth values for local-k3d-fast (Envoy on port 10000).
+  #
+  # LICHESS_OAUTH_CLIENT_ID is not a secret — it is a public app identifier
+  # registered at https://lichess.org/account/oauth/app and visible in every
+  # OAuth redirect URL sent to the browser.  Safe to commit for local dev.
+  #
+  # To register your own app on Lichess:
+  #   App name:     searchess-local (or any name)
+  #   Redirect URI: http://localhost:10000/api/users/me/links/lichess/callback
+  #   No scopes required (only /api/account is called, which is always public).
+  LICHESS_OAUTH_CLIENT_ID: "searchess-local-cgmar"
+  LICHESS_OAUTH_REDIRECT_URI: "http://localhost:10000/api/users/me/links/lichess/callback"
+  WEB_UI_SETTINGS_URL: "http://localhost:10000/settings"

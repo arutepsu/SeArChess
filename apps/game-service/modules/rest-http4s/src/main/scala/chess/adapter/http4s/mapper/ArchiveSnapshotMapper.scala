@@ -14,6 +14,8 @@ object ArchiveSnapshotMapper:
       mode = snapshot.mode.toString,
       whiteController = controllerString(snapshot.whiteController),
       blackController = controllerString(snapshot.blackController),
+      ownerUserId = snapshot.ownerUserId.map(_.toString),
+      ownerNicknameSnapshot = snapshot.ownerNicknameSnapshot,
       closure = closureResponse(snapshot.closure),
       finalState = ArchiveGameStateResponse(
         game = GameMapper.toGameResponse(snapshot.finalState),

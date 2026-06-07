@@ -51,7 +51,9 @@ object SessionStateResponse:
             whiteController = sessionJson("whiteController").str,
             blackController = sessionJson("blackController").str,
             createdAt = sessionJson("createdAt").str,
-            updatedAt = sessionJson("updatedAt").str
+            updatedAt = sessionJson("updatedAt").str,
+            ownerUserId = fieldStringOpt(sessionJson, "ownerUserId"),
+            ownerNicknameSnapshot = fieldStringOpt(sessionJson, "ownerNicknameSnapshot")
           ),
           game = GameSnapshot(
             gameId = gameJson("gameId").str,
@@ -91,6 +93,12 @@ object SessionStateResponse:
     value match
       case ujson.Null => None
       case other      => Some(other.str)
+
+  private def fieldStringOpt(obj: ujson.Value, field: String): Option[String] =
+    obj.obj.get(field).flatMap {
+      case ujson.Null => None
+      case value      => Some(value.str)
+    }
 
   private def valueOpt(value: ujson.Value): Option[ujson.Value] =
     value match

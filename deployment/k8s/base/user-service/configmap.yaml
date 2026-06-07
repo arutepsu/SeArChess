@@ -9,6 +9,16 @@ data:
   USER_POSTGRES_URL: "jdbc:postgresql://postgres:5432/searchess"
   USER_POSTGRES_USER: "searchess"
   USER_POSTGRES_SCHEMA: "users"
+  # Lichess OAuth (Phase 2) — operators must override LICHESS_OAUTH_CLIENT_ID
+  # and LICHESS_OAUTH_REDIRECT_URI for their environment.  When both are empty
+  # the /links/lichess/start endpoint returns 503; all other endpoints work.
+  LICHESS_OAUTH_CLIENT_ID: ""
+  LICHESS_OAUTH_AUTHORIZE_URL: "https://lichess.org/oauth"
+  LICHESS_OAUTH_TOKEN_URL: "https://lichess.org/api/token"
+  LICHESS_ACCOUNT_URL: "https://lichess.org/api/account"
+  LICHESS_OAUTH_REDIRECT_URI: ""
+  LICHESS_OAUTH_STATE_TTL_SECONDS: "600"
+  WEB_UI_SETTINGS_URL: ""
   JAVA_TOOL_OPTIONS: "-javaagent:/app/opentelemetry-javaagent.jar"
   OTEL_SERVICE_NAME: "searchess-user-service"
   OTEL_TRACES_EXPORTER: "otlp"

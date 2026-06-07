@@ -35,6 +35,8 @@ object ArchiveSnapshotJson:
           mode = parseMode(json("mode").str),
           whiteController = parseController(json("whiteController").str),
           blackController = parseController(json("blackController").str),
+          ownerUserId = optionalString(json, "ownerUserId").map(UUID.fromString),
+          ownerNicknameSnapshot = optionalString(json, "ownerNicknameSnapshot"),
           closure = closureFromJson(json("closure")),
           finalState = state,
           createdAt = Instant.parse(json("createdAt").str),
@@ -133,3 +135,9 @@ object ArchiveSnapshotJson:
     Position
       .fromAlgebraic(value)
       .fold(err => throw IllegalArgumentException(err.toString), identity)
+
+  private def optionalString(json: ujson.Value, field: String): Option[String] =
+    json.obj.get(field).flatMap {
+      case ujson.Null => None
+      case value      => Some(value.str)
+    }

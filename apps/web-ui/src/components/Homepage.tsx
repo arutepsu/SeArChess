@@ -7,12 +7,13 @@ import "./Homepage.css";
 interface HomepageProps {
   hasActiveGame: boolean;
   busy: boolean;
+  onboardingRequired: boolean;
   onStart: (mode: PlayableGameMode) => void;
   onContinueActiveGame: () => void;
   onResumeSession: (sessionId: string) => Promise<void>;
 }
 
-export default function Homepage({ hasActiveGame, busy, onStart, onContinueActiveGame, onResumeSession }: HomepageProps) {
+export default function Homepage({ hasActiveGame, busy, onboardingRequired, onStart, onContinueActiveGame, onResumeSession }: HomepageProps) {
   const [mode, setMode] = useState<PlayableGameMode>("HumanVsHuman");
 
   return (
@@ -54,10 +55,17 @@ export default function Homepage({ hasActiveGame, busy, onStart, onContinueActiv
           })}
         </div>
 
+        {onboardingRequired && (
+          <p className="onboarding-notice">
+            Complete your profile (choose a nickname) before starting a game. →{" "}
+            <a href="/onboarding">Go to onboarding</a>
+          </p>
+        )}
+
         <button
           className="start-btn"
           type="button"
-          disabled={busy}
+          disabled={busy || onboardingRequired}
           onClick={() => onStart(mode)}
         >
           Spiel Starten

@@ -39,11 +39,10 @@ images:
     newTag: local
   - name: searchess/user-service
     newTag: local
+  - name: searchess/history-service
+    newTag: local
 
   # --- stable: pulled from GHCR, base imagePullPolicy: IfNotPresent applies ---
-  - name: searchess/history-service
-    newName: ghcr.io/arutepsu/searchess-history-service
-    newTag: sha-769fc27
   - name: searchess/ai-service
     newName: ghcr.io/arutepsu/searchess-ai-service
     newTag: sha-769fc27
@@ -96,6 +95,13 @@ patches:
       kind: ConfigMap
       name: game-service-env
 
+  # Lichess OAuth config — local-k3d-fast values.
+  # LICHESS_OAUTH_CLIENT_ID is committed here (it is a public app identifier, not a secret).
+  - path: patches/user-service-oauth.yaml
+    target:
+      kind: ConfigMap
+      name: user-service-env
+
   # Never pull locally-imported images from any registry.
   # k3d containerd must have them from 'k3d image import' before apply.
   - patch: |-
@@ -126,6 +132,13 @@ patches:
     target:
       kind: Deployment
       name: user-service
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never
+    target:
+      kind: Deployment
+      name: history-service
   # history-service, ai-service, python-ai-service: base already sets
   # imagePullPolicy: IfNotPresent — no patch needed for GHCR images.
   #

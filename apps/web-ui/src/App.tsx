@@ -3,6 +3,7 @@ import { Routes, Route, useNavigate } from "react-router-dom";
 import type { PlayerColor, PlayableGameMode, GameState, BoardMatrix, PieceCode } from "./api/types";
 import type { MoveHistoryEntryDto } from "./api/backendTypes";
 import { getReplayFrame } from "./api/client";
+import { getMyProfile } from "./api/userServiceClient";
 import { mapGameSnapshotToGameState, computeCapturedPieces } from "./api/mapper";
 import type { SpriteCatalog } from "./assets/spriteCatalog";
 import { loadSpriteCatalog } from "./assets/spriteCatalog";
@@ -18,6 +19,7 @@ import MoveList from "./components/MoveList.tsx";
 import SessionTransferPanel from "./components/SessionTransferPanel.tsx";
 import StatusBanner from "./components/StatusBanner.tsx";
 import Homepage from "./components/Homepage.tsx";
+import OnboardingPage from "./components/OnboardingPage.tsx";
 import BackgroundEffectsLayer from "./components/BackgroundEffectsLayer.tsx";
 import BackgroundPanel from "./components/BackgroundPanel.tsx";
 import CapturedPanel from "./components/CapturedPanel.tsx";
@@ -228,6 +230,16 @@ export default function App() {
   const [botBlackClockMs, setBotBlackClockMs] = useState<number | null>(null);
   const [hasNewBotMoveNotification, setHasNewBotMoveNotification] = useState(false);
   const [botConnectionState, setBotConnectionState] = useState<"idle" | "connecting" | "live" | "disconnected">("idle");
+  const [onboardingRequired, setOnboardingRequired] = useState(false);
+
+  useEffect(() => {
+    getMyProfile()
+      .then((profile) => {
+        setOnboardingRequired(profile.onboardingRequired);
+        if (profile.onboardingRequired) navigate("/onboarding");
+      })
+      .catch(() => { /* ignore — don't block the app if user-service is unreachable */ });
+  }, [navigate]);
 
   const lastTickMs = useRef<number | null>(null);
   const wsClientRef = useRef<WsClient | null>(null);
@@ -362,6 +374,10 @@ export default function App() {
   }, [game?.id, timelinePly]);
 
   const handleStartGame = async (selectedMode: PlayableGameMode) => {
+    if (onboardingRequired) {
+      navigate("/onboarding");
+      return;
+    }
     setGameMode(selectedMode);
     navigate("/game");
     await handleNewGame(selectedMode);
@@ -713,6 +729,7 @@ export default function App() {
           <Homepage
             hasActiveGame={Boolean(game)}
             busy={busy}
+            onboardingRequired={onboardingRequired}
             onStart={handleStartGame}
             onContinueActiveGame={() => navigate("/game")}
             onResumeSession={async (sessionId) => {
@@ -720,6 +737,12 @@ export default function App() {
               navigate("/game");
             }}
           />
+        } />
+        <Route path="/onboarding" element={
+          <OnboardingPage onComplete={() => {
+            setOnboardingRequired(false);
+            navigate("/");
+          }} />
         } />
         <Route path="/game" element={
           <main className="layout">

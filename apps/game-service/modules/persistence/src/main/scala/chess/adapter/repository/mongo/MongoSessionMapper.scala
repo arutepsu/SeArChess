@@ -21,6 +21,8 @@ private[mongo] object MongoSessionMapper:
       .append("lifecycle", lifecycleString(session.lifecycle))
       .append("createdAt", session.createdAt.toString)
       .append("updatedAt", session.updatedAt.toString)
+      .append("ownerUserId", session.ownerUserId.map(_.toString).orNull)
+      .append("ownerNicknameSnapshot", session.ownerNicknameSnapshot.orNull)
 
   def toSession(document: Document): Either[RepositoryError, GameSession] =
     for
@@ -32,6 +34,7 @@ private[mongo] object MongoSessionMapper:
       lifecycle <- parseLifecycle(document.getString("lifecycle"))
       createdAt <- parseInstant(document, "createdAt")
       updatedAt <- parseInstant(document, "updatedAt")
+      ownerUserId <- parseOptionalUuid(document, "ownerUserId")
     yield GameSession(
       sessionId = SessionId(sessionId),
       gameId = GameId(gameId),
@@ -40,7 +43,9 @@ private[mongo] object MongoSessionMapper:
       blackController = blackController,
       lifecycle = lifecycle,
       createdAt = createdAt,
-      updatedAt = updatedAt
+      updatedAt = updatedAt,
+      ownerUserId = ownerUserId,
+      ownerNicknameSnapshot = Option(document.getString("ownerNicknameSnapshot"))
     )
 
   private def modeString(mode: SessionMode): String =
@@ -120,6 +125,13 @@ private[mongo] object MongoSessionMapper:
   private def parseUuid(document: Document, field: String): Either[RepositoryError, UUID] =
     try Right(UUID.fromString(document.getString(field)))
     catch case e: RuntimeException => storageFailure(s"Invalid UUID in $field: ${e.getMessage}")
+
+  private def parseOptionalUuid(document: Document, field: String): Either[RepositoryError, Option[UUID]] =
+    Option(document.getString(field)) match
+      case None => Right(None)
+      case Some(value) =>
+        try Right(Some(UUID.fromString(value)))
+        catch case e: RuntimeException => storageFailure(s"Invalid UUID in $field: ${e.getMessage}")
 
   private def parseInstant(document: Document, field: String): Either[RepositoryError, Instant] =
     try Right(Instant.parse(document.getString(field)))

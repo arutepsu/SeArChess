@@ -10,9 +10,10 @@ object UserServiceMain:
     StructuredLog.info(
       "user-service",
       "startup_config",
-      "httpHost"       -> config.host,
-      "httpPort"       -> config.port,
-      "postgresSchema" -> config.postgresSchema.getOrElse("(default)")
+      "httpHost"            -> config.host,
+      "httpPort"            -> config.port,
+      "postgresSchema"      -> config.postgresSchema.getOrElse("(default)"),
+      "lichessOAuthEnabled" -> config.lichessOAuth.isConfigured
     )
 
     val runtime = UserServiceWiring.start(config)
@@ -27,6 +28,7 @@ object UserServiceMain:
     Runtime.getRuntime.addShutdownHook(new Thread(() => {
       StructuredLog.info("user-service", "shutdown_started")
       runtime.shutdownHttp.unsafeRunSync()
+      runtime.shutdownClient.unsafeRunSync()
       runtime.shutdownStorage()
       StructuredLog.info("user-service", "shutdown_completed")
     }))

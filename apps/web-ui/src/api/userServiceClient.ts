@@ -1,4 +1,4 @@
-import type { ExternalAccountLinkDto, SetManualLichessLinkRequest, UserProfileResponse } from "./userServiceTypes";
+import type { ExternalAccountLinkDto, LichessLinkStartResponse, PatchProfileRequest, SetManualLichessLinkRequest, UserProfileResponse } from "./userServiceTypes";
 import keycloak from "../auth/keycloak";
 
 function authHeaders(): Record<string, string> {
@@ -32,6 +32,17 @@ export async function setManualLichessLink(
 ): Promise<ExternalAccountLinkDto> {
   return fetchUserJson<ExternalAccountLinkDto>("/api/users/me/links/lichess/manual", {
     method: "PUT",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function startLichessLink(): Promise<LichessLinkStartResponse> {
+  return fetchUserJson<LichessLinkStartResponse>("/api/users/me/links/lichess/start");
+}
+
+export async function patchProfile(request: PatchProfileRequest): Promise<UserProfileResponse> {
+  return fetchUserJson<UserProfileResponse>("/api/users/me/profile", {
+    method: "PATCH",
     body: JSON.stringify(request),
   });
 }

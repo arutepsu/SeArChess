@@ -82,6 +82,8 @@ export interface SessionResponse {
   blackController: OutboundController;
   createdAt: string;
   updatedAt: string;
+  ownerUserId?: string | null;
+  ownerNicknameSnapshot?: string | null;
 }
 
 export interface CastlingRightsDto {

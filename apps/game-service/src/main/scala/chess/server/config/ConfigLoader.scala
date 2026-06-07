@@ -25,6 +25,8 @@ object ConfigLoader:
   private val DefaultMigrationAdminEnabled: String = "false"
   private val DefaultExternalGameBotPlatform: String = "Lichess"
   private val DefaultExternalGameBotActorId: String = "searchess-bot"
+  private val DefaultUserServiceBaseUrl: String = "http://user-service:8082"
+  private val DefaultUserServiceTimeout: String = "2000"
 
   def load(): Either[String, AppConfig] =
     loadFrom(key => Option(System.getenv(key)).filter(_.nonEmpty))
@@ -82,6 +84,12 @@ object ConfigLoader:
         env("MIGRATION_ADMIN_ENABLED").getOrElse(DefaultMigrationAdminEnabled)
       )
       migrationToken <- parseMigrationAdminToken(migrationAdmin, env("MIGRATION_ADMIN_TOKEN"))
+      userServiceTimeout <- parsePositiveInt(
+        "USER_SERVICE_TIMEOUT_MILLIS",
+        env("USER_SERVICE_TIMEOUT_MILLIS").getOrElse(DefaultUserServiceTimeout)
+      )
+      userServiceBaseUrl = env("USER_SERVICE_BASE_URL").getOrElse(DefaultUserServiceBaseUrl).trim
+      _ <- Either.cond(userServiceBaseUrl.nonEmpty, (), "USER_SERVICE_BASE_URL must be non-empty")
       externalGameBot <- parseExternalGameBotConfig(
         env("EXTERNAL_GAME_BOT_API_KEY"),
         env("EXTERNAL_GAME_BOT_PLATFORM").getOrElse(DefaultExternalGameBotPlatform),
@@ -104,6 +112,7 @@ object ConfigLoader:
         timeoutMillis = aiTimeout,
         defaultEngineId = engineId
       ),
+      userService = UserServiceConfig(userServiceBaseUrl, userServiceTimeout),
       externalGameBot = externalGameBot,
       migrationAdminEnabled = migrationAdmin,
       migrationAdminToken = migrationToken

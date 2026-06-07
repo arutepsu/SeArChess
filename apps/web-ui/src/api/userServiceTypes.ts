@@ -10,11 +10,22 @@ export interface ExternalAccountLinkDto {
 
 export interface UserProfileResponse {
   userId: string;
+  keycloakSubject: string;
   displayName: string;
   email: string | null;
+  nickname: string | null;
+  onboardingRequired: boolean;
   links: ExternalAccountLinkDto[];
+}
+
+export interface PatchProfileRequest {
+  nickname: string;
 }
 
 export interface SetManualLichessLinkRequest {
   lichessUsername: string;
+}
+
+export interface LichessLinkStartResponse {
+  authorizationUrl: string;
 }

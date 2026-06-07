@@ -2,6 +2,7 @@ package chess.application.port.repository
 
 import chess.application.session.model.GameSession
 import chess.application.session.model.SessionIds.{GameId, SessionId}
+import java.util.UUID
 
 /** Outbound port for persisting and retrieving [[GameSession]] records.
   *
@@ -47,6 +48,8 @@ trait SessionRepository:
     * is implementation-defined.
     */
   def listActive(): Either[RepositoryError, List[GameSession]]
+
+  def findByOwner(ownerUserId: UUID): Either[RepositoryError, List[GameSession]]
 
   /** Persist a cancelled [[GameSession]] and its outbox payload in one atomic operation.
     *

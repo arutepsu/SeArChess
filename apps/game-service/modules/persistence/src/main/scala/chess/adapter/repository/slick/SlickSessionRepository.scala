@@ -5,6 +5,7 @@ import _root_.slick.jdbc.JdbcProfile
 import chess.application.port.repository.{RepositoryError, SessionRepository}
 import chess.application.session.model.GameSession
 import chess.application.session.model.SessionIds.{GameId, SessionId}
+import java.util.UUID
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
@@ -74,6 +75,14 @@ class SlickSessionRepository(
     run {
       Sessions
         .filterNot(_.lifecycle inSet Set("Finished", "Cancelled"))
+        .result
+        .map(rows => SlickRepositorySupport.sequence(rows.toList.map(SlickSessionMapper.toSession(tables))))
+    }
+
+  override def findByOwner(ownerUserId: UUID): Either[RepositoryError, List[GameSession]] =
+    run {
+      Sessions
+        .filter(_.ownerUserId === ownerUserId)
         .result
         .map(rows => SlickRepositorySupport.sequence(rows.toList.map(SlickSessionMapper.toSession(tables))))
     }

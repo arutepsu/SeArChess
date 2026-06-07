@@ -3,9 +3,15 @@ package chess.userservice
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import chess.observability.StructuredLog
-import chess.userservice.application.UserProfileService
-import chess.userservice.postgres.{SlickExternalAccountLinkRepository, SlickUserProfileRepository, UserFlywayInitializer}
+import chess.userservice.application.{LichessOAuthService, UserProfileService}
+import chess.userservice.postgres.{
+  SlickExternalAccountLinkRepository,
+  SlickOAuthLinkStateRepository,
+  SlickUserProfileRepository,
+  UserFlywayInitializer
+}
 import com.comcast.ip4s.{Host, Port}
+import org.http4s.ember.client.EmberClientBuilder
 import org.http4s.ember.server.EmberServerBuilder
 import slick.jdbc.PostgresProfile.api.Database
 
@@ -13,6 +19,13 @@ object UserServiceWiring:
 
   def start(config: UserServiceConfig): UserServiceRuntime =
     val schema = config.postgresSchema
+
+    // Outbound HTTP client (Lichess OAuth calls)
+    val (httpClient, shutdownClient) = EmberClientBuilder
+      .default[IO]
+      .build
+      .allocated
+      .unsafeRunSync()
 
     val migrateResult = UserFlywayInitializer.migrate(
       config.postgresUrl, config.postgresUser, config.postgresPassword, schema
@@ -31,10 +44,12 @@ object UserServiceWiring:
       driver   = "org.postgresql.Driver"
     )
 
-    val profileRepo = SlickUserProfileRepository(db, schema)
-    val linkRepo    = SlickExternalAccountLinkRepository(db, schema)
-    val service     = UserProfileService(profileRepo, linkRepo)
-    val routes      = UserRoutes(service)
+    val profileRepo  = SlickUserProfileRepository(db, schema)
+    val linkRepo     = SlickExternalAccountLinkRepository(db, schema)
+    val stateRepo    = SlickOAuthLinkStateRepository(db, schema)
+    val service      = UserProfileService(profileRepo, linkRepo)
+    val oauthService = LichessOAuthService(stateRepo, linkRepo, httpClient, config.lichessOAuth)
+    val routes       = UserRoutes(service, oauthService, config.lichessOAuth)
 
     val httpApp = routes.routes.orNotFound
 
@@ -54,4 +69,4 @@ object UserServiceWiring:
       .allocated
       .unsafeRunSync()
 
-    UserServiceRuntime(shutdownHttp, () => db.close())
+    UserServiceRuntime(shutdownHttp, shutdownClient, () => db.close())

@@ -134,6 +134,7 @@ object SessionMapper:
       blackController <- parseAnyController(dto.session.blackController)
       createdAt <- parseInstant("createdAt", dto.session.createdAt)
       updatedAt <- parseInstant("updatedAt", dto.session.updatedAt)
+      ownerUserId <- parseOptionalUuid("ownerUserId", dto.session.ownerUserId)
       currentPlayer <- parseColor("currentPlayer", dto.game.currentPlayer)
       status <- parseStatus(dto.game)
       board <- parseBoard(dto.game.board)
@@ -171,7 +172,9 @@ object SessionMapper:
         blackController = blackController,
         lifecycle = lifecycle,
         createdAt = createdAt,
-        updatedAt = updatedAt
+        updatedAt = updatedAt,
+        ownerUserId = ownerUserId,
+        ownerNicknameSnapshot = dto.session.ownerNicknameSnapshot
       ),
       state = view.toGameState
     )
@@ -205,7 +208,9 @@ object SessionMapper:
       whiteController = controllerToString(session.whiteController),
       blackController = controllerToString(session.blackController),
       createdAt = session.createdAt.toString,
-      updatedAt = session.updatedAt.toString
+      updatedAt = session.updatedAt.toString,
+      ownerUserId = session.ownerUserId.map(_.toString),
+      ownerNicknameSnapshot = session.ownerNicknameSnapshot
     )
 
   /** Combine session metadata with the initial game state into a creation response. */
@@ -293,6 +298,13 @@ object SessionMapper:
   private def parseInstant(field: String, value: String): Either[String, Instant] =
     try Right(Instant.parse(value))
     catch case _: Exception => Left(s"Invalid $field instant: '$value'")
+
+  private def parseOptionalUuid(field: String, value: Option[String]): Either[String, Option[UUID]] =
+    value match
+      case None => Right(None)
+      case Some(raw) =>
+        try Right(Some(UUID.fromString(raw)))
+        catch case _: IllegalArgumentException => Left(s"Invalid $field UUID: '$raw'")
 
   private def parseColor(field: String, value: String): Either[String, Color] =
     Color.values

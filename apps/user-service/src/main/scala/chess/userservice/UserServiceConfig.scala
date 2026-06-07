@@ -1,6 +1,7 @@
 package chess.userservice
 
 import chess.observability.StructuredLog
+import chess.userservice.application.LichessOAuthConfig
 
 final case class UserServiceConfig(
     host: String,
@@ -8,7 +9,8 @@ final case class UserServiceConfig(
     postgresUrl: String,
     postgresUser: String,
     postgresPassword: String,
-    postgresSchema: Option[String]
+    postgresSchema: Option[String],
+    lichessOAuth: LichessOAuthConfig
 )
 
 object UserServiceConfig:
@@ -25,15 +27,24 @@ object UserServiceConfig:
       env: String => Option[String] = key => Option(System.getenv(key)).filter(_.nonEmpty)
   ): Either[String, UserServiceConfig] =
     for
-      port <- parsePort("USER_HTTP_PORT", env("USER_HTTP_PORT").getOrElse("8082"))
+      port        <- parsePort("USER_HTTP_PORT", env("USER_HTTP_PORT").getOrElse("8082"))
       postgresUrl <- env("USER_POSTGRES_URL").toRight("USER_POSTGRES_URL is required")
     yield UserServiceConfig(
-      host           = env("USER_HTTP_HOST").getOrElse("0.0.0.0"),
-      port           = port,
-      postgresUrl    = postgresUrl,
-      postgresUser   = env("USER_POSTGRES_USER").getOrElse("searchess"),
+      host             = env("USER_HTTP_HOST").getOrElse("0.0.0.0"),
+      port             = port,
+      postgresUrl      = postgresUrl,
+      postgresUser     = env("USER_POSTGRES_USER").getOrElse("searchess"),
       postgresPassword = env("USER_POSTGRES_PASSWORD").getOrElse(""),
-      postgresSchema = env("USER_POSTGRES_SCHEMA")
+      postgresSchema   = env("USER_POSTGRES_SCHEMA"),
+      lichessOAuth = LichessOAuthConfig(
+        clientId         = env("LICHESS_OAUTH_CLIENT_ID").getOrElse(""),
+        authorizeUrl     = env("LICHESS_OAUTH_AUTHORIZE_URL").getOrElse("https://lichess.org/oauth"),
+        tokenUrl         = env("LICHESS_OAUTH_TOKEN_URL").getOrElse("https://lichess.org/api/token"),
+        accountUrl       = env("LICHESS_ACCOUNT_URL").getOrElse("https://lichess.org/api/account"),
+        redirectUri      = env("LICHESS_OAUTH_REDIRECT_URI").getOrElse(""),
+        stateTtlSeconds  = env("LICHESS_OAUTH_STATE_TTL_SECONDS").flatMap(_.toLongOption).getOrElse(600L),
+        webUiSettingsUrl = env("WEB_UI_SETTINGS_URL").getOrElse("http://localhost:10000/settings")
+      )
     )
 
   private def parsePort(name: String, value: String): Either[String, Int] =

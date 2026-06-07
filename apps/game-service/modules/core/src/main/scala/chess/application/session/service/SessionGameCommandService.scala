@@ -12,6 +12,7 @@ import chess.application.session.model.SessionIds.GameId
 import chess.domain.model.{Color, GameStatus, Move}
 import chess.domain.state.{GameState, GameStateFactory}
 import java.time.Instant
+import java.util.UUID
 
 /** Authoritative command orchestrator for session-aware gameplay writes. This service owns normal
   * gameplay mutations and persists session + game-state changes through [[SessionGameStore]].
@@ -119,11 +120,21 @@ class SessionGameCommandService(
       mode: SessionMode,
       whiteController: SideController,
       blackController: SideController,
-      now: Instant = Instant.now()
+      now: Instant = Instant.now(),
+      ownerUserId: Option[UUID] = None,
+      ownerNicknameSnapshot: Option[String] = None
   ): Either[SessionError, (GameState, GameSession)] =
     val fresh = GameStateFactory.initial()
     val gameId = GameId.random()
-    val session = GameSession.create(gameId, mode, whiteController, blackController, now)
+    val session = GameSession.create(
+      gameId,
+      mode,
+      whiteController,
+      blackController,
+      now,
+      ownerUserId,
+      ownerNicknameSnapshot
+    )
     store
       .save(session, fresh)
       .left

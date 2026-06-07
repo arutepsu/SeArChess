@@ -139,3 +139,5 @@ private class TestArchiveRepository extends ArchiveRepository:
     store(r.gameId) = r; Right(())
   override def findByGameId(id: GameId): Either[ArchiveRepositoryError, Option[ArchiveRecord]] =
     Right(store.get(id))
+  override def findByOwner(ownerUserId: java.util.UUID): Either[ArchiveRepositoryError, List[ArchiveRecord]] =
+    Right(store.values.filter(_.ownerUserId.contains(ownerUserId)).toList)

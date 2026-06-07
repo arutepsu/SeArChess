@@ -62,6 +62,43 @@ class UserProfileServiceSpec extends AnyFlatSpec with Matchers with EitherValues
     linkRepo.store shouldBe empty
   }
 
+  "setNickname" should "set nickname and return updated profile" in {
+    val (svc, repo, _) = makeService()
+    val profile = svc.getOrCreateProfile("sub-nick", "Nick", None).value
+    profile.onboardingRequired shouldBe true
+    val updated = svc.setNickname(profile, "CoolKnight").value
+    updated.nickname           shouldBe Some("CoolKnight")
+    updated.onboardingRequired shouldBe false
+    repo.store("sub-nick").nickname shouldBe Some("CoolKnight")
+  }
+
+  it should "reject nicknames that are too short" in {
+    val (svc, _, _) = makeService()
+    val profile = svc.getOrCreateProfile("sub-short", "Short", None).value
+    svc.setNickname(profile, "ab").left.value should include("at least 3")
+  }
+
+  it should "reject nicknames with invalid characters" in {
+    val (svc, _, _) = makeService()
+    val profile = svc.getOrCreateProfile("sub-bad", "Bad", None).value
+    svc.setNickname(profile, "hello world").left.value should include("only contain")
+  }
+
+  it should "reject a duplicate nickname (case-insensitive)" in {
+    val (svc, _, _) = makeService()
+    val p1 = svc.getOrCreateProfile("sub-p1", "P1", None).value
+    val p2 = svc.getOrCreateProfile("sub-p2", "P2", None).value
+    svc.setNickname(p1, "BigBoss").value
+    svc.setNickname(p2, "BIGBOSS").left.value should include("already taken")
+  }
+
+  it should "allow the same user to re-set their own nickname" in {
+    val (svc, _, _) = makeService()
+    val profile = svc.getOrCreateProfile("sub-reuse", "Reuse", None).value
+    svc.setNickname(profile, "FirstNick").value
+    svc.setNickname(profile, "FirstNick").value.nickname shouldBe Some("FirstNick")
+  }
+
   "getLinksForUser" should "return all links for a user" in {
     val (svc, _, _) = makeService()
     val userId = UUID.randomUUID()
@@ -88,6 +125,16 @@ class UserProfileServiceSpec extends AnyFlatSpec with Matchers with EitherValues
         case None    => Left("Profile not found")
         case Some(p) =>
           store.put(p.keycloakSubject, p.copy(displayName = displayName, email = email))
+          Right(())
+
+    override def findByNicknameCi(nickname: String): Either[String, Option[UserProfile]] =
+      Right(store.values.find(_.nickname.exists(_.equalsIgnoreCase(nickname))))
+
+    override def setNickname(userId: UUID, nickname: String): Either[String, Unit] =
+      store.values.find(_.userId == userId) match
+        case None    => Left("Profile not found")
+        case Some(p) =>
+          store.put(p.keycloakSubject, p.copy(nickname = Some(nickname)))
           Right(())
 
   private class StubExternalAccountLinkRepository extends ExternalAccountLinkRepository:

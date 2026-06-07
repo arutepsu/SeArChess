@@ -52,6 +52,8 @@ class ArchiveMaterializer private (
       mode = snapshot.mode,
       whiteController = snapshot.whiteController,
       blackController = snapshot.blackController,
+      ownerUserId = snapshot.ownerUserId,
+      ownerNicknameSnapshot = snapshot.ownerNicknameSnapshot,
       closure = snapshot.closure,
       pgn = pgnOpt,
       finalFen = Some(fenResult.text),

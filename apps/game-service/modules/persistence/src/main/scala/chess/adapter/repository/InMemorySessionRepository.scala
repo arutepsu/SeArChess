@@ -4,6 +4,7 @@ import chess.application.port.repository.{RepositoryError, SessionRepository}
 import chess.application.session.model.{GameSession, SessionLifecycle}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import scala.collection.mutable
+import java.util.UUID
 
 /** In-memory implementation of [[SessionRepository]].
   *
@@ -57,6 +58,11 @@ class InMemorySessionRepository extends SessionRepository:
           .filterNot(s => isTerminal(s.lifecycle))
           .toList
       )
+    }
+
+  override def findByOwner(ownerUserId: UUID): Either[RepositoryError, List[GameSession]] =
+    synchronized {
+      Right(bySessionId.values.filter(_.ownerUserId.contains(ownerUserId)).toList)
     }
 
   private def isTerminal(lifecycle: SessionLifecycle): Boolean =

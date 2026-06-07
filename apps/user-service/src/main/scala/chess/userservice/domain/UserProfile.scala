@@ -8,6 +8,8 @@ final case class UserProfile(
     keycloakSubject: String,
     displayName: String,
     email: Option[String],
+    nickname: Option[String],
     createdAt: Instant,
     updatedAt: Instant
-)
+):
+  def onboardingRequired: Boolean = nickname.isEmpty

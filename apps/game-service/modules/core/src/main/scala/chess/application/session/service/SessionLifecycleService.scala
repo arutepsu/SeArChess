@@ -14,6 +14,7 @@ import chess.application.session.policy.{ActorControlPolicy, SessionLifecyclePol
 import chess.domain.model.{Color, GameStatus, Move}
 import chess.domain.state.GameState
 import java.time.Instant
+import java.util.UUID
 
 /** Lifecycle and session ownership service.
   *
@@ -184,6 +185,9 @@ class SessionLifecycleService(
     */
   def listActiveSessions(): Either[SessionError, List[GameSession]] =
     repository.listActive().left.map(SessionError.PersistenceFailed(_))
+
+  def listSessionsByOwner(ownerUserId: UUID): Either[SessionError, List[GameSession]] =
+    repository.findByOwner(ownerUserId).left.map(SessionError.PersistenceFailed(_))
 
   /** Return the [[SideController]] responsible for the given [[Color]].
     *

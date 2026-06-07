@@ -2,10 +2,20 @@ package chess.userservice
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-import chess.userservice.application.{ExternalAccountLinkRepository, JwtSubjectExtractor, UserProfileRepository, UserProfileService}
-import chess.userservice.domain.{ExternalAccountLink, UserProfile}
+import chess.userservice.application.{
+  ExternalAccountLinkRepository,
+  LichessOAuthConfig,
+  LichessOAuthService,
+  OAuthLinkStateRepository,
+  UserProfileRepository,
+  UserProfileService
+}
+import chess.userservice.domain.{ExternalAccountLink, OAuthLinkState, UserProfile}
+import fs2.Stream
 import org.http4s.*
+import org.http4s.client.Client
 import org.http4s.dsl.io.*
+import org.http4s.headers.`Content-Type`
 import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -17,11 +27,28 @@ import scala.jdk.CollectionConverters.*
 
 class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
 
+  private val testLichessConfig = LichessOAuthConfig(
+    clientId         = "test-client",
+    authorizeUrl     = "https://lichess.org/oauth",
+    tokenUrl         = "https://lichess.org/api/token",
+    accountUrl       = "https://lichess.org/api/account",
+    redirectUri      = "http://localhost:10000/api/users/me/links/lichess/callback",
+    stateTtlSeconds  = 600L,
+    webUiSettingsUrl = "http://localhost:10000/settings"
+  )
+
+  private val noopHttpClient: Client[IO] =
+    Client.fromHttpApp(HttpRoutes.of[IO] { case _ =>
+      IO.pure(Response[IO](status = Status.InternalServerError))
+    }.orNotFound)
+
   private def makeRoutes(): (HttpApp[IO], UserProfileService) =
-    val profileRepo = InMemUserProfileRepository()
-    val linkRepo    = InMemExternalAccountLinkRepository()
-    val service     = UserProfileService(profileRepo, linkRepo)
-    val routes      = UserRoutes(service)
+    val profileRepo  = InMemUserProfileRepository()
+    val linkRepo     = InMemExternalAccountLinkRepository()
+    val stateRepo    = InMemOAuthLinkStateRepository()
+    val service      = UserProfileService(profileRepo, linkRepo)
+    val oauthService = LichessOAuthService(stateRepo, linkRepo, noopHttpClient, testLichessConfig)
+    val routes       = UserRoutes(service, oauthService, testLichessConfig)
     (routes.routes.orNotFound, service)
 
   private def makeToken(sub: String, username: String): String =
@@ -104,7 +131,6 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   "DELETE /users/me/links/lichess" should "remove the Lichess link and return 204" in {
     val (app, svc) = makeRoutes()
-    // First create the profile and link
     val putReq = Request[IO](method = Method.PUT, uri = Uri.unsafeFromString("/users/me/links/lichess/manual"))
       .putHeaders(bearerHeader("sub-005", "eve"))
       .withEntity("""{"lichessUsername":"eve_chess"}""")
@@ -115,6 +141,92 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
       .putHeaders(bearerHeader("sub-005", "eve"))
     val res = app.run(delReq).unsafeRunSync()
     res.status shouldBe Status.NoContent
+  }
+
+  "GET /users/me" should "include onboardingRequired=true when nickname is absent" in {
+    val (app, _) = makeRoutes()
+    val req = Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/me"))
+      .putHeaders(bearerHeader("sub-onboard", "onboarder"))
+    val body = ujson.read(app.run(req).unsafeRunSync().bodyText.compile.string.unsafeRunSync())
+    body("onboardingRequired").bool shouldBe true
+    body("nickname").isNull         shouldBe true
+  }
+
+  "PATCH /users/me/profile" should "set nickname and return onboardingRequired=false" in {
+    val (app, _) = makeRoutes()
+    val req = Request[IO](method = Method.PATCH, uri = Uri.unsafeFromString("/users/me/profile"))
+      .putHeaders(bearerHeader("sub-patch", "patcher"))
+      .withEntity("""{"nickname":"CoolKnight"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    val body = ujson.read(app.run(req).unsafeRunSync().bodyText.compile.string.unsafeRunSync())
+    body("nickname").str             shouldBe "CoolKnight"
+    body("onboardingRequired").bool  shouldBe false
+  }
+
+  it should "return 401 when Authorization header is missing" in {
+    val (app, _) = makeRoutes()
+    val req = Request[IO](method = Method.PATCH, uri = Uri.unsafeFromString("/users/me/profile"))
+      .withEntity("""{"nickname":"Ghost"}""")
+    app.run(req).unsafeRunSync().status shouldBe Status.Unauthorized
+  }
+
+  it should "return 422 when nickname is too short" in {
+    val (app, _) = makeRoutes()
+    val req = Request[IO](method = Method.PATCH, uri = Uri.unsafeFromString("/users/me/profile"))
+      .putHeaders(bearerHeader("sub-short", "shortie"))
+      .withEntity("""{"nickname":"ab"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    app.run(req).unsafeRunSync().status shouldBe Status.UnprocessableEntity
+  }
+
+  it should "return 409 when nickname is already taken" in {
+    val (app, _) = makeRoutes()
+    def patch(sub: String, nick: String) =
+      Request[IO](method = Method.PATCH, uri = Uri.unsafeFromString("/users/me/profile"))
+        .putHeaders(bearerHeader(sub, sub))
+        .withEntity(s"""{"nickname":"$nick"}""")
+        .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    app.run(patch("sub-first", "UniqueNick")).unsafeRunSync().status shouldBe Status.Ok
+    app.run(patch("sub-second", "UniqueNick")).unsafeRunSync().status shouldBe Status.Conflict
+  }
+
+  "GET /users/me/links/lichess/start" should "return 401 without JWT" in {
+    val (app, _) = makeRoutes()
+    val req = Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/me/links/lichess/start"))
+    val res = app.run(req).unsafeRunSync()
+    res.status shouldBe Status.Unauthorized
+  }
+
+  it should "return 200 with authorizationUrl when OAuth is configured" in {
+    val (app, _) = makeRoutes()
+    val req = Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/me/links/lichess/start"))
+      .putHeaders(bearerHeader("sub-006", "frank"))
+    val res  = app.run(req).unsafeRunSync()
+    val body = ujson.read(res.bodyText.compile.string.unsafeRunSync())
+    res.status shouldBe Status.Ok
+    body("authorizationUrl").str should include("lichess.org/oauth")
+    body("authorizationUrl").str should include("code_challenge_method=S256")
+  }
+
+  "GET /users/me/links/lichess/callback" should "redirect to settings?lichess=failed for unknown state" in {
+    val (app, _) = makeRoutes()
+    val req = Request[IO](
+      method = Method.GET,
+      uri    = Uri.unsafeFromString("/users/me/links/lichess/callback?code=c&state=unknown")
+    )
+    val res = app.run(req).unsafeRunSync()
+    res.status shouldBe Status.Found
+    res.headers.get(org.typelevel.ci.CIString("Location")).map(_.head.value) shouldBe
+      Some("http://localhost:10000/settings?lichess=failed")
+  }
+
+  it should "redirect to settings?lichess=failed when code or state is missing" in {
+    val (app, _) = makeRoutes()
+    val req = Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/me/links/lichess/callback"))
+    val res = app.run(req).unsafeRunSync()
+    res.status shouldBe Status.Found
+    res.headers.get(org.typelevel.ci.CIString("Location")).map(_.head.value) shouldBe
+      Some("http://localhost:10000/settings?lichess=failed")
   }
 
   // ── In-memory stubs (thread-safe, per-test instance) ──────────────────────
@@ -134,6 +246,16 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
         case None    => Left("Profile not found")
         case Some(p) =>
           store.put(p.keycloakSubject, p.copy(displayName = displayName, email = email))
+          Right(())
+
+    override def findByNicknameCi(nickname: String): Either[String, Option[UserProfile]] =
+      Right(store.values.asScala.find(_.nickname.exists(_.equalsIgnoreCase(nickname))))
+
+    override def setNickname(userId: UUID, nickname: String): Either[String, Unit] =
+      store.values.asScala.find(_.userId == userId) match
+        case None    => Left("Profile not found")
+        case Some(p) =>
+          store.put(p.keycloakSubject, p.copy(nickname = Some(nickname)))
           Right(())
 
   private class InMemExternalAccountLinkRepository extends ExternalAccountLinkRepository:
@@ -158,3 +280,13 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
     override def delete(userId: UUID, provider: String): Either[String, Unit] =
       store.remove(key(userId, provider))
       Right(())
+
+  private class InMemOAuthLinkStateRepository extends OAuthLinkStateRepository:
+    private val store = new ConcurrentHashMap[String, OAuthLinkState]()
+
+    override def insert(state: OAuthLinkState): Either[String, Unit] =
+      store.put(state.state, state)
+      Right(())
+
+    override def findAndDelete(state: String): Either[String, Option[OAuthLinkState]] =
+      Right(Option(store.remove(state)))

@@ -29,7 +29,9 @@ final case class SessionResponse(
     whiteController: String,
     blackController: String,
     createdAt: String,
-    updatedAt: String
+    updatedAt: String,
+    ownerUserId: Option[String] = None,
+    ownerNicknameSnapshot: Option[String] = None
 )
 
 object SessionResponse:
@@ -42,5 +44,7 @@ object SessionResponse:
       "whiteController" -> ujson.Str(r.whiteController),
       "blackController" -> ujson.Str(r.blackController),
       "createdAt" -> ujson.Str(r.createdAt),
-      "updatedAt" -> ujson.Str(r.updatedAt)
+      "updatedAt" -> ujson.Str(r.updatedAt),
+      "ownerUserId" -> r.ownerUserId.fold(ujson.Null: Value)(ujson.Str(_)),
+      "ownerNicknameSnapshot" -> r.ownerNicknameSnapshot.fold(ujson.Null: Value)(ujson.Str(_))
     )

@@ -11,6 +11,7 @@ import org.bson.Document
 
 import scala.jdk.CollectionConverters.*
 import scala.util.control.NonFatal
+import java.util.UUID
 
 class MongoSessionRepository(collection: MongoCollection[Document]) extends SessionRepository:
 
@@ -55,6 +56,17 @@ class MongoSessionRepository(collection: MongoCollection[Document]) extends Sess
     try
       val documents = collection
         .find(Filters.nin("lifecycle", "Finished", "Cancelled"))
+        .iterator()
+        .asScala
+        .toList
+
+      sequence(documents.map(MongoSessionMapper.toSession))
+    catch case NonFatal(e) => Left(RepositoryError.StorageFailure(messageOf(e)))
+
+  override def findByOwner(ownerUserId: UUID): Either[RepositoryError, List[GameSession]] =
+    try
+      val documents = collection
+        .find(Filters.eq("ownerUserId", ownerUserId.toString))
         .iterator()
         .asScala
         .toList

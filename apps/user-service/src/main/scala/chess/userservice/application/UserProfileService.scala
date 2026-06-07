@@ -18,6 +18,7 @@ class UserProfileService(
           keycloakSubject = sub,
           displayName     = displayName,
           email           = email,
+          nickname        = None,
           createdAt       = Instant.now(),
           updatedAt       = Instant.now()
         )
@@ -44,6 +45,18 @@ class UserProfileService(
           linkedAt           = Instant.now()
         )
         links.insert(link).map(_ => link)
+    }
+
+  def setNickname(profile: chess.userservice.domain.UserProfile, rawNickname: String): Either[String, chess.userservice.domain.UserProfile] =
+    NicknameValidator.validate(rawNickname).flatMap { nickname =>
+      profiles.findByNicknameCi(nickname).flatMap {
+        case Some(existing) if existing.userId != profile.userId =>
+          Left(s"Nickname '$nickname' is already taken")
+        case _ =>
+          profiles.setNickname(profile.userId, nickname).map { _ =>
+            profile.copy(nickname = Some(nickname), updatedAt = Instant.now())
+          }
+      }
     }
 
   def deleteLink(userId: UUID, provider: String): Either[String, Unit] =

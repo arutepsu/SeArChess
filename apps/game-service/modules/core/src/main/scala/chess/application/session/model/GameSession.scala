@@ -2,6 +2,7 @@ package chess.application.session.model
 
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import java.time.Instant
+import java.util.UUID
 
 /** Immutable application model representing the orchestration context around a game.
   *
@@ -46,7 +47,9 @@ final case class GameSession(
     blackController: SideController,
     lifecycle: SessionLifecycle,
     createdAt: Instant,
-    updatedAt: Instant
+    updatedAt: Instant,
+    ownerUserId: Option[UUID] = None,
+    ownerNicknameSnapshot: Option[String] = None
 )
 
 object GameSession:
@@ -62,7 +65,9 @@ object GameSession:
       mode: SessionMode,
       whiteController: SideController,
       blackController: SideController,
-      now: Instant = Instant.now()
+      now: Instant = Instant.now(),
+      ownerUserId: Option[UUID] = None,
+      ownerNicknameSnapshot: Option[String] = None
   ): GameSession =
     GameSession(
       sessionId = SessionId.random(),
@@ -72,7 +77,9 @@ object GameSession:
       blackController = blackController,
       lifecycle = SessionLifecycle.Created,
       createdAt = now,
-      updatedAt = now
+      updatedAt = now,
+      ownerUserId = ownerUserId,
+      ownerNicknameSnapshot = ownerNicknameSnapshot
     )
 
   /** Transition to a new lifecycle phase, updating [[updatedAt]]. */

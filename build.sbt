@@ -479,6 +479,7 @@ lazy val userService = project
     run / fork          := true,
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-ember-server" % http4sVersion,
+      "org.http4s" %% "http4s-ember-client" % http4sVersion,
       "org.http4s" %% "http4s-dsl"          % http4sVersion,
       "com.lihaoyi" %% "ujson"              % "4.0.2",
       // Slick / PostgreSQL (same versions as other services)

@@ -23,7 +23,9 @@ object SlickSessionMapper:
       blackControllerEngineId = blackEngineId,
       lifecycle = lifecycleString(session.lifecycle),
       createdAt = Timestamp.from(session.createdAt),
-      updatedAt = Timestamp.from(session.updatedAt)
+      updatedAt = Timestamp.from(session.updatedAt),
+      ownerUserId = session.ownerUserId,
+      ownerNicknameSnapshot = session.ownerNicknameSnapshot
     )
 
   def toSession(tables: SlickTables)(row: tables.SlickSessionRow): Either[RepositoryError, GameSession] =
@@ -40,7 +42,9 @@ object SlickSessionMapper:
       blackController = blackController,
       lifecycle = lifecycle,
       createdAt = row.createdAt.toInstant,
-      updatedAt = row.updatedAt.toInstant
+      updatedAt = row.updatedAt.toInstant,
+      ownerUserId = row.ownerUserId,
+      ownerNicknameSnapshot = row.ownerNicknameSnapshot
     )
 
   private def modeString(mode: SessionMode): String =

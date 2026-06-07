@@ -85,6 +85,9 @@ static_resources:
                         # Carve out /api/health before the protected /api/ prefix rule.
                         - match:
                             path: "/api/health"
+                        # Lichess OAuth callback: browser redirect from Lichess carries no Bearer token.
+                        - match:
+                            path: "/api/users/me/links/lichess/callback"
                         # Require a valid JWT for all other /api/ routes.
                         - match:
                             prefix: "/api/"
