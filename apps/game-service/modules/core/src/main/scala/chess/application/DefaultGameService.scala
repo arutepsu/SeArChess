@@ -19,6 +19,7 @@ import chess.domain.model.{Color, Move}
 import chess.domain.rules.GameStateRules
 import chess.domain.state.{GameState, GameStateFactory}
 import java.time.Instant
+import java.util.UUID
 
 /** Default implementation of [[GameServiceApi]].
   *
@@ -68,9 +69,11 @@ class DefaultGameService(
       mode: SessionMode,
       whiteController: SideController,
       blackController: SideController,
-      now: Instant = Instant.now()
+      now: Instant = Instant.now(),
+      ownerUserId: Option[UUID] = None,
+      ownerNicknameSnapshot: Option[String] = None
   ): Either[SessionError, (GameState, GameSession)] =
-    commands.newGame(mode, whiteController, blackController, now)
+    commands.newGame(mode, whiteController, blackController, now, ownerUserId, ownerNicknameSnapshot)
 
   /** Load session and state, then route through the session command boundary.
     *
@@ -226,6 +229,9 @@ class DefaultGameService(
   def listActiveSessions(): Either[SessionError, List[SessionView]] =
     sessionLifecycleService.listActiveSessions().map(_.map(SessionView.fromSession))
 
+  def listSessionsByOwner(ownerUserId: UUID): Either[SessionError, List[SessionView]] =
+    sessionLifecycleService.listSessionsByOwner(ownerUserId).map(_.map(SessionView.fromSession))
+
   def getArchiveSnapshot(id: GameId): Either[ArchiveError, GameArchiveSnapshot] =
     for
       session <- sessionLifecycleService.getSessionByGameId(id).left.map {
@@ -249,6 +255,8 @@ class DefaultGameService(
       mode = session.mode,
       whiteController = session.whiteController,
       blackController = session.blackController,
+      ownerUserId = session.ownerUserId,
+      ownerNicknameSnapshot = session.ownerNicknameSnapshot,
       closure = GameClosure.fromStatus(state.status),
       finalState = GameView.fromState(id, state),
       createdAt = session.createdAt,

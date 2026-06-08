@@ -68,4 +68,5 @@ object ActorControlPolicy:
       case (SideController.HumanRemote, SideController.HumanRemote) => true
       case (SideController.AI(_), SideController.AI(_))             => true
       case (SideController.External(p1, _), SideController.External(p2, _)) => p1 == p2
+      case (SideController.DeployedBot, SideController.DeployedBot)          => true
       case _                                                                 => false

@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bot-service
+  namespace: searchess
+  labels:
+    app: bot-service
+spec:
+  # Keep base disabled as a shared safety default. Local overlays may opt in
+  # when HumanVsDeployedBot should be available automatically.
+  replicas: 0
+  selector:
+    matchLabels:
+      app: bot-service
+  template:
+    metadata:
+      labels:
+        app: bot-service
+    spec:
+      containers:
+        - name: bot-service
+          image: searchess/bot-service:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: bot-service-env
+          env:
+            - name: BOT_WORKER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: searchess-secrets
+                  key: bot-worker-api-key
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "25m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"

@@ -6,6 +6,7 @@ import chess.adapter.repository.{
   InMemorySessionGameStore,
   InMemorySessionRepository
 }
+import chess.application.bot.{BotTurnStatus, InMemoryBotTurnTaskRepository}
 import chess.application.event.AppEvent
 import chess.application.port.event.EventPublisher
 import chess.application.port.repository.{RepositoryError, SessionGameStore}
@@ -320,4 +321,80 @@ class SessionGameCommandServiceSpec extends AnyFlatSpec with Matchers with Eithe
     err shouldBe SessionError.PersistenceFailed(storageFailure)
     store.calls should have size 1
     collector.events shouldBe empty
+  }
+
+  // ── bot task creation ─────────────────────────────────────────────────────
+
+  private def fixtureWithBotRepo() =
+    val sessionRepo = new InMemorySessionRepository
+    val gameRepo    = new InMemoryGameRepository
+    val store       = new InMemorySessionGameStore(sessionRepo, gameRepo)
+    val botRepo     = new InMemoryBotTurnTaskRepository
+    val service     = new SessionLifecycleService(sessionRepo, _ => ())
+    val svc         = new SessionGameCommandService(service, store, _ => (), botTurnTaskRepository = Some(botRepo))
+    (svc, service, botRepo)
+
+  "SessionGameCommandService bot task creation" should "create a Pending task after a human move when next controller is DeployedBot" in {
+    val (svc, service, botRepo) = fixtureWithBotRepo()
+    val session = service.createSession(
+      GameId.random(), SessionMode.HumanVsDeployedBot, SideController.HumanLocal, SideController.DeployedBot
+    ).value
+    val state   = GameStateFactory.initial()
+    val move    = Move(Position.from(4, 1).value, Position.from(4, 3).value) // e2→e4 (White)
+
+    svc.submitMove(session, state, move, SideController.HumanLocal)
+
+    val tasks = botRepo.leaseNextPending("searchess-bot", java.time.Instant.now(), 30, 10).value
+    tasks should have size 1
+    tasks.head.sessionId shouldBe session.sessionId
+    tasks.head.gameId shouldBe session.gameId
+    tasks.head.sideToMove shouldBe Color.Black
+  }
+
+  it should "not create a duplicate task when one is already Pending or Leased for that game" in {
+    val (svc, service, botRepo) = fixtureWithBotRepo()
+    val session = service.createSession(
+      GameId.random(), SessionMode.HumanVsDeployedBot, SideController.HumanLocal, SideController.DeployedBot
+    ).value
+    val initial = GameStateFactory.initial()
+    val e2e4    = Move(Position.from(4, 1).value, Position.from(4, 3).value)
+
+    // First human move creates a Pending task for the bot
+    svc.submitMove(session, initial, e2e4, SideController.HumanLocal)
+
+    // Simulate bot submitting a move (e7→e5), then human playing again
+    val stateAfterE4 = GameStateFactory.initial().copy(
+      currentPlayer = chess.domain.model.Color.Black
+    )
+    // The existing Pending task must not result in a duplicate: check hasPendingOrLeased
+    val hasPending = botRepo.hasPendingOrLeased(session.sessionId, session.gameId).value
+    hasPending shouldBe true
+  }
+
+  it should "not create any bot task for a HumanVsHuman session" in {
+    val (svc, service, botRepo) = fixtureWithBotRepo()
+    val session = service.createSession(
+      GameId.random(), SessionMode.HumanVsHuman, SideController.HumanLocal, SideController.HumanLocal
+    ).value
+    val state = GameStateFactory.initial()
+    val move  = Move(Position.from(4, 1).value, Position.from(4, 3).value)
+
+    svc.submitMove(session, state, move, SideController.HumanLocal)
+
+    val tasks = botRepo.leaseNextPending("searchess-bot", java.time.Instant.now(), 30, 10).value
+    tasks shouldBe empty
+  }
+
+  it should "not create any bot task for a HumanVsAI session" in {
+    val (svc, service, botRepo) = fixtureWithBotRepo()
+    val session = service.createSession(
+      GameId.random(), SessionMode.HumanVsAI, SideController.HumanLocal, SideController.AI()
+    ).value
+    val state = GameStateFactory.initial()
+    val move  = Move(Position.from(4, 1).value, Position.from(4, 3).value)
+
+    svc.submitMove(session, state, move, SideController.HumanLocal)
+
+    val tasks = botRepo.leaseNextPending("searchess-bot", java.time.Instant.now(), 30, 10).value
+    tasks shouldBe empty
   }

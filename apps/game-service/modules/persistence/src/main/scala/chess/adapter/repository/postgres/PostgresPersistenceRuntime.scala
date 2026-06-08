@@ -1,5 +1,6 @@
 package chess.adapter.repository.postgres
 
+import chess.application.bot.BotTurnTaskRepository
 import chess.application.migration.SessionMigrationReader
 import chess.application.port.repository.{
   ExternalGameBindingRepository,
@@ -22,6 +23,7 @@ object PostgresPersistenceRuntime:
       store: SessionGameStore,
       externalGameBindingRepository: ExternalGameBindingRepository,
       externalGameCommandStore: ExternalGameCommandStore,
+      botTurnTaskRepository: BotTurnTaskRepository,
       close: () => Unit
   )
 
@@ -57,6 +59,7 @@ object PostgresPersistenceRuntime:
           externalGameBindingRepository =
             PostgresExternalGameBindingRepository(db, timeout, schema),
           externalGameCommandStore = PostgresExternalGameCommandStore(db, timeout, schema),
+          botTurnTaskRepository = PostgresBotTurnTaskRepository(db, timeout, schema),
           close = () => db.close()
         )
       )

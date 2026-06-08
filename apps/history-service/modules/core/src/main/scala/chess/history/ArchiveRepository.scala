@@ -1,6 +1,7 @@
 package chess.history
 
 import chess.application.session.model.SessionIds.GameId
+import java.util.UUID
 
 /** Outbound persistence port for [[ArchiveRecord]] storage.
   *
@@ -24,3 +25,5 @@ trait ArchiveRepository:
   def upsert(record: ArchiveRecord): Either[ArchiveRepositoryError, Unit]
 
   def findByGameId(gameId: GameId): Either[ArchiveRepositoryError, Option[ArchiveRecord]]
+
+  def findByOwner(ownerUserId: UUID): Either[ArchiveRepositoryError, List[ArchiveRecord]]

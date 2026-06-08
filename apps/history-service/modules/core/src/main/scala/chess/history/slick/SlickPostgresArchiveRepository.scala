@@ -20,6 +20,9 @@ class SlickPostgresArchiveRepository(db: Database, schema: Option[String] = None
       gameId         = record.gameId.value,
       sessionId      = record.sessionId.value,
       recordJson     = ujson.write(ArchiveRecordJson.toJson(record)),
+      ownerUserId    = record.ownerUserId,
+      ownerNicknameSnapshot = record.ownerNicknameSnapshot,
+      source         = record.source,
       createdAt      = Timestamp.from(record.createdAt),
       closedAt       = Timestamp.from(record.closedAt),
       materializedAt = Timestamp.from(record.materializedAt)
@@ -43,6 +46,25 @@ class SlickPostgresArchiveRepository(db: Database, schema: Option[String] = None
             .map(Some(_))
     catch case NonFatal(e) => Left(ArchiveRepositoryError.StorageFailure(safeMessage(e)))
 
+  override def findByOwner(ownerUserId: UUID): Either[ArchiveRepositoryError, List[ArchiveRecord]] =
+    try
+      val rows = Await.result(db.run(archives.filter(_.ownerUserId === ownerUserId).result), 30.seconds)
+      sequence(rows.toList.map(row =>
+        ArchiveRecordJson
+          .fromJson(ujson.read(row.recordJson))
+          .left
+          .map(ArchiveRepositoryError.StorageFailure(_))
+      ))
+    catch case NonFatal(e) => Left(ArchiveRepositoryError.StorageFailure(safeMessage(e)))
+
+  private def sequence[A](values: List[Either[ArchiveRepositoryError, A]]): Either[ArchiveRepositoryError, List[A]] =
+    values.foldRight(Right(Nil): Either[ArchiveRepositoryError, List[A]]) { (next, acc) =>
+      for
+        value <- next
+        rest <- acc
+      yield value :: rest
+    }
+
   private def safeMessage(e: Throwable): String =
     Option(e.getMessage).map(_.trim).filter(_.nonEmpty).getOrElse(e.getClass.getSimpleName)
 
@@ -50,6 +72,9 @@ final case class ArchiveRow(
     gameId:         UUID,
     sessionId:      UUID,
     recordJson:     String,
+    ownerUserId:    Option[UUID],
+    ownerNicknameSnapshot: Option[String],
+    source:         String,
     createdAt:      Timestamp,
     closedAt:       Timestamp,
     materializedAt: Timestamp
@@ -60,7 +85,10 @@ final class ArchivesTable(tag: Tag, schema: Option[String])
   def gameId         = column[UUID]("game_id", O.PrimaryKey)
   def sessionId      = column[UUID]("session_id")
   def recordJson     = column[String]("record_json")
+  def ownerUserId    = column[Option[UUID]]("owner_user_id")
+  def ownerNicknameSnapshot = column[Option[String]]("owner_nickname_snapshot")
+  def source         = column[String]("source")
   def createdAt      = column[Timestamp]("created_at")
   def closedAt       = column[Timestamp]("closed_at")
   def materializedAt = column[Timestamp]("materialized_at")
-  def * = (gameId, sessionId, recordJson, createdAt, closedAt, materializedAt).mapTo[ArchiveRow]
+  def * = (gameId, sessionId, recordJson, ownerUserId, ownerNicknameSnapshot, source, createdAt, closedAt, materializedAt).mapTo[ArchiveRow]

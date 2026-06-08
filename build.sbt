@@ -465,23 +465,60 @@ lazy val aiService = project
   )
   .dependsOn(aiContract, observability, domain, notation)
 
-// App: lichess-bot
-lazy val lichessBot = project
-  .in(file("apps/lichess-bot"))
+// ── App: user-service ────────────────────────────────────────────────────────
+
+lazy val userService = project
+  .in(file("apps/user-service"))
   .enablePlugins(JavaAppPackaging)
   .settings(
     commonSettings,
-    name := "searchess-lichess-bot",
-    Compile / mainClass := Some("chess.lichessbot.LichessBotMain"),
-    run / mainClass     := Some("chess.lichessbot.LichessBotMain"),
+    name := "searchess-user-service",
+    coverageMinimumStmtTotal := 0,
+    Compile / mainClass := Some("chess.userservice.UserServiceMain"),
+    run / mainClass     := Some("chess.userservice.UserServiceMain"),
     run / fork          := true,
     libraryDependencies ++= Seq(
-      "com.softwaremill.sttp.client3" %% "core" % "3.9.7",
-      "com.lihaoyi" %% "ujson" % "4.0.2",
-      "org.java-websocket" % "Java-WebSocket" % "1.5.7"
+      "org.http4s" %% "http4s-ember-server" % http4sVersion,
+      "org.http4s" %% "http4s-ember-client" % http4sVersion,
+      "org.http4s" %% "http4s-dsl"          % http4sVersion,
+      "com.lihaoyi" %% "ujson"              % "4.0.2",
+      // Slick / PostgreSQL (same versions as other services)
+      "com.typesafe.slick" %% "slick"          % slickVersion,
+      "com.typesafe.slick" %% "slick-hikaricp" % slickVersion,
+      "org.postgresql"      % "postgresql"     % postgresVersion,
+      // Flyway
+      "org.flywaydb" % "flyway-core"                % flywayVersion,
+      "org.flywaydb" % "flyway-database-postgresql" % flywayVersion,
+      // Testcontainers (for future Postgres integration tests)
+      "org.testcontainers" % "testcontainers" % testcontainersVersion % Test,
+      "org.testcontainers" % "postgresql"     % testcontainersVersion % Test
+    ),
+    excludeFromCoverage(
+      ".*chess.userservice.UserServiceMain.*",
+      ".*chess.userservice.UserServiceConfig.*",
+      ".*chess.userservice.UserServiceWiring.*",
+      ".*chess.userservice.UserServiceRuntime.*",
+      ".*chess.userservice.postgres.UserFlywayInitializer.*"
     )
   )
-  .dependsOn(domain, notation)
+  .dependsOn(observability)
+
+// App: bot-service (searchess-bot-worker)
+// Talks to game-service; polls pending bot turns and submits AI moves.
+// Lichess integration removed. No Lichess token or external-game APIs.
+lazy val botService = project
+  .in(file("apps/bot-service"))
+  .enablePlugins(JavaAppPackaging)
+  .settings(
+    commonSettings,
+    name := "searchess-bot-worker",
+    Compile / mainClass := Some("chess.bot.BotWorkerMain"),
+    run / mainClass     := Some("chess.bot.BotWorkerMain"),
+    run / fork          := true,
+    libraryDependencies ++= Seq(
+      "com.lihaoyi" %% "ujson" % "4.0.2"
+    )
+  )
 
 // App: chess-streaming
 lazy val chessStreaming = project
@@ -595,6 +632,7 @@ addCommandAlias("testAdapterTui",         "adapterTui/test")
 addCommandAlias("testStartupShared",      "startupShared/test")
 addCommandAlias("testGameService",        "gameService/test")
 addCommandAlias("testHistoryService",     "historyService/test")
+addCommandAlias("testUserService",        "userService/test")
 addCommandAlias("testAiService",          "aiService/test")
 addCommandAlias("testDesktopGui",         "desktopGui/test")
 addCommandAlias("testTuiCli",             "tuiCli/test")
@@ -621,7 +659,7 @@ addCommandAlias("testAllAdapters",
   ";adapterGui/test;adapterTui/test")
 
 addCommandAlias("testApps",
-  ";startupShared/test;gameService/test;historyService/test;aiService/test;desktopGui/test;tuiCli/test")
+  ";startupShared/test;gameService/test;historyService/test;userService/test;aiService/test;desktopGui/test;tuiCli/test")
 
 // ── Compile slices ────────────────────────────────────────────────────────────
 
@@ -653,6 +691,6 @@ lazy val root = project
     adapterPersistence, migration, adapterAi, adapterEvent, gameEventContract, gameHistoryDelivery,
     adapterRestContract, adapterRestHttp4s,
     adapterWebsocket, adapterGui, adapterTui,
-    startupShared, gameService, historyService, aiService, desktopGui, tuiCli, loadTests, benchmarks,
-    lichessBot, chessStreaming
+    startupShared, gameService, historyService, userService, aiService, desktopGui, tuiCli, loadTests, benchmarks,
+    botService, chessStreaming
   )

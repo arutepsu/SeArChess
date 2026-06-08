@@ -124,15 +124,20 @@ object AppEventSerializer extends TerminalEventJsonSerializer:
     case Color.Black => "Black"
 
   private def sessionModeStr(m: SessionMode): String = m match
-    case SessionMode.HumanVsHuman => "HumanVsHuman"
-    case SessionMode.HumanVsAI    => "HumanVsAI"
-    case SessionMode.AIVsAI       => "AIVsAI"
+    case SessionMode.HumanVsHuman        => "HumanVsHuman"
+    case SessionMode.HumanVsAI           => "HumanVsAI"
+    case SessionMode.AIVsAI              => "AIVsAI"
+    case SessionMode.HumanVsDeployedBot => "HumanVsDeployedBot"
+    case SessionMode.AiVsExternal        => "AiVsExternal"
+    case SessionMode.ExternalVsExternal  => "ExternalVsExternal"
 
   private def controllerStr(c: SideController): String = c match
     case SideController.HumanLocal       => "HumanLocal"
     case SideController.HumanRemote      => "HumanRemote"
     case SideController.AI(Some(engine)) => s"AI:$engine"
     case SideController.AI(None)         => "AI"
+    case SideController.External(platform, actorId) => s"External:${platform}:${actorId}"
+    case SideController.DeployedBot      => "DeployedBot"
 
   private def drawReasonStr(r: DrawReason): String = r match
     case DrawReason.Stalemate => "Stalemate"

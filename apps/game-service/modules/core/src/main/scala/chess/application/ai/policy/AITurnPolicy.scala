@@ -28,5 +28,7 @@ object AITurnPolicy:
       case Color.Black => session.blackController
     controller match
       case SideController.AI(_)          => true
+      case SideController.HumanLocal     => false
+      case SideController.HumanRemote    => false
       case SideController.External(_, _) => false
-      case _                             => false
+      case SideController.DeployedBot    => false

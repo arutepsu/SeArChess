@@ -5,6 +5,7 @@ import chess.application.session.service.SessionError
 import chess.domain.model.{Color, Move}
 import chess.domain.state.GameState
 import java.time.Instant
+import java.util.UUID
 
 /** Primary-port interface for the game-session command capability.
   *
@@ -52,7 +53,9 @@ trait GameSessionCommands:
       mode: SessionMode,
       whiteController: SideController,
       blackController: SideController,
-      now: Instant = Instant.now()
+      now: Instant = Instant.now(),
+      ownerUserId: Option[UUID] = None,
+      ownerNicknameSnapshot: Option[String] = None
   ): Either[SessionError, (GameState, GameSession)]
 
   /** Apply a move through the session boundary and persist the result atomically.

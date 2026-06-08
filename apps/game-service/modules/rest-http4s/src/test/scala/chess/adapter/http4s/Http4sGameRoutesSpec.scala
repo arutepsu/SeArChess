@@ -748,6 +748,8 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
           Left(RepositoryError.StorageFailure("session db failure"))
         def listActive(): Either[RepositoryError, List[GameSession]] =
           sessionRepo.listActive()
+        def findByOwner(ownerUserId: java.util.UUID): Either[RepositoryError, List[GameSession]] =
+          sessionRepo.findByOwner(ownerUserId)
 
       val failingSessionService = SessionLifecycleService(failingRepo, _ => ())
       val failingSvc = SessionGameCommandService(failingSessionService, normalStore, _ => ())

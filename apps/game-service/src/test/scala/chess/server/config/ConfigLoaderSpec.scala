@@ -53,6 +53,30 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
     config.history.failureBehaviour shouldBe DependencyFailureBehaviour.LogAndContinue
   }
 
+  it should "default user-service integration to the Kubernetes service name" in {
+    val config = loadDefault().value
+
+    config.userService.baseUrl shouldBe "http://user-service:8082"
+    config.userService.timeoutMillis shouldBe 2000
+  }
+
+  it should "parse configured user-service integration values" in {
+    val config = loadDefault(
+      "USER_SERVICE_BASE_URL" -> "http://user-service.local:18082",
+      "USER_SERVICE_TIMEOUT_MILLIS" -> "3500"
+    ).value
+
+    config.userService.baseUrl shouldBe "http://user-service.local:18082"
+    config.userService.timeoutMillis shouldBe 3500
+  }
+
+  it should "reject invalid user-service integration values" in {
+    loadDefault("USER_SERVICE_BASE_URL" -> "   ").left.value should include("USER_SERVICE_BASE_URL")
+    loadDefault("USER_SERVICE_TIMEOUT_MILLIS" -> "0").left.value should include(
+      "USER_SERVICE_TIMEOUT_MILLIS must be >= 1"
+    )
+  }
+
   it should "parse enabled History forwarding with base URL and timeout" in {
     val config = loadDefault(
       "HISTORY_FORWARDING_ENABLED" -> "true",
@@ -278,14 +302,44 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
     config.migrationAdminToken shouldBe Some("ignored-token")
   }
 
+  it should "default botWorkerActorId to 'searchess-bot'" in {
+    val config = loadDefault().value
+
+    config.botWorkerActorId shouldBe "searchess-bot"
+  }
+
+  it should "default bot turn lease sweep interval to 30 seconds" in {
+    val config = loadDefault().value
+
+    config.botTurnLeaseSweepIntervalSeconds shouldBe 30
+  }
+
+  it should "read bot turn lease sweep interval from BOT_TURN_LEASE_SWEEP_INTERVAL_SECONDS" in {
+    val config = loadDefault("BOT_TURN_LEASE_SWEEP_INTERVAL_SECONDS" -> "15").value
+
+    config.botTurnLeaseSweepIntervalSeconds shouldBe 15
+  }
+
+  it should "reject non-positive bot turn lease sweep interval" in {
+    loadDefault("BOT_TURN_LEASE_SWEEP_INTERVAL_SECONDS" -> "0").left.value should include(
+      "BOT_TURN_LEASE_SWEEP_INTERVAL_SECONDS must be >= 1"
+    )
+  }
+
+  it should "read botWorkerActorId from BOT_WORKER_ACTOR_ID env var" in {
+    val config = loadDefault("BOT_WORKER_ACTOR_ID" -> "my-custom-bot").value
+
+    config.botWorkerActorId shouldBe "my-custom-bot"
+  }
+
   it should "leave external-game bot credentials disabled by default" in {
     val config = loadDefault().value
 
     config.externalGameBot shouldBe None
   }
 
-  it should "parse external-game bot credentials with default platform and actor" in {
-    val config = loadDefault("EXTERNAL_GAME_BOT_API_KEY" -> "super-secret").value
+  it should "parse bot worker credentials with default platform and actor" in {
+    val config = loadDefault("BOT_WORKER_API_KEY" -> "super-secret").value
 
     val bot = config.externalGameBot.value
     bot.platform shouldBe "Lichess"
@@ -293,9 +347,24 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
     bot.apiKey shouldBe "super-secret"
   }
 
+  it should "prefer BOT_WORKER_API_KEY over the legacy EXTERNAL_GAME_BOT_API_KEY fallback" in {
+    val config = loadDefault(
+      "BOT_WORKER_API_KEY" -> "preferred-secret",
+      "EXTERNAL_GAME_BOT_API_KEY" -> "legacy-secret"
+    ).value
+
+    config.externalGameBot.value.apiKey shouldBe "preferred-secret"
+  }
+
+  it should "temporarily accept legacy EXTERNAL_GAME_BOT_API_KEY for one transition period" in {
+    val config = loadDefault("EXTERNAL_GAME_BOT_API_KEY" -> "legacy-secret").value
+
+    config.externalGameBot.value.apiKey shouldBe "legacy-secret"
+  }
+
   it should "parse configured external-game bot platform and actor" in {
     val config = loadDefault(
-      "EXTERNAL_GAME_BOT_API_KEY" -> "super-secret",
+      "BOT_WORKER_API_KEY" -> "super-secret",
       "EXTERNAL_GAME_BOT_PLATFORM" -> "lichess",
       "EXTERNAL_GAME_BOT_ACTOR_ID" -> "searchess-prod-bot"
     ).value
@@ -308,7 +377,7 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
 
   it should "reject unsupported external-game bot platforms without echoing the API key" in {
     val error = loadDefault(
-      "EXTERNAL_GAME_BOT_API_KEY" -> "do-not-print-me",
+      "BOT_WORKER_API_KEY" -> "do-not-print-me",
       "EXTERNAL_GAME_BOT_PLATFORM" -> "chesscom"
     ).left.value
 
@@ -318,7 +387,7 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
 
   it should "reject blank external-game bot actor IDs without echoing the API key" in {
     val error = loadDefault(
-      "EXTERNAL_GAME_BOT_API_KEY" -> "do-not-print-me",
+      "BOT_WORKER_API_KEY" -> "do-not-print-me",
       "EXTERNAL_GAME_BOT_ACTOR_ID" -> "   "
     ).left.value
 

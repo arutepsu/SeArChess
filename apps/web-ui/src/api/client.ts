@@ -139,12 +139,18 @@ export function createAiVsAi(): Promise<CreateGameResponse> {
   return createGame({ mode: "AIVsAI" });
 }
 
+export function createHumanVsDeployedBot(): Promise<CreateGameResponse> {
+  return fetchJson<CreateGameResponse>("/sessions/human-vs-deployed-bot", { method: "POST" });
+}
+
 function createGamePathForMode(mode?: CreateGameRequest["mode"]): string {
   switch (mode) {
     case "HumanVsAI":
       return "/sessions/human-vs-ai";
     case "AIVsAI":
       return "/sessions/ai-vs-ai";
+    case "HumanVsDeployedBot":
+      return "/sessions/human-vs-deployed-bot";
     case "HumanVsHuman":
     default:
       return "/sessions/human-vs-human";
@@ -207,7 +213,11 @@ export async function resignGame(
 }
 
 export async function listSessions(): Promise<SessionListResponse> {
-  return fetchJson<SessionListResponse>("/sessions");
+  return fetchJson<SessionListResponse>("/sessions/mine");
+}
+
+export async function listMyArchive(): Promise<{ archives: unknown[] }> {
+  return fetchJson<{ archives: unknown[] }>("/archive/mine");
 }
 
 export async function loadSessionState(

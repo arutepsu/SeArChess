@@ -16,12 +16,15 @@ object ArchiveRecordJson:
       "mode" -> record.mode.toString,
       "whiteController" -> controllerString(record.whiteController),
       "blackController" -> controllerString(record.blackController),
+      "ownerUserId" -> record.ownerUserId.map(_.toString).fold(ujson.Null: ujson.Value)(ujson.Str(_)),
+      "ownerNicknameSnapshot" -> record.ownerNicknameSnapshot.fold(ujson.Null: ujson.Value)(ujson.Str(_)),
       "closure" -> closureJson(record.closure),
       "pgn" -> record.pgn.fold(ujson.Null: ujson.Value)(ujson.Str(_)),
       "finalFen" -> record.finalFen.fold(ujson.Null: ujson.Value)(ujson.Str(_)),
       "createdAt" -> record.createdAt.toString,
       "closedAt" -> record.closedAt.toString,
-      "materializedAt" -> record.materializedAt.toString
+      "materializedAt" -> record.materializedAt.toString,
+      "source" -> record.source
     )
 
   def fromJson(json: ujson.Value): Either[String, ArchiveRecord] =
@@ -33,6 +36,8 @@ object ArchiveRecordJson:
           mode = parseMode(json("mode").str),
           whiteController = parseController(json("whiteController").str),
           blackController = parseController(json("blackController").str),
+          ownerUserId = optionalString(json, "ownerUserId").map(UUID.fromString),
+          ownerNicknameSnapshot = optionalString(json, "ownerNicknameSnapshot"),
           closure = parseClosure(json("closure")),
           pgn = json("pgn") match
             case ujson.Null => None
@@ -42,7 +47,8 @@ object ArchiveRecordJson:
             case value      => Some(value.str),
           createdAt = Instant.parse(json("createdAt").str),
           closedAt = Instant.parse(json("closedAt").str),
-          materializedAt = Instant.parse(json("materializedAt").str)
+          materializedAt = Instant.parse(json("materializedAt").str),
+          source = optionalString(json, "source").getOrElse("Local")
         )
       )
     catch case e: Exception => Left(s"Invalid archive record JSON: ${e.getMessage}")
@@ -65,6 +71,7 @@ object ArchiveRecordJson:
       case AI(Some(engine))              => s"AI:$engine"
       case AI(None)                      => "AI"
       case External(platform, actorId)   => s"External:${platform}:${actorId}"
+      case DeployedBot                   => "DeployedBot"
 
   private def parseClosure(json: ujson.Value): GameClosure =
     json("kind").str match
@@ -92,6 +99,7 @@ object ArchiveRecordJson:
               case Some(platform) => SideController.External(platform, actorId)
               case None           => throw IllegalArgumentException(s"unknown external platform: $platformStr")
           case _ => throw IllegalArgumentException(s"malformed External controller: $v")
+      case "DeployedBot" => SideController.DeployedBot
       case other => throw IllegalArgumentException(s"unknown controller: $other")
 
   private def parseColor(value: String): Color =
@@ -103,3 +111,9 @@ object ArchiveRecordJson:
     DrawReason.values
       .find(_.toString == value)
       .getOrElse(throw IllegalArgumentException(s"unknown draw reason: $value"))
+
+  private def optionalString(json: ujson.Value, field: String): Option[String] =
+    json.obj.get(field).flatMap {
+      case ujson.Null => None
+      case value      => Some(value.str)
+    }

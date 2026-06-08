@@ -14,3 +14,9 @@ enum SideController:
   case HumanRemote
   case AI(engineId: Option[String] = None)
   case External(platform: ExternalPlatform, actorId: String)
+  /** Seat owned by the deployed Searchess bot-service worker.
+    *
+    * Not an in-process AI ([[AI]]). Not an external platform actor ([[External]]).
+    * The bot-service calls Searchess game APIs to submit moves on this seat.
+    */
+  case DeployedBot

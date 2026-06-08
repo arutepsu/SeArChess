@@ -1,6 +1,7 @@
 package chess.history
 
 import chess.application.session.model.SessionIds.GameId
+import java.util.UUID
 import scala.collection.mutable
 
 /** In-memory [[ArchiveRepository]] for tests.
@@ -18,6 +19,9 @@ class InMemoryArchiveRepository extends ArchiveRepository:
 
   override def findByGameId(gameId: GameId): Either[ArchiveRepositoryError, Option[ArchiveRecord]] =
     Right(store.get(gameId))
+
+  override def findByOwner(ownerUserId: UUID): Either[ArchiveRepositoryError, List[ArchiveRecord]] =
+    Right(store.values.filter(_.ownerUserId.contains(ownerUserId)).toList)
 
   def findInMemory(gameId: GameId): Option[ArchiveRecord] =
     store.get(gameId)

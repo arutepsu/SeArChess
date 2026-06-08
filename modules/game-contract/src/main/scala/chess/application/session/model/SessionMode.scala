@@ -17,5 +17,12 @@ enum SessionMode:
   case HumanVsHuman
   case HumanVsAI
   case AIVsAI
+  /** Human plays one side; the deployed [[SideController.DeployedBot]] worker plays the other.
+    *
+    * Sessions of this mode are created through `POST /sessions/human-vs-deployed-bot`,
+    * which requires a verified linked Lichess account as an eligibility prerequisite.
+    * The game is played entirely inside the Searchess Web UI; no Lichess API is called.
+    */
+  case HumanVsDeployedBot
   case AiVsExternal
   case ExternalVsExternal

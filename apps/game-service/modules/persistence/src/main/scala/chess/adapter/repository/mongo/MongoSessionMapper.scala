@@ -21,6 +21,8 @@ private[mongo] object MongoSessionMapper:
       .append("lifecycle", lifecycleString(session.lifecycle))
       .append("createdAt", session.createdAt.toString)
       .append("updatedAt", session.updatedAt.toString)
+      .append("ownerUserId", session.ownerUserId.map(_.toString).orNull)
+      .append("ownerNicknameSnapshot", session.ownerNicknameSnapshot.orNull)
 
   def toSession(document: Document): Either[RepositoryError, GameSession] =
     for
@@ -32,6 +34,7 @@ private[mongo] object MongoSessionMapper:
       lifecycle <- parseLifecycle(document.getString("lifecycle"))
       createdAt <- parseInstant(document, "createdAt")
       updatedAt <- parseInstant(document, "updatedAt")
+      ownerUserId <- parseOptionalUuid(document, "ownerUserId")
     yield GameSession(
       sessionId = SessionId(sessionId),
       gameId = GameId(gameId),
@@ -40,7 +43,9 @@ private[mongo] object MongoSessionMapper:
       blackController = blackController,
       lifecycle = lifecycle,
       createdAt = createdAt,
-      updatedAt = updatedAt
+      updatedAt = updatedAt,
+      ownerUserId = ownerUserId,
+      ownerNicknameSnapshot = Option(document.getString("ownerNicknameSnapshot"))
     )
 
   private def modeString(mode: SessionMode): String =
@@ -48,6 +53,7 @@ private[mongo] object MongoSessionMapper:
       case SessionMode.HumanVsHuman       => "HumanVsHuman"
       case SessionMode.HumanVsAI          => "HumanVsAI"
       case SessionMode.AIVsAI             => "AIVsAI"
+      case SessionMode.HumanVsDeployedBot => "HumanVsDeployedBot"
       case SessionMode.AiVsExternal       => "AiVsExternal"
       case SessionMode.ExternalVsExternal => "ExternalVsExternal"
 
@@ -73,12 +79,15 @@ private[mongo] object MongoSessionMapper:
         Document("kind", "External")
           .append("platform", platform.toString)
           .append("actorId", actorId)
+      case SideController.DeployedBot =>
+        Document("kind", "DeployedBot")
 
   private def parseMode(value: String): Either[RepositoryError, SessionMode] =
     value match
       case "HumanVsHuman"       => Right(SessionMode.HumanVsHuman)
       case "HumanVsAI"          => Right(SessionMode.HumanVsAI)
       case "AIVsAI"             => Right(SessionMode.AIVsAI)
+      case "HumanVsDeployedBot" => Right(SessionMode.HumanVsDeployedBot)
       case "AiVsExternal"       => Right(SessionMode.AiVsExternal)
       case "ExternalVsExternal" => Right(SessionMode.ExternalVsExternal)
       case other                => storageFailure(s"Unknown session mode in Mongo document: $other")
@@ -112,14 +121,24 @@ private[mongo] object MongoSessionMapper:
                   case None     => storageFailure(s"Unknown external platform in Mongo document: $p")
               case _ =>
                 storageFailure("External controller document missing 'platform' or 'actorId' field")
+          case "DeployedBot" if engineId.isEmpty => Right(SideController.DeployedBot)
           case "HumanLocal" | "HumanRemote" =>
             storageFailure(s"Human controller $kind cannot have an AI engine id")
+          case "DeployedBot" =>
+            storageFailure("DeployedBot controller cannot have an engine id")
           case other =>
             storageFailure(s"Unknown controller in Mongo document: $other")
 
   private def parseUuid(document: Document, field: String): Either[RepositoryError, UUID] =
     try Right(UUID.fromString(document.getString(field)))
     catch case e: RuntimeException => storageFailure(s"Invalid UUID in $field: ${e.getMessage}")
+
+  private def parseOptionalUuid(document: Document, field: String): Either[RepositoryError, Option[UUID]] =
+    Option(document.getString(field)) match
+      case None => Right(None)
+      case Some(value) =>
+        try Right(Some(UUID.fromString(value)))
+        catch case e: RuntimeException => storageFailure(s"Invalid UUID in $field: ${e.getMessage}")
 
   private def parseInstant(document: Document, field: String): Either[RepositoryError, Instant] =
     try Right(Instant.parse(document.getString(field)))

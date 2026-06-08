@@ -36,15 +36,17 @@ class ArchiveMaterializerSpec extends AnyFlatSpec with Matchers with EitherValue
   private def snapshot(
       closure: GameClosure,
       state: GameState = GameStateFactory.initial(),
-      createdAt: Instant = fixedNow
+      createdAt: Instant = fixedNow,
+      whiteController: SideController = SideController.HumanLocal,
+      blackController: SideController = SideController.HumanLocal
   ): GameArchiveSnapshot =
     val gameId = GameId.random()
     GameArchiveSnapshot(
       sessionId = SessionId.random(),
       gameId = gameId,
       mode = SessionMode.HumanVsHuman,
-      whiteController = SideController.HumanLocal,
-      blackController = SideController.HumanLocal,
+      whiteController = whiteController,
+      blackController = blackController,
       closure = closure,
       finalState = GameView.fromState(gameId, state),
       createdAt = createdAt,
@@ -185,6 +187,20 @@ class ArchiveMaterializerSpec extends AnyFlatSpec with Matchers with EitherValue
     val snap = snapshot(GameClosure.Resigned(Color.White), state, createdAt = fixedNow)
     val record = mat.materialize(snap).value
     record.pgn.value should include("""[Date "2026.04.20"]""")
+  }
+
+  it should "serialize DeployedBot in PGN controller headers" in {
+    val state = GameStateFactory.initial().copy(status = GameStatus.Resigned(Color.White))
+    val snap = snapshot(
+      GameClosure.Resigned(Color.White),
+      state,
+      blackController = SideController.DeployedBot
+    )
+
+    val record = mat.materialize(snap).value
+
+    record.blackController shouldBe SideController.DeployedBot
+    record.pgn.value should include("""[Black "DeployedBot"]""")
   }
 
   it should "emit headers before movetext with a blank-line separator" in {

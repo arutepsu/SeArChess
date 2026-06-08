@@ -33,7 +33,12 @@ object GameServiceMain:
       "historyBaseUrl" -> config.history.baseUrl,
       "historyInteraction" -> config.history.interaction.toString,
       "historyStartupPolicy" -> config.history.startupPolicy.toString,
-      "historyFailureBehaviour" -> config.history.failureBehaviour.toString
+      "historyFailureBehaviour" -> config.history.failureBehaviour.toString,
+      "userServiceBaseUrl" -> config.userService.baseUrl,
+      "userServiceTimeoutMillis" -> config.userService.timeoutMillis,
+      "botTurnLeaseSeconds" -> config.botTurnLeaseSeconds,
+      "botTurnLeaseSweepIntervalSeconds" -> config.botTurnLeaseSweepIntervalSeconds,
+      "botWorkerActorId" -> config.botWorkerActorId
     )
     val (_, server) = ServerWiring.start(config)
     StructuredLog.info(

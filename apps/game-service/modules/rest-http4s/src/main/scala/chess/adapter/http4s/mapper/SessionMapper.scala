@@ -45,11 +45,12 @@ object SessionMapper:
       case None | Some("HumanVsHuman")    => Right(SessionMode.HumanVsHuman)
       case Some("HumanVsAI")              => Right(SessionMode.HumanVsAI)
       case Some("AIVsAI")                 => Right(SessionMode.AIVsAI)
+      case Some("HumanVsDeployedBot")     => Right(SessionMode.HumanVsDeployedBot)
       case Some("AiVsExternal")           => Right(SessionMode.AiVsExternal)
       case Some("ExternalVsExternal")     => Right(SessionMode.ExternalVsExternal)
       case Some(other) =>
         Left(
-          s"Unknown mode: '$other'. Expected one of: HumanVsHuman, HumanVsAI, AIVsAI, AiVsExternal, ExternalVsExternal"
+          s"Unknown mode: '$other'. Expected one of: HumanVsHuman, HumanVsAI, AIVsAI, HumanVsDeployedBot, AiVsExternal, ExternalVsExternal"
         )
 
   /** Parse a human [[SideController]] from an optional request string. Absent or "HumanLocal" ->
@@ -101,6 +102,12 @@ object SessionMapper:
           )
         else Right((SideController.AI(), SideController.AI()))
 
+      case SessionMode.HumanVsDeployedBot =>
+        if black.isDefined then
+          Left("blackController is DeployedBot for HumanVsDeployedBot; omit blackController")
+        else
+          parseController(white).map(whiteController => (whiteController, SideController.DeployedBot))
+
       case SessionMode.AiVsExternal | SessionMode.ExternalVsExternal =>
         Left(
           s"Sessions with mode $mode must be created through POST /external-games, not the generic session endpoint"
@@ -134,6 +141,7 @@ object SessionMapper:
       blackController <- parseAnyController(dto.session.blackController)
       createdAt <- parseInstant("createdAt", dto.session.createdAt)
       updatedAt <- parseInstant("updatedAt", dto.session.updatedAt)
+      ownerUserId <- parseOptionalUuid("ownerUserId", dto.session.ownerUserId)
       currentPlayer <- parseColor("currentPlayer", dto.game.currentPlayer)
       status <- parseStatus(dto.game)
       board <- parseBoard(dto.game.board)
@@ -171,7 +179,9 @@ object SessionMapper:
         blackController = blackController,
         lifecycle = lifecycle,
         createdAt = createdAt,
-        updatedAt = updatedAt
+        updatedAt = updatedAt,
+        ownerUserId = ownerUserId,
+        ownerNicknameSnapshot = dto.session.ownerNicknameSnapshot
       ),
       state = view.toGameState
     )
@@ -205,7 +215,9 @@ object SessionMapper:
       whiteController = controllerToString(session.whiteController),
       blackController = controllerToString(session.blackController),
       createdAt = session.createdAt.toString,
-      updatedAt = session.updatedAt.toString
+      updatedAt = session.updatedAt.toString,
+      ownerUserId = session.ownerUserId.map(_.toString),
+      ownerNicknameSnapshot = session.ownerNicknameSnapshot
     )
 
   /** Combine session metadata with the initial game state into a creation response. */
@@ -263,6 +275,7 @@ object SessionMapper:
       case SideController.HumanRemote          => "HumanRemote"
       case SideController.AI(_)                => "AI"
       case SideController.External(platform, actorId) => s"External:${platform}:${actorId}"
+      case SideController.DeployedBot          => "DeployedBot"
 
   private def parseSessionId(value: String): Either[String, SessionId] =
     try Right(SessionId(UUID.fromString(value)))
@@ -288,11 +301,19 @@ object SessionMapper:
           case Array(_, platformStr, actorId) =>
             parseExternalPlatform(platformStr).map(SideController.External(_, actorId))
           case _ => Left(s"Malformed External controller: '$s'")
+      case "DeployedBot" => Right(SideController.DeployedBot)
       case other => Left(s"Unknown controller: '$other'")
 
   private def parseInstant(field: String, value: String): Either[String, Instant] =
     try Right(Instant.parse(value))
     catch case _: Exception => Left(s"Invalid $field instant: '$value'")
+
+  private def parseOptionalUuid(field: String, value: Option[String]): Either[String, Option[UUID]] =
+    value match
+      case None => Right(None)
+      case Some(raw) =>
+        try Right(Some(UUID.fromString(raw)))
+        catch case _: IllegalArgumentException => Left(s"Invalid $field UUID: '$raw'")
 
   private def parseColor(field: String, value: String): Either[String, Color] =
     Color.values

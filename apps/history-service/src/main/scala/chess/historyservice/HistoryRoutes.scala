@@ -35,6 +35,9 @@ class HistoryRoutes(
 
   /** History-owned archive query surface. Internal for now; not routed through the public edge. */
   val internalArchiveRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
+    case GET -> Root / "internal" / "archives" :? OwnerUserIdQueryParamMatcher(ownerUserId) =>
+      handleGetArchivesByOwner(ownerUserId)
+
     case GET -> Root / "archives" / gameId =>
       handleGetArchive(gameId)
   }
@@ -96,9 +99,23 @@ class HistoryRoutes(
             )
           case Left(err) => error(Status.InternalServerError, "PERSISTENCE_FAILED", err.toString)
 
+  private def handleGetArchivesByOwner(ownerUserIdStr: String): IO[Response[IO]] =
+    parseUuid(ownerUserIdStr) match
+      case Left(msg) => error(Status.BadRequest, "BAD_REQUEST", msg)
+      case Right(ownerUserId) =>
+        repository.findByOwner(ownerUserId) match
+          case Right(records) =>
+            json(Status.Ok, ujson.Obj("archives" -> ujson.Arr(records.map(ArchiveRecordJson.toJson)*)))
+          case Left(err) => error(Status.InternalServerError, "PERSISTENCE_FAILED", err.toString)
+
   private def parseGameId(raw: String): Either[String, GameId] =
-    try Right(GameId(UUID.fromString(raw)))
+    parseUuid(raw).map(GameId(_))
+
+  private def parseUuid(raw: String): Either[String, UUID] =
+    try Right(UUID.fromString(raw))
     catch case _: IllegalArgumentException => Left(s"Invalid UUID: '$raw'")
+
+  private object OwnerUserIdQueryParamMatcher extends QueryParamDecoderMatcher[String]("ownerUserId")
 
   private def json(status: Status, body: ujson.Value): IO[Response[IO]] =
     IO.pure(

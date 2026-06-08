@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { PlayableGameMode } from "../api/types";
+import type { UserProfileResponse } from "../api/userServiceTypes";
 import { gameModes, isPlayableGameMode, type GameModeId } from "../gameModes";
 import ResumeGamePanel from "./ResumeGamePanel.tsx";
 import "./Homepage.css";
@@ -7,13 +8,33 @@ import "./Homepage.css";
 interface HomepageProps {
   hasActiveGame: boolean;
   busy: boolean;
+  onboardingRequired: boolean;
+  profile: UserProfileResponse | null;
   onStart: (mode: PlayableGameMode) => void;
   onContinueActiveGame: () => void;
   onResumeSession: (sessionId: string) => Promise<void>;
+  onOpenSettings: () => void;
+  onOpenOnboarding: () => void;
 }
 
-export default function Homepage({ hasActiveGame, busy, onStart, onContinueActiveGame, onResumeSession }: HomepageProps) {
-  const [mode, setMode] = useState<PlayableGameMode>("HumanVsHuman");
+export default function Homepage({
+  hasActiveGame,
+  busy,
+  onboardingRequired,
+  profile,
+  onStart,
+  onContinueActiveGame,
+  onResumeSession,
+  onOpenSettings
+}: HomepageProps) {
+  const [mode, setMode] = useState<GameModeId>("HumanVsHuman");
+
+  const hasVerifiedLichessLink = profile?.links?.some(
+    (l) => l.provider === "Lichess" && l.verified
+  ) ?? false;
+
+  const deployedBotEligibilityBlocked =
+    mode === "HumanVsDeployedBot" && !hasVerifiedLichessLink;
 
   return (
     <div className="homepage">
@@ -27,7 +48,7 @@ export default function Homepage({ hasActiveGame, busy, onStart, onContinueActiv
           {gameModes.map((item) => {
             const selected = item.id === mode;
             const startMode = (id: GameModeId) => {
-              if (isPlayableGameMode(id)) {
+              if (gameModes.find((entry) => entry.id === id)?.active) {
                 setMode(id);
               }
             };
@@ -54,14 +75,30 @@ export default function Homepage({ hasActiveGame, busy, onStart, onContinueActiv
           })}
         </div>
 
-        <button
-          className="start-btn"
-          type="button"
-          disabled={busy}
-          onClick={() => onStart(mode)}
-        >
-          Spiel Starten
-        </button>
+        {onboardingRequired && (
+          <p className="onboarding-notice">
+            Complete your profile (choose a nickname) before starting a game. →{" "}
+            <a href="/onboarding">Go to onboarding</a>
+          </p>
+        )}
+
+        {isPlayableGameMode(mode) && deployedBotEligibilityBlocked ? (
+          <div className="onboarding-notice">
+            <p>A verified Lichess account link is required to play against the deployed bot.</p>
+            <button type="button" onClick={onOpenSettings}>
+              Go to Settings
+            </button>
+          </div>
+        ) : isPlayableGameMode(mode) ? (
+          <button
+            className="start-btn"
+            type="button"
+            disabled={busy || onboardingRequired}
+            onClick={() => onStart(mode)}
+          >
+            Spiel Starten
+          </button>
+        ) : null}
 
         {hasActiveGame && (
           <button

@@ -85,6 +85,23 @@ final case class ExternalGameBotConfig(
     apiKey: String
 )
 
+final case class UserServiceConfig(
+    baseUrl: String,
+    timeoutMillis: Int = 2000
+)
+
+/** Rate-limit config for POST /sessions/human-vs-deployed-bot.
+  *
+  * Controlled by [[BOT_GAME_CREATE_LIMIT_PER_MINUTE]] and
+  * [[BOT_GAME_CREATE_RATE_WINDOW_SECONDS]].
+  * Enforced in-memory per game-service replica; single-replica deployments
+  * are fully protected. Multi-replica requires a Redis-backed limiter (Step 3+).
+  */
+final case class BotGameRateLimitConfig(
+    limitPerWindow: Int = 5,
+    windowSeconds: Int = 60
+)
+
 /** Fully resolved Game Service runtime configuration. */
 final case class AppConfig(
     http: HttpConfig,
@@ -97,7 +114,13 @@ final case class AppConfig(
     cors: CorsConfig,
     history: HistoryForwardingConfig,
     ai: AiConfig,
+    userService: UserServiceConfig = UserServiceConfig("http://user-service:8082"),
     externalGameBot: Option[ExternalGameBotConfig] = None,
     migrationAdminEnabled: Boolean = false,
-    migrationAdminToken: Option[String] = None
+    migrationAdminToken: Option[String] = None,
+    botGameRateLimit: BotGameRateLimitConfig = BotGameRateLimitConfig(),
+    botTurnLeaseSeconds: Int = 30,
+    botTurnLeaseSweepIntervalSeconds: Int = 30,
+    botTurnMaxAttempts: Int = 5,
+    botWorkerActorId: String = "searchess-bot"
 )

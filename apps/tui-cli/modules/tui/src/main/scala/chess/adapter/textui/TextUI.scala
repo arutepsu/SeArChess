@@ -231,8 +231,11 @@ final class TextUI(
           if nextPlayerColor == chess.domain.model.Color.White then session.whiteController
           else session.blackController
         controller match
-          case SideController.AI(_) => true
-          case _                    => false
+          case SideController.AI(_)          => true
+          case SideController.HumanLocal     => false
+          case SideController.HumanRemote    => false
+          case SideController.External(_, _) => false
+          case SideController.DeployedBot    => false
       case None => false
 
     if !isAiTurn then

@@ -18,7 +18,8 @@ k3d image import \
   searchess/ai-service:local \
   searchess/python-ai-service:local \
   searchess/web-ui:local \
+  searchess/bot-service:local \
   --cluster "$CLUSTER"
 
 echo "==> Import complete. Verify:"
-k3d image list --cluster "$CLUSTER" | grep -E "searchess/(game|history|ai|python-ai)-service"
+k3d image list --cluster "$CLUSTER" | grep -E "searchess/(game|history|ai|python-ai|bot)-service|searchess/web-ui"

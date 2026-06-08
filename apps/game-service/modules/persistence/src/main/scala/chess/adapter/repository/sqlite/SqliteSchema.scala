@@ -24,8 +24,20 @@ object SqliteSchema:
       |  black_controller TEXT NOT NULL,
       |  lifecycle        TEXT NOT NULL,
       |  created_at       TEXT NOT NULL,
-      |  updated_at       TEXT NOT NULL
+      |  updated_at       TEXT NOT NULL,
+      |  owner_user_id    TEXT,
+      |  owner_nickname_snapshot TEXT
       |)""".stripMargin
+
+  private val alterSessionsOwnerUserId =
+    "ALTER TABLE sessions ADD COLUMN owner_user_id TEXT"
+
+  private val alterSessionsOwnerNickname =
+    "ALTER TABLE sessions ADD COLUMN owner_nickname_snapshot TEXT"
+
+  private val createSessionsOwnerIndex =
+    """CREATE INDEX IF NOT EXISTS idx_sessions_owner_user_id
+      |ON sessions(owner_user_id)""".stripMargin
 
   private val createGameStates =
     """CREATE TABLE IF NOT EXISTS game_states (
@@ -75,9 +87,16 @@ object SqliteSchema:
     val stmt = conn.createStatement()
     try
       stmt.execute(createSessions)
+      addColumnIfMissing(stmt, alterSessionsOwnerUserId)
+      addColumnIfMissing(stmt, alterSessionsOwnerNickname)
+      stmt.execute(createSessionsOwnerIndex)
       stmt.execute(createGameStates)
       stmt.execute(createExternalGameBindings)
       stmt.execute(createExternalGameBindingsIndex)
       stmt.execute(createHistoryEventOutbox)
       stmt.execute(createHistoryEventOutboxIndex)
     finally stmt.close()
+
+  private def addColumnIfMissing(stmt: java.sql.Statement, sql: String): Unit =
+    try stmt.execute(sql)
+    catch case e: java.sql.SQLException if e.getMessage.toLowerCase.contains("duplicate column") => ()

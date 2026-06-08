@@ -304,3 +304,15 @@ class Http4sNotationRoutesSpec extends AnyFlatSpec with Matchers:
     // Imported game has a fresh session id, not the original
     imported("session")("sessionId").str should not be gameId
   }
+
+  "Http4sApp composed routes: POST /bot/challenges" should "return 404 because external Lichess challenge creation is not exposed" in {
+    val app = makeApp()
+
+    val resp = run(
+      app,
+      Request[IO](Method.POST, uri"/bot/challenges")
+        .withBodyStream(jsonBody("""{"clockLimitSeconds":300,"clockIncrementSeconds":3,"color":"random","rated":false}"""))
+    )
+
+    resp.status shouldBe Status.NotFound
+  }

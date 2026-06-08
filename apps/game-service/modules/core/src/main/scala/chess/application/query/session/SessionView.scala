@@ -3,6 +3,7 @@ package chess.application.query.session
 import chess.application.session.model.{GameSession, SessionLifecycle, SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import java.time.Instant
+import java.util.UUID
 
 /** Application read model for session state exposed through the Game Service boundary.
   *
@@ -18,7 +19,9 @@ final case class SessionView(
     blackController: SideController,
     lifecycle: SessionLifecycle,
     createdAt: Instant,
-    updatedAt: Instant
+    updatedAt: Instant,
+    ownerUserId: Option[UUID] = None,
+    ownerNicknameSnapshot: Option[String] = None
 )
 
 object SessionView:
@@ -31,5 +34,7 @@ object SessionView:
       blackController = session.blackController,
       lifecycle = session.lifecycle,
       createdAt = session.createdAt,
-      updatedAt = session.updatedAt
+      updatedAt = session.updatedAt,
+      ownerUserId = session.ownerUserId,
+      ownerNicknameSnapshot = session.ownerNicknameSnapshot
     )

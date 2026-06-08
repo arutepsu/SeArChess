@@ -9,7 +9,8 @@ import chess.application.port.event.{
   NoOpTerminalEventJsonSerializer,
   TerminalEventJsonSerializer
 }
-import chess.application.port.repository.{GameRepository, SessionGameStore}
+import chess.application.bot.BotTurnTaskRepository
+import chess.application.port.repository.{GameRepository, SessionGameStore, SessionRepository}
 import chess.application.session.service.{
   GameSessionCommands,
   PersistentSessionService,
@@ -30,22 +31,30 @@ final case class AppContext(
     snapshotTransferService: SessionSnapshotTransferService,
     sessionGameStore: SessionGameStore,
     gameRepository: GameRepository,
+    sessionRepository: SessionRepository,
     gameService: GameServiceApi,
     externalGameService: Option[ExternalGameServiceApi] = None,
+    botTurnTaskRepository: Option[BotTurnTaskRepository] = None,
     shutdownPersistence: () => Unit = () => ()
 )
 
 /** Wires Game Service application services from service-owned infrastructure. */
 object CoreAssembly:
 
-  def build(persistence: PersistenceWiring, events: CoreEventBindings): AppContext =
+  def build(
+      persistence: PersistenceWiring,
+      events: CoreEventBindings,
+      botWorkerActorId: String = "searchess-bot"
+  ): AppContext =
     val sessionLifecycleService =
       SessionLifecycleService(persistence.sessionRepository, events.publisher, events.terminalSerializer)
     val commands = SessionGameCommandService(
       sessionLifecycleService,
       persistence.store,
       events.publisher,
-      events.terminalSerializer
+      events.terminalSerializer,
+      botTurnTaskRepository = persistence.botTurnTaskRepository,
+      botActorId = botWorkerActorId
     )
     val persistentSessionService = PersistentSessionService(
       persistence.sessionRepository,
@@ -69,8 +78,10 @@ object CoreAssembly:
       snapshotTransferService,
       persistence.store,
       persistence.gameRepository,
+      persistence.sessionRepository,
       gameService,
       externalGameService = None,
+      botTurnTaskRepository = persistence.botTurnTaskRepository,
       shutdownPersistence = persistence.shutdown
     )
 

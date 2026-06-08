@@ -452,6 +452,9 @@ class PersistenceMigrationServiceSpec
     override def listActive(): Either[RepositoryError, List[GameSession]] =
       Right(bySessionId.values.toList)
 
+    override def findByOwner(ownerUserId: UUID): Either[RepositoryError, List[GameSession]] =
+      Right(bySessionId.values.filter(_.ownerUserId.contains(ownerUserId)).toList)
+
   private final class InMemoryGameRepository extends GameRepository:
     private val store = mutable.HashMap.empty[GameId, GameState]
 

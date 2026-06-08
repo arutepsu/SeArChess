@@ -1,6 +1,6 @@
 export type PlayerColor = "white" | "black";
 export type GameStatus = "active" | "check" | "checkmate" | "draw" | "resigned";
-export type PlayableGameMode = "HumanVsHuman" | "HumanVsAI" | "AIVsAI";
+export type PlayableGameMode = "HumanVsHuman" | "HumanVsAI" | "AIVsAI" | "HumanVsDeployedBot";
 
 export type PieceCode =
   | "wK"

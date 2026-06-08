@@ -299,7 +299,12 @@ Verify owned tables:
 ```bash
 kubectl exec -n searchess postgres-0 -- psql -U searchess -d searchess -c "\dt game.*"
 kubectl exec -n searchess postgres-0 -- psql -U searchess -d searchess -c "\dt history.*"
+kubectl exec -n searchess postgres-0 -- psql -U searchess -d searchess -c "\d history.history_archives"
+kubectl exec -n searchess postgres-0 -- psql -U searchess -d searchess -c "select column_name, data_type, is_nullable from information_schema.columns where table_schema = 'history' and table_name = 'history_archives' and column_name in ('owner_user_id', 'owner_nickname_snapshot', 'source') order by column_name;"
 ```
+
+`history.history_archives` is the PostgreSQL archive table. `searchess.history.archives`
+is the Redis stream name, not a Postgres relation.
 
 ### `mongo-0` CrashLoopBackOff — probe timeout
 

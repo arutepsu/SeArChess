@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Routes, Route, useNavigate } from "react-router-dom";
-import type { PlayerColor, PlayableGameMode, GameState, BoardMatrix, PieceCode } from "./api/types";
+import type { PlayableGameMode, GameState } from "./api/types";
 import type { MoveHistoryEntryDto } from "./api/backendTypes";
 import { getReplayFrame } from "./api/client";
-import { mapGameSnapshotToGameState, computeCapturedPieces } from "./api/mapper";
+import { getMyProfile } from "./api/userServiceClient";
+import type { UserProfileResponse } from "./api/userServiceTypes";
+import { mapGameSnapshotToGameState } from "./api/mapper";
 import type { SpriteCatalog } from "./assets/spriteCatalog";
 import { loadSpriteCatalog } from "./assets/spriteCatalog";
 import { connectWebSocket, type WsClient } from "./api/ws";
@@ -14,15 +16,14 @@ import ChessBoard from "./components/ChessBoard.tsx";
 import ControlPanel from "./components/ControlPanel.tsx";
 import GameAnalysisView from "./components/GameAnalysisView.tsx";
 import MoveList from "./components/MoveList.tsx";
-//import ResumeGamePanel from "./components/ResumeGamePanel.tsx";
-import SessionTransferPanel from "./components/SessionTransferPanel.tsx";
 import StatusBanner from "./components/StatusBanner.tsx";
 import Homepage from "./components/Homepage.tsx";
+import OnboardingPage from "./components/OnboardingPage.tsx";
 import BackgroundEffectsLayer from "./components/BackgroundEffectsLayer.tsx";
 import BackgroundPanel from "./components/BackgroundPanel.tsx";
 import CapturedPanel from "./components/CapturedPanel.tsx";
-import { Chess } from "chess.js";
 import AuthBar from "./components/AuthBar.tsx";
+import ProfilePanel from "./components/ProfilePanel.tsx";
 import "./App.css";
 
 type ConnectionState = "connected" | "offline" | "loading";
@@ -35,9 +36,6 @@ const backgrounds = [
   { id: "sakura-grove", label: "Grove", url: "/assets/backgrounds/sakuratrees.jpg" },
   { id: "forest", label: "Forest", url: "/assets/backgrounds/new.jpg" }
 ];
-
-const lichessBotWsUrl =
-  import.meta.env.VITE_LICHESS_BOT_WS_URL?.toString().trim() ?? "";
 
 function isGameStateRefreshHint(event: WsEvent): boolean {
   switch (event.eventType) {
@@ -55,15 +53,6 @@ function isGameStateRefreshHint(event: WsEvent): boolean {
     case "SessionCreated":
       return false;
   }
-}
-
-interface BotWebSocketData {
-  gameId: string;
-  moves: string;
-  botColor: PlayerColor;
-  wtime: number | null;
-  btime: number | null;
-  lastUpdated: number;
 }
 
 function playMoveSound() {
@@ -99,78 +88,6 @@ function playMoveSound() {
   } catch (e) {
     console.error("Failed to play sound: ", e);
   }
-}
-
-function mapBotDataToGameState(
-  data: BotWebSocketData
-): GameState {
-  const chess = new Chess();
-  const moveList = data.moves ? data.moves.split(" ").filter(Boolean) : [];
-  for (const moveStr of moveList) {
-    if (moveStr.length >= 4) {
-      const from = moveStr.substring(0, 2);
-      const to = moveStr.substring(2, 4);
-      const promotion = moveStr.length > 4 ? moveStr.substring(4, 5).toLowerCase() : undefined;
-      chess.move({ from, to, promotion });
-    }
-  }
-
-  const chessBoard = chess.board();
-  const board: BoardMatrix = Array.from({ length: 8 }, () => Array(8).fill(null));
-  for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 8; c++) {
-      const piece = chessBoard[r][c];
-      if (piece) {
-        board[r][c] = `${piece.color}${piece.type.toUpperCase()}` as PieceCode;
-      }
-    }
-  }
-
-  const captured = computeCapturedPieces(board);
-
-  const verboseMoves = chess.history({ verbose: true });
-  const moves = verboseMoves.map((m, index) => {
-    const record: any = {
-      ply: index + 1,
-      notation: m.san,
-      from: m.from,
-      to: m.to,
-    };
-    if (m.captured) {
-      const oppColor = m.color === "w" ? "b" : "w";
-      record.captured = `${oppColor}${m.captured.toUpperCase()}` as PieceCode;
-    }
-    if (m.promotion) {
-      record.promotion = `${m.color}${m.promotion.toUpperCase()}` as PieceCode;
-    }
-    return record;
-  });
-
-  let status: any = "active";
-  if (chess.in_checkmate()) {
-    status = "checkmate";
-  } else if (chess.in_draw()) {
-    status = "draw";
-  } else if (chess.in_check()) {
-    status = "check";
-  }
-
-  const activeColor = chess.turn() === "w" ? "white" : "black";
-  const winner = status === "checkmate" ? (activeColor === "white" ? "black" : "white") : undefined;
-
-  return {
-    id: data.gameId,
-    board,
-    activeColor,
-    status,
-    winner,
-    moves,
-    captured,
-    fullMove: Math.floor((moves.length + 2) / 2),
-    halfMoveClock: 0,
-    lastMove: moves.length > 0 ? moves[moves.length - 1] : undefined,
-    legalTargetsByFrom: {}
-  };
 }
 
 export default function App() {
@@ -219,14 +136,18 @@ export default function App() {
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [timelineError, setTimelineError] = useState<string | null>(null);
   const [replayGame, setReplayGame] = useState<GameState | null>(null);
+  const [onboardingRequired, setOnboardingRequired] = useState(false);
+  const [profile, setProfile] = useState<UserProfileResponse | null>(null);
 
-  // Bot mode state
-  const [activeTab, setActiveTab] = useState<"local" | "bot">("local");
-  const [botGameData, setBotGameData] = useState<BotWebSocketData | null>(null);
-  const [botWhiteClockMs, setBotWhiteClockMs] = useState<number | null>(null);
-  const [botBlackClockMs, setBotBlackClockMs] = useState<number | null>(null);
-  const [hasNewBotMoveNotification, setHasNewBotMoveNotification] = useState(false);
-  const [botConnectionState, setBotConnectionState] = useState<"idle" | "connecting" | "live" | "disconnected">("idle");
+  useEffect(() => {
+    getMyProfile()
+      .then((p) => {
+        setProfile(p);
+        setOnboardingRequired(p.onboardingRequired);
+        if (p.onboardingRequired) navigate("/onboarding");
+      })
+      .catch(() => { /* ignore — don't block the app if user-service is unreachable */ });
+  }, [navigate]);
 
   const lastTickMs = useRef<number | null>(null);
   const wsClientRef = useRef<WsClient | null>(null);
@@ -245,40 +166,22 @@ export default function App() {
       ? session?.whiteController
       : session?.blackController;
 
-  const boardInteractionDisabled = activeTab === "bot" || busy || sessionClosed || !clockRunning;
-  const replayModeActive = timelinePly < timelineTotalPlies;
+  const boardInteractionDisabled = busy || sessionClosed || !clockRunning;
+  const boundedTimelinePly = Math.min(timelinePly, timelineTotalPlies);
+  const replayModeActive = boundedTimelinePly < timelineTotalPlies;
 
-  const mappedBotGame = useMemo(() => {
-    if (!botGameData) return null;
-    return mapBotDataToGameState(botGameData);
-  }, [botGameData]);
-
-  const displayedGame = useMemo(() => {
-    if (activeTab === "bot") {
-      return mappedBotGame;
-    }
-    return replayModeActive && replayGame ? replayGame : game;
-  }, [activeTab, mappedBotGame, replayModeActive, replayGame, game]);
+  const displayedGame = replayModeActive && replayGame ? replayGame : game;
 
   const currentReplayMove =
-    timelinePly <= 0 ? null : timelineRawMoves[timelinePly - 1] ?? null;
-
-  const botClockRunning = useMemo(() => {
-    return Boolean(mappedBotGame && mappedBotGame.status !== "checkmate" && mappedBotGame.status !== "draw" && mappedBotGame.status !== "resigned");
-  }, [mappedBotGame]);
-
-  const displayedWhiteTimeMs = activeTab === "bot" ? (botWhiteClockMs ?? 0) : whiteClockMs;
-  const displayedBlackTimeMs = activeTab === "bot" ? (botBlackClockMs ?? 0) : blackClockMs;
-  const displayedActiveColor = activeTab === "bot" ? displayedGame?.activeColor : game?.activeColor;
-  const displayedClockRunning = activeTab === "bot" ? botClockRunning : clockRunning;
+    boundedTimelinePly <= 0 ? null : timelineRawMoves[boundedTimelinePly - 1] ?? null;
 
   const canResign =
-    activeTab !== "bot" &&
     Boolean(game) &&
     !busy &&
     !sessionClosed &&
     clockRunning &&
-    activeController !== "AI";
+    activeController !== "AI" &&
+    activeController !== "DeployedBot";
 
   const resetClocks = useCallback(() => {
     setWhiteClockMs(baseClockMs);
@@ -327,6 +230,14 @@ export default function App() {
   useEffect(() => {
     if (!game?.id) return;
 
+    const currentTotalPlies = game.moves.length;
+    if (timelinePly > currentTotalPlies) {
+      setTimelinePly(currentTotalPlies);
+      setTimelineError(null);
+      setReplayGame(null);
+      return;
+    }
+
     let active = true;
     setTimelineLoading(true);
     setTimelineError(null);
@@ -358,9 +269,13 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [game?.id, timelinePly]);
+  }, [game?.id, game?.moves.length, timelinePly]);
 
   const handleStartGame = async (selectedMode: PlayableGameMode) => {
+    if (onboardingRequired) {
+      navigate("/onboarding");
+      return;
+    }
     setGameMode(selectedMode);
     navigate("/game");
     await handleNewGame(selectedMode);
@@ -479,7 +394,7 @@ export default function App() {
 
   const clockStateRef = useRef({
     running: false,
-    activeColor: "white" as PlayerColor
+    activeColor: "white" as import("./api/types").PlayerColor
   });
 
   useEffect(() => {
@@ -523,144 +438,18 @@ export default function App() {
     );
   }, [backgroundId]);
 
-  // Track activeTab in a ref for the WebSocket callback
-  const activeTabRef = useRef(activeTab);
-  useEffect(() => {
-    activeTabRef.current = activeTab;
-    if (activeTab === "bot") {
-      setHasNewBotMoveNotification(false);
-    }
-  }, [activeTab]);
-
-  // Connect to Scala Bot WebSocket server
-  const prevBotMovesCountRef = useRef<number>(0);
-  const prevBotGameIdRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!lichessBotWsUrl) {
-      setBotConnectionState("idle");
-      return;
-    }
-
-    let ws: WebSocket | null = null;
-    let reconnectTimeoutId: any = null;
-    let isComponentMounted = true;
-
-    function connect() {
-      if (!isComponentMounted) return;
-      setBotConnectionState("connecting");
-
-      ws = new WebSocket(lichessBotWsUrl);
-
-      ws.onopen = () => {
-        if (!isComponentMounted) return;
-        setBotConnectionState("live");
-      };
-
-      ws.onmessage = (event) => {
-        if (!isComponentMounted) return;
-        try {
-          const data: BotWebSocketData = JSON.parse(event.data);
-          setBotGameData(data);
-
-          if (data.wtime !== undefined && data.wtime !== null) {
-            setBotWhiteClockMs(data.wtime);
-          }
-          if (data.btime !== undefined && data.btime !== null) {
-            setBotBlackClockMs(data.btime);
-          }
-
-          const movesStr = data.moves || "";
-          const movesCount = movesStr.split(" ").filter(Boolean).length;
-
-          if (activeTabRef.current === "local") {
-            if (prevBotGameIdRef.current !== null &&
-              (data.gameId !== prevBotGameIdRef.current || movesCount > prevBotMovesCountRef.current)) {
-              setHasNewBotMoveNotification(true);
-            }
-          }
-
-          prevBotMovesCountRef.current = movesCount;
-          prevBotGameIdRef.current = data.gameId;
-        } catch (e) {
-          console.error("Failed to parse bot websocket message: ", e);
-        }
-      };
-
-      ws.onclose = () => {
-        if (!isComponentMounted) return;
-        setBotConnectionState("disconnected");
-        reconnectTimeoutId = setTimeout(() => {
-          connect();
-        }, 3000);
-      };
-
-      ws.onerror = () => {
-        if (!isComponentMounted) return;
-        ws?.close();
-      };
-    }
-
-    connect();
-
-    return () => {
-      isComponentMounted = false;
-      if (ws) {
-        ws.close();
-      }
-      if (reconnectTimeoutId) {
-        clearTimeout(reconnectTimeoutId);
-      }
-    };
-  }, []);
-
-  // Bot clock ticking
-  useEffect(() => {
-    let lastTick = performance.now();
-    const intervalId = window.setInterval(() => {
-      const now = performance.now();
-      const delta = Math.max(0, now - lastTick);
-      lastTick = now;
-
-      if (botGameData) {
-        const chess = new Chess();
-        const moveList = botGameData.moves ? botGameData.moves.split(" ").filter(Boolean) : [];
-        for (const moveStr of moveList) {
-          if (moveStr.length >= 4) {
-            const from = moveStr.substring(0, 2);
-            const to = moveStr.substring(2, 4);
-            const promotion = moveStr.length > 4 ? moveStr.substring(4, 5).toLowerCase() : undefined;
-            chess.move({ from, to, promotion });
-          }
-        }
-
-        if (!chess.game_over()) {
-          const turn = chess.turn();
-          if (turn === "w") {
-            setBotWhiteClockMs((t) => (t !== null ? Math.max(0, t - delta) : null));
-          } else {
-            setBotBlackClockMs((t) => (t !== null ? Math.max(0, t - delta) : null));
-          }
-        }
-      }
-    }, 250);
-
-    return () => window.clearInterval(intervalId);
-  }, [botGameData]);
-
-  // Audio trigger
   const lastPlayedGameId = useRef<string | null>(null);
   const prevMovesLength = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!displayedGame) {
+    if (!game) {
       lastPlayedGameId.current = null;
       prevMovesLength.current = null;
       return;
     }
 
-    const gameId = activeTab === "bot" ? displayedGame.id : (game?.id ?? "local");
-    const currentLength = displayedGame.moves.length;
+    const gameId = game.id;
+    const currentLength = game.moves.length;
 
     if (lastPlayedGameId.current === gameId && prevMovesLength.current !== null && currentLength > prevMovesLength.current) {
       playMoveSound();
@@ -668,7 +457,7 @@ export default function App() {
 
     lastPlayedGameId.current = gameId;
     prevMovesLength.current = currentLength;
-  }, [displayedGame, activeTab, game?.id]);
+  }, [game]);
 
   useEffect(() => {
     let active = true;
@@ -686,22 +475,6 @@ export default function App() {
     };
   }, []);
 
-  const displayedConnection = activeTab === "bot"
-    ? (botConnectionState === "disconnected" ? "offline" as const : botConnectionState === "connecting" ? "loading" as const : "connected" as const)
-    : connection;
-
-  const displayedLiveConnection = activeTab === "bot"
-    ? (botConnectionState === "live" ? "live" as const : botConnectionState === "connecting" ? "connecting" as const : "disconnected" as const)
-    : liveConnection;
-
-  const displayedMessage = activeTab === "bot"
-    ? (!lichessBotWsUrl
-      ? "Bot live monitor is disabled. Set VITE_LICHESS_BOT_WS_URL for local bot debugging."
-      : botConnectionState === "disconnected"
-        ? "Verbindung zum Bot-Server getrennt. Reconnect in 3s... / Disconnected from bot server. Reconnecting..."
-        : (!botGameData ? "Warte auf Bot-Spiele... / Waiting for bot games..." : undefined))
-    : message;
-
   return (
     <div className="app">
       <BackgroundEffectsLayer backgroundId={backgroundId} />
@@ -712,13 +485,23 @@ export default function App() {
           <Homepage
             hasActiveGame={Boolean(game)}
             busy={busy}
+            onboardingRequired={onboardingRequired}
+            profile={profile}
             onStart={handleStartGame}
             onContinueActiveGame={() => navigate("/game")}
             onResumeSession={async (sessionId) => {
               await handleResumeSession(sessionId);
               navigate("/game");
             }}
+            onOpenSettings={() => navigate("/settings")}
+            onOpenOnboarding={() => navigate("/onboarding")}
           />
+        } />
+        <Route path="/onboarding" element={
+          <OnboardingPage onComplete={() => {
+            setOnboardingRequired(false);
+            navigate("/");
+          }} />
         } />
         <Route path="/game" element={
           <main className="layout">
@@ -734,107 +517,81 @@ export default function App() {
               <CapturedPanel captured={displayedGame?.captured ?? []} spriteCatalog={spriteCatalog} />
             </aside>
 
-            {displayedGame || activeTab === "bot" ? (
+            {displayedGame ? (
               <section className="board-column">
-                <nav className="tab-navigation" aria-label="Game Mode Tabs">
-                  <button
-                    type="button"
-                    className={`tab-btn ${activeTab === "local" ? "active" : ""}`}
-                    onClick={() => setActiveTab("local")}
-                  >
-                    🎮 Lokal Spielen
-                  </button>
-                  <button
-                    type="button"
-                    className={`tab-btn ${activeTab === "bot" ? "active" : ""}`}
-                    onClick={() => setActiveTab("bot")}
-                  >
-                    🤖 Bot-Live-Monitor
-                    {hasNewBotMoveNotification && <span className="notification-dot" />}
-                  </button>
-                </nav>
-
                 <StatusBanner
-                  game={displayedGame ?? undefined}
-                  connection={displayedConnection}
-                  liveConnection={displayedLiveConnection}
-                  message={displayedMessage}
+                  game={displayedGame}
+                  connection={connection}
+                  liveConnection={liveConnection}
+                  message={message}
                 />
 
-                {displayedGame ? (
-                  <ChessBoard
-                    board={displayedGame.board}
-                    selectedSquare={replayModeActive ? undefined : selectedSquare}
-                    legalMoves={replayModeActive ? [] : legalMoves}
-                    animation={replayModeActive ? null : animationPlan}
-                    idleAnimation={true}
-                    disabled={boardInteractionDisabled || replayModeActive}
-                    onSelect={handleSelect}
-                    onAnimationFinished={handleAnimationFinished}
-                    inCheck={displayedGame.status === "check"}
-                    activeColor={displayedGame.activeColor}
-                    gameStatus={displayedGame.status}
-                    drawReason={displayedGame.drawReason}
-                    winner={displayedGame.winner}
-                    promotionPending={promotionPending}
-                    onResolvePromotion={handleResolvePromotion}
-                    onCancelPromotion={handleCancelPromotion}
-                    onNewGame={handleNewGame}
-                    orientation={activeTab === "bot" ? (botGameData?.botColor ?? "white") : "white"}
+                <ChessBoard
+                  board={displayedGame.board}
+                  selectedSquare={replayModeActive ? undefined : selectedSquare}
+                  legalMoves={replayModeActive ? [] : legalMoves}
+                  animation={replayModeActive ? null : animationPlan}
+                  idleAnimation={true}
+                  disabled={boardInteractionDisabled || replayModeActive}
+                  onSelect={handleSelect}
+                  onAnimationFinished={handleAnimationFinished}
+                  inCheck={displayedGame.status === "check"}
+                  activeColor={displayedGame.activeColor}
+                  gameStatus={displayedGame.status}
+                  drawReason={displayedGame.drawReason}
+                  winner={displayedGame.winner}
+                  promotionPending={promotionPending}
+                  onResolvePromotion={handleResolvePromotion}
+                  onCancelPromotion={handleCancelPromotion}
+                  onNewGame={handleNewGame}
+                  orientation="white"
+                />
+
+                <section className="replay-timeline panel" aria-label="Time-travel timeline">
+                  <header className="replay-timeline-header">
+                    <h2>Time-Travel</h2>
+                    <p>
+                      Frame {boundedTimelinePly} / {timelineTotalPlies}
+                      {replayModeActive ? " (Replay)" : " (Live)"}
+                    </p>
+                  </header>
+
+                  {timelineError ? (
+                    <div className="replay-timeline-error">{timelineError}</div>
+                  ) : null}
+
+                  <input
+                    type="range"
+                    min={0}
+                    max={timelineTotalPlies}
+                    step={1}
+                    value={boundedTimelinePly}
+                    onChange={(event) =>
+                      setTimelinePly(Number(event.currentTarget.value))
+                    }
+                    disabled={timelineLoading || timelineTotalPlies <= 0}
                   />
-                ) : (
-                  <section className="board-shell placeholder">
-                    <div className="loading">Warte auf Bot-Spieldaten... / Waiting for bot game data...</div>
-                  </section>
-                )}
 
-                {activeTab !== "bot" && (
-                  <section className="replay-timeline panel" aria-label="Time-travel timeline">
-                    <header className="replay-timeline-header">
-                      <h2>Time-Travel</h2>
-                      <p>
-                        Frame {timelinePly} / {timelineTotalPlies}
-                        {replayModeActive ? " (Replay)" : " (Live)"}
-                      </p>
-                    </header>
-
-                    {timelineError ? (
-                      <div className="replay-timeline-error">{timelineError}</div>
+                  <div className="replay-timeline-meta">
+                    <span>
+                      {currentReplayMove
+                        ? `${currentReplayMove.from} -> ${currentReplayMove.to}${currentReplayMove.promotion
+                          ? ` (${currentReplayMove.promotion})`
+                          : ""
+                        }`
+                        : "Initial position"}
+                    </span>
+                    {replayModeActive ? (
+                      <button
+                        type="button"
+                        onClick={() => setTimelinePly(timelineTotalPlies)}
+                        disabled={timelineLoading}
+                      >
+                        Back To Live
+                      </button>
                     ) : null}
-
-                    <input
-                      type="range"
-                      min={0}
-                      max={timelineTotalPlies}
-                      step={1}
-                      value={timelinePly}
-                      onChange={(event) =>
-                        setTimelinePly(Number(event.currentTarget.value))
-                      }
-                      disabled={timelineLoading || timelineTotalPlies <= 0}
-                    />
-
-                    <div className="replay-timeline-meta">
-                      <span>
-                        {currentReplayMove
-                          ? `${currentReplayMove.from} -> ${currentReplayMove.to}${currentReplayMove.promotion
-                            ? ` (${currentReplayMove.promotion})`
-                            : ""
-                          }`
-                          : "Initial position"}
-                      </span>
-                      {replayModeActive ? (
-                        <button
-                          type="button"
-                          onClick={() => setTimelinePly(timelineTotalPlies)}
-                          disabled={timelineLoading}
-                        >
-                          Back To Live
-                        </button>
-                      ) : null}
-                    </div>
-                  </section>
-                )}
+                  </div>
+                </section>
               </section>
             ) : (
               <section className="board-shell placeholder">
@@ -844,18 +601,18 @@ export default function App() {
 
             <aside className="side right-side">
               <ControlPanel
-                game={activeTab === "bot" ? (displayedGame ?? undefined) : game}
+                game={game}
                 busy={busy}
-                whiteTimeMs={displayedWhiteTimeMs}
-                blackTimeMs={displayedBlackTimeMs}
-                activeColor={displayedActiveColor}
-                clockRunning={displayedClockRunning}
+                whiteTimeMs={whiteClockMs}
+                blackTimeMs={blackClockMs}
+                activeColor={game?.activeColor}
+                clockRunning={clockRunning}
                 gameMode={gameMode}
                 canResign={canResign}
                 sessionId={session?.sessionId}
-                gameId={activeTab === "bot" ? (displayedGame?.id ?? undefined) : (game?.id ?? session?.gameId)}
-                fen={activeTab === "bot" ? undefined : notation?.fen}
-                pgn={activeTab === "bot" ? undefined : notation?.pgn}
+                gameId={game?.id ?? session?.gameId}
+                fen={notation?.fen}
+                pgn={notation?.pgn}
                 onImportNotation={handleImportNotation}
                 onExportNotation={handleExportNotation}
                 onGameModeChange={setGameMode}
@@ -873,6 +630,10 @@ export default function App() {
         <Route
           path="/analysis"
           element={<GameAnalysisView gameId={game?.id ?? session?.gameId ?? null} />}
+        />
+        <Route
+          path="/settings"
+          element={<ProfilePanel onBack={() => navigate("/")} />}
         />
       </Routes>
     </div>

@@ -39,6 +39,9 @@ images:
 - name: searchess/ai-service
   newName: ghcr.io/arutepsu/searchess-ai-service
   newTag: sha-769fc27
+- name: searchess/bot-service
+  newName: ghcr.io/arutepsu/searchess-bot-service
+  newTag: sha-769fc27
 - name: searchess/game-service
   newName: ghcr.io/arutepsu/searchess-game-service
   newTag: sha-769fc27
@@ -69,12 +72,6 @@ patches:
   target:
     kind: Service
     name: grafana
-- path: patches/lichess-bot-replicas.yaml
-  target:
-    group: apps
-    kind: Deployment
-    name: lichess-bot
-    version: v1
 - path: patches/delete-plain-secret.yaml
   target:
     kind: Secret

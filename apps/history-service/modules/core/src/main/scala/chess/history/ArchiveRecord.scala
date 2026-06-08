@@ -4,6 +4,7 @@ import chess.application.query.game.GameClosure
 import chess.application.session.model.{SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import java.time.Instant
+import java.util.UUID
 
 /** Durable archive-ready record for a completed or closed game session.
   *
@@ -26,10 +27,13 @@ final case class ArchiveRecord(
     mode: SessionMode,
     whiteController: SideController,
     blackController: SideController,
+    ownerUserId: Option[UUID] = None,
+    ownerNicknameSnapshot: Option[String] = None,
     closure: GameClosure,
     pgn: Option[String],
     finalFen: Option[String],
     createdAt: Instant,
     closedAt: Instant,
-    materializedAt: Instant
+    materializedAt: Instant,
+    source: String = "Local"
 )

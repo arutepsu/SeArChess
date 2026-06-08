@@ -1,7 +1,0 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: lichess-bot
-  namespace: searchess
-spec:
-  replicas: 1

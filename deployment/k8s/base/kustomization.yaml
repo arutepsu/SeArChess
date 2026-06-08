@@ -18,8 +18,11 @@ resources:
   - game-service/configmap.yaml
   - game-service/deployment.yaml
   - game-service/service.yaml
-  - lichess-bot/configmap.yaml
-  - lichess-bot/deployment.yaml
+  - user-service/configmap.yaml
+  - user-service/deployment.yaml
+  - user-service/service.yaml
+  - bot-service/configmap.yaml
+  - bot-service/deployment.yaml
   - history-service/configmap.yaml
   - history-service/deployment.yaml
   - history-service/service.yaml

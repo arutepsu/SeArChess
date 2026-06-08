@@ -4,7 +4,10 @@ import cats.effect.IO
 import cats.syntax.semigroupk.*
 import chess.adapter.http4s.route.{
   Http4sArchiveRoutes,
+  AuthenticatedUserClient,
+  BotSessionRateLimiter,
   ExternalGameRouteAuth,
+  HistoryArchiveClient,
   Http4sGameRoutes,
   Http4sExternalGameRoutes,
   Http4sNotationRoutes,
@@ -42,7 +45,10 @@ class Http4sApp(
     sessionGameStore: SessionGameStore,
     domainMetrics: DomainMetricsRegistry = new DomainMetricsRegistry(),
     externalGameService: Option[ExternalGameServiceApi] = None,
-    externalGameAuth: Option[ExternalGameRouteAuth] = None
+    externalGameAuth: Option[ExternalGameRouteAuth] = None,
+    userClient: Option[AuthenticatedUserClient] = None,
+    historyArchiveClient: Option[HistoryArchiveClient] = None,
+    botRateLimiter: Option[BotSessionRateLimiter] = None
 ):
 
   private val externalRoutes =
@@ -51,10 +57,10 @@ class Http4sApp(
       case _                          => HttpRoutes.empty[IO]
 
   private val combinedRoutes =
-    Http4sSessionRoutes(gameService, persistentSessionService, snapshotTransferService, domainMetrics).routes <+>
+    Http4sSessionRoutes(gameService, persistentSessionService, snapshotTransferService, domainMetrics, userClient, botRateLimiter).routes <+>
       Http4sGameRoutes(gameService, domainMetrics).routes <+>
       Http4sNotationRoutes(gameRepository, sessionGameStore).routes <+>
-      Http4sArchiveRoutes(gameService).routes <+>
+      Http4sArchiveRoutes(gameService, userClient, historyArchiveClient).routes <+>
       Http4sStatsRoutes(gameService).routes <+>
       externalRoutes
 

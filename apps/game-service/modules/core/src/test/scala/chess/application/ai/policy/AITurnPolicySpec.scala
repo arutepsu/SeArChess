@@ -74,3 +74,8 @@ class AITurnPolicySpec extends AnyFlatSpec with Matchers:
     )
     AITurnPolicy.isAITurn(session, Color.Black) shouldBe false
   }
+
+  it should "return false when the current side is DeployedBot" in {
+    val session = sessionWith(white = SideController.HumanLocal, black = SideController.DeployedBot)
+    AITurnPolicy.isAITurn(session, Color.Black) shouldBe false
+  }

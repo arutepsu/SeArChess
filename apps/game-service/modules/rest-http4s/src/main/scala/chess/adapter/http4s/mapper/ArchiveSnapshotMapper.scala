@@ -14,6 +14,8 @@ object ArchiveSnapshotMapper:
       mode = snapshot.mode.toString,
       whiteController = controllerString(snapshot.whiteController),
       blackController = controllerString(snapshot.blackController),
+      ownerUserId = snapshot.ownerUserId.map(_.toString),
+      ownerNicknameSnapshot = snapshot.ownerNicknameSnapshot,
       closure = closureResponse(snapshot.closure),
       finalState = ArchiveGameStateResponse(
         game = GameMapper.toGameResponse(snapshot.finalState),
@@ -55,3 +57,4 @@ object ArchiveSnapshotMapper:
     case SideController.AI(Some(engine))                  => s"AI:$engine"
     case SideController.AI(None)                          => "AI"
     case SideController.External(platform, actorId)       => s"External:${platform}:${actorId}"
+    case SideController.DeployedBot                       => "DeployedBot"

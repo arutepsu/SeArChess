@@ -10,6 +10,7 @@ import chess.application.session.service.{SessionError, SessionMoveError}
 import chess.domain.model.{Color, Move}
 import chess.domain.state.GameState
 import java.time.Instant
+import java.util.UUID
 
 /** The explicit public boundary of the Game Service.
   *
@@ -51,7 +52,9 @@ trait GameServiceApi:
       mode: SessionMode,
       whiteController: SideController,
       blackController: SideController,
-      now: Instant = Instant.now()
+      now: Instant = Instant.now(),
+      ownerUserId: Option[UUID] = None,
+      ownerNicknameSnapshot: Option[String] = None
   ): Either[SessionError, (GameState, GameSession)]
 
   /** Submit a move for the game identified by [[gameId]].
@@ -186,6 +189,8 @@ trait GameServiceApi:
 
   /** Return all session views that have not yet reached the Finished lifecycle phase. */
   def listActiveSessions(): Either[SessionError, List[SessionView]]
+
+  def listSessionsByOwner(ownerUserId: UUID): Either[SessionError, List[SessionView]]
 
   /** Build an archive snapshot for a finished game session.
     *

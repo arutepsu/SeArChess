@@ -52,6 +52,8 @@ class ArchiveMaterializer private (
       mode = snapshot.mode,
       whiteController = snapshot.whiteController,
       blackController = snapshot.blackController,
+      ownerUserId = snapshot.ownerUserId,
+      ownerNicknameSnapshot = snapshot.ownerNicknameSnapshot,
       closure = snapshot.closure,
       pgn = pgnOpt,
       finalFen = Some(fenResult.text),
@@ -96,6 +98,7 @@ class ArchiveMaterializer private (
       case AI(Some(engine))            => s"AI:$engine"
       case AI(None)                    => "AI"
       case External(platform, actorId) => s"External:${platform}:${actorId}"
+      case DeployedBot                 => "DeployedBot"
 
   private def pgnResultTag(closure: GameClosure): String = closure match
     case GameClosure.Checkmate(Color.White) => "1-0"

@@ -15,6 +15,7 @@ import chess.adapter.repository.sqlite.{
   SqliteSessionRepository
 }
 import chess.adapter.repository.postgres.PostgresPersistenceRuntime
+import chess.application.bot.BotTurnTaskRepository
 import chess.application.port.repository.{
   ExternalGameBindingRepository,
   ExternalGameCommandStore,
@@ -31,6 +32,7 @@ final case class PersistenceWiring(
     store: SessionGameStore,
     externalGameBindingRepository: Option[ExternalGameBindingRepository] = None,
     externalGameCommandStore: Option[ExternalGameCommandStore] = None,
+    botTurnTaskRepository: Option[BotTurnTaskRepository] = None,
     shutdown: () => Unit = () => ()
 )
 
@@ -97,6 +99,7 @@ object PersistenceAssembly:
           runtime.store,
           externalGameBindingRepository = Some(runtime.externalGameBindingRepository),
           externalGameCommandStore = Some(runtime.externalGameCommandStore),
+          botTurnTaskRepository = Some(runtime.botTurnTaskRepository),
           shutdown = runtime.close
         )
 
