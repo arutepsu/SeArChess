@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: user-service-env
+  namespace: searchess
+data:
+  # Lichess OAuth values for uni-server-registry (SSH tunnel → Envoy on port 18000).
+  #
+  # LICHESS_OAUTH_CLIENT_ID is not a secret — it is a public app identifier
+  # registered at https://lichess.org/account/oauth/app and visible in every
+  # OAuth redirect URL sent to the browser.  Safe to commit.
+  #
+  # Registered Lichess app:
+  #   App name:     searchess-uni-server
+  #   Redirect URI: http://localhost:18000/api/users/me/links/lichess/callback
+  #   No scopes required (only /api/account is called, which is always public).
+  LICHESS_OAUTH_CLIENT_ID: "searchess-uni-server"
+  LICHESS_OAUTH_REDIRECT_URI: "http://localhost:18000/api/users/me/links/lichess/callback"
+  WEB_UI_SETTINGS_URL: "http://localhost:18000/settings"

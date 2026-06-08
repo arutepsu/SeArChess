@@ -93,3 +93,7 @@ patches:
     kind: Deployment
     name: python-ai-service
     version: v1
+- path: patches/user-service-oauth.yaml
+  target:
+    kind: ConfigMap
+    name: user-service-env
