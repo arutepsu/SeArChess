@@ -73,6 +73,11 @@ spec:
                       "http://localhost:18080",
                       "http://127.0.0.1:18080",
                   ]
+                  required_realm_settings = {
+                      "registrationAllowed": True,
+                      "loginWithEmailAllowed": True,
+                      "resetPasswordAllowed": False,
+                  }
 
                   def request(method, url, *, token=None, body=None, form=None):
                       headers = {}
@@ -148,6 +153,20 @@ spec:
 
                   wait_for_keycloak()
                   token = admin_token()
+
+                  realm_url = f"{base_url}/admin/realms/{urllib.parse.quote(realm)}"
+                  realm_rep = request("GET", realm_url, token=token)
+                  realm_changed = False
+                  for key, required_value in required_realm_settings.items():
+                      if realm_rep.get(key) != required_value:
+                          realm_rep[key] = required_value
+                          realm_changed = True
+                  if not realm_changed:
+                      print(f"Realm {realm} already has required login settings.")
+                  else:
+                      request("PUT", realm_url, token=token, body=realm_rep)
+                      print(f"Reconciled Keycloak realm {realm} login settings.")
+
                   client_uuid = wait_for_client(token)
                   client_url = f"{base_url}/admin/realms/{urllib.parse.quote(realm)}/clients/{client_uuid}"
                   client = request("GET", client_url, token=token)
