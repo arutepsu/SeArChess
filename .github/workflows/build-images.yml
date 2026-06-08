@@ -69,6 +69,8 @@ jobs:
   #   apps/<scala-service>/**                       → that service only.
   #   deployment/**                                 → bot-service, so GitOps enablement
   #                                                   cannot reference an unbuilt image.
+  #   deployment/k8s/base/user-service/**           → user-service, same reason.
+  #   sha-placeholder in overlay kustomization      → user-service forced, image never pushed.
   #
   # On workflow_dispatch all Scala services and web-ui are rebuilt;
   # python-ai only if rebuild_python_ai=true.
@@ -166,8 +168,16 @@ jobs:
           HISTORY=$(echo      "$CHANGED" | grep -E "^apps/history-service/|^Dockerfile\.history$"     || true)
           AI=$(echo           "$CHANGED" | grep -E "^apps/ai-service/|^Dockerfile\.ai$"               || true)
           BOT_SERVICE=$(echo  "$CHANGED" | grep -E "^apps/bot-service/|^Dockerfile\.bot-service$|^deployment/" || true)
-          USER_SERVICE=$(echo "$CHANGED" | grep -E "^apps/user-service/|^Dockerfile\.user-service$"  || true)
+          USER_SERVICE=$(echo "$CHANGED" | grep -E "^apps/user-service/|^Dockerfile\.user-service$|^deployment/k8s/base/user-service/" || true)
           WEB_UI=$(echo       "$CHANGED" | grep -E "^apps/web-ui/"                                    || true)
+
+          # Safety: if the overlay still carries sha-placeholder the image was never
+          # pushed to GHCR. Force a rebuild regardless of which files changed.
+          if grep -q "newTag: sha-placeholder" \
+              deployment/k8s/overlays/uni-server-registry/kustomization.yaml 2>/dev/null; then
+            echo "user-service overlay tag is sha-placeholder — forcing rebuild."
+            USER_SERVICE="forced"
+          fi
 
           [ -n "$GAME" ]         && echo "build_game=true"          >> $GITHUB_OUTPUT \
                                  || echo "build_game=false"         >> $GITHUB_OUTPUT
