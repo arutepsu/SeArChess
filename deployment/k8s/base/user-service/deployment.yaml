@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: user-service
-          image: searchess/user-service:latest
+          image: searchess/user-service
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
