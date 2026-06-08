@@ -20,9 +20,6 @@ spec:
         - name: lichess-bot
           image: searchess/lichess-bot:latest
           imagePullPolicy: IfNotPresent
-          ports:
-            - name: challenge
-              containerPort: 9324
           envFrom:
             - configMapRef:
                 name: lichess-bot-env

@@ -461,15 +461,6 @@ object LichessBotMain:
     val acceptIncomingChallenges =
       Option(System.getenv("LICHESS_BOT_ACCEPT_INCOMING_CHALLENGES"))
         .exists(value => Set("true", "1", "yes").contains(value.trim.toLowerCase))
-    val challengePort = Option(System.getenv("CHALLENGE_HTTP_PORT")).flatMap(_.toIntOption).getOrElse(9324)
-    val shutdownChallenge =
-      Option(System.getenv("EXTERNAL_GAME_BOT_API_KEY")).map(_.trim).filter(_.nonEmpty) match
-        case Some(apiKey) =>
-          println(s"[LichessBot] Starting internal challenge API on port $challengePort...")
-          Some(LichessChallengeServer.start(challengePort, apiKey, HttpLichessChallengeClient(token)))
-        case None =>
-          println("[LichessBot] Internal challenge API disabled: EXTERNAL_GAME_BOT_API_KEY is not configured.")
-          None
     val bot = LichessBot(token, acceptIncomingChallenges = acceptIncomingChallenges)
 
     try bot.start()
@@ -477,4 +468,3 @@ object LichessBotMain:
       case NonFatal(e) =>
         println(s"[LichessBot] Critical error on startup: ${e.getMessage}")
         e.printStackTrace()
-    finally shutdownChallenge.foreach(_.apply())

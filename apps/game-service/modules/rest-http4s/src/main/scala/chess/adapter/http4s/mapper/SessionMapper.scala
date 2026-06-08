@@ -45,11 +45,12 @@ object SessionMapper:
       case None | Some("HumanVsHuman")    => Right(SessionMode.HumanVsHuman)
       case Some("HumanVsAI")              => Right(SessionMode.HumanVsAI)
       case Some("AIVsAI")                 => Right(SessionMode.AIVsAI)
+      case Some("HumanVsDeployedBot")     => Right(SessionMode.HumanVsDeployedBot)
       case Some("AiVsExternal")           => Right(SessionMode.AiVsExternal)
       case Some("ExternalVsExternal")     => Right(SessionMode.ExternalVsExternal)
       case Some(other) =>
         Left(
-          s"Unknown mode: '$other'. Expected one of: HumanVsHuman, HumanVsAI, AIVsAI, AiVsExternal, ExternalVsExternal"
+          s"Unknown mode: '$other'. Expected one of: HumanVsHuman, HumanVsAI, AIVsAI, HumanVsDeployedBot, AiVsExternal, ExternalVsExternal"
         )
 
   /** Parse a human [[SideController]] from an optional request string. Absent or "HumanLocal" ->
@@ -100,6 +101,12 @@ object SessionMapper:
             "Controllers are server-controlled AI for AIVsAI; omit whiteController and blackController"
           )
         else Right((SideController.AI(), SideController.AI()))
+
+      case SessionMode.HumanVsDeployedBot =>
+        if black.isDefined then
+          Left("blackController is DeployedBot for HumanVsDeployedBot; omit blackController")
+        else
+          parseController(white).map(whiteController => (whiteController, SideController.DeployedBot))
 
       case SessionMode.AiVsExternal | SessionMode.ExternalVsExternal =>
         Left(
@@ -268,6 +275,7 @@ object SessionMapper:
       case SideController.HumanRemote          => "HumanRemote"
       case SideController.AI(_)                => "AI"
       case SideController.External(platform, actorId) => s"External:${platform}:${actorId}"
+      case SideController.DeployedBot          => "DeployedBot"
 
   private def parseSessionId(value: String): Either[String, SessionId] =
     try Right(SessionId(UUID.fromString(value)))
@@ -293,6 +301,7 @@ object SessionMapper:
           case Array(_, platformStr, actorId) =>
             parseExternalPlatform(platformStr).map(SideController.External(_, actorId))
           case _ => Left(s"Malformed External controller: '$s'")
+      case "DeployedBot" => Right(SideController.DeployedBot)
       case other => Left(s"Unknown controller: '$other'")
 
   private def parseInstant(field: String, value: String): Either[String, Instant] =

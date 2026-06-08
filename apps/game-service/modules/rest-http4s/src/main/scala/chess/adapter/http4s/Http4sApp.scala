@@ -5,9 +5,9 @@ import cats.syntax.semigroupk.*
 import chess.adapter.http4s.route.{
   Http4sArchiveRoutes,
   AuthenticatedUserClient,
+  BotSessionRateLimiter,
   ExternalGameRouteAuth,
   HistoryArchiveClient,
-  Http4sBotChallengeRoutes,
   Http4sGameRoutes,
   Http4sExternalGameRoutes,
   Http4sNotationRoutes,
@@ -16,13 +16,9 @@ import chess.adapter.http4s.route.{
 }
 import chess.application.GameServiceApi
 import chess.application.external.ExternalGameServiceApi
-import chess.application.bot.BotChallengeSession
-import chess.application.port.repository.{BotChallengeSessionRepository, GameRepository, RepositoryError, SessionGameStore}
+import chess.application.port.repository.{GameRepository, SessionGameStore}
 import chess.application.session.service.{PersistentSessionService, SessionSnapshotTransferService}
 import org.http4s.{HttpApp, HttpRoutes}
-
-import java.util.UUID
-import scala.collection.concurrent.TrieMap
 
 /** REST adapter surface for the chess API.
   *
@@ -47,13 +43,12 @@ class Http4sApp(
     snapshotTransferService: SessionSnapshotTransferService,
     gameRepository: GameRepository,
     sessionGameStore: SessionGameStore,
-    botChallengeSessionRepository: BotChallengeSessionRepository = Http4sApp.inMemoryBotChallengeRepository(),
     domainMetrics: DomainMetricsRegistry = new DomainMetricsRegistry(),
     externalGameService: Option[ExternalGameServiceApi] = None,
     externalGameAuth: Option[ExternalGameRouteAuth] = None,
     userClient: Option[AuthenticatedUserClient] = None,
     historyArchiveClient: Option[HistoryArchiveClient] = None,
-    lichessBotChallengeClient: Option[chess.adapter.http4s.route.LichessBotChallengeClient] = None
+    botRateLimiter: Option[BotSessionRateLimiter] = None
 ):
 
   private val externalRoutes =
@@ -62,11 +57,10 @@ class Http4sApp(
       case _                          => HttpRoutes.empty[IO]
 
   private val combinedRoutes =
-    Http4sSessionRoutes(gameService, persistentSessionService, snapshotTransferService, domainMetrics, userClient).routes <+>
+    Http4sSessionRoutes(gameService, persistentSessionService, snapshotTransferService, domainMetrics, userClient, botRateLimiter).routes <+>
       Http4sGameRoutes(gameService, domainMetrics).routes <+>
       Http4sNotationRoutes(gameRepository, sessionGameStore).routes <+>
       Http4sArchiveRoutes(gameService, userClient, historyArchiveClient).routes <+>
-      Http4sBotChallengeRoutes(botChallengeSessionRepository, userClient, lichessBotChallengeClient).routes <+>
       Http4sStatsRoutes(gameService).routes <+>
       externalRoutes
 
@@ -76,19 +70,3 @@ class Http4sApp(
     * Found response via `orNotFound`.
     */
   def httpApp: HttpApp[IO] = combinedRoutes.orNotFound
-
-object Http4sApp:
-  private def inMemoryBotChallengeRepository(): BotChallengeSessionRepository =
-    new BotChallengeSessionRepository:
-      private val store = TrieMap.empty[UUID, BotChallengeSession]
-
-      override def save(session: BotChallengeSession): Either[RepositoryError, Unit] =
-        store.put(session.id, session)
-        Right(())
-
-      override def update(session: BotChallengeSession): Either[RepositoryError, Unit] =
-        store.put(session.id, session)
-        Right(())
-
-      override def findById(id: UUID): Either[RepositoryError, Option[BotChallengeSession]] =
-        Right(store.get(id))

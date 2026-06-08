@@ -503,25 +503,22 @@ lazy val userService = project
   )
   .dependsOn(observability)
 
-// App: lichess-bot
-lazy val lichessBot = project
-  .in(file("apps/lichess-bot"))
+// App: bot-service (searchess-bot-worker)
+// Talks to game-service; polls pending bot turns and submits AI moves.
+// Lichess integration removed. No Lichess token or external-game APIs.
+lazy val botService = project
+  .in(file("apps/bot-service"))
   .enablePlugins(JavaAppPackaging)
   .settings(
     commonSettings,
-    name := "searchess-lichess-bot",
-    Compile / mainClass := Some("chess.lichessbot.LichessBotMain"),
-    run / mainClass     := Some("chess.lichessbot.LichessBotMain"),
+    name := "searchess-bot-worker",
+    Compile / mainClass := Some("chess.bot.BotWorkerMain"),
+    run / mainClass     := Some("chess.bot.BotWorkerMain"),
     run / fork          := true,
     libraryDependencies ++= Seq(
-      "com.softwaremill.sttp.client3" %% "core" % "3.9.7",
-      "com.lihaoyi" %% "ujson" % "4.0.2",
-      "org.http4s" %% "http4s-ember-server" % http4sVersion,
-      "org.http4s" %% "http4s-dsl"          % http4sVersion,
-      "org.java-websocket" % "Java-WebSocket" % "1.5.7"
+      "com.lihaoyi" %% "ujson" % "4.0.2"
     )
   )
-  .dependsOn(domain, notation)
 
 // App: chess-streaming
 lazy val chessStreaming = project
@@ -695,5 +692,5 @@ lazy val root = project
     adapterRestContract, adapterRestHttp4s,
     adapterWebsocket, adapterGui, adapterTui,
     startupShared, gameService, historyService, userService, aiService, desktopGui, tuiCli, loadTests, benchmarks,
-    lichessBot, chessStreaming
+    botService, chessStreaming
   )

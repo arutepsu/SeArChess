@@ -9,7 +9,7 @@ import chess.application.port.event.{
   NoOpTerminalEventJsonSerializer,
   TerminalEventJsonSerializer
 }
-import chess.application.port.repository.{BotChallengeSessionRepository, GameRepository, SessionGameStore}
+import chess.application.port.repository.{GameRepository, SessionGameStore}
 import chess.application.session.service.{
   GameSessionCommands,
   PersistentSessionService,
@@ -29,7 +29,6 @@ final case class AppContext(
     persistentSessionService: PersistentSessionService,
     snapshotTransferService: SessionSnapshotTransferService,
     sessionGameStore: SessionGameStore,
-    botChallengeSessionRepository: BotChallengeSessionRepository,
     gameRepository: GameRepository,
     gameService: GameServiceApi,
     externalGameService: Option[ExternalGameServiceApi] = None,
@@ -69,7 +68,6 @@ object CoreAssembly:
       persistentSessionService,
       snapshotTransferService,
       persistence.store,
-      persistence.botChallengeSessionRepository,
       persistence.gameRepository,
       gameService,
       externalGameService = None,

@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bot-service
+  namespace: searchess
+  labels:
+    app: bot-service
+spec:
+  # Keep disabled until move-polling behavior is implemented.
+  # Scale up manually after patching real BOT_WORKER_API_KEY:
+  #   kubectl scale deployment bot-service -n searchess --replicas=1
+  replicas: 0
+  selector:
+    matchLabels:
+      app: bot-service
+  template:
+    metadata:
+      labels:
+        app: bot-service
+    spec:
+      containers:
+        - name: bot-service
+          image: searchess/bot-service:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: bot-service-env
+          env:
+            - name: BOT_WORKER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  # Secret key is currently named external-game-bot-api-key.
+                  # TODO: rename to bot-worker-api-key in a follow-up secret migration.
+                  name: searchess-secrets
+                  key: external-game-bot-api-key
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "25m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"

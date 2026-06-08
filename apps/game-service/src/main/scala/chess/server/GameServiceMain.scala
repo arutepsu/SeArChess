@@ -35,9 +35,7 @@ object GameServiceMain:
       "historyStartupPolicy" -> config.history.startupPolicy.toString,
       "historyFailureBehaviour" -> config.history.failureBehaviour.toString,
       "userServiceBaseUrl" -> config.userService.baseUrl,
-      "userServiceTimeoutMillis" -> config.userService.timeoutMillis,
-      "lichessBotBaseUrl" -> config.lichessBot.baseUrl,
-      "lichessBotTimeoutMillis" -> config.lichessBot.timeoutMillis
+      "userServiceTimeoutMillis" -> config.userService.timeoutMillis
     )
     val (_, server) = ServerWiring.start(config)
     StructuredLog.info(

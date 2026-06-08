@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bot-service-env
+  namespace: searchess
+data:
+  GAME_SERVICE_BASE_URL: "http://game-service:8080"
+  BOT_WORKER_ACTOR_ID: "searchess-bot"

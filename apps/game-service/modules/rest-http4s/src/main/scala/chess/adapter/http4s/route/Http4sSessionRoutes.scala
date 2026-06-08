@@ -14,7 +14,7 @@ import chess.adapter.rest.contract.dto.{
 }
 import chess.application.GameServiceApi
 import chess.application.query.game.GameView
-import chess.application.session.model.SessionMode
+import chess.application.session.model.{SessionMode, SideController}
 import chess.application.session.model.SessionIds.SessionId
 import chess.application.session.service.{
   PersistentSessionError,
@@ -48,7 +48,8 @@ class Http4sSessionRoutes(
     persistentSessionService: PersistentSessionService,
     snapshotTransferService: SessionSnapshotTransferService,
     metrics: DomainMetricsRegistry = new DomainMetricsRegistry(),
-    userClient: Option[AuthenticatedUserClient] = None
+    userClient: Option[AuthenticatedUserClient] = None,
+    botRateLimiter: Option[BotSessionRateLimiter] = None
 ):
 
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
@@ -64,6 +65,9 @@ class Http4sSessionRoutes(
 
     case req @ POST -> Root / "sessions" / "ai-vs-ai" =>
       req.bodyText.compile.string.flatMap(handleCreate(req, Some(SessionMode.AIVsAI), _))
+
+    case req @ POST -> Root / "sessions" / "human-vs-deployed-bot" =>
+      handleCreateHumanVsDeployedBot(req)
 
     case req @ POST -> Root / "sessions" / "import" =>
       req.bodyText.compile.string.flatMap(handleImport)
@@ -128,6 +132,52 @@ class Http4sSessionRoutes(
       )
 
     result match
+      case Right(resp) =>
+        metrics.recordSessionCreated()
+        jsonResponse(Status.Created, CreateSessionResponse.toJson(resp))
+      case Left((status, code, msg)) =>
+        jsonError(status, code, msg)
+
+  private def handleCreateHumanVsDeployedBot(req: Request[IO]): IO[Response[IO]] =
+    resolveRequiredOwnerWithVerifiedLichessLink(req) match
+      case Left((status, code, message)) => jsonError(status, code, message)
+      case Right(user) =>
+        checkBotRateLimit(user.userId) match
+          case Some(rateLimitedResponse) => rateLimitedResponse
+          case None                      => doCreateBotSession(user)
+
+  private def checkBotRateLimit(userId: java.util.UUID): Option[IO[Response[IO]]] =
+    botRateLimiter.flatMap { limiter =>
+      limiter.checkAndRecord(userId) match
+        case Left(BotSessionRateLimiter.RateLimited) =>
+          Some(
+            jsonError(
+              Status.TooManyRequests,
+              "BOT_GAME_RATE_LIMITED",
+              "Too many bot game requests. Please wait before starting another game."
+            )
+          )
+        case Right(_) => None
+    }
+
+  private def doCreateBotSession(user: AuthenticatedSearchessUser): IO[Response[IO]] =
+    gameService
+      .createGame(
+        SessionMode.HumanVsDeployedBot,
+        SideController.HumanLocal,
+        SideController.DeployedBot,
+        ownerUserId = Some(user.userId),
+        ownerNicknameSnapshot = user.nickname
+      )
+      .left
+      .map(err => (Status.BadRequest, "BAD_REQUEST", sessionErrMsg(err)))
+      .map { case (state, session) =>
+        SessionMapper.toCreateSessionResponse(
+          session,
+          session.gameId,
+          GameMapper.toGameResponse(GameView.fromState(session.gameId, state))
+        )
+      } match
       case Right(resp) =>
         metrics.recordSessionCreated()
         jsonResponse(Status.Created, CreateSessionResponse.toJson(resp))
@@ -306,6 +356,18 @@ class Http4sSessionRoutes(
                 Left((Status.BadGateway, "USER_SERVICE_UNAVAILABLE", message))
               case Left(AuthenticatedUserClientError.InvalidResponse(message)) =>
                 Left((Status.BadGateway, "USER_SERVICE_INVALID_RESPONSE", message))
+
+  private def resolveRequiredOwnerWithVerifiedLichessLink(
+      req: Request[IO]
+  ): Either[(Status, String, String), AuthenticatedSearchessUser] =
+    resolveRequiredOwner(req).flatMap { user =>
+      if user.nickname.isEmpty then
+        Left((Status.Forbidden, "ONBOARDING_REQUIRED", "A Searchess nickname is required before playing against the deployed bot"))
+      else if !user.links.exists(l => l.provider == "Lichess" && l.verified) then
+        Left((Status.Forbidden, "LICHESS_LINK_REQUIRED", "A verified Lichess account link is required to play against the deployed bot"))
+      else
+        Right(user)
+    }
 
   private def persistentErrToHttpErr(
       err: PersistentSessionError,

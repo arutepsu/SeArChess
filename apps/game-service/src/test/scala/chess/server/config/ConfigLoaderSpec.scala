@@ -77,23 +77,6 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
     )
   }
 
-  it should "parse configured Lichess bot integration values" in {
-    val config = loadDefault(
-      "LICHESS_BOT_BASE_URL" -> "http://lichess-bot.local:19324",
-      "LICHESS_BOT_TIMEOUT_MILLIS" -> "4500"
-    ).value
-
-    config.lichessBot.baseUrl shouldBe "http://lichess-bot.local:19324"
-    config.lichessBot.timeoutMillis shouldBe 4500
-  }
-
-  it should "reject invalid Lichess bot integration values" in {
-    loadDefault("LICHESS_BOT_BASE_URL" -> "   ").left.value should include("LICHESS_BOT_BASE_URL")
-    loadDefault("LICHESS_BOT_TIMEOUT_MILLIS" -> "0").left.value should include(
-      "LICHESS_BOT_TIMEOUT_MILLIS must be >= 1"
-    )
-  }
-
   it should "parse enabled History forwarding with base URL and timeout" in {
     val config = loadDefault(
       "HISTORY_FORWARDING_ENABLED" -> "true",

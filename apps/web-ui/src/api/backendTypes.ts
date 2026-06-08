@@ -1,6 +1,6 @@
 export type Color = "White" | "Black";
 export type GameStatus = "Ongoing" | "Checkmate" | "Draw" | "Resigned";
-export type SessionMode = "HumanVsHuman" | "HumanVsAI" | "AIVsAI";
+export type SessionMode = "HumanVsHuman" | "HumanVsAI" | "AIVsAI" | "HumanVsDeployedBot";
 export type SessionLifecycle =
   | "Created"
   | "Active"
@@ -9,7 +9,7 @@ export type SessionLifecycle =
   | "Cancelled";
 
 export type InboundController = "HumanLocal" | "HumanRemote";
-export type OutboundController = "HumanLocal" | "HumanRemote" | "AI";
+export type OutboundController = "HumanLocal" | "HumanRemote" | "AI" | "DeployedBot";
 
 export type PieceType = "King" | "Queen" | "Rook" | "Bishop" | "Knight" | "Pawn";
 export type PromotionPiece = "Queen" | "Rook" | "Bishop" | "Knight";
@@ -138,29 +138,6 @@ export interface RunAiTurnsResponse {
   sessionLifecycle: SessionLifecycle;
   pliesRun: number;
   stopReason: AiTurnsStopReason;
-}
-
-export interface BotChallengeRequest {
-  clockLimitSeconds: number;
-  clockIncrementSeconds: number;
-  color: "white" | "black" | "random";
-  rated: false;
-}
-
-export interface BotChallengeResponse {
-  id: string;
-  requestedByNicknameSnapshot: string;
-  lichessUsername: string;
-  lichessChallengeId: string | null;
-  lichessChallengeUrl: string | null;
-  status: "Requested" | "Sent" | "Failed";
-  clockLimitSeconds: number;
-  clockIncrementSeconds: number;
-  color: "White" | "Black" | "Random";
-  rated: false;
-  createdAt: string;
-  updatedAt: string;
-  failureReason: string | null;
 }
 
 export interface GameNotationResponse {
