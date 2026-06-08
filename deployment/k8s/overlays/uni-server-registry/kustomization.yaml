@@ -48,9 +48,9 @@ images:
 - name: searchess/history-service
   newName: ghcr.io/arutepsu/searchess-history-service
   newTag: sha-769fc27
-- name: searchess/lichess-bot
-  newName: ghcr.io/arutepsu/searchess-lichess-bot
-  newTag: sha-0e168f7
+- name: searchess/user-service
+  newName: ghcr.io/arutepsu/searchess-user-service
+  newTag: sha-placeholder
 - name: searchess/python-ai-service
   newName: ghcr.io/arutepsu/searchess-python-ai-service
   newTag: sha-2247329
@@ -64,6 +64,13 @@ images:
 # The Rollout above takes over pod management. Without this patch both resources
 # would coexist and fight over the same pods.
 patches:
+- patch: |-
+    - op: replace
+      path: /spec/replicas
+      value: 1
+  target:
+    kind: Deployment
+    name: bot-service
 - path: patches/envoy-loadbalancer.yaml
   target:
     kind: Service
