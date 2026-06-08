@@ -78,12 +78,13 @@ jobs:
     runs-on: ubuntu-latest
     if: github.actor != 'github-actions[bot]'
     outputs:
-      build_game:       ${{ steps.changes.outputs.build_game }}
-      build_history:    ${{ steps.changes.outputs.build_history }}
-      build_ai:         ${{ steps.changes.outputs.build_ai }}
-      build_bot_service: ${{ steps.changes.outputs.build_bot_service }}
-      build_web_ui:     ${{ steps.changes.outputs.build_web_ui }}
-      build_python_ai:  ${{ steps.changes.outputs.build_python_ai }}
+      build_game:         ${{ steps.changes.outputs.build_game }}
+      build_history:      ${{ steps.changes.outputs.build_history }}
+      build_ai:           ${{ steps.changes.outputs.build_ai }}
+      build_bot_service:  ${{ steps.changes.outputs.build_bot_service }}
+      build_user_service: ${{ steps.changes.outputs.build_user_service }}
+      build_web_ui:       ${{ steps.changes.outputs.build_web_ui }}
+      build_python_ai:    ${{ steps.changes.outputs.build_python_ai }}
 
     steps:
       - name: Checkout
@@ -97,11 +98,12 @@ jobs:
           # workflow_dispatch: rebuild all Scala services and web-ui;
           # python-ai only if explicitly requested.
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "build_game=true"      >> $GITHUB_OUTPUT
-            echo "build_history=true"   >> $GITHUB_OUTPUT
-            echo "build_ai=true"        >> $GITHUB_OUTPUT
-            echo "build_bot_service=true" >> $GITHUB_OUTPUT
-            echo "build_web_ui=true"    >> $GITHUB_OUTPUT
+            echo "build_game=true"         >> $GITHUB_OUTPUT
+            echo "build_history=true"      >> $GITHUB_OUTPUT
+            echo "build_ai=true"           >> $GITHUB_OUTPUT
+            echo "build_bot_service=true"  >> $GITHUB_OUTPUT
+            echo "build_user_service=true" >> $GITHUB_OUTPUT
+            echo "build_web_ui=true"       >> $GITHUB_OUTPUT
             echo "build_python_ai=${{ inputs.rebuild_python_ai }}" >> $GITHUB_OUTPUT
             exit 0
           fi
@@ -112,12 +114,13 @@ jobs:
           # First push to a new branch: BEFORE is all zeros — rebuild everything.
           if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
             echo "First push to branch — rebuilding all services."
-            echo "build_game=true"       >> $GITHUB_OUTPUT
-            echo "build_history=true"    >> $GITHUB_OUTPUT
-            echo "build_ai=true"         >> $GITHUB_OUTPUT
-            echo "build_bot_service=true" >> $GITHUB_OUTPUT
-            echo "build_web_ui=true"     >> $GITHUB_OUTPUT
-            echo "build_python_ai=false" >> $GITHUB_OUTPUT
+            echo "build_game=true"         >> $GITHUB_OUTPUT
+            echo "build_history=true"      >> $GITHUB_OUTPUT
+            echo "build_ai=true"           >> $GITHUB_OUTPUT
+            echo "build_bot_service=true"  >> $GITHUB_OUTPUT
+            echo "build_user_service=true" >> $GITHUB_OUTPUT
+            echo "build_web_ui=true"       >> $GITHUB_OUTPUT
+            echo "build_python_ai=false"   >> $GITHUB_OUTPUT
             exit 0
           fi
 
@@ -132,12 +135,13 @@ jobs:
             "^(modules/|build\.sbt$|project/)" || true)
           if [ -n "$SCALA_SHARED" ]; then
             echo "Scala shared inputs changed — rebuilding all Scala services."
-            echo "build_game=true"       >> $GITHUB_OUTPUT
-            echo "build_history=true"    >> $GITHUB_OUTPUT
-            echo "build_ai=true"         >> $GITHUB_OUTPUT
-            echo "build_bot_service=true" >> $GITHUB_OUTPUT
-            echo "build_web_ui=false"    >> $GITHUB_OUTPUT
-            echo "build_python_ai=false" >> $GITHUB_OUTPUT
+            echo "build_game=true"         >> $GITHUB_OUTPUT
+            echo "build_history=true"      >> $GITHUB_OUTPUT
+            echo "build_ai=true"           >> $GITHUB_OUTPUT
+            echo "build_bot_service=true"  >> $GITHUB_OUTPUT
+            echo "build_user_service=true" >> $GITHUB_OUTPUT
+            echo "build_web_ui=false"      >> $GITHUB_OUTPUT
+            echo "build_python_ai=false"   >> $GITHUB_OUTPUT
             exit 0
           fi
 
@@ -147,32 +151,36 @@ jobs:
             "^\.github/workflows/build-images\.yml$" || true)
           if [ -n "$WORKFLOW" ]; then
             echo "Build workflow changed — rebuilding all services."
-            echo "build_game=true"       >> $GITHUB_OUTPUT
-            echo "build_history=true"    >> $GITHUB_OUTPUT
-            echo "build_ai=true"         >> $GITHUB_OUTPUT
-            echo "build_bot_service=true" >> $GITHUB_OUTPUT
-            echo "build_web_ui=true"     >> $GITHUB_OUTPUT
-            echo "build_python_ai=false" >> $GITHUB_OUTPUT
+            echo "build_game=true"         >> $GITHUB_OUTPUT
+            echo "build_history=true"      >> $GITHUB_OUTPUT
+            echo "build_ai=true"           >> $GITHUB_OUTPUT
+            echo "build_bot_service=true"  >> $GITHUB_OUTPUT
+            echo "build_user_service=true" >> $GITHUB_OUTPUT
+            echo "build_web_ui=true"       >> $GITHUB_OUTPUT
+            echo "build_python_ai=false"   >> $GITHUB_OUTPUT
             exit 0
           fi
 
           # Service-specific paths: rebuild only the affected service(s).
-          GAME=$(echo       "$CHANGED" | grep -E "^apps/game-service/|^Dockerfile$"              || true)
-          HISTORY=$(echo    "$CHANGED" | grep -E "^apps/history-service/|^Dockerfile\.history$" || true)
-          AI=$(echo         "$CHANGED" | grep -E "^apps/ai-service/|^Dockerfile\.ai$"           || true)
-          BOT_SERVICE=$(echo "$CHANGED" | grep -E "^apps/bot-service/|^Dockerfile\.bot-service$|^deployment/" || true)
-          WEB_UI=$(echo     "$CHANGED" | grep -E "^apps/web-ui/"                                || true)
+          GAME=$(echo         "$CHANGED" | grep -E "^apps/game-service/|^Dockerfile$"                    || true)
+          HISTORY=$(echo      "$CHANGED" | grep -E "^apps/history-service/|^Dockerfile\.history$"     || true)
+          AI=$(echo           "$CHANGED" | grep -E "^apps/ai-service/|^Dockerfile\.ai$"               || true)
+          BOT_SERVICE=$(echo  "$CHANGED" | grep -E "^apps/bot-service/|^Dockerfile\.bot-service$|^deployment/" || true)
+          USER_SERVICE=$(echo "$CHANGED" | grep -E "^apps/user-service/|^Dockerfile\.user-service$"  || true)
+          WEB_UI=$(echo       "$CHANGED" | grep -E "^apps/web-ui/"                                    || true)
 
-          [ -n "$GAME" ]        && echo "build_game=true"        >> $GITHUB_OUTPUT \
-                                || echo "build_game=false"       >> $GITHUB_OUTPUT
-          [ -n "$HISTORY" ]     && echo "build_history=true"     >> $GITHUB_OUTPUT \
-                                || echo "build_history=false"    >> $GITHUB_OUTPUT
-          [ -n "$AI" ]          && echo "build_ai=true"          >> $GITHUB_OUTPUT \
-                                || echo "build_ai=false"         >> $GITHUB_OUTPUT
-          [ -n "$BOT_SERVICE" ] && echo "build_bot_service=true" >> $GITHUB_OUTPUT \
-                                || echo "build_bot_service=false" >> $GITHUB_OUTPUT
-          [ -n "$WEB_UI" ]      && echo "build_web_ui=true"      >> $GITHUB_OUTPUT \
-                                || echo "build_web_ui=false"     >> $GITHUB_OUTPUT
+          [ -n "$GAME" ]         && echo "build_game=true"          >> $GITHUB_OUTPUT \
+                                 || echo "build_game=false"         >> $GITHUB_OUTPUT
+          [ -n "$HISTORY" ]      && echo "build_history=true"       >> $GITHUB_OUTPUT \
+                                 || echo "build_history=false"      >> $GITHUB_OUTPUT
+          [ -n "$AI" ]           && echo "build_ai=true"            >> $GITHUB_OUTPUT \
+                                 || echo "build_ai=false"           >> $GITHUB_OUTPUT
+          [ -n "$BOT_SERVICE" ]  && echo "build_bot_service=true"   >> $GITHUB_OUTPUT \
+                                 || echo "build_bot_service=false"  >> $GITHUB_OUTPUT
+          [ -n "$USER_SERVICE" ] && echo "build_user_service=true"  >> $GITHUB_OUTPUT \
+                                 || echo "build_user_service=false" >> $GITHUB_OUTPUT
+          [ -n "$WEB_UI" ]       && echo "build_web_ui=true"        >> $GITHUB_OUTPUT \
+                                 || echo "build_web_ui=false"       >> $GITHUB_OUTPUT
           echo "build_python_ai=false" >> $GITHUB_OUTPUT
 
   # ---------------------------------------------------------------------------
@@ -367,6 +375,53 @@ jobs:
           cache-from: type=gha,scope=bot-service
           cache-to: type=gha,mode=max,scope=bot-service
 
+  build-user-service:
+    name: Build user-service
+    runs-on: ubuntu-latest
+    needs: determine-changes
+    if: |
+      github.actor != 'github-actions[bot]' &&
+      needs.determine-changes.outputs.build_user_service == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set short SHA
+        id: sha
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.ORG }}/searchess-user-service
+          tags: |
+            type=raw,value=sha-${{ steps.sha.outputs.SHORT_SHA }}
+            type=raw,value=main-latest
+            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push user-service
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.user-service
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=user-service
+          cache-to: type=gha,mode=max,scope=user-service
+
   build-web-ui:
     name: Build web-ui
     runs-on: ubuntu-latest
@@ -501,6 +556,7 @@ jobs:
       - build-history-service
       - build-ai-service
       - build-bot-service
+      - build-user-service
       - build-web-ui
       - build-python-ai-service
     # Run if no build job failed or was cancelled AND at least one build succeeded.
@@ -515,6 +571,7 @@ jobs:
         needs.build-history-service.result == 'success' ||
         needs.build-ai-service.result == 'success' ||
         needs.build-bot-service.result == 'success' ||
+        needs.build-user-service.result == 'success' ||
         needs.build-web-ui.result == 'success' ||
         needs.build-python-ai-service.result == 'success'
       )
@@ -571,6 +628,11 @@ jobs:
             kustomize edit set image \
               searchess/bot-service=ghcr.io/${{ env.ORG }}/searchess-bot-service:sha-${SHORT_SHA}
             IMAGES_UPDATED="${IMAGES_UPDATED} bot-service"
+          fi
+          if [ "${{ needs.build-user-service.result }}" = "success" ]; then
+            kustomize edit set image \
+              searchess/user-service=ghcr.io/${{ env.ORG }}/searchess-user-service:sha-${SHORT_SHA}
+            IMAGES_UPDATED="${IMAGES_UPDATED} user-service"
           fi
           if [ "${{ needs.build-web-ui.result }}" = "success" ]; then
             kustomize edit set image \
