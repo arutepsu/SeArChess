@@ -60,10 +60,18 @@ spec:
                       "http://127.0.0.1:18000",
                       "http://127.0.0.1:18000/",
                       "http://127.0.0.1:18000/*",
+                      "http://localhost:18080",
+                      "http://localhost:18080/",
+                      "http://localhost:18080/*",
+                      "http://127.0.0.1:18080",
+                      "http://127.0.0.1:18080/",
+                      "http://127.0.0.1:18080/*",
                   ]
                   required_web_origins = [
                       "http://localhost:18000",
                       "http://127.0.0.1:18000",
+                      "http://localhost:18080",
+                      "http://127.0.0.1:18080",
                   ]
 
                   def request(method, url, *, token=None, body=None, form=None):
