@@ -1,10 +1,9 @@
 # Overrides KC_HOSTNAME for local-k3d-fast only.
 #
-# Base sets KC_HOSTNAME=http://localhost:18000, which works when Keycloak is
-# exposed directly via kubectl port-forward or a separate host port.  In
-# local-k3d-fast there is no host port for Keycloak; the only exposed port is
-# 10000 (Envoy).  Keycloak sits behind Envoy at the /auth path, so the
-# browser-facing hostname must be the Envoy address + /auth.
+# Base sets KC_HOSTNAME=http://localhost:18000/auth, which is correct for
+# uni-server-registry (SSH tunnel → Envoy on :10000 → Keycloak at /auth).
+# In local-k3d-fast the only exposed host port is 10000 (Envoy), so the
+# browser-facing hostname must use :10000 instead of :18000.
 #
 # Without this patch the browser receives Keycloak redirect URLs like
 #   http://localhost:18000/auth/realms/… → ERR_CONNECTION_REFUSED
