@@ -98,6 +98,7 @@ class ArchiveMaterializer private (
       case AI(Some(engine))            => s"AI:$engine"
       case AI(None)                    => "AI"
       case External(platform, actorId) => s"External:${platform}:${actorId}"
+      case DeployedBot                 => "DeployedBot"
 
   private def pgnResultTag(closure: GameClosure): String = closure match
     case GameClosure.Checkmate(Color.White) => "1-0"

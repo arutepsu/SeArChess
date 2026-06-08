@@ -53,6 +53,7 @@ private[mongo] object MongoSessionMapper:
       case SessionMode.HumanVsHuman       => "HumanVsHuman"
       case SessionMode.HumanVsAI          => "HumanVsAI"
       case SessionMode.AIVsAI             => "AIVsAI"
+      case SessionMode.HumanVsDeployedBot => "HumanVsDeployedBot"
       case SessionMode.AiVsExternal       => "AiVsExternal"
       case SessionMode.ExternalVsExternal => "ExternalVsExternal"
 
@@ -78,12 +79,15 @@ private[mongo] object MongoSessionMapper:
         Document("kind", "External")
           .append("platform", platform.toString)
           .append("actorId", actorId)
+      case SideController.DeployedBot =>
+        Document("kind", "DeployedBot")
 
   private def parseMode(value: String): Either[RepositoryError, SessionMode] =
     value match
       case "HumanVsHuman"       => Right(SessionMode.HumanVsHuman)
       case "HumanVsAI"          => Right(SessionMode.HumanVsAI)
       case "AIVsAI"             => Right(SessionMode.AIVsAI)
+      case "HumanVsDeployedBot" => Right(SessionMode.HumanVsDeployedBot)
       case "AiVsExternal"       => Right(SessionMode.AiVsExternal)
       case "ExternalVsExternal" => Right(SessionMode.ExternalVsExternal)
       case other                => storageFailure(s"Unknown session mode in Mongo document: $other")
@@ -117,8 +121,11 @@ private[mongo] object MongoSessionMapper:
                   case None     => storageFailure(s"Unknown external platform in Mongo document: $p")
               case _ =>
                 storageFailure("External controller document missing 'platform' or 'actorId' field")
+          case "DeployedBot" if engineId.isEmpty => Right(SideController.DeployedBot)
           case "HumanLocal" | "HumanRemote" =>
             storageFailure(s"Human controller $kind cannot have an AI engine id")
+          case "DeployedBot" =>
+            storageFailure("DeployedBot controller cannot have an engine id")
           case other =>
             storageFailure(s"Unknown controller in Mongo document: $other")
 

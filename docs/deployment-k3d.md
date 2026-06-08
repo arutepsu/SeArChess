@@ -28,10 +28,14 @@ before `kubectl apply`.
 Services that come from public registries (Keycloak, Postgres, Mongo, Redis,
 Envoy, Prometheus, Grafana, Tempo, OpenTelemetry Collector) are pulled
 normally from Docker Hub / Quay.  `imagePullPolicy: Never` applies only to
-the six application images.
+the application images.
 
-`lichess-bot` is `replicas: 0` in base.  It must be scaled up deliberately
-after real secrets are patched in.
+`bot-service` is `replicas: 0` in base as a shared safety default.
+`local-k3d-fast` patches it to `replicas: 1`, so local HumanVsDeployedBot games
+start the bot worker automatically.  `BOT_WORKER_API_KEY` comes from the
+`bot-worker-api-key` Secret key and must be non-empty; if it is empty,
+bot-service fails fast on startup.  The bot plays games in the Searchess Web UI
+by calling Searchess APIs; it does NOT interact with lichess.org challenges.
 
 ### Overlay differences
 
@@ -42,7 +46,7 @@ after real secrets are patched in.
 | `searchess/history-service` image | `:local` | `:local` |
 | `searchess/ai-service` image | `:local` | `:local` |
 | `searchess/python-ai-service` image | `:local` | `:local` |
-| `searchess/lichess-bot` image | `:local` | `:local` |
+| `searchess/bot-service` image | `:local` | `:local` |
 | `mongo` image | `7.0` (base) | `4.4` (overlay override) |
 | Grafana Service type | LoadBalancer | LoadBalancer |
 | Envoy Service type | LoadBalancer | LoadBalancer |
@@ -64,7 +68,7 @@ Keycloak base settings (both overlays inherit from base):
 | `searchess/game-service:local` | `docker build -f Dockerfile -t searchess/game-service:local .` | `Dockerfile` |
 | `searchess/history-service:local` | `docker build -f Dockerfile.history -t searchess/history-service:local .` | `Dockerfile.history` |
 | `searchess/ai-service:local` | `docker build -f Dockerfile.ai -t searchess/ai-service:local .` | `Dockerfile.ai` |
-| `searchess/lichess-bot:local` | `docker build -f Dockerfile.lichess-bot -t searchess/lichess-bot:local .` | `Dockerfile.lichess-bot` |
+| `searchess/bot-service:local` | `docker build -f Dockerfile.bot-service -t searchess/bot-service:local .` | `Dockerfile.bot-service` |
 | `searchess/web-ui:local` | `docker build -t searchess/web-ui:local apps/web-ui/` | `apps/web-ui/Dockerfile` |
 | `searchess/python-ai-service:local` | `docker load -i python-ai-service-local.tar` | pre-built tar |
 
@@ -95,29 +99,29 @@ Both overlays apply `patches/secret-dev.yaml`:
 - `postgres-password: "searchess"`
 - `grafana-admin-password: "admin"`
 - `migration-admin-token: ""`
-- `external-game-bot-api-key: ""`
-- `lichess-bot-token: ""`
+- `bot-worker-api-key: ""`  backs `BOT_WORKER_API_KEY` in game-service and bot-service
 
 This is identical to the Docker Compose dev defaults.  It is intentionally not
 a real secret — do not deploy either overlay on an internet-accessible host.
 
 ### Real secrets (never committed)
 
-After `kubectl apply`, patch the live Secret for any service that needs a real
-token:
+For `local-k3d-fast`, patch the live Secret before or immediately after
+`kubectl apply`; the overlay starts bot-service automatically.  HumanVsDeployedBot
+uses `bot-worker-api-key` as `BOT_WORKER_API_KEY`.
 
 ```powershell
 # PowerShell (local-k3d)
 kubectl patch secret searchess-secrets -n searchess `
   --type=merge `
-  -p '{"stringData":{"lichess-bot-token":"REAL_TOKEN","external-game-bot-api-key":"REAL_KEY"}}'
+  -p '{"stringData":{"bot-worker-api-key":"REAL_KEY"}}'
 ```
 
 ```bash
 # bash (uni server)
 kubectl patch secret searchess-secrets -n searchess \
   --type=merge \
-  -p '{"stringData":{"lichess-bot-token":"REAL_TOKEN","external-game-bot-api-key":"REAL_KEY"}}'
+  -p '{"stringData":{"bot-worker-api-key":"REAL_KEY"}}'
 ```
 
 Re-applying the overlay will reset patched secrets back to the dev defaults.
@@ -167,7 +171,7 @@ repo and does not affect the uni-server deployment.
 docker build -f Dockerfile            -t searchess/game-service:local    .
 docker build -f Dockerfile.ai         -t searchess/ai-service:local      .
 docker build -f Dockerfile.history    -t searchess/history-service:local .
-docker build -f Dockerfile.lichess-bot -t searchess/lichess-bot:local    .
+docker build -f Dockerfile.bot-service -t searchess/bot-service:local    .
 docker build -t searchess/web-ui:local apps/web-ui/
 docker load -i python-ai-service-local.tar
 # Retag if loaded tag is not :local
@@ -183,7 +187,7 @@ k3d image import `
   searchess/ai-service:local `
   searchess/python-ai-service:local `
   searchess/web-ui:local `
-  searchess/lichess-bot:local `
+  searchess/bot-service:local `
   --cluster searchess
 ```
 
@@ -297,42 +301,82 @@ demo user `demo/demo` can log in.
 
 ---
 
-## Lichess bot controlled test
+## bot-service local-k3d-fast startup
 
-The bot is `replicas: 0` in base — it will not start automatically.
+`bot-service` is `replicas: 0` in base, but `local-k3d-fast` patches it to
+`replicas: 1`.  It starts automatically when the overlay is applied, using
+`searchess/bot-service:local` with `imagePullPolicy: Never`.
+
+It plays games inside the Searchess Web UI by calling Searchess APIs.  It does
+NOT interact with lichess.org challenges.  A linked Lichess account is an
+eligibility prerequisite checked by user-service, but the bot game itself is
+played entirely within Searchess.
 
 ### Prerequisites
 
-Real secrets must be patched before scaling up:
+Patch the real API key before applying the overlay, or patch it immediately
+after apply and restart the bot-service rollout:
 ```powershell
 kubectl patch secret searchess-secrets -n searchess `
   --type=merge `
-  -p '{"stringData":{"lichess-bot-token":"REAL_TOKEN","external-game-bot-api-key":"REAL_KEY"}}'
+  -p '{"stringData":{"bot-worker-api-key":"REAL_KEY"}}'
 ```
 
-### Scale up
+`bot-worker-api-key` backs `BOT_WORKER_API_KEY` in both game-service and
+bot-service.  It must be non-empty.  If `BOT_WORKER_API_KEY` is empty,
+bot-service fails fast on startup.  Game-service temporarily accepts legacy
+`EXTERNAL_GAME_BOT_API_KEY` as an environment-variable fallback for one
+transition period, but Kubernetes and Compose should use `BOT_WORKER_API_KEY`.
+
+Bot-service uses `BOT_MOVE_TIMEOUT_MILLIS` for its internal HTTP calls to
+game-service and AI service, and sends the same timeout in the AI request
+limits.  The local default is `5000` ms.  If AI service is unavailable or too
+slow, bot-service intentionally keeps the game moving by falling back to the
+first legal move returned by game-service; look for `AI unavailable, falling
+back to first legal move` in `kubectl logs`.
+
+Game-service runs a lease sweeper every
+`BOT_TURN_LEASE_SWEEP_INTERVAL_SECONDS` seconds, default `30`, so a bot task
+leased by a crashed worker is returned to `Pending` after its lease expires.
+If an expired task has reached `BOT_TURN_MAX_ATTEMPTS`, default `5`, the sweeper
+marks it `Failed` instead of requeueing it.
+
+### Validate startup
 
 ```powershell
-# Local
-kubectl scale deployment lichess-bot -n searchess --replicas=1
-kubectl logs -n searchess deployment/lichess-bot -f
+kubectl kustomize deployment/k8s/overlays/local-k3d-fast
+kubectl apply -k deployment/k8s/overlays/local-k3d-fast
+kubectl rollout status deployment/bot-service -n searchess --timeout=3m
+kubectl logs -n searchess deployment/bot-service --tail=50
+kubectl logs -n searchess deployment/game-service --tail=100
 ```
 
-```bash
-# Uni server
-kubectl scale deployment lichess-bot -n searchess --replicas=1
-kubectl logs -n searchess deployment/lichess-bot -f
+Expected log line:
+
+```text
+[BotWorker] Starting. gameServiceUrl=http://game-service:8080 aiServiceUrl=http://ai-service:8765 actorId=searchess-bot
 ```
 
-Watch for: successful authentication log line from Lichess.
+Starting a HumanVsDeployedBot game and making a human move should create a
+`bot_turn_task`; bot-service should lease it and submit a bot move without
+manual scaling.
 
-### Scale back down
+Expected task lifecycle:
 
-```powershell
-kubectl scale deployment lichess-bot -n searchess --replicas=0
-```
+- `Pending` after the human move creates a bot task.
+- `Leased` while bot-service is computing/submitting the bot move.
+- `Completed` after game-service accepts the bot move.
+- `Pending` again if a lease expires before max attempts.
+- `Failed` if an expired lease has reached `BOT_TURN_MAX_ATTEMPTS`.
 
-Re-applying the overlay also resets to 0 replicas (`replicas: 0` is in base).
+Useful game-service log events:
+
+- `bot_turn_task_created`
+- `bot_turn_task_leased`
+- `bot_turn_move_submitted`
+- `bot_turn_task_completed`
+- `bot_turn_expired_leases_swept`
+- `bot_turn_task_failed`
 
 ---
 
@@ -354,12 +398,12 @@ Windows-specific change.
 
 ### Bug fix — deployment/server/import-images.sh
 
-**Problem:** `searchess/lichess-bot:local` was absent from the import list.
+**Problem:** `searchess/bot-service:local` was absent from the import list.
 The overlay tags and patches it as a local image, so the cluster would fail
 to pull it if ever scaled up.
 
-**Fix:** Added `searchess/lichess-bot:local` to the `k3d image import` call
-and updated the verification grep to cover `lichess-bot` and `web-ui`.
+**Fix:** Added `searchess/bot-service:local` to the `k3d image import` call
+and updated the verification grep to cover `bot-service` and `web-ui`.
 
 **Scope:** server import script only.
 
@@ -376,8 +420,9 @@ and updated the verification grep to cover `lichess-bot` and `web-ui`.
 - **Keycloak base settings** — `KC_HTTP_MANAGEMENT_RELATIVE_PATH=/` and
   health probe configuration are in base because both environments run
   Keycloak 26.6.2 with the same requirements.
-- **Bot replicas: 0 in base** — intentional safety default; controlled scaling
-  is the documented procedure.
+- **Bot replicas: 0 in base** — intentional safety default for shared/server
+  manifests. `local-k3d-fast` opts in with `replicas: 1` because
+  HumanVsDeployedBot is an available local product feature.
 - **kubeconfig 127.0.0.1 workaround** — this is a local `kubectl config`
   command that touches only the operator's local kubeconfig file.  It is not
   a repo change and is not applied to any server manifest.

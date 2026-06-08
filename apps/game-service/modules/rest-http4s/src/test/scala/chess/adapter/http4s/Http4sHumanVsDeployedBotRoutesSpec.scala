@@ -169,3 +169,18 @@ class Http4sHumanVsDeployedBotRoutesSpec extends AnyFlatSpec with Matchers:
     json("session")("ownerUserId").str shouldBe validUserId.toString
     json("session")("ownerNicknameSnapshot").str shouldBe "testplayer"
   }
+
+  it should "return session state after creating a HumanVsDeployedBot session" in {
+    val routes = makeRoutes(stubClient(Right(userWithEverything)))
+    val created = bodyJson(run(routes, postRequest()))
+    val sessionId = created("session")("sessionId").str
+
+    val resp =
+      run(routes, Request[IO](Method.GET, Uri.unsafeFromString(s"/sessions/$sessionId/state")))
+
+    resp.status should not be Status.InternalServerError
+    resp.status shouldBe Status.Ok
+    val json = bodyJson(resp)
+    json("session")("mode").str shouldBe "HumanVsDeployedBot"
+    json("session")("blackController").str shouldBe "DeployedBot"
+  }

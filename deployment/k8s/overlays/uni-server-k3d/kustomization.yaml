@@ -15,7 +15,7 @@ images:
     newTag: local
   - name: searchess/ai-service
     newTag: local
-  - name: searchess/lichess-bot
+  - name: searchess/bot-service
     newTag: local
   - name: searchess/python-ai-service
     newTag: local
@@ -72,7 +72,7 @@ patches:
         value: Never
     target:
       kind: Deployment
-      name: lichess-bot
+      name: bot-service
   - patch: |-
       - op: replace
         path: /spec/template/spec/containers/0/imagePullPolicy

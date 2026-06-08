@@ -153,6 +153,7 @@ class SqliteSessionRepository(ds: SqliteDataSource) extends SessionRepository:
     case SessionMode.HumanVsHuman       => "HumanVsHuman"
     case SessionMode.HumanVsAI          => "HumanVsAI"
     case SessionMode.AIVsAI             => "AIVsAI"
+    case SessionMode.HumanVsDeployedBot => "HumanVsDeployedBot"
     case SessionMode.AiVsExternal       => "AiVsExternal"
     case SessionMode.ExternalVsExternal => "ExternalVsExternal"
 
@@ -162,6 +163,7 @@ class SqliteSessionRepository(ds: SqliteDataSource) extends SessionRepository:
     case SideController.AI(Some(engine))                 => s"AI:$engine"
     case SideController.AI(None)                         => "AI"
     case SideController.External(platform, actorId)      => s"External:${platform}:${actorId}"
+    case SideController.DeployedBot                      => "DeployedBot"
 
   private def lifecycleStr(l: SessionLifecycle): String = l match
     case SessionLifecycle.Created           => "Created"
@@ -176,6 +178,7 @@ class SqliteSessionRepository(ds: SqliteDataSource) extends SessionRepository:
     case "HumanVsHuman"       => SessionMode.HumanVsHuman
     case "HumanVsAI"          => SessionMode.HumanVsAI
     case "AIVsAI"             => SessionMode.AIVsAI
+    case "HumanVsDeployedBot" => SessionMode.HumanVsDeployedBot
     case "AiVsExternal"       => SessionMode.AiVsExternal
     case "ExternalVsExternal" => SessionMode.ExternalVsExternal
     case other                => throw IllegalStateException(s"Unknown session mode in DB: $other")
@@ -194,6 +197,7 @@ class SqliteSessionRepository(ds: SqliteDataSource) extends SessionRepository:
               throw IllegalStateException(s"Unknown external platform in DB: $platformStr")
         case _ =>
           throw IllegalStateException(s"Malformed External controller in DB: $ext")
+    case "DeployedBot" => SideController.DeployedBot
     case other => throw IllegalStateException(s"Unknown controller in DB: $other")
 
   private def parseLifecycle(s: String): SessionLifecycle = s match

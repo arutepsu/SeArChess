@@ -71,6 +71,7 @@ object ArchiveRecordJson:
       case AI(Some(engine))              => s"AI:$engine"
       case AI(None)                      => "AI"
       case External(platform, actorId)   => s"External:${platform}:${actorId}"
+      case DeployedBot                   => "DeployedBot"
 
   private def parseClosure(json: ujson.Value): GameClosure =
     json("kind").str match
@@ -98,6 +99,7 @@ object ArchiveRecordJson:
               case Some(platform) => SideController.External(platform, actorId)
               case None           => throw IllegalArgumentException(s"unknown external platform: $platformStr")
           case _ => throw IllegalArgumentException(s"malformed External controller: $v")
+      case "DeployedBot" => SideController.DeployedBot
       case other => throw IllegalArgumentException(s"unknown controller: $other")
 
   private def parseColor(value: String): Color =

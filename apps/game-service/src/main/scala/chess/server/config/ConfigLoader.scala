@@ -29,6 +29,10 @@ object ConfigLoader:
   private val DefaultUserServiceTimeout: String = "2000"
   private val DefaultBotGameRateLimitPerMinute: String = "5"
   private val DefaultBotGameRateWindowSeconds: String = "60"
+  private val DefaultBotTurnLeaseSeconds: String = "30"
+  private val DefaultBotTurnLeaseSweepIntervalSeconds: String = "30"
+  private val DefaultBotTurnMaxAttempts: String = "5"
+  private val DefaultBotWorkerActorId: String = "searchess-bot"
 
   def load(): Either[String, AppConfig] =
     loadFrom(key => Option(System.getenv(key)).filter(_.nonEmpty))
@@ -93,7 +97,7 @@ object ConfigLoader:
       userServiceBaseUrl = env("USER_SERVICE_BASE_URL").getOrElse(DefaultUserServiceBaseUrl).trim
       _ <- Either.cond(userServiceBaseUrl.nonEmpty, (), "USER_SERVICE_BASE_URL must be non-empty")
       externalGameBot <- parseExternalGameBotConfig(
-        env("EXTERNAL_GAME_BOT_API_KEY"),
+        env("BOT_WORKER_API_KEY").orElse(env("EXTERNAL_GAME_BOT_API_KEY")),
         env("EXTERNAL_GAME_BOT_PLATFORM").getOrElse(DefaultExternalGameBotPlatform),
         env("EXTERNAL_GAME_BOT_ACTOR_ID").getOrElse(DefaultExternalGameBotActorId)
       )
@@ -105,6 +109,20 @@ object ConfigLoader:
         "BOT_GAME_CREATE_RATE_WINDOW_SECONDS",
         env("BOT_GAME_CREATE_RATE_WINDOW_SECONDS").getOrElse(DefaultBotGameRateWindowSeconds)
       )
+      botTurnLeaseSeconds <- parsePositiveInt(
+        "BOT_TURN_LEASE_SECONDS",
+        env("BOT_TURN_LEASE_SECONDS").getOrElse(DefaultBotTurnLeaseSeconds)
+      )
+      botTurnLeaseSweepIntervalSeconds <- parsePositiveInt(
+        "BOT_TURN_LEASE_SWEEP_INTERVAL_SECONDS",
+        env("BOT_TURN_LEASE_SWEEP_INTERVAL_SECONDS").getOrElse(DefaultBotTurnLeaseSweepIntervalSeconds)
+      )
+      botTurnMaxAttempts <- parsePositiveInt(
+        "BOT_TURN_MAX_ATTEMPTS",
+        env("BOT_TURN_MAX_ATTEMPTS").getOrElse(DefaultBotTurnMaxAttempts)
+      )
+      botWorkerActorId = env("BOT_WORKER_ACTOR_ID").map(_.trim).filter(_.nonEmpty)
+        .getOrElse(DefaultBotWorkerActorId)
     yield AppConfig(
       http = HttpConfig(httpHost, httpPort),
       webSocket = WebSocketConfig(wsEnabled, wsPort),
@@ -126,7 +144,11 @@ object ConfigLoader:
       externalGameBot = externalGameBot,
       migrationAdminEnabled = migrationAdmin,
       migrationAdminToken = migrationToken,
-      botGameRateLimit = BotGameRateLimitConfig(botRateLimitPerWindow, botRateWindowSeconds)
+      botGameRateLimit = BotGameRateLimitConfig(botRateLimitPerWindow, botRateWindowSeconds),
+      botTurnLeaseSeconds = botTurnLeaseSeconds,
+      botTurnLeaseSweepIntervalSeconds = botTurnLeaseSweepIntervalSeconds,
+      botTurnMaxAttempts = botTurnMaxAttempts,
+      botWorkerActorId = botWorkerActorId
     )
 
   def loadOrExit(): AppConfig =

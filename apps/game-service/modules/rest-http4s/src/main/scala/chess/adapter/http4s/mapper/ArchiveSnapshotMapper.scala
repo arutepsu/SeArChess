@@ -57,3 +57,4 @@ object ArchiveSnapshotMapper:
     case SideController.AI(Some(engine))                  => s"AI:$engine"
     case SideController.AI(None)                          => "AI"
     case SideController.External(platform, actorId)       => s"External:${platform}:${actorId}"
+    case SideController.DeployedBot                       => "DeployedBot"

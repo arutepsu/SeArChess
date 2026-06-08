@@ -1,5 +1,6 @@
 package chess.application.session.service
 
+import chess.application.bot.{BotTurnStatus, BotTurnTask, BotTurnTaskRepository}
 import chess.application.event.AppEvent
 import chess.application.port.event.{
   EventPublisher,
@@ -40,7 +41,9 @@ class SessionGameCommandService(
     sessionLifecycleService: SessionLifecycleService,
     store: SessionGameStore,
     publisher: EventPublisher,
-    serializer: TerminalEventJsonSerializer = NoOpTerminalEventJsonSerializer
+    serializer: TerminalEventJsonSerializer = NoOpTerminalEventJsonSerializer,
+    botTurnTaskRepository: Option[BotTurnTaskRepository] = None,
+    botActorId: String = "searchess-bot"
 ) extends GameSessionCommands:
 
   /** Apply a move through the session boundary and persist both the updated session and the new
@@ -102,6 +105,7 @@ class SessionGameCommandService(
             nextSession.lifecycle
           )
         )
+      maybeCreateBotTask(nextSession, nextState, now)
       (nextState, nextSession)
 
   /** Create a new session and persist the initial [[GameState]] as one write.
@@ -193,6 +197,57 @@ class SessionGameCommandService(
 
   // ── private helpers ────────────────────────────────────────────────────────
 
+  private def maybeCreateBotTask(
+      session: GameSession,
+      nextState: GameState,
+      now: Instant
+  ): Unit =
+    botTurnTaskRepository.foreach { repo =>
+      if !isTerminalStatus(nextState.status) then
+        val nextController = nextState.currentPlayer match
+          case Color.White => session.whiteController
+          case Color.Black => session.blackController
+        if nextController == SideController.DeployedBot then
+          repo
+            .hasPendingOrLeased(session.sessionId, session.gameId)
+            .foreach { alreadyExists =>
+              if !alreadyExists then
+                val task = BotTurnTask(
+                  id = UUID.randomUUID(),
+                  sessionId = session.sessionId,
+                  gameId = session.gameId,
+                  botActorId = botActorId,
+                  sideToMove = nextState.currentPlayer,
+                  status = BotTurnStatus.Pending,
+                  leaseUntil = None,
+                  attemptCount = 0,
+                  lastError = None,
+                  createdAt = now,
+                  updatedAt = now
+                )
+                repo.createPending(task) match
+                  case Right(()) =>
+                    logBotTaskInfo(
+                      "bot_turn_task_created",
+                      "taskId" -> task.id.toString,
+                      "sessionId" -> task.sessionId.value.toString,
+                      "gameId" -> task.gameId.value.toString,
+                      "botActorId" -> task.botActorId,
+                      "sideToMove" -> task.sideToMove.toString,
+                      "status" -> task.status.toString
+                    )
+                  case Left(err) =>
+                    // Log but do not fail the move: task creation is best-effort.
+                    logBotTaskError(
+                      "bot_turn_task_create_failed",
+                      "sessionId" -> session.sessionId.value.toString,
+                      "gameId" -> session.gameId.value.toString,
+                      "botActorId" -> botActorId,
+                      "error" -> err.toString
+                    )
+            }
+    }
+
   private def terminalOutboxPayloads(session: GameSession, nextState: GameState): List[String] =
     nextState.status match
       case GameStatus.Checkmate(_) | GameStatus.Draw(_) =>
@@ -203,3 +258,14 @@ class SessionGameCommandService(
   private def isTerminalStatus(status: GameStatus): Boolean = status match
     case GameStatus.Checkmate(_) | GameStatus.Draw(_) | GameStatus.Resigned(_) => true
     case _                                                                     => false
+
+  private def logBotTaskInfo(event: String, fields: (String, String)*): Unit =
+    println(botTaskLogLine("info", event, fields*))
+
+  private def logBotTaskError(event: String, fields: (String, String)*): Unit =
+    System.err.println(botTaskLogLine("error", event, fields*))
+
+  private def botTaskLogLine(level: String, event: String, fields: (String, String)*): String =
+    (Seq("level" -> level, "service" -> "game-service", "event" -> event) ++ fields)
+      .map { case (key, value) => s"$key=$value" }
+      .mkString("[BotTurnTask] ", " ", "")

@@ -29,7 +29,7 @@ Use `uni-server-registry` for all validated deployments to the shared server.
 | game-service | `ghcr.io/arutepsu/searchess-game-service` |
 | history-service | `ghcr.io/arutepsu/searchess-history-service` |
 | ai-service | `ghcr.io/arutepsu/searchess-ai-service` |
-| lichess-bot | `ghcr.io/arutepsu/searchess-lichess-bot` |
+| bot-service | `ghcr.io/arutepsu/searchess-bot-service` |
 | python-ai-service | `ghcr.io/arutepsu/searchess-python-ai-service` |
 
 Third-party images (Envoy, Postgres, Mongo, Redis, Prometheus, Grafana) continue to be
@@ -58,9 +58,9 @@ operating the deployment pipeline without unnecessary canary promotions.
 | Commit type | Image rebuild? | Argo CD action |
 |---|---|---|
 | App-specific code (`apps/<service>/**`, `Dockerfile[.<service>]`) | **Yes — that service only** | Detects OutOfSync (new sha-* tag for that service); auto-syncs |
-| Shared Scala input (`modules/**`, `build.sbt`, `project/**`) | **Yes — all Scala services, including lichess-bot** | Detects OutOfSync (new sha-* tags for rebuilt Scala images); auto-syncs |
+| Shared Scala input (`modules/**`, `build.sbt`, `project/**`) | **Yes — all Scala services, including bot-service** | Detects OutOfSync (new sha-* tags for rebuilt Scala images); auto-syncs |
 | `python-ai-service` (code in sibling repo) | **Never on push** — `workflow_dispatch rebuild_python_ai=true` only | Rollout enters canary only when its image tag changes |
-| Deployment change (`deployment/**`) | **Yes — lichess-bot only** | Detects OutOfSync after the manifest change and the refreshed bot image tag commit |
+| Deployment change (`deployment/**`) | **Yes — bot-service only** | Detects OutOfSync after the manifest change and the refreshed bot image tag commit |
 | Documentation change (`docs/**`) | **No** | Nothing |
 | Evidence file change | **No** | Nothing |
 | Overlay kustomization.yaml (written by CI) | **No new workflow from the bot commit** | Detects OutOfSync; auto-syncs |
@@ -75,7 +75,7 @@ changed manifest with no Rollout triggered, because the `Rollout` object's image
 does not change.
 
 **Manual override:**  
-`workflow_dispatch` rebuilds all Scala services, including `lichess-bot`. It also accepts a
+`workflow_dispatch` rebuilds all Scala services, including `bot-service`. It also accepts a
 `rebuild_python_ai` boolean input (default `false`) — set it to `true` to also rebuild
 `python-ai-service` from the sibling `arutepsu/searchess-ai-service` repo. Use this
 when you need to force a rebuild without a code change (e.g. to pick up a base-image
@@ -121,8 +121,10 @@ Jobs:
   `ghcr.io/arutepsu/searchess-history-service` using `Dockerfile.history`.
 - **build-ai-service** — runs only when `build_ai=true`. Builds and pushes
   `ghcr.io/arutepsu/searchess-ai-service` using `Dockerfile.ai`.
-- **build-lichess-bot** — runs only when `build_lichess_bot=true`. Builds and pushes
-  `ghcr.io/arutepsu/searchess-lichess-bot` using `Dockerfile.lichess-bot`.
+- **build-bot-service** — runs only when `build_bot_service=true`. Builds and pushes
+  `ghcr.io/arutepsu/searchess-bot-service` using `Dockerfile.bot-service`. bot-service
+  plays games in the Searchess Web UI via Searchess APIs; it does NOT interact with
+  lichess.org challenges.
 - **build-python-ai-service** — runs only on `workflow_dispatch` with
   `rebuild_python_ai=true`. Checks out the sibling `arutepsu/searchess-ai-service`
   repository and builds from its `Dockerfile`. Never triggered on `push` — the Python

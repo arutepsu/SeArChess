@@ -29,7 +29,7 @@ The Compose Game Service enables CORS for the Vite dev origin
 - `VITE_KEYCLOAK_URL` (deployed default: `/auth`; local auth default: `http://localhost:8080`)
 - `VITE_DEV_PROXY_TARGET` (dev server only; set to the tunneled backend target for same-origin local testing)
 - `VITE_WS_URL` (default: same-origin `/ws`; games connect at `/games/{gameId}`)
-- `VITE_LICHESS_BOT_WS_URL` (optional; use `ws://localhost:9323` only for local bot live-monitor debugging)
+- `VITE_LICHESS_BOT_WS_URL` (unused — legacy variable from the retired lichess-bot service; leave empty)
 - `VITE_API_MOCK` set to `true` to use mock data
 
 The deployed Web UI image is served by Envoy and must use same-origin URLs:

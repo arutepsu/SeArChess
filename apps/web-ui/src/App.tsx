@@ -167,12 +167,13 @@ export default function App() {
       : session?.blackController;
 
   const boardInteractionDisabled = busy || sessionClosed || !clockRunning;
-  const replayModeActive = timelinePly < timelineTotalPlies;
+  const boundedTimelinePly = Math.min(timelinePly, timelineTotalPlies);
+  const replayModeActive = boundedTimelinePly < timelineTotalPlies;
 
   const displayedGame = replayModeActive && replayGame ? replayGame : game;
 
   const currentReplayMove =
-    timelinePly <= 0 ? null : timelineRawMoves[timelinePly - 1] ?? null;
+    boundedTimelinePly <= 0 ? null : timelineRawMoves[boundedTimelinePly - 1] ?? null;
 
   const canResign =
     Boolean(game) &&
@@ -229,6 +230,14 @@ export default function App() {
   useEffect(() => {
     if (!game?.id) return;
 
+    const currentTotalPlies = game.moves.length;
+    if (timelinePly > currentTotalPlies) {
+      setTimelinePly(currentTotalPlies);
+      setTimelineError(null);
+      setReplayGame(null);
+      return;
+    }
+
     let active = true;
     setTimelineLoading(true);
     setTimelineError(null);
@@ -260,7 +269,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [game?.id, timelinePly]);
+  }, [game?.id, game?.moves.length, timelinePly]);
 
   const handleStartGame = async (selectedMode: PlayableGameMode) => {
     if (onboardingRequired) {
@@ -542,7 +551,7 @@ export default function App() {
                   <header className="replay-timeline-header">
                     <h2>Time-Travel</h2>
                     <p>
-                      Frame {timelinePly} / {timelineTotalPlies}
+                      Frame {boundedTimelinePly} / {timelineTotalPlies}
                       {replayModeActive ? " (Replay)" : " (Live)"}
                     </p>
                   </header>
@@ -556,7 +565,7 @@ export default function App() {
                     min={0}
                     max={timelineTotalPlies}
                     step={1}
-                    value={timelinePly}
+                    value={boundedTimelinePly}
                     onChange={(event) =>
                       setTimelinePly(Number(event.currentTarget.value))
                     }

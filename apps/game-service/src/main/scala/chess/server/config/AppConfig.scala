@@ -118,5 +118,9 @@ final case class AppConfig(
     externalGameBot: Option[ExternalGameBotConfig] = None,
     migrationAdminEnabled: Boolean = false,
     migrationAdminToken: Option[String] = None,
-    botGameRateLimit: BotGameRateLimitConfig = BotGameRateLimitConfig()
+    botGameRateLimit: BotGameRateLimitConfig = BotGameRateLimitConfig(),
+    botTurnLeaseSeconds: Int = 30,
+    botTurnLeaseSweepIntervalSeconds: Int = 30,
+    botTurnMaxAttempts: Int = 5,
+    botWorkerActorId: String = "searchess-bot"
 )

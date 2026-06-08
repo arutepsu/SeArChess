@@ -26,7 +26,7 @@ object GameServiceComposition:
   def assemble(config: AppConfig): (AppContext, EventWiring) =
     val persistence = PersistenceAssembly.assemble(config)
     val events = EventAssembly.assemble(config)
-    val baseCtx = CoreAssembly.build(persistence, events.coreEvents)
+    val baseCtx = CoreAssembly.build(persistence, events.coreEvents, config.botWorkerActorId)
     (withAiAndExternal(baseCtx, persistence, events, config.ai), events)
 
   private[server] def withAi(baseCtx: AppContext, events: EventWiring): AppContext =

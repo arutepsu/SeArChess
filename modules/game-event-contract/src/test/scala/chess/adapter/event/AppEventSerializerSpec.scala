@@ -82,6 +82,21 @@ class AppEventSerializerSpec extends AnyFlatSpec with Matchers with EitherValues
     obj("blackController").str shouldBe "AI:random"
   }
 
+  it should "encode HumanVsDeployedBot session creation with DeployedBot controller" in {
+    val event = AppEvent.SessionCreated(
+      sid,
+      gid,
+      SessionMode.HumanVsDeployedBot,
+      SideController.HumanLocal,
+      SideController.DeployedBot
+    )
+
+    val obj = parse(AppEventSerializer.serialize(event).value)
+
+    obj("mode").str shouldBe "HumanVsDeployedBot"
+    obj("blackController").str shouldBe "DeployedBot"
+  }
+
   // ── MoveApplied ───────────────────────────────────────────────────────────────
 
   it should "use the stable type name 'game.move.applied.v1'" in {

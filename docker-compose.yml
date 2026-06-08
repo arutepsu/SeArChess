@@ -45,9 +45,9 @@ services:
       AI_REMOTE_BASE_URL: http://searchess-ai-service:8765
       AI_TIMEOUT_MILLIS: 30000
       AI_REMOTE_TEST_MODE: ${AI_REMOTE_TEST_MODE:-}
-      EXTERNAL_GAME_BOT_API_KEY: ${EXTERNAL_GAME_BOT_API_KEY:-}
-      EXTERNAL_GAME_BOT_PLATFORM: ${EXTERNAL_GAME_BOT_PLATFORM:-Lichess}
+      BOT_WORKER_API_KEY: ${BOT_WORKER_API_KEY:-}
       EXTERNAL_GAME_BOT_ACTOR_ID: ${EXTERNAL_GAME_BOT_ACTOR_ID:-arutepsu}
+      BOT_WORKER_ACTOR_ID: ${BOT_WORKER_ACTOR_ID:-searchess-bot}
       MIGRATION_ADMIN_ENABLED: ${MIGRATION_ADMIN_ENABLED:-false}
       MIGRATION_ADMIN_TOKEN: ${MIGRATION_ADMIN_TOKEN:-}
     healthcheck:
@@ -56,21 +56,18 @@ services:
       timeout: 3s
       retries: 12
 
-  lichess-bot:
+  bot-service:
     build:
       context: .
-      dockerfile: Dockerfile.lichess-bot
+      dockerfile: Dockerfile.bot-service
     depends_on:
       game-service:
         condition: service_healthy
     environment:
-      LICHESS_BOT_TOKEN: ${LICHESS_BOT_TOKEN:-}
       GAME_SERVICE_BASE_URL: http://game-service:8080
-      EXTERNAL_GAME_BOT_API_KEY: ${EXTERNAL_GAME_BOT_API_KEY:-}
-      EXTERNAL_GAME_BOT_PLATFORM: ${EXTERNAL_GAME_BOT_PLATFORM:-Lichess}
-      EXTERNAL_GAME_BOT_ACTOR_ID: ${EXTERNAL_GAME_BOT_ACTOR_ID:-arutepsu}
+      BOT_WORKER_API_KEY: ${BOT_WORKER_API_KEY:-}
     profiles:
-      - lichess-bot
+      - bot-service
 
   history-service:
     build:

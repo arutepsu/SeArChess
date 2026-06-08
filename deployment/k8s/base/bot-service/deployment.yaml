@@ -6,9 +6,8 @@ metadata:
   labels:
     app: bot-service
 spec:
-  # Keep disabled until move-polling behavior is implemented.
-  # Scale up manually after patching real BOT_WORKER_API_KEY:
-  #   kubectl scale deployment bot-service -n searchess --replicas=1
+  # Keep base disabled as a shared safety default. Local overlays may opt in
+  # when HumanVsDeployedBot should be available automatically.
   replicas: 0
   selector:
     matchLabels:
@@ -29,10 +28,8 @@ spec:
             - name: BOT_WORKER_API_KEY
               valueFrom:
                 secretKeyRef:
-                  # Secret key is currently named external-game-bot-api-key.
-                  # TODO: rename to bot-worker-api-key in a follow-up secret migration.
                   name: searchess-secrets
-                  key: external-game-bot-api-key
+                  key: bot-worker-api-key
           resources:
             requests:
               memory: "64Mi"

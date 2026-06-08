@@ -5,7 +5,7 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import cats.syntax.semigroupk.*
 import chess.adapter.http4s.Http4sApp
-import chess.adapter.http4s.route.{BotCredentials, BotSessionRateLimiter, ExternalGameRouteAuth, HttpAuthenticatedUserClient, HttpHistoryArchiveClient, InMemoryBotSessionRateLimiter}
+import chess.adapter.http4s.route.{BotCredentials, BotSessionRateLimiter, BotWorkerAuth, ExternalGameRouteAuth, Http4sBotInternalRoutes, HttpAuthenticatedUserClient, HttpHistoryArchiveClient, InMemoryBotSessionRateLimiter}
 import chess.application.external.VerifiedExternalCaller
 import chess.application.session.model.ExternalPlatform
 import chess.server.assembly.{AppContext, EventWiring}
@@ -31,14 +31,17 @@ object ServerWiring:
       buildPublicGameplayApi(ctx, config, domainMetrics)
 
     val baseOpsRoutes = HealthRoutes.routes <+> MetricsRoutes.routes(metricsRegistry, domainMetrics) <+> HistoryOutboxOpsRoutes(events.historyOutbox).routes
+
+    val botInternalRoutes = buildBotInternalRoutes(ctx, config)
+
     val internalOpsRoutes =
       if config.migrationAdminEnabled then
         val token = config.migrationAdminToken.getOrElse(
           throw RuntimeException("migrationAdminToken must be set when migrationAdminEnabled — config validation should prevent this state")
         )
-        baseOpsRoutes <+> MigrationAdminRoutes(token, MigrationCliRunner.runForReport(_)).routes
+        baseOpsRoutes <+> MigrationAdminRoutes(token, MigrationCliRunner.runForReport(_)).routes <+> botInternalRoutes
       else
-        baseOpsRoutes
+        baseOpsRoutes <+> botInternalRoutes
 
     val composedApp: HttpApp[IO] =
       Kleisli { (req: Request[IO]) =>
@@ -75,7 +78,24 @@ object ServerWiring:
         .allocated
         .unsafeRunSync()
 
-    (ctx, ServerRuntime(events.wsServer, shutdownHttp, IO { events.shutdown(); ctx.shutdownPersistence() }))
+    val (_, shutdownSweeper) =
+      BotTurnLeaseSweeper
+        .resource(
+          ctx.botTurnTaskRepository,
+          config.botTurnLeaseSweepIntervalSeconds,
+          config.botTurnMaxAttempts
+        )
+        .allocated
+        .unsafeRunSync()
+
+    (
+      ctx,
+      ServerRuntime(
+        events.wsServer,
+        shutdownHttp,
+        shutdownSweeper >> IO { events.shutdown(); ctx.shutdownPersistence() }
+      )
+    )
 
   private[server] def withServerAi(baseCtx: AppContext, events: EventWiring): AppContext =
     GameServiceComposition.withAi(baseCtx, events)
@@ -130,6 +150,31 @@ object ServerWiring:
         )
       }
     }
+
+  private[server] def buildBotInternalRoutes(
+      ctx: AppContext,
+      config: AppConfig
+  ): org.http4s.HttpRoutes[IO] =
+    (for
+      botRepo <- ctx.botTurnTaskRepository
+      botAuth  = buildBotAuth(config.externalGameBot).getOrElse(
+        throw RuntimeException("BOT_WORKER_API_KEY or externalGameBot config is required when bot tasks are enabled")
+      )
+    yield
+      Http4sBotInternalRoutes(
+        auth                  = botAuth,
+        botTurnTaskRepository = botRepo,
+        sessionRepository     = ctx.sessionRepository,
+        gameRepository        = ctx.gameRepository,
+        commandService        = ctx.commands,
+        leaseSeconds          = config.botTurnLeaseSeconds
+      ).routes
+    ).getOrElse(org.http4s.HttpRoutes.empty[IO])
+
+  private def buildBotAuth(
+      botConfig: Option[ExternalGameBotConfig]
+  ): Option[BotWorkerAuth] =
+    botConfig.map(bot => BotWorkerAuth(bot.apiKey))
 
   private def parseExternalPlatform(value: String): Option[ExternalPlatform] =
     value.trim.toLowerCase match

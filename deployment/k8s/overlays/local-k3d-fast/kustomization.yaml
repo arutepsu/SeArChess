@@ -127,6 +127,13 @@ patches:
       name: bot-service
   - patch: |-
       - op: replace
+        path: /spec/replicas
+        value: 1
+    target:
+      kind: Deployment
+      name: bot-service
+  - patch: |-
+      - op: replace
         path: /spec/template/spec/containers/0/imagePullPolicy
         value: Never
     target:
@@ -141,7 +148,3 @@ patches:
       name: history-service
   # history-service, ai-service, python-ai-service: base already sets
   # imagePullPolicy: IfNotPresent — no patch needed for GHCR images.
-  #
-  # bot-service replicas: base sets replicas: 0 — no patch needed here.
-  # Scale up manually after patching real BOT_WORKER_API_KEY:
-  #   kubectl scale deployment bot-service -n searchess --replicas=1

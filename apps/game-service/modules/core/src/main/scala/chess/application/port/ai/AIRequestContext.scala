@@ -46,5 +46,8 @@ object AIRequestContext:
       case Color.Black => session.blackController
 
     controller match
-      case chess.application.session.model.SideController.AI(engineId) => engineId
-      case _                                                           => None
+      case chess.application.session.model.SideController.AI(engineId)    => engineId
+      case chess.application.session.model.SideController.HumanLocal      => None
+      case chess.application.session.model.SideController.HumanRemote     => None
+      case chess.application.session.model.SideController.External(_, _)  => None
+      case chess.application.session.model.SideController.DeployedBot     => None

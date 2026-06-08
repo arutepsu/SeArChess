@@ -83,6 +83,9 @@ class ArchiveOnTerminalEventHandlerSpec extends AnyFlatSpec with Matchers with E
       def findByGameId(gameId: GameId): Either[ArchiveRepositoryError, Option[ArchiveRecord]] =
         Right(None)
 
+      def findByOwner(ownerUserId: java.util.UUID): Either[ArchiveRepositoryError, List[ArchiveRecord]] =
+        Right(Nil)
+
     val handler = ArchiveOnTerminalEventHandler(
       fetchSnapshot = _ => Right(snapshot(gameId, sessionId)),
       materializer = materializer,

@@ -38,11 +38,11 @@ spec:
                 secretKeyRef:
                   name: searchess-secrets
                   key: migration-admin-token
-            - name: EXTERNAL_GAME_BOT_API_KEY
+            - name: BOT_WORKER_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: searchess-secrets
-                  key: external-game-bot-api-key
+                  key: bot-worker-api-key
                   optional: true
           readinessProbe:
             httpGet:

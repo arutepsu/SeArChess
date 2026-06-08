@@ -114,6 +114,7 @@ object ArchiveSnapshotJson:
               case Some(platform) => SideController.External(platform, actorId)
               case None           => throw IllegalArgumentException(s"unknown external platform: $platformStr")
           case _ => throw IllegalArgumentException(s"malformed External controller: $v")
+      case "DeployedBot" => SideController.DeployedBot
       case other => throw IllegalArgumentException(s"unknown controller: $other")
 
   private def parseColor(value: String): Color =

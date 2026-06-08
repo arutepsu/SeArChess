@@ -52,6 +52,7 @@ object SlickSessionMapper:
       case SessionMode.HumanVsHuman       => "HumanVsHuman"
       case SessionMode.HumanVsAI          => "HumanVsAI"
       case SessionMode.AIVsAI             => "AIVsAI"
+      case SessionMode.HumanVsDeployedBot => "HumanVsDeployedBot"
       case SessionMode.AiVsExternal       => "AiVsExternal"
       case SessionMode.ExternalVsExternal => "ExternalVsExternal"
 
@@ -69,12 +70,14 @@ object SlickSessionMapper:
       case SideController.HumanRemote                  => ("HumanRemote", None)
       case SideController.AI(engineId)                 => ("AI", engineId)
       case SideController.External(platform, actorId)  => (s"External:${platform}", Some(actorId))
+      case SideController.DeployedBot                  => ("DeployedBot", None)
 
   private def parseMode(value: String): Either[RepositoryError, SessionMode] =
     value match
       case "HumanVsHuman"       => Right(SessionMode.HumanVsHuman)
       case "HumanVsAI"          => Right(SessionMode.HumanVsAI)
       case "AIVsAI"             => Right(SessionMode.AIVsAI)
+      case "HumanVsDeployedBot" => Right(SessionMode.HumanVsDeployedBot)
       case "AiVsExternal"       => Right(SessionMode.AiVsExternal)
       case "ExternalVsExternal" => Right(SessionMode.ExternalVsExternal)
       case other                => storageFailure(s"Unknown session mode in DB: $other")
@@ -105,8 +108,11 @@ object SlickSessionMapper:
             ExternalPlatform.values.find(_.toString == platformStr) match
               case Some(platform) => Right(SideController.External(platform, actorId))
               case None           => storageFailure(s"Unknown external platform in DB: $platformStr")
+      case "DeployedBot" if engineId.isEmpty => Right(SideController.DeployedBot)
       case "HumanLocal" | "HumanRemote" =>
         storageFailure(s"Human controller $kind cannot have an AI engine id")
+      case "DeployedBot" =>
+        storageFailure("DeployedBot controller cannot have an engine id")
       case other =>
         storageFailure(s"Unknown controller in DB: $other")
 

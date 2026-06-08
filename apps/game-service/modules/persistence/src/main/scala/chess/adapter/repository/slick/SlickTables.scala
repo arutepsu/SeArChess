@@ -83,3 +83,41 @@ final class SlickTables(val profile: JdbcProfile, schema: Option[String] = None)
   val Sessions = TableQuery[SlickSessionTable]
 
   val GameStates = TableQuery[SlickGameStateTable]
+
+  // ── BotTurnTask ───────────────────────────────────────────────────────────
+
+  final case class SlickBotTurnTaskRow(
+      id: UUID,
+      sessionId: UUID,
+      gameId: UUID,
+      botActorId: String,
+      sideToMove: String,
+      status: String,
+      leaseUntil: Option[Timestamp],
+      attemptCount: Int,
+      lastError: Option[String],
+      createdAt: Timestamp,
+      updatedAt: Timestamp
+  )
+
+  final class SlickBotTurnTaskTable(tag: Tag)
+      extends Table[SlickBotTurnTaskRow](tag, schema, "bot_turn_tasks"):
+
+    def id           = column[UUID]("id", O.PrimaryKey)
+    def sessionId    = column[UUID]("session_id")
+    def gameId       = column[UUID]("game_id")
+    def botActorId   = column[String]("bot_actor_id")
+    def sideToMove   = column[String]("side_to_move")
+    def status       = column[String]("status")
+    def leaseUntil   = column[Option[Timestamp]]("lease_until")
+    def attemptCount = column[Int]("attempt_count")
+    def lastError    = column[Option[String]]("last_error")
+    def createdAt    = column[Timestamp]("created_at")
+    def updatedAt    = column[Timestamp]("updated_at")
+
+    def * = (
+      id, sessionId, gameId, botActorId, sideToMove, status,
+      leaseUntil, attemptCount, lastError, createdAt, updatedAt
+    ).mapTo[SlickBotTurnTaskRow]
+
+  val BotTurnTasks = TableQuery[SlickBotTurnTaskTable]
