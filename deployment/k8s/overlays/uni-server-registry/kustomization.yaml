@@ -48,6 +48,9 @@ images:
 - name: searchess/history-service
   newName: ghcr.io/arutepsu/searchess-history-service
   newTag: sha-769fc27
+- name: searchess/lichess-bot
+  newName: ghcr.io/arutepsu/searchess-lichess-bot
+  newTag: sha-0e168f7
 - name: searchess/python-ai-service
   newName: ghcr.io/arutepsu/searchess-python-ai-service
   newTag: sha-2247329
