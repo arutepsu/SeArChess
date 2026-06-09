@@ -6,6 +6,7 @@ import chess.userservice.application.{
   ExternalAccountLinkRepository,
   LichessOAuthConfig,
   LichessOAuthService,
+  LichessTokenCipher,
   OAuthLinkStateRepository,
   UserProfileRepository,
   UserProfileService
@@ -42,12 +43,12 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
       IO.pure(Response[IO](status = Status.InternalServerError))
     }.orNotFound)
 
-  private def makeRoutes(): (HttpApp[IO], UserProfileService) =
+  private def makeRoutes(cipher: Option[LichessTokenCipher] = None): (HttpApp[IO], UserProfileService) =
     val profileRepo  = InMemUserProfileRepository()
     val linkRepo     = InMemExternalAccountLinkRepository()
     val stateRepo    = InMemOAuthLinkStateRepository()
     val service      = UserProfileService(profileRepo, linkRepo)
-    val oauthService = LichessOAuthService(stateRepo, linkRepo, noopHttpClient, testLichessConfig)
+    val oauthService = LichessOAuthService(stateRepo, linkRepo, noopHttpClient, testLichessConfig, cipher)
     val routes       = UserRoutes(service, oauthService, testLichessConfig)
     (routes.routes.orNotFound, service)
 
@@ -241,6 +242,48 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
     res.status shouldBe Status.Found
     res.headers.get(org.typelevel.ci.CIString("Location")).map(_.head.value) shouldBe
       Some("http://localhost:10000/settings?lichess=failed")
+  }
+
+  "POST /users/me/links/lichess/upgrade" should "return 401 without JWT" in {
+    val (app, _) = makeRoutes()
+    val req = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/links/lichess/upgrade"))
+      .withEntity("""{"targetCapability":"challenge_ready"}""")
+    val res = app.run(req).unsafeRunSync()
+    res.status shouldBe Status.Unauthorized
+  }
+
+  it should "return 200 with authorizationUrl for challenge_ready" in {
+    val (app, _) = makeRoutes()
+    val req = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/links/lichess/upgrade"))
+      .putHeaders(bearerHeader("sub-upg", "upgrader"))
+      .withEntity("""{"targetCapability":"challenge_ready"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    val res  = app.run(req).unsafeRunSync()
+    val body = ujson.read(res.bodyText.compile.string.unsafeRunSync())
+    res.status shouldBe Status.Ok
+    body("authorizationUrl").str should include("lichess.org/oauth")
+    body("authorizationUrl").str should include("code_challenge_method=S256")
+    body("authorizationUrl").str should include("challenge")
+  }
+
+  it should "return 400 for an unsupported targetCapability" in {
+    val (app, _) = makeRoutes()
+    val req = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/links/lichess/upgrade"))
+      .putHeaders(bearerHeader("sub-upg2", "upgrader2"))
+      .withEntity("""{"targetCapability":"board_play"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    val res = app.run(req).unsafeRunSync()
+    res.status shouldBe Status.BadRequest
+  }
+
+  it should "return 400 when targetCapability field is missing" in {
+    val (app, _) = makeRoutes()
+    val req = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/links/lichess/upgrade"))
+      .putHeaders(bearerHeader("sub-upg3", "upgrader3"))
+      .withEntity("""{"wrong":"field"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    val res = app.run(req).unsafeRunSync()
+    res.status shouldBe Status.BadRequest
   }
 
   // ── In-memory stubs (thread-safe, per-test instance) ──────────────────────

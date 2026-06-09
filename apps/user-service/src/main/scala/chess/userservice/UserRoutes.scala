@@ -19,6 +19,7 @@ import org.typelevel.ci.CIString
   *   PUT    /users/me/links/lichess/manual             — set Lichess username (ManualDev, dev fallback)
   *   DELETE /users/me/links/lichess                    — remove Lichess link
   *   GET    /users/me/links/lichess/start              — begin Lichess OAuth PKCE flow (JWT required)
+  *   POST   /users/me/links/lichess/upgrade            — begin Lichess OAuth upgrade flow (JWT required)
   *   GET    /users/me/links/lichess/callback           — OAuth callback from Lichess (no JWT, browser redirect)
   */
 class UserRoutes(
@@ -82,6 +83,23 @@ class UserRoutes(
             respond(Status.Ok, ujson.Obj("authorizationUrl" -> url))
       }
 
+    case req @ POST -> Root / "users" / "me" / "links" / "lichess" / "upgrade" =>
+      withSubject(req) { (_, profile) =>
+        req.bodyText.compile.string.flatMap { body =>
+          parseTargetCapability(body) match
+            case Left(err) =>
+              respond(Status.BadRequest, ujson.Obj("code" -> "BAD_REQUEST", "message" -> err))
+            case Right(targetCapability) =>
+              oauthService.createUpgradeStart(profile.userId, targetCapability) match
+                case Left("unsupported_target_capability") =>
+                  respond(Status.BadRequest, ujson.Obj("code" -> "UNSUPPORTED_TARGET", "message" -> "unsupported_target_capability"))
+                case Left(err) =>
+                  respond(Status.ServiceUnavailable, ujson.Obj("code" -> "OAUTH_NOT_CONFIGURED", "message" -> err))
+                case Right(url) =>
+                  respond(Status.Ok, ujson.Obj("authorizationUrl" -> url))
+        }
+      }
+
     case req @ GET -> Root / "users" / "me" / "links" / "lichess" / "callback" =>
       val params = req.uri.query.params
       (params.get("code"), params.get("state")) match
@@ -90,8 +108,9 @@ class UserRoutes(
             case Left(err) =>
               StructuredLog.warn("user-service", "oauth_callback_failed", "error" -> err)
               redirect(lichessConfig.webUiSettingsUrl + "?lichess=failed")
-            case Right(_) =>
-              redirect(lichessConfig.webUiSettingsUrl + "?lichess=linked")
+            case Right(link) =>
+              val suffix = if link.capability == "challenge_ready" then "?lichess=upgraded" else "?lichess=linked"
+              redirect(lichessConfig.webUiSettingsUrl + suffix)
           }
         case _ =>
           IO.pure(redirect(lichessConfig.webUiSettingsUrl + "?lichess=failed"))
@@ -145,6 +164,15 @@ class UserRoutes(
         case Some(u) => Right(u)
     catch
       case _: Exception => Left("Request body must be valid JSON with a 'lichessUsername' string field")
+
+  private def parseTargetCapability(body: String): Either[String, String] =
+    try
+      val json = ujson.read(body)
+      json.obj.get("targetCapability").flatMap(_.strOpt).map(_.trim).filter(_.nonEmpty) match
+        case None    => Left("Missing or empty 'targetCapability' field")
+        case Some(t) => Right(t)
+    catch
+      case _: Exception => Left("Request body must be valid JSON with a 'targetCapability' string field")
 
   private def linkJson(link: ExternalAccountLink): ujson.Value =
     ujson.Obj(

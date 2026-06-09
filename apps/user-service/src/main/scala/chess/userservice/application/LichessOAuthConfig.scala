@@ -7,6 +7,8 @@ final case class LichessOAuthConfig(
     accountUrl: String,
     redirectUri: String,
     stateTtlSeconds: Long,
-    webUiSettingsUrl: String
+    webUiSettingsUrl: String,
+    identityScope: String = "preference:read",
+    upgradeScope: String = "challenge:write preference:read"
 ):
   def isConfigured: Boolean = clientId.nonEmpty && redirectUri.nonEmpty

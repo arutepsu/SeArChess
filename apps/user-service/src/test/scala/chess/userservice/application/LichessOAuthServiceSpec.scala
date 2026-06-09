@@ -12,7 +12,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.time.Instant
-import java.util.UUID
+import java.util.{Base64, UUID}
 import scala.collection.mutable
 
 class LichessOAuthServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
@@ -52,13 +52,17 @@ class LichessOAuthServiceSpec extends AnyFlatSpec with Matchers with EitherValue
         ))
     }.orNotFound)
 
+  private def testCipher(): LichessTokenCipher =
+    LichessTokenCipher.fromBase64Key(Base64.getEncoder.encodeToString(Array.fill[Byte](32)(1))).value
+
   private def makeService(
       stateRepo: OAuthLinkStateRepository = StubOAuthLinkStateRepository(),
       linkRepo: ExternalAccountLinkRepository = StubExternalAccountLinkRepository(),
       client: Client[IO] = noOpClient,
-      cfg: LichessOAuthConfig = testConfig
+      cfg: LichessOAuthConfig = testConfig,
+      cipher: Option[LichessTokenCipher] = None
   ): LichessOAuthService =
-    LichessOAuthService(stateRepo, linkRepo, client, cfg)
+    LichessOAuthService(stateRepo, linkRepo, client, cfg, cipher)
 
   "createLinkStart" should "return Left when OAuth is not configured" in {
     val svc = makeService(cfg = unconfigured)
@@ -175,7 +179,7 @@ class LichessOAuthServiceSpec extends AnyFlatSpec with Matchers with EitherValue
       redirectAfterSuccess = "http://localhost/settings?lichess=linked",
       expiresAt            = Instant.now().plusSeconds(600),
       createdAt            = Instant.now(),
-      targetCapability     = "challenge_ready"  // not yet implemented
+      targetCapability     = "board_play"  // unsupported capability
     )
     stateRepo.store("unknown-cap-state") = ls
     val svc    = makeService(stateRepo = stateRepo, linkRepo = linkRepo, client = lichessMockClient("alice"))
@@ -184,6 +188,177 @@ class LichessOAuthServiceSpec extends AnyFlatSpec with Matchers with EitherValue
     result.isLeft        shouldBe true
     result.left.value    shouldBe "unsupported_target_capability"
     linkRepo.store       shouldBe empty  // no link was upserted
+  }
+
+  // ── createUpgradeStart tests ──────────────────────────────────────────────
+
+  "createUpgradeStart" should "create a state row with targetCapability=challenge_ready and use upgradeScope" in {
+    val stateRepo = StubOAuthLinkStateRepository()
+    val svc       = makeService(stateRepo = stateRepo)
+    val userId    = UUID.randomUUID()
+    val url       = svc.createUpgradeStart(userId, "challenge_ready").value
+    stateRepo.store should have size 1
+    stateRepo.store.values.head.userId           shouldBe userId
+    stateRepo.store.values.head.targetCapability shouldBe "challenge_ready"
+    url should include("https://lichess.org/oauth")
+    url should include("challenge")  // upgradeScope contains "challenge:write"
+    url should include("code_challenge_method=S256")
+  }
+
+  it should "return Left for an unsupported targetCapability" in {
+    val stateRepo = StubOAuthLinkStateRepository()
+    val svc       = makeService(stateRepo = stateRepo)
+    val result    = svc.createUpgradeStart(UUID.randomUUID(), "board_play")
+    result.isLeft         shouldBe true
+    result.left.value     shouldBe "unsupported_target_capability"
+    stateRepo.store       shouldBe empty
+  }
+
+  it should "return Left when OAuth is not configured" in {
+    val svc    = makeService(cfg = unconfigured)
+    val result = svc.createUpgradeStart(UUID.randomUUID(), "challenge_ready")
+    result.isLeft shouldBe true
+  }
+
+  // ── challenge_ready callback tests ───────────────────────────────────────
+
+  "exchangeCallback" should "store encrypted token and set challenge_ready when upgrade flow succeeds" in {
+    val stateRepo = StubOAuthLinkStateRepository()
+    val linkRepo  = StubExternalAccountLinkRepository()
+    val cipher    = testCipher()
+    val userId    = UUID.randomUUID()
+    val ls        = OAuthLinkState(
+      state                = "cr-state",
+      userId               = userId,
+      codeVerifier         = "verifier",
+      redirectAfterSuccess = "http://localhost/settings?lichess=upgraded",
+      expiresAt            = Instant.now().plusSeconds(600),
+      createdAt            = Instant.now(),
+      targetCapability     = "challenge_ready"
+    )
+    stateRepo.store("cr-state") = ls
+    val svc    = makeService(stateRepo = stateRepo, linkRepo = linkRepo,
+                             client = lichessMockClient("bob_chess"), cipher = Some(cipher))
+    val result = svc.exchangeCallback("code", "cr-state").unsafeRunSync()
+
+    val link = result.value
+    link.capability         shouldBe "challenge_ready"
+    link.verified           shouldBe true
+    link.verificationSource shouldBe "OAuthPKCE"
+    link.tokenEncrypted.isDefined shouldBe true
+    link.tokenScopes        shouldBe Some(testConfig.upgradeScope)
+    link.tokenStoredAt.isDefined  shouldBe true
+    // Token is stored encrypted, not as plaintext
+    link.tokenEncrypted.fold(fail("tokenEncrypted is None")) { enc =>
+      new String(enc, "UTF-8") should not include "tok-test"
+      cipher.decrypt(enc).value shouldBe "tok-test"
+    }
+  }
+
+  it should "fail closed for challenge_ready callback when no encryption key is configured" in {
+    val stateRepo = StubOAuthLinkStateRepository()
+    val linkRepo  = StubExternalAccountLinkRepository()
+    val userId    = UUID.randomUUID()
+    val ls        = OAuthLinkState(
+      state                = "cr-nokey-state",
+      userId               = userId,
+      codeVerifier         = "verifier",
+      redirectAfterSuccess = "http://localhost/settings?lichess=upgraded",
+      expiresAt            = Instant.now().plusSeconds(600),
+      createdAt            = Instant.now(),
+      targetCapability     = "challenge_ready"
+    )
+    stateRepo.store("cr-nokey-state") = ls
+    val svc    = makeService(stateRepo = stateRepo, linkRepo = linkRepo,
+                             client = lichessMockClient("alice"), cipher = None)
+    val result = svc.exchangeCallback("code", "cr-nokey-state").unsafeRunSync()
+
+    result.isLeft        shouldBe true
+    result.left.value    shouldBe "token_encryption_not_configured"
+    linkRepo.store       shouldBe empty
+  }
+
+  it should "fail with lichess_account_mismatch when OAuth account differs from existing link" in {
+    val stateRepo = StubOAuthLinkStateRepository()
+    val linkRepo  = StubExternalAccountLinkRepository()
+    val cipher    = testCipher()
+    val userId    = UUID.randomUUID()
+    val existing  = ExternalAccountLink(
+      linkId             = UUID.randomUUID(),
+      userId             = userId,
+      provider           = "Lichess",
+      externalId         = Some("olduser"),
+      externalUsername   = "olduser",
+      verified           = true,
+      verificationSource = "OAuthPKCE",
+      linkedAt           = Instant.now(),
+      capability         = "identity_only",
+      tokenEncrypted     = None,
+      tokenScopes        = None,
+      tokenStoredAt      = None
+    )
+    linkRepo.store((userId, "Lichess")) = existing
+    val ls = OAuthLinkState(
+      state                = "mismatch-state",
+      userId               = userId,
+      codeVerifier         = "verifier",
+      redirectAfterSuccess = "http://localhost/settings?lichess=upgraded",
+      expiresAt            = Instant.now().plusSeconds(600),
+      createdAt            = Instant.now(),
+      targetCapability     = "challenge_ready"
+    )
+    stateRepo.store("mismatch-state") = ls
+    // Lichess returns "newuser" but existing link is "olduser"
+    val svc    = makeService(stateRepo = stateRepo, linkRepo = linkRepo,
+                             client = lichessMockClient("newuser"), cipher = Some(cipher))
+    val result = svc.exchangeCallback("code", "mismatch-state").unsafeRunSync()
+
+    result.isLeft           shouldBe true
+    result.left.value       shouldBe "lichess_account_mismatch"
+    // Existing link must be unchanged
+    linkRepo.store((userId, "Lichess")).externalUsername shouldBe "olduser"
+    linkRepo.store((userId, "Lichess")).capability       shouldBe "identity_only"
+  }
+
+  it should "clear token fields when identity_only callback runs over an existing challenge_ready link" in {
+    val stateRepo = StubOAuthLinkStateRepository()
+    val linkRepo  = StubExternalAccountLinkRepository()
+    val cipher    = testCipher()
+    val userId    = UUID.randomUUID()
+    val crLink    = ExternalAccountLink(
+      linkId             = UUID.randomUUID(),
+      userId             = userId,
+      provider           = "Lichess",
+      externalId         = Some("alice"),
+      externalUsername   = "alice",
+      verified           = true,
+      verificationSource = "OAuthPKCE",
+      linkedAt           = Instant.now(),
+      capability         = "challenge_ready",
+      tokenEncrypted     = Some(cipher.encrypt("old-token").value),
+      tokenScopes        = Some("challenge:write preference:read"),
+      tokenStoredAt      = Some(Instant.now())
+    )
+    linkRepo.store((userId, "Lichess")) = crLink
+    val ls = OAuthLinkState(
+      state                = "relink-state",
+      userId               = userId,
+      codeVerifier         = "verifier",
+      redirectAfterSuccess = "http://localhost/settings?lichess=linked",
+      expiresAt            = Instant.now().plusSeconds(600),
+      createdAt            = Instant.now(),
+      targetCapability     = "identity_only"
+    )
+    stateRepo.store("relink-state") = ls
+    val svc    = makeService(stateRepo = stateRepo, linkRepo = linkRepo,
+                             client = lichessMockClient("alice"), cipher = Some(cipher))
+    val result = svc.exchangeCallback("code", "relink-state").unsafeRunSync()
+
+    val link = result.value
+    link.capability      shouldBe "identity_only"
+    link.tokenEncrypted  shouldBe None
+    link.tokenScopes     shouldBe None
+    link.tokenStoredAt   shouldBe None
   }
 
   // ── In-memory stubs ───────────────────────────────────────────────────────
