@@ -4,12 +4,8 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.Http
 import org.apache.pekko.http.scaladsl.model.ws.{Message, TextMessage}
 import org.apache.pekko.http.scaladsl.server.Directives._
-<<<<<<< HEAD
-import org.apache.pekko.stream.scaladsl.{BroadcastHub, Flow, Keep, MergeHub, Sink, Source}
-=======
 import org.apache.pekko.stream.ClosedShape
 import org.apache.pekko.stream.scaladsl.{Broadcast, BroadcastHub, Flow, GraphDSL, Keep, MergeHub, RunnableGraph, Sink, Source}
->>>>>>> 966317ea (added bot container)
 import java.util.concurrent.ConcurrentHashMap
 import scala.concurrent.ExecutionContext
 
@@ -18,18 +14,6 @@ class GameRoom(val gameId: String)(implicit system: ActorSystem) {
 
   @volatile var currentState: GameState = GameState.initial
 
-<<<<<<< HEAD
-  val (hubSink, hubSource) = MergeHub.source[Either[Throwable, Move]]
-    .via(ChessStreamingEngine.validatorFlow)
-    .map { result =>
-      result.foreach { state =>
-        currentState = state
-      }
-      result
-    }
-    .toMat(BroadcastHub.sink[Either[String, GameState]])(Keep.both)
-    .run()
-=======
   // Materialisiert den Raum-Stream mithilfe der Pekko GraphDSL (nicht-lineare Topologie)
   val (hubSink, hubSource) = RunnableGraph.fromGraph(
     GraphDSL.createGraph(MergeHub.source[Either[Throwable, Move]], BroadcastHub.sink[Either[String, GameState]])(Keep.both) { implicit builder => (mergeSource, broadcastSink) =>
@@ -64,7 +48,6 @@ class GameRoom(val gameId: String)(implicit system: ActorSystem) {
       ClosedShape
     }
   ).run()
->>>>>>> 966317ea (added bot container)
 }
 
 object GameRoomRegistry {
@@ -138,7 +121,14 @@ object ChessStreamingServerMain {
       Flow.fromSinkAndSource(incomingSink, outgoingSource.via(outgoingFlow))
     }
 
+    val indexHtmlPath = sys.env.getOrElse("INDEX_HTML_PATH", "apps/chess-streaming/index.html")
+
     val route =
+      pathSingleSlash {
+        get {
+          getFromFile(indexHtmlPath)
+        }
+      } ~
       path("game") {
         parameter("gameId".?) {
           case Some(gameId) => handleWebSocketMessages(webSocketFlow(gameId))
@@ -149,8 +139,8 @@ object ChessStreamingServerMain {
         handleWebSocketMessages(webSocketFlow(gameId))
       }
 
-    val host = "localhost"
-    val port = 8082
+    val host = sys.env.getOrElse("STREAMING_HOST", "0.0.0.0")
+    val port = sys.env.getOrElse("STREAMING_PORT", "8082").toInt
 
     val bindingFuture = Http().newServerAt(host, port).bind(route)
 
