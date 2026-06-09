@@ -43,7 +43,7 @@ images:
   newTag: sha-10fe99d
 - name: searchess/bot-service
   newName: ghcr.io/arutepsu/searchess-bot-service
-  newTag: sha-bf39bab
+  newTag: sha-ba20930
 - name: searchess/game-service
   newName: ghcr.io/arutepsu/searchess-game-service
   newTag: sha-10fe99d
