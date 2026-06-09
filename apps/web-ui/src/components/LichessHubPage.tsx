@@ -15,6 +15,7 @@ import "./LichessHubPage.css";
 interface LichessHubPageProps {
   profile: UserProfileResponse | null;
   onOpenSettings: () => void;
+  onOpenLichessGame: (gameId: string) => void;
   onBack: () => void;
 }
 
@@ -78,7 +79,20 @@ function challengeErrorMessage(error: unknown): string {
   }
 }
 
-export default function LichessHubPage({ profile, onOpenSettings, onBack }: LichessHubPageProps) {
+function deriveGameIdFromLichessUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname !== "lichess.org" && !parsed.hostname.endsWith(".lichess.org")) {
+      return null;
+    }
+    const firstSegment = parsed.pathname.split("/").filter(Boolean)[0] ?? "";
+    return /^[A-Za-z0-9_-]{4,32}$/.test(firstSegment) ? firstSegment : null;
+  } catch {
+    return null;
+  }
+}
+
+export default function LichessHubPage({ profile, onOpenSettings, onOpenLichessGame, onBack }: LichessHubPageProps) {
   const [bridgeStatus, setBridgeStatus] = useState<LichessBridgeStatusResponse | null>(null);
   const [bridgePolicy, setBridgePolicy] = useState<LichessBridgePolicyResponse | null>(null);
   const [bridgeLoading, setBridgeLoading] = useState(true);
@@ -88,6 +102,7 @@ export default function LichessHubPage({ profile, onOpenSettings, onBack }: Lich
   const [isCreatingChallenge, setIsCreatingChallenge] = useState(false);
   const [challengeError, setChallengeError] = useState<string | null>(null);
   const [createdChallengeUrl, setCreatedChallengeUrl] = useState<string | null>(null);
+  const [createdGameId, setCreatedGameId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -128,10 +143,12 @@ export default function LichessHubPage({ profile, onOpenSettings, onBack }: Lich
     setIsCreatingChallenge(true);
     setChallengeError(null);
     setCreatedChallengeUrl(null);
+    setCreatedGameId(null);
 
     try {
       const response = await createSearchessBotChallenge();
       setCreatedChallengeUrl(response.url);
+      setCreatedGameId(deriveGameIdFromLichessUrl(response.url));
       window.open(response.url, "_blank", "noopener,noreferrer");
     } catch (error) {
       setChallengeError(challengeErrorMessage(error));
@@ -349,6 +366,14 @@ export default function LichessHubPage({ profile, onOpenSettings, onBack }: Lich
                       Open on Lichess ↗
                     </a>
                   </p>
+                )}
+                {createdGameId !== null && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenLichessGame(createdGameId)}
+                  >
+                    Open in Searchess
+                  </button>
                 )}
               </>
             ) : lichessLink.capability === "expired" || lichessLink.capability === "revoked" ? (
