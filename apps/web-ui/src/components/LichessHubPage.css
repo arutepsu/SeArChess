@@ -1,0 +1,306 @@
+.lichess-hub-page {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.lichess-hub-panel {
+  display: grid;
+  gap: 28px;
+  width: 100%;
+  max-width: 980px;
+  padding: 36px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  animation: lichess-hub-fade-in 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes lichess-hub-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+
+.lichess-hub-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.lichess-hub-header h1 {
+  margin: 0 0 6px;
+  font-size: 2rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #f4efe6, #d4cfc6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.lichess-hub-subtitle {
+  margin: 0;
+  font-size: 0.95rem;
+  color: rgba(244, 239, 230, 0.65);
+}
+
+.lichess-hub-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.lichess-hub-actions button {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(244, 239, 230, 0.85);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.lichess-hub-actions button:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+/* ── Card grid ───────────────────────────────────────────────────────────── */
+
+.lichess-hub-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.lichess-hub-card {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  align-content: start;
+}
+
+.lichess-hub-card h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #f4efe6;
+}
+
+.lichess-hub-card--primary {
+  border-color: rgba(255, 206, 116, 0.25);
+  background: rgba(255, 206, 116, 0.04);
+}
+
+.lichess-hub-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.lichess-hub-card button {
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: rgba(255, 206, 116, 0.16);
+  color: #ffce74;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  align-self: start;
+}
+
+.lichess-hub-card button:hover {
+  background: rgba(255, 206, 116, 0.26);
+}
+
+/* ── Badges ──────────────────────────────────────────────────────────────── */
+
+.lichess-hub-badge {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.4;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(244, 239, 230, 0.65);
+}
+
+.lichess-hub-badge--healthy {
+  background: rgba(74, 222, 128, 0.15);
+  color: #4ade80;
+}
+
+.lichess-hub-badge--degraded {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
+
+.lichess-hub-badge--offline {
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+}
+
+.lichess-hub-badge--disabled {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(244, 239, 230, 0.45);
+}
+
+.lichess-hub-badge--unknown {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(244, 239, 230, 0.55);
+}
+
+/* ── Typography helpers ──────────────────────────────────────────────────── */
+
+.lichess-hub-warning {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  color: #fbbf24;
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.lichess-hub-muted {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(244, 239, 230, 0.55);
+  line-height: 1.45;
+}
+
+.lichess-hub-username {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #f4efe6;
+}
+
+.lichess-hub-capability {
+  margin: 0;
+  font-size: 0.82rem;
+  color: rgba(244, 239, 230, 0.45);
+  font-style: italic;
+}
+
+.lichess-hub-link {
+  color: rgba(244, 239, 230, 0.65);
+  text-decoration: none;
+  font-size: 0.82rem;
+  transition: color 0.2s ease;
+}
+
+.lichess-hub-link:hover {
+  color: #ffce74;
+}
+
+/* ── Bot identity row ────────────────────────────────────────────────────── */
+
+.lichess-hub-bot-identity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.lichess-hub-bot-identity strong {
+  color: #ffce74;
+  font-weight: 700;
+}
+
+.lichess-hub-status-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* ── Policy table ────────────────────────────────────────────────────────── */
+
+.lichess-hub-policy {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 5px 16px;
+  font-size: 0.84rem;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.lichess-hub-policy dt {
+  color: rgba(244, 239, 230, 0.52);
+  font-weight: 600;
+}
+
+.lichess-hub-policy dd {
+  margin: 0;
+  color: #f4efe6;
+}
+
+/* ── Instructions list ───────────────────────────────────────────────────── */
+
+.lichess-hub-steps {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: rgba(244, 239, 230, 0.8);
+  line-height: 1.45;
+}
+
+.lichess-hub-steps li {
+  padding-left: 0.2rem;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 720px) {
+  .lichess-hub-page {
+    align-items: stretch;
+    padding: 16px;
+  }
+
+  .lichess-hub-panel {
+    padding: 24px 18px;
+  }
+
+  .lichess-hub-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .lichess-hub-header {
+    flex-direction: column;
+  }
+
+  .lichess-hub-header h1 {
+    font-size: 1.6rem;
+  }
+}
