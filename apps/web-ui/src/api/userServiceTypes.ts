@@ -39,3 +39,7 @@ export interface SetManualLichessLinkRequest {
 export interface LichessLinkStartResponse {
   authorizationUrl: string;
 }
+
+export interface LichessUpgradeResponse {
+  authorizationUrl: string;
+}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { UserProfileResponse, LichessLinkCapability } from "../api/userServiceTypes";
+import { upgradeLichessLink } from "../api/userServiceClient";
 import {
   LICHESS_BOT_USERNAME,
   LICHESS_BOT_PROFILE_URL,
@@ -44,6 +45,8 @@ export default function LichessHubPage({ profile, onOpenSettings, onBack }: Lich
   const [bridgePolicy, setBridgePolicy] = useState<LichessBridgePolicyResponse | null>(null);
   const [bridgeLoading, setBridgeLoading] = useState(true);
   const [bridgeError, setBridgeError] = useState(false);
+  const [isUpgrading, setIsUpgrading] = useState(false);
+  const [upgradeError, setUpgradeError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -67,6 +70,18 @@ export default function LichessHubPage({ profile, onOpenSettings, onBack }: Lich
 
   const lichessLink = profile?.links.find((link) => link.provider === "Lichess") ?? null;
   const bridgeHealth = deriveBridgeHealth(bridgeStatus, bridgeError);
+
+  const handleUpgrade = async () => {
+    setIsUpgrading(true);
+    setUpgradeError(null);
+    try {
+      const { authorizationUrl } = await upgradeLichessLink("challenge_ready");
+      window.location.href = authorizationUrl;
+    } catch {
+      setUpgradeError("Could not start Lichess upgrade. Please try again or check the server configuration.");
+      setIsUpgrading(false);
+    }
+  };
   const isAccepting = bridgeStatus?.workerRunning === true && bridgeStatus?.acceptChallenges === true;
 
   return (
@@ -77,7 +92,7 @@ export default function LichessHubPage({ profile, onOpenSettings, onBack }: Lich
           <div className="lichess-hub-header-text">
             <h1>Play on Lichess</h1>
             <p className="lichess-hub-subtitle">
-              Challenge the Searchess Bot today. Future Lichess OAuth features will appear here.
+              Challenge the Searchess Bot on Lichess today. You can also upgrade your linked Lichess account for upcoming Searchess-created challenge flows.
             </p>
           </div>
           <div className="lichess-hub-actions">
@@ -210,19 +225,84 @@ export default function LichessHubPage({ profile, onOpenSettings, onBack }: Lich
             )}
           </section>
 
-          {/* ── Future: Play with my Lichess account ──────────────────────── */}
+          {/* ── Play with my Lichess account ──────────────────────────────── */}
           <section className="lichess-hub-card" aria-label="Play with my Lichess account">
-            <div className="lichess-hub-card-header">
-              <h2>Play with my Lichess account</h2>
-              <span className="lichess-hub-badge">Coming Soon</span>
-            </div>
-            <p className="lichess-hub-muted">
-              Create or track Lichess games from Searchess using your own Lichess account and
-              future OAuth permissions.
-            </p>
-            <p className="lichess-hub-muted">
-              Your moves, your games — Searchess AI will not play under your personal account.
-            </p>
+            <h2>Play with my Lichess account</h2>
+
+            {profile === null ? (
+              <p className="lichess-hub-muted">Loading…</p>
+            ) : lichessLink === null ? (
+              <>
+                <p className="lichess-hub-muted">Link your Lichess account first.</p>
+                <button type="button" onClick={onOpenSettings}>Go to Settings</button>
+              </>
+            ) : lichessLink.capability === "manual_dev" ? (
+              <>
+                <p className="lichess-hub-muted">
+                  ManualDev links cannot be upgraded. Link through Lichess OAuth in Settings.
+                </p>
+                <button type="button" onClick={onOpenSettings}>Go to Settings</button>
+              </>
+            ) : lichessLink.capability === "identity_only" ? (
+              <>
+                <p className="lichess-hub-muted">
+                  Your Lichess identity is verified, but Searchess does not yet have permission
+                  to create challenges for you.
+                </p>
+                {upgradeError !== null && (
+                  <p className="lichess-hub-warning">{upgradeError}</p>
+                )}
+                <button
+                  type="button"
+                  disabled={isUpgrading}
+                  onClick={() => void handleUpgrade()}
+                >
+                  {isUpgrading ? "Redirecting…" : "Upgrade to Challenge-Ready"}
+                </button>
+              </>
+            ) : lichessLink.capability === "challenge_ready" ? (
+              <>
+                <p className="lichess-hub-muted">
+                  Ready to create Lichess challenges from Searchess.
+                </p>
+                <button type="button" disabled>Create challenge — Coming Soon</button>
+              </>
+            ) : lichessLink.capability === "expired" || lichessLink.capability === "revoked" ? (
+              <>
+                <p className="lichess-hub-warning">Your Lichess authorization needs to be renewed.</p>
+                {upgradeError !== null && (
+                  <p className="lichess-hub-warning">{upgradeError}</p>
+                )}
+                <button
+                  type="button"
+                  disabled={isUpgrading}
+                  onClick={() => void handleUpgrade()}
+                >
+                  {isUpgrading ? "Redirecting…" : "Re-authorize Lichess"}
+                </button>
+              </>
+            ) : lichessLink.capability === "unknown" ? (
+              <>
+                <p className="lichess-hub-muted">
+                  Lichess link status is unknown. Re-link or upgrade your account.
+                </p>
+                {upgradeError !== null && (
+                  <p className="lichess-hub-warning">{upgradeError}</p>
+                )}
+                <button
+                  type="button"
+                  disabled={isUpgrading}
+                  onClick={() => void handleUpgrade()}
+                >
+                  {isUpgrading ? "Redirecting…" : "Upgrade to Challenge-Ready"}
+                </button>
+              </>
+            ) : lichessLink.capability === "board_play" ? (
+              <p className="lichess-hub-muted">
+                Board-play authorization detected, but in-Searchess Lichess board is not
+                implemented yet.
+              </p>
+            ) : null}
           </section>
 
           {/* ── Future: Searchess Bot matches ─────────────────────────────── */}
