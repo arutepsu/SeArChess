@@ -1,11 +1,26 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getLichessGameState, submitLichessMove } from "../api/userServiceClient";
 import type { LichessGameStateResponse } from "../api/userServiceTypes";
+import type { BoardMatrix } from "../api/types";
+import ChessBoard from "./ChessBoard";
+import { fenToBoardMatrix } from "../domain/fen";
+import { pieceAt } from "../domain/board";
 import "./LichessGamePage.css";
 
 interface LichessGamePageProps {
   onBack: () => void;
+}
+
+const EMPTY_BOARD: BoardMatrix = Array.from({ length: 8 }, () =>
+  Array.from({ length: 8 }, (): null => null)
+);
+
+function isPromotionMove(board: BoardMatrix, from: string, to: string): boolean {
+  const piece = pieceAt(board, from);
+  if (piece === "wP") return from[1] === "7" && to[1] === "8";
+  if (piece === "bP") return from[1] === "2" && to[1] === "1";
+  return false;
 }
 
 function gameStateErrorMessage(error: unknown): string {
@@ -19,7 +34,7 @@ function gameStateErrorMessage(error: unknown): string {
     }
   } catch {
     const match = rawMessage.match(
-      /\b(NO_LICHESS_LINK|NO_LICHESS_GAME_CAPABILITY|NO_STORED_LICHESS_TOKEN|TOKEN_ENCRYPTION_NOT_CONFIGURED|LICHESS_TOKEN_EXPIRED|INVALID_LICHESS_GAME_ID|LICHESS_GAME_STATE_FAILED)\b/
+      /\b(NO_LICHESS_LINK|NO_CHALLENGE_READY_CAPABILITY|NO_LICHESS_GAME_CAPABILITY|NO_STORED_LICHESS_TOKEN|TOKEN_ENCRYPTION_NOT_CONFIGURED|LICHESS_TOKEN_EXPIRED|INVALID_LICHESS_GAME_ID|LICHESS_GAME_STATE_FAILED)\b/
     );
     if (match !== null) {
       code = match[1];
@@ -29,6 +44,7 @@ function gameStateErrorMessage(error: unknown): string {
   switch (code) {
     case "NO_LICHESS_LINK":
       return "Link your Lichess account first.";
+    case "NO_CHALLENGE_READY_CAPABILITY":
     case "NO_LICHESS_GAME_CAPABILITY":
       return "Upgrade your Lichess permissions before viewing this game in Searchess.";
     case "NO_STORED_LICHESS_TOKEN":
@@ -86,6 +102,37 @@ function moveSubmitErrorMessage(error: unknown): string {
   }
 }
 
+function normalizedStatus(status: string | undefined): string {
+  return (status ?? "").trim().toLowerCase();
+}
+
+function isPlayableStatus(status: string | undefined): boolean {
+  return ["created", "started", "playing"].includes(normalizedStatus(status));
+}
+
+function isFinishedStatus(status: string | undefined): boolean {
+  const normalized = normalizedStatus(status);
+  return [
+    "aborted",
+    "mate",
+    "resign",
+    "stalemate",
+    "timeout",
+    "draw",
+    "outoftime",
+    "cheat",
+    "nostart",
+    "unknownfinish",
+    "variantend",
+  ].includes(normalized) || normalized.includes("finish");
+}
+
+function botUsername(state: LichessGameStateResponse | null): string {
+  if (state?.white.isSearchessBot) return state.white.username;
+  if (state?.black.isSearchessBot) return state.black.username;
+  return "arutepsu2";
+}
+
 export default function LichessGamePage({ onBack }: LichessGamePageProps) {
   const { gameId } = useParams<{ gameId: string }>();
   const [state, setState] = useState<LichessGameStateResponse | null>(null);
@@ -93,30 +140,46 @@ export default function LichessGamePage({ onBack }: LichessGamePageProps) {
   const [error, setError] = useState<string | null>(null);
   const [moveDraft, setMoveDraft] = useState("");
   const [isSubmittingMove, setIsSubmittingMove] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [moveMessage, setMoveMessage] = useState<string | null>(null);
   const [moveError, setMoveError] = useState<string | null>(null);
+  const [lichessSelectedSquare, setLichessSelectedSquare] = useState<string | undefined>();
 
-  useEffect(() => {
+  const refreshGameState = useCallback(async (options?: { clearMoveFeedback?: boolean; showRefreshing?: boolean }) => {
     if (!gameId) {
       setError("The Lichess game id is invalid.");
       setLoading(false);
       return;
     }
 
+    if (options?.clearMoveFeedback) {
+      setMoveMessage(null);
+      setMoveError(null);
+    }
+
+    if (options?.showRefreshing) {
+      setIsRefreshing(true);
+    }
+    try {
+      const next = await getLichessGameState(gameId);
+      setState(next);
+      setError(null);
+    } catch (err) {
+      setError(gameStateErrorMessage(err));
+    } finally {
+      setLoading(false);
+      if (options?.showRefreshing) {
+        setIsRefreshing(false);
+      }
+    }
+  }, [gameId]);
+
+  useEffect(() => {
     let active = true;
 
     const load = async () => {
-      try {
-        const next = await getLichessGameState(gameId);
-        if (!active) return;
-        setState(next);
-        setError(null);
-      } catch (err) {
-        if (!active) return;
-        setError(gameStateErrorMessage(err));
-      } finally {
-        if (active) setLoading(false);
-      }
+      if (!active) return;
+      await refreshGameState();
     };
 
     void load();
@@ -126,7 +189,7 @@ export default function LichessGamePage({ onBack }: LichessGamePageProps) {
       active = false;
       window.clearInterval(intervalId);
     };
-  }, [gameId]);
+  }, [refreshGameState]);
 
   const moves = useMemo(
     () => state?.moves.split(/\s+/).filter(Boolean) ?? [],
@@ -134,20 +197,40 @@ export default function LichessGamePage({ onBack }: LichessGamePageProps) {
   );
 
   const lichessUrl = state?.url ?? (gameId ? `https://lichess.org/${gameId}` : "https://lichess.org");
-  const isPlayableStatus = state?.status === "started" || state?.status === "playing";
+  const gameIsPlayable = isPlayableStatus(state?.status);
+  const gameIsFinished = isFinishedStatus(state?.status);
   const hasKnownTurn = state !== null && state.userColor !== null;
   const isUserTurn = !hasKnownTurn || state?.userColor === state?.sideToMove;
-  const canSubmitMove = Boolean(gameId) && isPlayableStatus && isUserTurn && !isSubmittingMove && moveDraft.trim().length > 0;
+  const waitingForBot = hasKnownTurn && !isUserTurn;
+  const boardOrientation = state?.userColor ?? "white";
+  const turnLabel = gameIsFinished
+    ? "Game finished"
+    : state === null
+      ? "Status unknown"
+      : isUserTurn
+        ? "Your turn"
+        : `Waiting for ${botUsername(state)}`;
+  const canInteractWithBoard = Boolean(gameId) && gameIsPlayable && isUserTurn && !isSubmittingMove && state?.fen !== null;
+  const canSubmitMove = Boolean(gameId) && gameIsPlayable && isUserTurn && !isSubmittingMove && moveDraft.trim().length > 0;
 
-  const handleSubmitMove = async () => {
-    if (!gameId || !canSubmitMove) return;
+  const boardFromFen = useMemo<BoardMatrix>(() => {
+    if (!state?.fen) return EMPTY_BOARD;
+    return fenToBoardMatrix(state.fen) ?? EMPTY_BOARD;
+  }, [state?.fen]);
+
+  useEffect(() => {
+    if (!canInteractWithBoard) setLichessSelectedSquare(undefined);
+  }, [canInteractWithBoard]);
+
+  const submitMove = async (move: string) => {
+    if (!gameId || !gameIsPlayable || !isUserTurn || isSubmittingMove) return;
 
     setIsSubmittingMove(true);
     setMoveMessage(null);
     setMoveError(null);
 
     try {
-      const result = await submitLichessMove(gameId, moveDraft.trim());
+      const result = await submitLichessMove(gameId, move);
       setMoveDraft("");
       setMoveMessage(`Move ${result.move} submitted.`);
       const refreshed = await getLichessGameState(gameId);
@@ -158,6 +241,29 @@ export default function LichessGamePage({ onBack }: LichessGamePageProps) {
     } finally {
       setIsSubmittingMove(false);
     }
+  };
+
+  const handleSubmitMove = async () => {
+    if (!canSubmitMove) return;
+    await submitMove(moveDraft.trim());
+  };
+
+  const handleLichessSquareSelect = (square: string): void => {
+    if (!canInteractWithBoard) return;
+    if (!lichessSelectedSquare) {
+      if (!pieceAt(boardFromFen, square)) return;
+      setLichessSelectedSquare(square);
+      return;
+    }
+    if (lichessSelectedSquare === square) {
+      setLichessSelectedSquare(undefined);
+      return;
+    }
+    const move = isPromotionMove(boardFromFen, lichessSelectedSquare, square)
+      ? `${lichessSelectedSquare}${square}q`
+      : `${lichessSelectedSquare}${square}`;
+    setLichessSelectedSquare(undefined);
+    void submitMove(move);
   };
 
   return (
@@ -173,6 +279,13 @@ export default function LichessGamePage({ onBack }: LichessGamePageProps) {
             <a href={lichessUrl} target="_blank" rel="noopener noreferrer">
               Open on Lichess ↗
             </a>
+            <button
+              type="button"
+              disabled={isRefreshing}
+              onClick={() => void refreshGameState({ clearMoveFeedback: true, showRefreshing: true })}
+            >
+              {isRefreshing ? "Refreshing..." : "Refresh now"}
+            </button>
           </div>
         </header>
 
@@ -186,6 +299,9 @@ export default function LichessGamePage({ onBack }: LichessGamePageProps) {
           <div className="lichess-game-grid">
             <section className="lichess-game-card" aria-label="Game status">
               <h2>Status</h2>
+              <p className={`lichess-game-turn lichess-game-turn--${gameIsFinished ? "finished" : isUserTurn ? "active" : "waiting"}`}>
+                {turnLabel}
+              </p>
               <dl className="lichess-game-facts">
                 <dt>State</dt>
                 <dd>{state.status}</dd>
@@ -195,6 +311,8 @@ export default function LichessGamePage({ onBack }: LichessGamePageProps) {
                 <dd>{state.userColor ?? "Unknown"}</dd>
                 <dt>BOT color</dt>
                 <dd>{state.botColor ?? "Unknown"}</dd>
+                <dt>Turn</dt>
+                <dd>{turnLabel}</dd>
                 <dt>Updated</dt>
                 <dd>{new Date(state.lastUpdatedAt).toLocaleTimeString()}</dd>
               </dl>
@@ -219,11 +337,35 @@ export default function LichessGamePage({ onBack }: LichessGamePageProps) {
               <pre className="lichess-game-code">{state.fen ?? "Not available from Lichess yet."}</pre>
             </section>
 
-            {isPlayableStatus ? (
+            <section className="lichess-game-card lichess-game-card--wide" aria-label="Interactive board">
+              <h2>Board</h2>
+              <p className="lichess-game-muted">
+                Click a piece, then click a target square. Use UCI input below for promotions or special cases.
+              </p>
+              <p className="lichess-game-muted">
+                Pawn promotions from the board default to queen. Use the UCI input for underpromotion.
+              </p>
+              <div className="lichess-board-wrapper">
+                <ChessBoard
+                  board={boardFromFen}
+                  selectedSquare={lichessSelectedSquare}
+                  legalMoves={[]}
+                  disabled={!canInteractWithBoard}
+                  onSelect={handleLichessSquareSelect}
+                  onAnimationFinished={() => {}}
+                  orientation={boardOrientation}
+                  inCheck={false}
+                  activeColor={state.sideToMove}
+                  animation={null}
+                />
+              </div>
+            </section>
+
+            {gameIsPlayable ? (
               <section className="lichess-game-card lichess-game-card--wide" aria-label="Submit move">
                 <h2>Submit Move</h2>
-                {hasKnownTurn && !isUserTurn ? (
-                  <p className="lichess-game-muted">Waiting for opponent...</p>
+                {waitingForBot ? (
+                  <p className="lichess-game-muted">{`Waiting for ${botUsername(state)}...`}</p>
                 ) : null}
                 {moveMessage !== null ? (
                   <p className="lichess-game-success">{moveMessage}</p>
@@ -239,7 +381,11 @@ export default function LichessGamePage({ onBack }: LichessGamePageProps) {
                     autoComplete="off"
                     inputMode="text"
                     disabled={isSubmittingMove || !isUserTurn}
-                    onChange={(event) => setMoveDraft(event.currentTarget.value)}
+                    onChange={(event) => {
+                      setMoveDraft(event.currentTarget.value);
+                      setMoveMessage(null);
+                      setMoveError(null);
+                    }}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
                         event.preventDefault();
@@ -256,7 +402,17 @@ export default function LichessGamePage({ onBack }: LichessGamePageProps) {
                   </button>
                 </div>
               </section>
-            ) : null}
+            ) : gameIsFinished ? (
+              <section className="lichess-game-card lichess-game-card--wide" aria-label="Finished game">
+                <h2>Submit Move</h2>
+                <p className="lichess-game-muted">This Lichess game is finished.</p>
+              </section>
+            ) : (
+              <section className="lichess-game-card lichess-game-card--wide" aria-label="Submit move unavailable">
+                <h2>Submit Move</h2>
+                <p className="lichess-game-muted">Move submission is unavailable for this game status.</p>
+              </section>
+            )}
 
             <section className="lichess-game-card lichess-game-card--wide" aria-label="Moves">
               <h2>Moves</h2>
