@@ -87,3 +87,18 @@ export interface SubmitLichessMoveResponse {
   move: string;
   accepted: true;
 }
+
+export interface LichessActiveGameSummary {
+  gameId: string;
+  status: string;
+  url: string;
+  white: { username: string; isSearchessBot: boolean };
+  black: { username: string; isSearchessBot: boolean };
+  userColor?: "white" | "black";
+  botColor?: "white" | "black";
+  lastUpdatedAt: string;
+}
+
+export interface LichessActiveGamesResponse {
+  games: LichessActiveGameSummary[];
+}

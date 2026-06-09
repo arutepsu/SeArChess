@@ -407,6 +407,113 @@ class LichessChallengeServiceSpec extends AnyFlatSpec with Matchers with EitherV
     result shouldBe Left("lichess_token_expired")
   }
 
+  // ── getActiveGamesVsBot ──────────────────────────────────────────────────
+
+  "getActiveGamesVsBot" should "return Left(no_lichess_link) when user has no Lichess link" in {
+    val repo   = StubLinkRepository(None)
+    val svc    = LichessChallengeService(repo, Some(testCipher), stubbedClient(IO.pure(Response[IO](Status.Ok))), botConfig)
+    val result = svc.getActiveGamesVsBot(userId).unsafeRunSync()
+    result shouldBe Left("no_lichess_link")
+  }
+
+  it should "return Left(no_lichess_game_capability) when link has identity_only capability" in {
+    val repo   = StubLinkRepository(Some(makeLink("identity_only", token = Some("lio_test"))))
+    val svc    = LichessChallengeService(repo, Some(testCipher), stubbedClient(IO.pure(Response[IO](Status.Ok))), botConfig)
+    val result = svc.getActiveGamesVsBot(userId).unsafeRunSync()
+    result shouldBe Left("no_lichess_game_capability")
+  }
+
+  it should "return Left(no_stored_lichess_token) when link has challenge_ready but no token" in {
+    val repo   = StubLinkRepository(Some(makeLink("challenge_ready", token = None)))
+    val svc    = LichessChallengeService(repo, Some(testCipher), stubbedClient(IO.pure(Response[IO](Status.Ok))), botConfig)
+    val result = svc.getActiveGamesVsBot(userId).unsafeRunSync()
+    result shouldBe Left("no_stored_lichess_token")
+  }
+
+  it should "return Left(token_encryption_not_configured) when cipher is None" in {
+    val repo   = StubLinkRepository(Some(makeLink("challenge_ready", token = Some("lio_test"))))
+    val svc    = LichessChallengeService(repo, cipher = None, stubbedClient(IO.pure(Response[IO](Status.Ok))), botConfig)
+    val result = svc.getActiveGamesVsBot(userId).unsafeRunSync()
+    result shouldBe Left("token_encryption_not_configured")
+  }
+
+  it should "return Left(lichess_token_expired) and expire the link when Lichess returns 401" in {
+    val link   = makeLink("challenge_ready", token = Some("lio_test"))
+    val repo   = StubLinkRepository(Some(link))
+    val client = stubbedClient(IO.pure(Response[IO](Status.Unauthorized)))
+    val svc    = LichessChallengeService(repo, Some(testCipher), client, botConfig)
+    val result = svc.getActiveGamesVsBot(userId).unsafeRunSync()
+    result                                     shouldBe Left("lichess_token_expired")
+    repo.lastUpdated.map(_.capability)         shouldBe Some("expired")
+    repo.lastUpdated.flatMap(_.tokenEncrypted) shouldBe None
+  }
+
+  it should "return a game summary when Lichess returns a now-playing entry vs the bot" in {
+    val json =
+      """{
+        |  "nowPlaying": [
+        |    {
+        |      "gameId": "testgame1",
+        |      "color": "white",
+        |      "status": {"id": 20, "name": "started"},
+        |      "opponent": {"id": "arutepsu2", "username": "arutepsu2"}
+        |    }
+        |  ]
+        |}""".stripMargin
+    val repo   = StubLinkRepository(Some(makeLink("challenge_ready", token = Some("lio_test"))))
+    val client = stubbedClient(IO.pure(Response[IO](
+      status = Status.Ok,
+      body   = Stream.emits(json.getBytes("UTF-8")).covary[IO]
+    )))
+    val svc    = LichessChallengeService(repo, Some(testCipher), client, botConfig)
+    val result = svc.getActiveGamesVsBot(userId).unsafeRunSync().value
+
+    result                       should have size 1
+    result.head.gameId           shouldBe "testgame1"
+    result.head.status           shouldBe "started"
+    result.head.url              shouldBe "https://lichess.org/testgame1"
+    result.head.white.username   shouldBe "testuser"
+    result.head.white.isSearchessBot shouldBe false
+    result.head.black.username   shouldBe "arutepsu2"
+    result.head.black.isSearchessBot shouldBe true
+    result.head.userColor        shouldBe Some("white")
+    result.head.botColor         shouldBe Some("black")
+  }
+
+  it should "filter out games not involving the bot" in {
+    val json =
+      """{
+        |  "nowPlaying": [
+        |    {
+        |      "gameId": "othergame",
+        |      "color": "white",
+        |      "status": {"id": 20, "name": "started"},
+        |      "opponent": {"id": "someotherplayer", "username": "SomeOtherPlayer"}
+        |    }
+        |  ]
+        |}""".stripMargin
+    val repo   = StubLinkRepository(Some(makeLink("challenge_ready", token = Some("lio_test"))))
+    val client = stubbedClient(IO.pure(Response[IO](
+      status = Status.Ok,
+      body   = Stream.emits(json.getBytes("UTF-8")).covary[IO]
+    )))
+    val svc    = LichessChallengeService(repo, Some(testCipher), client, botConfig)
+    val result = svc.getActiveGamesVsBot(userId).unsafeRunSync().value
+    result shouldBe empty
+  }
+
+  it should "return an empty list when there are no now-playing games" in {
+    val json   = """{"nowPlaying": []}"""
+    val repo   = StubLinkRepository(Some(makeLink("challenge_ready", token = Some("lio_test"))))
+    val client = stubbedClient(IO.pure(Response[IO](
+      status = Status.Ok,
+      body   = Stream.emits(json.getBytes("UTF-8")).covary[IO]
+    )))
+    val svc    = LichessChallengeService(repo, Some(testCipher), client, botConfig)
+    val result = svc.getActiveGamesVsBot(userId).unsafeRunSync().value
+    result shouldBe empty
+  }
+
   // ── Stub repository ──────────────────────────────────────────────────────
 
   private class StubLinkRepository(

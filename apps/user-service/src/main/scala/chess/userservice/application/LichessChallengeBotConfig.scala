@@ -17,5 +17,9 @@ final case class LichessChallengeBotConfig(
     val origin = challengeApiBaseUrl.stripSuffix("/api/challenge").stripSuffix("/")
     s"$origin/api/board/game/${encodePathSegment(gameId)}/move/${encodePathSegment(move)}"
 
+  def activeGamesEndpointFor: String =
+    val origin = challengeApiBaseUrl.stripSuffix("/api/challenge").stripSuffix("/")
+    s"$origin/api/account/playing"
+
   private def encodePathSegment(value: String): String =
     URLEncoder.encode(value, "UTF-8").replace("+", "%20")
