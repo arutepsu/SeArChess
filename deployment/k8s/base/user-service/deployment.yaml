@@ -37,6 +37,12 @@ spec:
                   name: searchess-secrets
                   key: user-service-internal-api-key
                   optional: true
+            - name: LICHESS_TOKEN_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: searchess-secrets
+                  key: lichess-token-encryption-key
+                  optional: true
           readinessProbe:
             httpGet:
               path: /health
