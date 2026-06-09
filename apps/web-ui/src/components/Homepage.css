@@ -231,11 +231,16 @@
   border: 0;
   border-radius: 8px;
   padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(244, 239, 230, 0.62);
+  background: rgba(255, 206, 116, 0.16);
+  color: #ffce74;
   font-weight: 700;
-  cursor: not-allowed;
+  cursor: pointer;
   font-size: 0.9rem;
+  transition: background 0.2s ease;
+}
+
+.lichess-hub-cta:hover {
+  background: rgba(255, 206, 116, 0.26);
 }
 
 @media (max-width: 920px) {

@@ -24,6 +24,7 @@ import BackgroundPanel from "./components/BackgroundPanel.tsx";
 import CapturedPanel from "./components/CapturedPanel.tsx";
 import AuthBar from "./components/AuthBar.tsx";
 import ProfilePanel from "./components/ProfilePanel.tsx";
+import LichessHubPage from "./components/LichessHubPage.tsx";
 import "./App.css";
 
 type ConnectionState = "connected" | "offline" | "loading";
@@ -495,6 +496,7 @@ export default function App() {
             }}
             onOpenSettings={() => navigate("/settings")}
             onOpenOnboarding={() => navigate("/onboarding")}
+            onOpenLichessHub={() => navigate("/lichess")}
           />
         } />
         <Route path="/onboarding" element={
@@ -634,6 +636,16 @@ export default function App() {
         <Route
           path="/settings"
           element={<ProfilePanel onBack={() => navigate("/")} />}
+        />
+        <Route
+          path="/lichess"
+          element={
+            <LichessHubPage
+              profile={profile}
+              onOpenSettings={() => navigate("/settings")}
+              onBack={() => navigate("/")}
+            />
+          }
         />
       </Routes>
     </div>

@@ -15,6 +15,7 @@ interface HomepageProps {
   onResumeSession: (sessionId: string) => Promise<void>;
   onOpenSettings: () => void;
   onOpenOnboarding: () => void;
+  onOpenLichessHub: () => void;
 }
 
 export default function Homepage({
@@ -25,7 +26,8 @@ export default function Homepage({
   onStart,
   onContinueActiveGame,
   onResumeSession,
-  onOpenSettings
+  onOpenSettings,
+  onOpenLichessHub
 }: HomepageProps) {
   const [mode, setMode] = useState<GameModeId>("HumanVsHuman");
 
@@ -86,8 +88,8 @@ export default function Homepage({
                 ? "Linked Lichess account detected."
                 : "Link your Lichess account in Settings first."}
             </p>
-            <button type="button" disabled className="lichess-hub-cta">
-              Lichess Hub Coming Soon
+            <button type="button" className="lichess-hub-cta" onClick={onOpenLichessHub}>
+              Open Lichess Hub
             </button>
           </article>
         </section>
