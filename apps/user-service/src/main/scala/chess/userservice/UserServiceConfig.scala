@@ -11,7 +11,8 @@ final case class UserServiceConfig(
     postgresPassword: String,
     postgresSchema: Option[String],
     lichessOAuth: LichessOAuthConfig,
-    internalApiKey: String
+    internalApiKey: String,
+    lichessTokenEncryptionKey: Option[String]
 )
 
 object UserServiceConfig:
@@ -46,7 +47,8 @@ object UserServiceConfig:
         stateTtlSeconds  = env("LICHESS_OAUTH_STATE_TTL_SECONDS").flatMap(_.toLongOption).getOrElse(600L),
         webUiSettingsUrl = env("WEB_UI_SETTINGS_URL").getOrElse("http://localhost:10000/settings")
       ),
-      internalApiKey = env("USER_SERVICE_INTERNAL_API_KEY").getOrElse("")
+      internalApiKey            = env("USER_SERVICE_INTERNAL_API_KEY").getOrElse(""),
+      lichessTokenEncryptionKey = env("LICHESS_TOKEN_ENCRYPTION_KEY")
     )
 
   private def parsePort(name: String, value: String): Either[String, Int] =

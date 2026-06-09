@@ -33,6 +33,7 @@ class UserProfileService(
       case Some(existing) =>
         val updated = existing.copy(
           externalUsername   = lichessUsername,
+          verified           = false,
           verificationSource = "ManualDev",
           capability         = "manual_dev",
           linkedAt           = Instant.now()

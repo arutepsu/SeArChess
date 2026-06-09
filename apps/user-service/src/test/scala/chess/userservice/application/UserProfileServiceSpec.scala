@@ -45,15 +45,16 @@ class UserProfileServiceSpec extends AnyFlatSpec with Matchers with EitherValues
     linkRepo.store should have size 1
   }
 
-  it should "update an existing ManualDev link and keep capability manual_dev" in {
+  it should "update an existing ManualDev link and keep capability manual_dev and verified false" in {
     val (svc, _, linkRepo) = makeService()
     val userId = UUID.randomUUID()
     val first  = svc.setManualLichessLink(userId, "alice_chess").value
     val second = svc.setManualLichessLink(userId, "alice_chess_v2").value
     second.linkId              shouldBe first.linkId
     second.externalUsername    shouldBe "alice_chess_v2"
-    second.capability          shouldBe "manual_dev"
+    second.verified            shouldBe false
     second.verificationSource  shouldBe "ManualDev"
+    second.capability          shouldBe "manual_dev"
     linkRepo.store should have size 1
   }
 
@@ -76,6 +77,7 @@ class UserProfileServiceSpec extends AnyFlatSpec with Matchers with EitherValues
 
     val updated = svc.setManualLichessLink(userId, "alice_manual").value
     updated.externalUsername   shouldBe "alice_manual"
+    updated.verified           shouldBe false
     updated.verificationSource shouldBe "ManualDev"
     updated.capability         shouldBe "manual_dev"
     linkRepo.store should have size 1

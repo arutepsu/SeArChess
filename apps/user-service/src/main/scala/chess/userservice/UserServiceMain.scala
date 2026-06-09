@@ -10,10 +10,11 @@ object UserServiceMain:
     StructuredLog.info(
       "user-service",
       "startup_config",
-      "httpHost"            -> config.host,
-      "httpPort"            -> config.port,
-      "postgresSchema"      -> config.postgresSchema.getOrElse("(default)"),
-      "lichessOAuthEnabled" -> config.lichessOAuth.isConfigured
+      "httpHost"                         -> config.host,
+      "httpPort"                         -> config.port,
+      "postgresSchema"                   -> config.postgresSchema.getOrElse("(default)"),
+      "lichessOAuthEnabled"              -> config.lichessOAuth.isConfigured,
+      "lichessTokenEncryptionKeyConfigured" -> config.lichessTokenEncryptionKey.isDefined
     )
 
     val runtime = UserServiceWiring.start(config)
