@@ -9,6 +9,7 @@ import org.http4s.client.Client
 import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.typelevel.ci.CIString
 
 import java.time.Instant
 import java.util.UUID
@@ -22,7 +23,7 @@ class LichessChallengeServiceSpec extends AnyFlatSpec with Matchers with EitherV
     .getOrElse(fail("cipher init failed for test key"))
 
   private val botConfig = LichessChallengeBotConfig(
-    botUsername         = "test-bot",
+    botUsername         = "arutepsu2",
     challengeApiBaseUrl = "https://lichess.org/api/challenge"
   )
 
@@ -48,6 +49,31 @@ class LichessChallengeServiceSpec extends AnyFlatSpec with Matchers with EitherV
 
   private def stubbedClient(resp: IO[Response[IO]]): Client[IO] =
     Client.fromHttpApp(HttpRoutes.of[IO] { case _ => resp }.orNotFound)
+
+  private final case class CapturedLichessRequest(
+      method: Method,
+      path: String,
+      authorization: Option[String],
+      contentType: Option[String],
+      body: String
+  )
+
+  private def capturingClient(
+      captured: AtomicReference[Option[CapturedLichessRequest]],
+      resp: Response[IO]
+  ): Client[IO] =
+    Client.fromHttpApp(HttpRoutes.of[IO] { case req =>
+      req.bodyText.compile.string.map { body =>
+        captured.set(Some(CapturedLichessRequest(
+          method        = req.method,
+          path          = req.uri.path.renderString,
+          authorization = req.headers.get(CIString("Authorization")).map(_.head.value),
+          contentType   = req.headers.get(CIString("Content-Type")).map(_.head.value),
+          body          = body
+        )))
+        resp
+      }
+    }.orNotFound)
 
   // ── Scenario 1: no Lichess link ──────────────────────────────────────────
 
@@ -97,6 +123,48 @@ class LichessChallengeServiceSpec extends AnyFlatSpec with Matchers with EitherV
     val svc    = LichessChallengeService(repo, Some(testCipher), client, botConfig)
     val result = svc.createChallengeToBot(userId, validReq).unsafeRunSync()
     result shouldBe Right(CreateChallengeResult("abc123", "https://lichess.org/abc123"))
+  }
+
+  it should "send the Lichess challenge request as authenticated form data" in {
+    val repo     = StubLinkRepository(Some(makeLink("challenge_ready", token = Some("lio_test"))))
+    val json     = """{"challenge":{"id":"abc","url":"https://lichess.org/abc"}}"""
+    val captured = new AtomicReference[Option[CapturedLichessRequest]](None)
+    val client   = capturingClient(
+      captured,
+      Response[IO](
+        status = Status.Ok,
+        body   = Stream.emits(json.getBytes("UTF-8")).covary[IO]
+      )
+    )
+    val svc    = LichessChallengeService(repo, Some(testCipher), client, botConfig)
+    val result = svc.createChallengeToBot(userId, validReq).unsafeRunSync()
+
+    result shouldBe Right(CreateChallengeResult("abc", "https://lichess.org/abc"))
+
+    val request = captured.get().getOrElse(fail("expected Lichess request to be captured"))
+    request.method        shouldBe Method.POST
+    request.path          shouldBe "/api/challenge/arutepsu2"
+    request.authorization shouldBe Some("Bearer lio_test")
+    request.contentType.getOrElse(fail("expected Content-Type header")) should startWith("application/x-www-form-urlencoded")
+    request.body should include("rated=false")
+    request.body should include("variant=standard")
+    request.body should include("clock.limit=300")
+    request.body should include("clock.increment=3")
+    request.body should include("color=random")
+    request.body should not include("clockSeconds")
+    request.body should not include("clockIncrement")
+  }
+
+  it should "return Right(challengeId, url) for a top-level Lichess challenge response" in {
+    val repo    = StubLinkRepository(Some(makeLink("challenge_ready", token = Some("lio_test"))))
+    val json    = """{"id":"abc","url":"https://lichess.org/abc"}"""
+    val client  = stubbedClient(IO.pure(Response[IO](
+      status = Status.Ok,
+      body   = Stream.emits(json.getBytes("UTF-8")).covary[IO]
+    )))
+    val svc    = LichessChallengeService(repo, Some(testCipher), client, botConfig)
+    val result = svc.createChallengeToBot(userId, validReq).unsafeRunSync()
+    result shouldBe Right(CreateChallengeResult("abc", "https://lichess.org/abc"))
   }
 
   // ── Scenario 6: validation failures ─────────────────────────────────────

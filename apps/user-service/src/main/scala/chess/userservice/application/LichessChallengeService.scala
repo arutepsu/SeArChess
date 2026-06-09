@@ -7,6 +7,7 @@ import fs2.Stream
 import org.http4s.*
 import org.http4s.client.Client
 import org.http4s.headers.{Authorization, `Content-Type`}
+import org.typelevel.ci.CIString
 
 import java.net.URLEncoder
 import java.util.UUID
@@ -84,6 +85,7 @@ class LichessChallengeService(
       uri     = Uri.unsafeFromString(config.challengeEndpointFor(config.botUsername)),
       headers = Headers(
         Authorization(Credentials.Token(AuthScheme.Bearer, token)),
+        Header.Raw(CIString("Accept"), "application/json"),
         `Content-Type`(MediaType.application.`x-www-form-urlencoded`)
       ),
       body    = Stream.emits(body.getBytes("UTF-8")).covary[IO]
@@ -91,27 +93,59 @@ class LichessChallengeService(
     client.run(request).use { resp =>
       resp.bodyText.compile.string.flatMap { raw =>
         if resp.status.isSuccess then
-          IO.pure(parseChallengeResponse(raw))
+          parseChallengeResponse(raw) match
+            case Right(result) => IO.pure(Right(result))
+            case Left(err)    =>
+              logChallengeParseFailed(resp.status, req).as(Left(err))
         else if resp.status.code == 401 || resp.status.code == 403 then
+          logChallengeFailed(resp.status, req, raw) >>
           expireLink(link).as(Left[String, CreateChallengeResult]("lichess_token_expired"))
         else
-          IO.pure(Left("lichess_challenge_failed"))
+          logChallengeFailed(resp.status, req, raw).as(Left("lichess_challenge_failed"))
       }
     }.handleErrorWith(_ => IO.pure(Left("lichess_challenge_failed")))
 
   private def parseChallengeResponse(raw: String): Either[String, CreateChallengeResult] =
     try
       val json = ujson.read(raw)
-      json.obj.get("challenge") match
-        case None     => Left("lichess_challenge_failed")
-        case Some(ch) =>
-          val idOpt  = ch.obj.get("id").flatMap(_.strOpt)
-          val urlOpt = ch.obj.get("url").flatMap(_.strOpt)
-          (idOpt, urlOpt) match
-            case (Some(id), Some(url)) => Right(CreateChallengeResult(id, url))
-            case _                     => Left("lichess_challenge_failed")
+      val challenge = json.obj.get("challenge").getOrElse(json)
+      val idOpt     = challenge.obj.get("id").flatMap(_.strOpt)
+      val urlOpt    = challenge.obj.get("url").flatMap(_.strOpt)
+      (idOpt, urlOpt) match
+        case (Some(id), Some(url)) => Right(CreateChallengeResult(id, url))
+        case _                     => Left("lichess_challenge_failed")
     catch
       case _: Exception => Left("lichess_challenge_failed")
+
+  private def logChallengeFailed(status: Status, req: CreateChallengeRequest, raw: String): IO[Unit] =
+    IO(StructuredLog.warn(
+      "user-service",
+      "lichess_challenge_failed",
+      "status"         -> status.code,
+      "targetBot"      -> config.botUsername,
+      "rated"          -> req.rated,
+      "variant"        -> req.variant,
+      "clockSeconds"   -> req.clockSeconds,
+      "clockIncrement" -> req.clockIncrement,
+      "color"          -> req.color,
+      "responsePreview" -> sanitizedPreview(raw)
+    ))
+
+  private def logChallengeParseFailed(status: Status, req: CreateChallengeRequest): IO[Unit] =
+    IO(StructuredLog.warn(
+      "user-service",
+      "lichess_challenge_response_parse_failed",
+      "status"         -> status.code,
+      "targetBot"      -> config.botUsername,
+      "rated"          -> req.rated,
+      "variant"        -> req.variant,
+      "clockSeconds"   -> req.clockSeconds,
+      "clockIncrement" -> req.clockIncrement,
+      "color"          -> req.color
+    ))
+
+  private def sanitizedPreview(raw: String): String =
+    raw.replaceAll("\\s+", " ").trim.take(300)
 
   private def expireLink(link: ExternalAccountLink): IO[Unit] =
     val expired = link.copy(
