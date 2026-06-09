@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lichess-bridge-service-env
+  namespace: searchess
+data:
+  # Phase 3A: controlled live enablement on uni-server-registry.
+  # Bridge starts and validates the bot account but does NOT accept challenges yet.
+  #
+  # INFRASTRUCTURE IDENTITY — NOT a Searchess user or Keycloak principal.
+  # arutepsu2 is the dedicated central Lichess BOT service account controlled by
+  # this bridge. It was created separately from the developer's personal Lichess
+  # account because Lichess policy requires a distinct account for BOT upgrade.
+  # Human users link their OWN Lichess accounts through Settings; those linked
+  # accounts are unrelated to this service-level identity.
+  #
+  # Bot API endpoints used (required for BOT-upgraded account):
+  #   GET  /api/bot/game/stream/{gameId}
+  #   POST /api/bot/game/{gameId}/move/{uci}
+  LICHESS_BRIDGE_ENABLED: "true"
+  LICHESS_BOT_USERNAME: "arutepsu2"
+  # Challenge acceptance remains disabled for Phase 3A validation.
+  # Enable in a separate follow-up commit once /validate confirms bot account is healthy.
+  # When enabled, LICHESS_ALLOWED_CHALLENGERS should list linked Lichess usernames
+  # of trusted human Searchess users — not Keycloak IDs, not bot usernames.
+  LICHESS_ACCEPT_CHALLENGES: "false"
+  LICHESS_ACCEPT_RATED: "false"
+  LICHESS_ALLOWED_VARIANTS: "standard"
+  MAX_CONCURRENT_GAMES: "1"
+  LICHESS_MIN_CLOCK_SECONDS: "180"
+  LICHESS_MAX_CLOCK_SECONDS: "600"

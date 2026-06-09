@@ -1,0 +1,9 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lichess-bridge-service
+  namespace: searchess
+spec:
+  # Phase 3A: enable one replica for controlled live validation.
+  # Base remains replicas: 0; this overlay patch activates the pod.
+  replicas: 1

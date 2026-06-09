@@ -239,10 +239,10 @@ Lichess                         Searchess cluster
   Game start/finish      ───►  GameFiberManager.startGame / stopGame
 
                                 per-game fiber [GameLoopHandler]
-  Game stream (NDJSON)   ←───  streamGame() [JdkLichessStreamClient]
+  Game stream (NDJSON)   ←───  streamGame() GET /api/bot/game/stream/{id}
   GameFull / GameState   ───►  TurnDetector → GamePositionAdapter
   Move suggestion        ───►  ai-service:8765 POST /v1/move-suggestions
-  Submit move            ───►  submitMove() POST /api/board/game/{id}/move/{uci}
+  Submit move            ───►  submitMove() POST /api/bot/game/{id}/move/{uci}
 ```
 
 ---

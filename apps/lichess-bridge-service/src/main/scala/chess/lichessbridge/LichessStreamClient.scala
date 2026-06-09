@@ -36,7 +36,7 @@ trait LichessEventStream[F[_]]:
   def streamBotEvents(token: String): Stream[F, Either[ParseError, LichessBotEvent]]
 
 trait LichessGameStream[F[_]]:
-  /** Per-game NDJSON stream from GET /api/board/game/stream/{gameId}.
+  /** Per-game NDJSON stream from GET /api/bot/game/stream/{gameId}.
     * Emits Right(event) for parseable lines; Left(error) for malformed lines.
     */
   def streamGame(token: String, gameId: String): Stream[F, Either[ParseError, LichessGameEvent]]
@@ -59,7 +59,7 @@ final class JdkLichessStreamClient(
       .map(LichessNdjsonParser.parseBotEventLine)
 
   def streamGame(token: String, gameId: String): Stream[IO, Either[ParseError, LichessGameEvent]] =
-    openNdjsonStream(s"$baseUrl/api/board/game/stream/$gameId", token)
+    openNdjsonStream(s"$baseUrl/api/bot/game/stream/$gameId", token)
       .map(LichessNdjsonParser.parseGameEventLine)
 
   // Opens an HTTP streaming response and emits each non-blank line as a String.

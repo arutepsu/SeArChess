@@ -103,7 +103,7 @@ final class LichessHttpClient(
   def submitMove(token: String, gameId: String, move: String): IO[Either[LichessError, Unit]] =
     IO.blocking {
       val req = HttpRequest
-        .newBuilder(URI.create(s"$baseUrl/api/board/game/$gameId/move/$move"))
+        .newBuilder(URI.create(s"$baseUrl/api/bot/game/$gameId/move/$move"))
         .timeout(readTimeout)
         .header("Authorization", s"Bearer $token")
         .POST(HttpRequest.BodyPublishers.noBody())
