@@ -25,6 +25,7 @@ import CapturedPanel from "./components/CapturedPanel.tsx";
 import AuthBar from "./components/AuthBar.tsx";
 import ProfilePanel from "./components/ProfilePanel.tsx";
 import LichessHubPage from "./components/LichessHubPage.tsx";
+import LichessGamePage from "./components/LichessGamePage.tsx";
 import "./App.css";
 
 type ConnectionState = "connected" | "offline" | "loading";
@@ -643,9 +644,14 @@ export default function App() {
             <LichessHubPage
               profile={profile}
               onOpenSettings={() => navigate("/settings")}
+              onOpenLichessGame={(gameId) => navigate(`/lichess/games/${gameId}`)}
               onBack={() => navigate("/")}
             />
           }
+        />
+        <Route
+          path="/lichess/games/:gameId"
+          element={<LichessGamePage onBack={() => navigate("/lichess")} />}
         />
       </Routes>
     </div>

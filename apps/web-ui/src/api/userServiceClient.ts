@@ -2,6 +2,7 @@ import type {
   CreateSearchessBotChallengeRequest,
   CreateSearchessBotChallengeResponse,
   ExternalAccountLinkDto,
+  LichessGameStateResponse,
   LichessLinkStartResponse,
   LichessUpgradeResponse,
   PatchProfileRequest,
@@ -77,6 +78,10 @@ export async function createSearchessBotChallenge(
       ...request,
     }),
   });
+}
+
+export async function getLichessGameState(gameId: string): Promise<LichessGameStateResponse> {
+  return fetchUserJson<LichessGameStateResponse>(`/api/users/me/lichess/games/${encodeURIComponent(gameId)}`);
 }
 
 export async function deleteLichessLink(): Promise<void> {

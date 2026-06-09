@@ -58,3 +58,22 @@ export interface CreateSearchessBotChallengeResponse {
   challengeId: string;
   url: string;
 }
+
+export interface LichessGamePlayerState {
+  username: string;
+  isSearchessBot: boolean;
+}
+
+export interface LichessGameStateResponse {
+  gameId: string;
+  status: string;
+  fen: string | null;
+  moves: string;
+  white: LichessGamePlayerState;
+  black: LichessGamePlayerState;
+  sideToMove: "white" | "black";
+  userColor: "white" | "black" | null;
+  botColor: "white" | "black" | null;
+  url: string;
+  lastUpdatedAt: string;
+}

@@ -25,6 +25,25 @@ final case class CreateChallengeResult(
     url: String
 )
 
+final case class LichessGamePlayerState(
+    username: String,
+    isSearchessBot: Boolean
+)
+
+final case class LichessGameStateResult(
+    gameId: String,
+    status: String,
+    fen: Option[String],
+    moves: String,
+    white: LichessGamePlayerState,
+    black: LichessGamePlayerState,
+    sideToMove: String,
+    userColor: Option[String],
+    botColor: Option[String],
+    url: String,
+    lastUpdatedAt: java.time.Instant
+)
+
 class LichessChallengeService(
     linkRepo: ExternalAccountLinkRepository,
     cipher: Option[LichessTokenCipher],
@@ -45,6 +64,19 @@ class LichessChallengeService(
             }
         }
 
+  def getReadOnlyGameState(userId: UUID, gameId: String): IO[Either[String, LichessGameStateResult]] =
+    validateGameId(gameId) match
+      case Left(err) => IO.pure(Left(s"invalid_lichess_game_id:$err"))
+      case Right(_)  =>
+        IO(loadGameLink(userId)).flatMap {
+          case Left(err)   => IO.pure(Left(err))
+          case Right(link) =>
+            IO(decryptToken(link)).flatMap {
+              case Left(err)    => IO.pure(Left(err))
+              case Right(token) => fetchGameState(link, token, gameId)
+            }
+        }
+
   private def validateRequest(req: CreateChallengeRequest): Either[String, Unit] =
     if req.rated then Left("rated must be false")
     else if req.variant != "standard" then Left("variant must be standard")
@@ -59,6 +91,15 @@ class LichessChallengeService(
       case Some(link) if link.capability != "challenge_ready" => Left("no_challenge_ready_capability")
       case Some(link) if link.tokenEncrypted.isEmpty          => Left("no_stored_lichess_token")
       case Some(link)                                         => Right(link)
+    }
+
+  private def loadGameLink(userId: UUID): Either[String, ExternalAccountLink] =
+    linkRepo.findByUserAndProvider(userId, "Lichess").flatMap {
+      case None => Left("no_lichess_link")
+      case Some(link) if !Set("challenge_ready", "board_play").contains(link.capability) =>
+        Left("no_lichess_game_capability")
+      case Some(link) if link.tokenEncrypted.isEmpty => Left("no_stored_lichess_token")
+      case Some(link)                                => Right(link)
     }
 
   private def decryptToken(link: ExternalAccountLink): Either[String, String] =
@@ -105,6 +146,34 @@ class LichessChallengeService(
       }
     }.handleErrorWith(_ => IO.pure(Left("lichess_challenge_failed")))
 
+  private def fetchGameState(
+      link: ExternalAccountLink,
+      token: String,
+      gameId: String
+  ): IO[Either[String, LichessGameStateResult]] =
+    val request = Request[IO](
+      method  = Method.GET,
+      uri     = Uri.unsafeFromString(config.gameExportEndpointFor(gameId)),
+      headers = Headers(
+        Authorization(Credentials.Token(AuthScheme.Bearer, token)),
+        Header.Raw(CIString("Accept"), "application/json")
+      )
+    )
+    client.run(request).use { resp =>
+      resp.bodyText.compile.string.flatMap { raw =>
+        if resp.status.isSuccess then
+          parseGameStateResponse(raw, gameId, link) match
+            case Right(result) => IO.pure(Right(result))
+            case Left(err)    =>
+              logGameStateParseFailed(resp.status, gameId).as(Left(err))
+        else if resp.status.code == 401 || resp.status.code == 403 then
+          logGameStateFailed(resp.status, gameId, raw) >>
+          expireLink(link).as(Left[String, LichessGameStateResult]("lichess_token_expired"))
+        else
+          logGameStateFailed(resp.status, gameId, raw).as(Left("lichess_game_state_failed"))
+      }
+    }.handleErrorWith(_ => IO.pure(Left("lichess_game_state_failed")))
+
   private def parseChallengeResponse(raw: String): Either[String, CreateChallengeResult] =
     try
       val json = ujson.read(raw)
@@ -116,6 +185,68 @@ class LichessChallengeService(
         case _                     => Left("lichess_challenge_failed")
     catch
       case _: Exception => Left("lichess_challenge_failed")
+
+  private def parseGameStateResponse(
+      raw: String,
+      requestedGameId: String,
+      link: ExternalAccountLink
+  ): Either[String, LichessGameStateResult] =
+    try
+      val json       = ujson.read(raw)
+      val gameId     = json.obj.get("id").flatMap(_.strOpt).getOrElse(requestedGameId)
+      val status     = json.obj.get("status").flatMap(_.strOpt).getOrElse("unknown")
+      val fen        = json.obj.get("fen").flatMap(_.strOpt).filter(_.trim.nonEmpty)
+      val moves      = json.obj.get("moves").flatMap(_.strOpt).getOrElse("")
+      val whiteName  = playerUsername(json, "white").getOrElse("White")
+      val blackName  = playerUsername(json, "black").getOrElse("Black")
+      val userColor  = colorForUsername(link.externalUsername, whiteName, blackName)
+      val botColor   = colorForUsername(config.botUsername, whiteName, blackName)
+      val sideToMove = sideToMoveFrom(fen, moves)
+
+      Right(LichessGameStateResult(
+        gameId        = gameId,
+        status        = status,
+        fen           = fen,
+        moves         = moves.trim,
+        white         = LichessGamePlayerState(whiteName, isBotUsername(whiteName)),
+        black         = LichessGamePlayerState(blackName, isBotUsername(blackName)),
+        sideToMove    = sideToMove,
+        userColor     = userColor,
+        botColor      = botColor,
+        url           = s"https://lichess.org/$gameId",
+        lastUpdatedAt = java.time.Instant.now()
+      ))
+    catch
+      case _: Exception => Left("lichess_game_state_failed")
+
+  private def playerUsername(json: ujson.Value, color: String): Option[String] =
+    json.obj.get("players").flatMap { players =>
+      players.obj.get(color).flatMap { player =>
+        player.obj.get("user").flatMap { user =>
+          user.obj.get("name").flatMap(_.strOpt)
+            .orElse(user.obj.get("id").flatMap(_.strOpt))
+        }.orElse(player.obj.get("name").flatMap(_.strOpt))
+      }
+    }
+
+  private def colorForUsername(username: String, whiteName: String, blackName: String): Option[String] =
+    if whiteName.equalsIgnoreCase(username) then Some("white")
+    else if blackName.equalsIgnoreCase(username) then Some("black")
+    else None
+
+  private def isBotUsername(username: String): Boolean =
+    username.equalsIgnoreCase(config.botUsername)
+
+  private def sideToMoveFrom(fen: Option[String], moves: String): String =
+    fen.flatMap { value =>
+      value.split("\\s+").drop(1).headOption.collect {
+        case "w" => "white"
+        case "b" => "black"
+      }
+    }.getOrElse {
+      val plyCount = moves.split("\\s+").count(_.nonEmpty)
+      if plyCount % 2 == 0 then "white" else "black"
+    }
 
   private def logChallengeFailed(status: Status, req: CreateChallengeRequest, raw: String): IO[Unit] =
     IO(StructuredLog.warn(
@@ -144,8 +275,31 @@ class LichessChallengeService(
       "color"          -> req.color
     ))
 
+  private def logGameStateFailed(status: Status, gameId: String, raw: String): IO[Unit] =
+    IO(StructuredLog.warn(
+      "user-service",
+      "lichess_game_state_failed",
+      "status"          -> status.code,
+      "gameId"          -> gameId,
+      "targetBot"       -> config.botUsername,
+      "responsePreview" -> sanitizedPreview(raw)
+    ))
+
+  private def logGameStateParseFailed(status: Status, gameId: String): IO[Unit] =
+    IO(StructuredLog.warn(
+      "user-service",
+      "lichess_game_state_response_parse_failed",
+      "status"    -> status.code,
+      "gameId"    -> gameId,
+      "targetBot" -> config.botUsername
+    ))
+
   private def sanitizedPreview(raw: String): String =
     raw.replaceAll("\\s+", " ").trim.take(300)
+
+  private def validateGameId(gameId: String): Either[String, Unit] =
+    if gameId.matches("[A-Za-z0-9_-]{4,32}") then Right(())
+    else Left("gameId must be 4-32 URL-safe characters")
 
   private def expireLink(link: ExternalAccountLink): IO[Unit] =
     val expired = link.copy(

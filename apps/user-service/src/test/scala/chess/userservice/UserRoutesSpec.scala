@@ -45,18 +45,25 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
       IO.pure(Response[IO](status = Status.InternalServerError))
     }.orNotFound)
 
+  private val testKey    = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+  private val testCipher = LichessTokenCipher.fromBase64Key(testKey)
+    .getOrElse(fail("cipher init failed for test key"))
+
   private val testChallengeConfig = LichessChallengeBotConfig(
     botUsername         = "arutepsu2",
     challengeApiBaseUrl = "https://lichess.org/api/challenge"
   )
 
-  private def makeRoutes(cipher: Option[LichessTokenCipher] = None): (HttpApp[IO], UserProfileService, InMemExternalAccountLinkRepository) =
+  private def makeRoutes(
+      cipher: Option[LichessTokenCipher] = None,
+      httpClient: Client[IO] = noopHttpClient
+  ): (HttpApp[IO], UserProfileService, InMemExternalAccountLinkRepository) =
     val profileRepo      = InMemUserProfileRepository()
     val linkRepo         = InMemExternalAccountLinkRepository()
     val stateRepo        = InMemOAuthLinkStateRepository()
     val service          = UserProfileService(profileRepo, linkRepo)
     val oauthService     = LichessOAuthService(stateRepo, linkRepo, noopHttpClient, testLichessConfig, cipher)
-    val challengeService = LichessChallengeService(linkRepo, cipher, noopHttpClient, testChallengeConfig)
+    val challengeService = LichessChallengeService(linkRepo, cipher, httpClient, testChallengeConfig)
     val routes           = UserRoutes(service, oauthService, challengeService, testLichessConfig)
     (routes.routes.orNotFound, service, linkRepo)
 
@@ -346,6 +353,73 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   // ── In-memory stubs (thread-safe, per-test instance) ──────────────────────
+
+  "GET /users/me/lichess/games/{gameId}" should "return 403 NO_LICHESS_LINK when user has no Lichess link" in {
+    val (app, _, _) = makeRoutes(cipher = Some(testCipher))
+    val req = Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/me/lichess/games/abc123"))
+      .putHeaders(bearerHeader("sub-game-nolink", "gamenolink"))
+    val res  = app.run(req).unsafeRunSync()
+    val body = ujson.read(res.bodyText.compile.string.unsafeRunSync())
+    res.status       shouldBe Status.Forbidden
+    body("code").str shouldBe "NO_LICHESS_LINK"
+  }
+
+  it should "return a normalized safe game state DTO without token fields" in {
+    val lichessJson =
+      """{
+        |  "id":"abc123",
+        |  "status":"started",
+        |  "fen":"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
+        |  "moves":"e2e4",
+        |  "players":{
+        |    "white":{"user":{"name":"routeuser_chess"}},
+        |    "black":{"user":{"name":"arutepsu2"}}
+        |  }
+        |}""".stripMargin
+    val httpClient = Client.fromHttpApp(HttpRoutes.of[IO] { case _ =>
+      IO.pure(Response[IO](
+        status = Status.Ok,
+        body   = Stream.emits(lichessJson.getBytes("UTF-8")).covary[IO]
+      ))
+    }.orNotFound)
+    val (app, _, linkRepo) = makeRoutes(cipher = Some(testCipher), httpClient = httpClient)
+    val getRes = app.run(
+      Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/me"))
+        .putHeaders(bearerHeader("sub-game-ok", "routeuser"))
+    ).unsafeRunSync()
+    val userId = UUID.fromString(ujson.read(getRes.bodyText.compile.string.unsafeRunSync())("userId").str)
+    linkRepo.insert(ExternalAccountLink(
+      linkId             = UUID.randomUUID(),
+      userId             = userId,
+      provider           = "Lichess",
+      externalId         = None,
+      externalUsername   = "routeuser_chess",
+      verified           = true,
+      verificationSource = "OAuth",
+      linkedAt           = Instant.now(),
+      capability         = "challenge_ready",
+      tokenEncrypted     = Some(testCipher.encrypt("lio_route").getOrElse(fail("test token encryption failed"))),
+      tokenScopes        = Some("challenge:write"),
+      tokenStoredAt      = Some(Instant.now())
+    )).fold(err => fail(err), _ => ())
+
+    val req = Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/me/lichess/games/abc123"))
+      .putHeaders(bearerHeader("sub-game-ok", "routeuser"))
+    val res  = app.run(req).unsafeRunSync()
+    val body = ujson.read(res.bodyText.compile.string.unsafeRunSync())
+
+    res.status                           shouldBe Status.Ok
+    body("gameId").str                   shouldBe "abc123"
+    body("status").str                   shouldBe "started"
+    body("moves").str                    shouldBe "e2e4"
+    body("white")("username").str        shouldBe "routeuser_chess"
+    body("black")("isSearchessBot").bool shouldBe true
+    body("userColor").str                shouldBe "white"
+    body("botColor").str                 shouldBe "black"
+    body.obj.contains("tokenEncrypted")  shouldBe false
+    body.obj.contains("tokenScopes")     shouldBe false
+    body.obj.contains("tokenStoredAt")   shouldBe false
+  }
 
   private class InMemUserProfileRepository extends UserProfileRepository:
     private val store = new ConcurrentHashMap[String, UserProfile]()

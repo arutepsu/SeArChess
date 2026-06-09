@@ -167,6 +167,71 @@ class LichessChallengeServiceSpec extends AnyFlatSpec with Matchers with EitherV
     result shouldBe Right(CreateChallengeResult("abc", "https://lichess.org/abc"))
   }
 
+  "getReadOnlyGameState" should "return Left(no_lichess_link) when user has no Lichess link" in {
+    val repo   = StubLinkRepository(None)
+    val svc    = LichessChallengeService(repo, Some(testCipher), stubbedClient(IO.pure(Response[IO](Status.Ok))), botConfig)
+    val result = svc.getReadOnlyGameState(userId, "abc123").unsafeRunSync()
+    result shouldBe Left("no_lichess_link")
+  }
+
+  it should "return Left(no_lichess_game_capability) when link has identity_only capability" in {
+    val repo   = StubLinkRepository(Some(makeLink("identity_only", token = Some("lio_test"))))
+    val svc    = LichessChallengeService(repo, Some(testCipher), stubbedClient(IO.pure(Response[IO](Status.Ok))), botConfig)
+    val result = svc.getReadOnlyGameState(userId, "abc123").unsafeRunSync()
+    result shouldBe Left("no_lichess_game_capability")
+  }
+
+  it should "return Left(no_stored_lichess_token) when link has no token" in {
+    val repo   = StubLinkRepository(Some(makeLink("challenge_ready", token = None)))
+    val svc    = LichessChallengeService(repo, Some(testCipher), stubbedClient(IO.pure(Response[IO](Status.Ok))), botConfig)
+    val result = svc.getReadOnlyGameState(userId, "abc123").unsafeRunSync()
+    result shouldBe Left("no_stored_lichess_token")
+  }
+
+  it should "return Left(lichess_token_expired) and expire the link when Lichess game fetch returns 401" in {
+    val link   = makeLink("challenge_ready", token = Some("lio_test"))
+    val repo   = StubLinkRepository(Some(link))
+    val client = stubbedClient(IO.pure(Response[IO](Status.Unauthorized)))
+    val svc    = LichessChallengeService(repo, Some(testCipher), client, botConfig)
+    val result = svc.getReadOnlyGameState(userId, "abc123").unsafeRunSync()
+    result                                     shouldBe Left("lichess_token_expired")
+    repo.lastUpdated.map(_.capability)         shouldBe Some("expired")
+    repo.lastUpdated.flatMap(_.tokenEncrypted) shouldBe None
+  }
+
+  it should "return a normalized safe DTO for a successful Lichess game state response" in {
+    val repo   = StubLinkRepository(Some(makeLink("challenge_ready", token = Some("lio_test"))))
+    val json   =
+      """{
+        |  "id":"abc123",
+        |  "status":"started",
+        |  "fen":"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
+        |  "moves":"e2e4",
+        |  "players":{
+        |    "white":{"user":{"name":"testuser"}},
+        |    "black":{"user":{"name":"arutepsu2"}}
+        |  }
+        |}""".stripMargin
+    val client = stubbedClient(IO.pure(Response[IO](
+      status = Status.Ok,
+      body   = Stream.emits(json.getBytes("UTF-8")).covary[IO]
+    )))
+    val svc    = LichessChallengeService(repo, Some(testCipher), client, botConfig)
+    val result = svc.getReadOnlyGameState(userId, "abc123").unsafeRunSync().value
+
+    result.gameId                 shouldBe "abc123"
+    result.status                 shouldBe "started"
+    result.fen.getOrElse(fail("expected FEN")) should include(" b ")
+    result.moves                  shouldBe "e2e4"
+    result.white.username         shouldBe "testuser"
+    result.white.isSearchessBot   shouldBe false
+    result.black.username         shouldBe "arutepsu2"
+    result.black.isSearchessBot   shouldBe true
+    result.sideToMove             shouldBe "black"
+    result.userColor              shouldBe Some("white")
+    result.botColor               shouldBe Some("black")
+  }
+
   // ── Scenario 6: validation failures ─────────────────────────────────────
 
   it should "return Left(invalid_challenge_request:...) when rated is true" in {
