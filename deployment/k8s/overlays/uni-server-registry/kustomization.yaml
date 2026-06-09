@@ -57,6 +57,11 @@ images:
 - name: searchess/web-ui
   newName: ghcr.io/arutepsu/searchess-web-ui
   newTag: sha-e559b69
+# lichess-bridge-service: Phase 3A — replicas set to 1 via patch below.
+# sha-placeholder until CI merges feature/lichess and writes the real sha-* tag.
+- name: searchess/lichess-bridge-service
+  newName: ghcr.io/arutepsu/searchess-lichess-bridge-service
+  newTag: sha-placeholder
 
 # Expose Envoy and Grafana as LoadBalancer — k3d servicelb forwards these
 # through the port mappings in deployment/k3d/server-cluster.yaml.
@@ -97,3 +102,13 @@ patches:
   target:
     kind: ConfigMap
     name: user-service-env
+# Phase 3A: enable lichess-bridge-service with bot account arutepsu2.
+# Challenge acceptance intentionally disabled; see patch for details.
+- path: patches/lichess-bridge-service-live.yaml
+  target:
+    kind: ConfigMap
+    name: lichess-bridge-service-env
+- path: patches/lichess-bridge-service-replicas.yaml
+  target:
+    kind: Deployment
+    name: lichess-bridge-service

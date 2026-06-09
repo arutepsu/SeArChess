@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { PlayableGameMode } from "../api/types";
 import type { UserProfileResponse } from "../api/userServiceTypes";
-import { gameModes, isPlayableGameMode, type GameModeId } from "../gameModes";
+import { gameModes, lichessBridgeModes, isPlayableGameMode, type GameModeId } from "../gameModes";
 import ResumeGamePanel from "./ResumeGamePanel.tsx";
 import "./Homepage.css";
 
@@ -73,6 +73,24 @@ export default function Homepage({
               </article>
             );
           })}
+        </div>
+
+        <div className="lichess-bridge-section" aria-label="Lichess Bridge (Coming Soon)">
+          <h2 className="lichess-bridge-heading">Lichess Bridge <span className="lichess-bridge-badge">Coming Soon</span></h2>
+          <div className="mode-selection">
+            {lichessBridgeModes.map((item) => (
+              <article key={item.id} className="mode-card is-disabled">
+                <header>
+                  <h2>{item.title}</h2>
+                  <span>Coming Soon</span>
+                </header>
+                <p>{item.summary}</p>
+                <button type="button" disabled>
+                  {item.startLabel}
+                </button>
+              </article>
+            ))}
+          </div>
         </div>
 
         {onboardingRequired && (

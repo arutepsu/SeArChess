@@ -3,7 +3,10 @@ import type { PlayableGameMode } from "./api/types";
 export type PlaceholderGameMode =
   | "AIVsLichessBot"
   | "BotVsBot"
-  | "Tournament";
+  | "Tournament"
+  | "LichessBridgeHumanVsLichess"
+  | "LichessBridgeAiVsLichess"
+  | "LichessBridgeSpectate";
 
 export type GameModeId = PlayableGameMode | PlaceholderGameMode;
 
@@ -39,7 +42,7 @@ export const gameModes: GameModeDefinition[] = [
   },
   {
     id: "HumanVsDeployedBot",
-    title: "Human vs Deployed Bot",
+    title: "Human vs Searchess Bot",
     summary: "Play against the deployed Searchess bot inside this Web UI. Requires a verified linked Lichess account.",
     active: true,
     startLabel: "Start"
@@ -64,6 +67,31 @@ export const gameModes: GameModeDefinition[] = [
     summary: "Tournament orchestration needs a server-side API before browser control is safe.",
     active: false,
     startLabel: "Coming Next"
+  }
+];
+
+/** Lichess Bridge modes shown as a separate disabled section (Phase 1 placeholder). */
+export const lichessBridgeModes: GameModeDefinition[] = [
+  {
+    id: "LichessBridgeHumanVsLichess",
+    title: "Human vs Lichess",
+    summary: "Challenge a Lichess player directly from Searchess. Requires the Lichess Bridge service.",
+    active: false,
+    startLabel: "Coming Soon"
+  },
+  {
+    id: "LichessBridgeAiVsLichess",
+    title: "Searchess AI vs Lichess",
+    summary: "Let the Searchess AI play on Lichess on your behalf. Requires the Lichess Bridge service.",
+    active: false,
+    startLabel: "Coming Soon"
+  },
+  {
+    id: "LichessBridgeSpectate",
+    title: "Spectate Lichess Game",
+    summary: "Watch and analyse a live Lichess game inside Searchess. Requires the Lichess Bridge service.",
+    active: false,
+    startLabel: "Coming Soon"
   }
 ];
 

@@ -188,6 +188,33 @@
   color: #f4efe6;
 }
 
+.lichess-bridge-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  padding-top: 20px;
+  display: grid;
+  gap: 12px;
+}
+
+.lichess-bridge-heading {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgba(244, 239, 230, 0.55);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lichess-bridge-badge {
+  border-radius: 999px;
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(244, 239, 230, 0.45);
+  font-size: 0.68rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
 @media (max-width: 920px) {
   .mode-selection {
     grid-template-columns: repeat(2, minmax(0, 1fr));
