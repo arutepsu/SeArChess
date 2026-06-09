@@ -1,10 +1,6 @@
 package chess.adapter.http4s.mapper
 
-<<<<<<< HEAD:apps/game-service/modules/rest-http4s/src/test/scala/chess/adapter/http4s/mapper/SessionMapperSpec.scala
 import chess.application.GameStateCommandService
-=======
-import chess.application.ChessService
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services):modules/adapter-rest-contract/src/test/scala/chess/adapter/rest/contract/mapper/SessionMapperSpec.scala
 import chess.application.query.game.GameView
 import chess.application.session.model.{GameSession, SessionLifecycle, SessionMode, SideController}
 import chess.application.session.model.SessionIds.{GameId, SessionId}
@@ -166,7 +162,6 @@ class SessionMapperSpec extends AnyFlatSpec with Matchers with EitherValues:
     SessionMapper.toSessionResponse(fin).lifecycle shouldBe "Finished"
   }
 
-<<<<<<< HEAD:apps/game-service/modules/rest-http4s/src/test/scala/chess/adapter/http4s/mapper/SessionMapperSpec.scala
   it should "serialize Cancelled lifecycle" in {
     val cancelled = sess.copy(lifecycle = SessionLifecycle.Cancelled)
     SessionMapper.toSessionResponse(cancelled).lifecycle shouldBe "Cancelled"
@@ -179,13 +174,4 @@ class SessionMapperSpec extends AnyFlatSpec with Matchers with EitherValues:
     resp.session.sessionId shouldBe sess.sessionId.value.toString
     resp.game.gameId shouldBe gid.value.toString
     resp.game.board should have size 32
-=======
-  "SessionMapper.toCreateSessionResponse" should "bundle session and game data" in {
-    val state    = ChessService.createNewGame()
-    val gameResp = GameMapper.toGameResponse(GameView.fromState(gid, state))
-    val resp     = SessionMapper.toCreateSessionResponse(sess, gid, gameResp)
-    resp.session.sessionId shouldBe sess.sessionId.value.toString
-    resp.game.gameId       shouldBe gid.value.toString
-    resp.game.board        should have size 32
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services):modules/adapter-rest-contract/src/test/scala/chess/adapter/rest/contract/mapper/SessionMapperSpec.scala
   }

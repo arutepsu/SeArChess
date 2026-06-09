@@ -4,7 +4,6 @@ import chess.application.session.model.{GameSession, SideController}
 import chess.domain.model.Color
 
 /** Pure policy for determining whether the current turn belongs to an AI controller.
-<<<<<<< HEAD:apps/game-service/modules/core/src/main/scala/chess/application/ai/policy/AITurnPolicy.scala
   *
   * A turn is an AI turn when the [[SideController]] assigned to `currentPlayer` in the session is
   * [[SideController.AI]]. Engine identity (`engineId`) is not examined here — that is an
@@ -14,17 +13,6 @@ import chess.domain.model.Color
   * `ActorControlPolicy` answers "can this controller act?"; `AITurnPolicy` answers "should the AI
   * service act now?".
   */
-=======
- *
- *  A turn is an AI turn when the [[SideController]] assigned to `currentPlayer`
- *  in the session is [[SideController.AI]].  Engine identity (`engineId`) is not
- *  examined here — that is an [[AiMoveSuggestionClient]] concern.
- *
- *  This policy complements [[chess.application.session.policy.ActorControlPolicy]]:
- *  `ActorControlPolicy` answers "can this controller act?";
- *  `AITurnPolicy` answers "should the AI service act now?".
- */
->>>>>>> 14542117 (fix ai flow):apps/game-service/modules/core/src/main/scala/chess/ai/policy/AITurnPolicy.scala
 object AITurnPolicy:
 
   /** Returns `true` when `currentPlayer`'s side is controlled by an AI.

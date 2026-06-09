@@ -21,22 +21,9 @@ static_resources:
                       domains:
                         - "*"
                       routes:
-<<<<<<< HEAD
-<<<<<<< HEAD
                         # Public edge: expose Game Service health, gameplay API, and WebSocket only.
                         # Do not route AI /v1/move-suggestions, History /internal/events/game,
                         # the legacy History /events/game alias, or History /archives through Envoy.
-=======
->>>>>>> abcc8c8c (envoy + ai service prerp)
-=======
-                        # Public edge: expose Game Service health, gameplay API, and WebSocket only.
-<<<<<<< HEAD
-                        # AI Service and History ingestion remain internal container-network surfaces.
->>>>>>> f7a07f01 (runnable mains, hardered event contracts)
-=======
-                        # Do not route AI /v1/move-suggestions, History /internal/events/game,
-                        # the legacy History /events/game alias, or History /archives through Envoy.
->>>>>>> ce08c01e (local microservices)
                         - match:
                             path: /health
                           route:
@@ -51,29 +38,16 @@ static_resources:
                           route:
                             cluster: game_service_ws
                         - match:
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 2b1aa125 (real migration ok)
                             path: /admin/migrations
                           route:
                             cluster: game_service_http
                         - match:
-<<<<<<< HEAD
-=======
->>>>>>> abcc8c8c (envoy + ai service prerp)
-=======
->>>>>>> 2b1aa125 (real migration ok)
                             prefix: /
                           direct_response:
                             status: 404
                             body:
                               inline_string: "not found\n"
                 http_filters:
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 966317ea (added bot container)
                   # ---------------------------------------------------------------------------
                   # JWT validation — local Compose only.
                   #
@@ -110,11 +84,6 @@ static_resources:
                             provider_name: "keycloak"
                       # Let OPTIONS preflight pass without a token.
                       bypass_cors_preflight: true
-<<<<<<< HEAD
-=======
->>>>>>> abcc8c8c (envoy + ai service prerp)
-=======
->>>>>>> 966317ea (added bot container)
                   - name: envoy.filters.http.router
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
@@ -144,10 +113,6 @@ static_resources:
                     socket_address:
                       address: game-service
                       port_value: 9090
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 966317ea (added bot container)
     - name: keycloak
       type: STRICT_DNS
       connect_timeout: 5s
@@ -160,11 +125,6 @@ static_resources:
                     socket_address:
                       address: keycloak
                       port_value: 8080
-<<<<<<< HEAD
-=======
->>>>>>> abcc8c8c (envoy + ai service prerp)
-=======
->>>>>>> 966317ea (added bot container)
 
 admin:
   address:

@@ -2,7 +2,6 @@ package chess.historyservice
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-<<<<<<< HEAD
 import chess.adapter.event.{
   AppEventSerializer,
   DurableHistoryEventPublisher,
@@ -10,9 +9,6 @@ import chess.adapter.event.{
   HistoryOutboxForwarder,
   SqliteHistoryEventOutbox
 }
-=======
-import chess.adapter.event.{DurableHistoryEventPublisher, GameHistoryIngestionContract, HistoryOutboxForwarder, SqliteHistoryEventOutbox}
->>>>>>> f7a07f01 (runnable mains, hardered event contracts)
 import chess.application.event.AppEvent
 import chess.application.session.model.SessionIds.{GameId, SessionId}
 import chess.history.{ArchiveMaterializer, ArchiveRecord, ArchiveRepository, ArchiveRepositoryError, HistoryIngestionService, RemoteGameArchiveClient}

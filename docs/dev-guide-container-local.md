@@ -1,35 +1,12 @@
 # Local Container Deployment
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 This guide runs Envoy, the Scala Game Service, the Scala History Service, and
 the Scala AI Service with Docker Compose. It is the canonical local/dev
 microservice topology.
-=======
-This guide runs the Scala Game Service beside the Python AI service with Docker
-Compose. It is intended for local/dev extraction checks only.
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
-=======
-This guide runs Envoy, the Scala Game Service, the Scala History Service, and
-<<<<<<< HEAD
-the Python AI service with Docker Compose. It is intended for local/dev
-extraction checks only.
->>>>>>> abcc8c8c (envoy + ai service prerp)
-=======
-the Scala AI Service with Docker Compose. It is the canonical local/dev
-microservice topology.
->>>>>>> ce08c01e (local microservices)
 
 ## Prerequisites
 
 - Run commands from the Scala repo root: `searchess`.
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-- The sibling Python repo must exist at `../searchess-ai-service`.
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
-=======
->>>>>>> ce08c01e (local microservices)
 - Docker Compose must be available.
 
 ## Build And Run
@@ -38,8 +15,6 @@ microservice topology.
 docker compose up --build
 ```
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 Compose starts four services:
 
 | Service | Container port | Host port | Purpose |
@@ -49,36 +24,10 @@ Compose starts four services:
 | `game-service` | `9090` | internal | Scala WebSocket server |
 | `history-service` | `8081` | internal | Scala History archive API |
 | `ai-service` | `8765` | internal | Scala AI inference API |
-=======
-Compose starts two services:
-
-| Service | Container port | Host port | Purpose |
-|---|---:|---:|---|
-| `game-service` | `8080` | `8080` | Scala HTTP API |
-| `game-service` | `9090` | `9090` | Scala WebSocket server |
-| `ai-service` | `8765` | `8765` | Python AI inference API |
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
-=======
-Compose starts four services:
-
-| Service | Container port | Host port | Purpose |
-|---|---:|---:|---|
-| `envoy` | `10000` | `10000` | Public local/dev edge |
-| `game-service` | `8080` | internal | Scala HTTP API |
-| `game-service` | `9090` | internal | Scala WebSocket server |
-| `history-service` | `8081` | internal | Scala History archive API |
-<<<<<<< HEAD
-| `ai-service` | `8765` | internal | Python AI inference API |
->>>>>>> abcc8c8c (envoy + ai service prerp)
-=======
-| `ai-service` | `8765` | internal | Scala AI inference API |
->>>>>>> ce08c01e (local microservices)
 
 Check liveness from the host:
 
 ```bash
-<<<<<<< HEAD
-<<<<<<< HEAD
 curl http://127.0.0.1:10000/health
 ```
 
@@ -106,41 +55,6 @@ curl -s -X POST http://127.0.0.1:10000/api/sessions \
 Game-to-History and Game-to-AI traffic stays direct inside the Compose network.
 History and AI are not routed through Envoy.
 
-=======
-curl http://127.0.0.1:8080/health
-curl http://127.0.0.1:8765/health
-```
-
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
-=======
-curl http://127.0.0.1:10000/health
-```
-
-Normal client access should use Envoy. The service container ports are exposed
-only on the Compose network.
-
-## Edge Routing
-
-Envoy uses static local/dev routing:
-
-| Public path | Internal target |
-|---|---|
-| `GET /health` | `game-service:8080/health` |
-| `/api/*` | `game-service:8080/*` with `/api` stripped |
-| `/ws/*` | `game-service:9090/ws/*` with WebSocket upgrade support |
-
-Examples:
-
-```bash
-curl -s -X POST http://127.0.0.1:10000/api/sessions \
-  -H "Content-Type: application/json" \
-  -d '{"mode":"HumanVsAI"}'
-```
-
-Game-to-History and Game-to-AI traffic stays direct inside the Compose network.
-History and AI are not routed through Envoy.
-
->>>>>>> abcc8c8c (envoy + ai service prerp)
 ## Environment
 
 The compose file sets the Game Service environment explicitly:
@@ -154,8 +68,6 @@ The compose file sets the Game Service environment explicitly:
 | `PERSISTENCE_MODE` | `sqlite` | Use durable SQLite persistence |
 | `CHESS_DB_PATH` | `/data/searchess.sqlite` | SQLite DB file path in the container |
 | `EVENT_MODE` | `in-process` | Current event delivery mode |
-<<<<<<< HEAD
-<<<<<<< HEAD
 | `AI_PROVIDER_MODE` | `remote` | Use the internal AI Service |
 | `AI_REMOTE_BASE_URL` | `http://ai-service:8765` | Compose-network URL for AI |
 | `AI_TIMEOUT_MILLIS` | `2000` | Remote AI client timeout |
@@ -175,13 +87,6 @@ traffic; in a container, `localhost` means the same container.
 Inside Compose, `game-service` reaches History by DNS name:
 `http://history-service:8081`.
 
-=======
-| `AI_PROVIDER_MODE` | `remote` | Use the Python AI service |
-| `AI_REMOTE_BASE_URL` | `http://ai-service:8765` | Compose-network URL for Python AI |
-=======
-| `AI_PROVIDER_MODE` | `remote` | Use the internal AI Service |
-| `AI_REMOTE_BASE_URL` | `http://ai-service:8765` | Compose-network URL for AI |
->>>>>>> ce08c01e (local microservices)
 | `AI_TIMEOUT_MILLIS` | `2000` | Remote AI client timeout |
 
 The AI Service uses:
@@ -196,13 +101,6 @@ Inside Compose, `game-service` reaches AI by DNS name:
 `http://ai-service:8765`. Do not use `localhost` for container-to-container
 traffic; in a container, `localhost` means the same container.
 
-<<<<<<< HEAD
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
-=======
-Inside Compose, `game-service` reaches History by DNS name:
-`http://history-service:8081`.
-
->>>>>>> abcc8c8c (envoy + ai service prerp)
 ## SQLite Persistence
 
 The Game Service mounts a named volume:
@@ -222,7 +120,6 @@ To inspect the mounted DB path:
 docker compose exec game-service ls -l /data
 ```
 
-<<<<<<< HEAD
 When History forwarding is enabled, the Game Service SQLite file also owns the
 `history_event_outbox` table for terminal Game -> History delivery. Local/dev
 read-only inspection is available without opening SQLite manually:
@@ -235,21 +132,11 @@ curl -s http://127.0.0.1:10000/api/ops/history-outbox/pending
 See `docs/dev-guide-game-service.md` for the response shape and limits of this
 debug surface.
 
-=======
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
 To verify persistence across a Game Service restart:
 
 ```bash
 # Create a Human-vs-AI session and note session.gameId.
-<<<<<<< HEAD
-<<<<<<< HEAD
 curl -s -X POST http://127.0.0.1:10000/api/sessions \
-=======
-curl -s -X POST http://127.0.0.1:8080/sessions \
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
-=======
-curl -s -X POST http://127.0.0.1:10000/api/sessions \
->>>>>>> abcc8c8c (envoy + ai service prerp)
   -H "Content-Type: application/json" \
   -d '{"mode":"HumanVsAI"}'
 
@@ -257,15 +144,7 @@ curl -s -X POST http://127.0.0.1:10000/api/sessions \
 docker compose restart game-service
 
 # Replace {gameId}; this should still return HTTP 200 with the saved game.
-<<<<<<< HEAD
-<<<<<<< HEAD
 curl -s http://127.0.0.1:10000/api/games/{gameId}
-=======
-curl -s http://127.0.0.1:8080/games/{gameId}
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
-=======
-curl -s http://127.0.0.1:10000/api/games/{gameId}
->>>>>>> abcc8c8c (envoy + ai service prerp)
 ```
 
 To reset local container state:
@@ -279,15 +158,7 @@ docker compose down -v
 Create a Human-vs-AI session:
 
 ```bash
-<<<<<<< HEAD
-<<<<<<< HEAD
 curl -s -X POST http://127.0.0.1:10000/api/sessions \
-=======
-curl -s -X POST http://127.0.0.1:8080/sessions \
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
-=======
-curl -s -X POST http://127.0.0.1:10000/api/sessions \
->>>>>>> abcc8c8c (envoy + ai service prerp)
   -H "Content-Type: application/json" \
   -d '{"mode":"HumanVsAI"}'
 ```
@@ -295,45 +166,19 @@ curl -s -X POST http://127.0.0.1:10000/api/sessions \
 Copy the returned `session.gameId`, then submit a human move:
 
 ```bash
-<<<<<<< HEAD
-<<<<<<< HEAD
 curl -s -X POST http://127.0.0.1:10000/api/games/{gameId}/moves \
-=======
-curl -s -X POST http://127.0.0.1:8080/games/{gameId}/moves \
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
-=======
-curl -s -X POST http://127.0.0.1:10000/api/games/{gameId}/moves \
->>>>>>> abcc8c8c (envoy + ai service prerp)
   -H "Content-Type: application/json" \
   -d '{"from":"e2","to":"e4","controller":"HumanLocal"}'
 ```
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> ce08c01e (local microservices)
 Trigger the AI-backed move:
 
 ```bash
 curl -s -X POST http://127.0.0.1:10000/api/games/{gameId}/ai-move
-=======
-Trigger the Python-backed AI move:
-
-```bash
-<<<<<<< HEAD
-curl -s -X POST http://127.0.0.1:8080/games/{gameId}/ai-move
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
-=======
-curl -s -X POST http://127.0.0.1:10000/api/games/{gameId}/ai-move
->>>>>>> abcc8c8c (envoy + ai service prerp)
 ```
 
 A successful response is HTTP 200 with the updated game state. If the AI
 service is not reachable, the Game Service returns `503 AI_PROVIDER_FAILED`.
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 14542117 (fix ai flow)
 
 For a repeatable verification of the same flow, run:
 
@@ -358,24 +203,12 @@ two moves. It also stops `ai-service` briefly to verify that Game surfaces
 adapter, then starts `ai-service` again.
 
 The same script also verifies bad provider output using the AI service's
-<<<<<<< HEAD
-<<<<<<< HEAD
 local/dev `X-Searchess-AI-Test-Mode` header hook. It recreates only `game-service` with
-=======
-local/dev `metadata.testMode` hook. It recreates only `game-service` with
->>>>>>> 14542117 (fix ai flow)
-=======
-local/dev `X-Searchess-AI-Test-Mode` header hook. It recreates only `game-service` with
->>>>>>> ce08c01e (local microservices)
 `AI_REMOTE_TEST_MODE=illegal_move` and then `malformed_response`, triggers an
 AI turn, and expects `422 AI_MOVE_REJECTED` in both cases. After each rejection
 it fetches the game again and asserts that the persisted game state is exactly
 unchanged. Use `-SkipFailurePath` to skip the AI-down check or
 `-SkipRejectionPaths` to skip the bad-output checks.
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> ce08c01e (local microservices)
 
 ## Independent Startup Paths
 
@@ -411,10 +244,3 @@ Run this before treating the local microservice foundation as complete:
 
 History and AI are internal-only in the Compose topology. Do not add Envoy
 routes or host port mappings for them unless the contract map is updated first.
-<<<<<<< HEAD
-=======
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
-=======
->>>>>>> 14542117 (fix ai flow)
-=======
->>>>>>> ce08c01e (local microservices)

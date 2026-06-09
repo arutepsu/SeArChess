@@ -3,19 +3,14 @@
 This is the first concrete History extraction seam. It is intentionally small:
 no broker, no production orchestration, no shared Game Service database access.
 
-<<<<<<< HEAD
 Contract reference: `docs/contracts/history-service-http-v1.md`.
 
-=======
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
 ## Decision Summary
 
 - Game Service remains authoritative for sessions, game state, and closure.
 - Game Service exposes `GET /archive/games/{gameId}` as the History-facing read
   contract.
 - Game Service forwards terminal Game event JSON to History Service at
-<<<<<<< HEAD
-<<<<<<< HEAD
   `POST /internal/events/game` over HTTP in local/dev compose.
 - The event is only a trigger. History then pulls the archive snapshot from Game
   Service over HTTP.
@@ -23,18 +18,12 @@ Contract reference: `docs/contracts/history-service-http-v1.md`.
   own archive record in its own Postgres database.
 - In SQLite mode, Game Service writes terminal History-facing events to a small
   SQLite outbox before a background forwarder POSTs them to History.
-=======
-  `POST /events/game` over HTTP in local/dev compose.
-=======
-  `POST /internal/events/game` over HTTP in local/dev compose.
->>>>>>> ce08c01e (local microservices)
 - The event is only a trigger. History then pulls the archive snapshot from Game
   Service over HTTP.
 - History materializes PGN/FEN with the existing notation path and stores its
   own archive record in its own SQLite database.
 - The HTTP forwarding bridge is best-effort. It is useful for local extraction
   proof, but it is not durable delivery.
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
 
 ## Services
 
@@ -44,22 +33,10 @@ docker compose up --build
 
 | Service | Host port | Role |
 |---|---:|---|
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> abcc8c8c (envoy + ai service prerp)
 | `envoy` | `10000` | public local/dev edge to Game Service |
 | `game-service` | internal | authoritative Game Service |
 | `history-service` | internal | downstream archive materializer |
 | `ai-service` | internal | remote AI provider |
-<<<<<<< HEAD
-=======
-| `game-service` | `8080` | authoritative Game Service |
-| `history-service` | `8081` | downstream archive materializer |
-| `ai-service` | `8765` | remote AI provider |
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
-=======
->>>>>>> abcc8c8c (envoy + ai service prerp)
 
 History Service environment:
 
@@ -68,23 +45,8 @@ History Service environment:
 | `HISTORY_HTTP_HOST` | `0.0.0.0` |
 | `HISTORY_HTTP_PORT` | `8081` |
 | `GAME_SERVICE_BASE_URL` | `http://game-service:8080` |
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 966317ea (added bot container)
-=======
->>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 | `HISTORY_GAME_SERVICE_TIMEOUT_MILLIS` | `2000` |
 | `HISTORY_ACCEPT_LEGACY_INGESTION_PATH` | `false` |
-=======
-| `HISTORY_DB_PATH` | `/history-data/history.sqlite` |
-| `HISTORY_GAME_SERVICE_TIMEOUT_MILLIS` | `2000` |
-<<<<<<< HEAD
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
-=======
-| `HISTORY_ACCEPT_LEGACY_INGESTION_PATH` | `false` |
->>>>>>> ce08c01e (local microservices)
 
 Game Service History forwarding environment:
 
@@ -94,41 +56,19 @@ Game Service History forwarding environment:
 | `HISTORY_SERVICE_BASE_URL` | `http://history-service:8081` |
 | `HISTORY_FORWARDING_TIMEOUT_MILLIS` | `2000` |
 
-<<<<<<< HEAD
 Game Service must also run with SQLite persistence for durable forwarding:
 
 | Variable | Value |
 |---|---|
 | `PERSISTENCE_MODE` | `sqlite` |
 | `CHESS_DB_PATH` | `/data/searchess.sqlite` |
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-History persistence is mounted separately from Game Service:
-
-```yaml
-history-service-data:/history-data
-```
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
-=======
->>>>>>> 966317ea (added bot container)
-=======
->>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 
 ## Archive Read Contract
 
 Game Service:
 
 ```bash
-<<<<<<< HEAD
-<<<<<<< HEAD
 GET http://127.0.0.1:10000/api/archive/games/{gameId}
-=======
-GET http://127.0.0.1:8080/archive/games/{gameId}
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
-=======
-GET http://127.0.0.1:10000/api/archive/games/{gameId}
->>>>>>> abcc8c8c (envoy + ai service prerp)
 ```
 
 Responses:
@@ -154,25 +94,13 @@ Service does not call `localhost` for History.
 Create and cancel a session:
 
 ```bash
-<<<<<<< HEAD
-<<<<<<< HEAD
 SESSION_JSON=$(curl -s -X POST http://127.0.0.1:10000/api/sessions \
-=======
-SESSION_JSON=$(curl -s -X POST http://127.0.0.1:8080/sessions \
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
-=======
-SESSION_JSON=$(curl -s -X POST http://127.0.0.1:10000/api/sessions \
->>>>>>> abcc8c8c (envoy + ai service prerp)
   -H "Content-Type: application/json" \
   -d '{}')
 
 SESSION_ID=$(echo "$SESSION_JSON" | jq -r '.session.sessionId')
 GAME_ID=$(echo "$SESSION_JSON" | jq -r '.session.gameId')
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> abcc8c8c (envoy + ai service prerp)
 curl -s -X POST "http://127.0.0.1:10000/api/sessions/$SESSION_ID/cancel"
 ```
 
@@ -182,13 +110,6 @@ History automatically. Verify History owns a stored archive:
 
 ```bash
 docker compose exec history-service curl -s "http://127.0.0.1:8081/archives/$GAME_ID"
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 966317ea (added bot container)
-=======
->>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 ```
 
 The History record is stored in History Service Postgres tables, not in the Game
@@ -202,18 +123,6 @@ inside `/data/searchess.sqlite`. Rows remain pending while `delivered_at` is
 
 `POST /events/game` remains available only when
 `HISTORY_ACCEPT_LEGACY_INGESTION_PATH=true` as a local/dev compatibility hook for exercising
-<<<<<<< HEAD
-=======
-curl -s -X POST "http://127.0.0.1:8080/sessions/$SESSION_ID/cancel"
-```
-
-The cancel command publishes `game.session.cancelled.v1`; Game Service forwards
-that event to History automatically. Verify History owns a stored archive:
-
-```bash
-curl -s "http://127.0.0.1:8081/archives/$GAME_ID"
-=======
->>>>>>> abcc8c8c (envoy + ai service prerp)
 docker compose exec history-service ls -l /history-data
 ```
 
@@ -223,15 +132,11 @@ Service SQLite file.
 ## Manual Test Hook
 
 `POST /events/game` remains available as a local/dev test hook for exercising
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
-=======
->>>>>>> ce08c01e (local microservices)
 History directly, but it is no longer required for the normal compose proof.
 
 ## Honest Boundary
 
 This is a real extraction step because History is now a separately runnable
-<<<<<<< HEAD
 process that depends on Game Service only through HTTP and event JSON. The
 local/dev SQLite outbox is now durable enough to survive a temporary History
 outage or Game Service restart after the outbox row is written.
@@ -242,10 +147,3 @@ at-least-once. In SQLite mode, the Game state/session write and the durable
 outbox insert are committed together; in-memory Game persistence still falls
 back to best-effort forwarding because there is no durable store to reload
 after restart. See `docs/architecture/game-history-outbox.md`.
-=======
-process that depends on Game Service only through HTTP and event JSON. It is
-not yet durable event delivery: if the HTTP bridge cannot reach History, the
-failure is logged/absorbed and gameplay still succeeds. The missing production
-piece is a durable delivery mechanism such as an outbox or broker-backed
-subscriber.
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)

@@ -248,7 +248,6 @@ function Wait-ForStack {
 }
 
 function Assert-GameServicePersistenceLog {
-<<<<<<< HEAD
   param(
     [string]$Expected,
     [switch]$RuntimeSwitch
@@ -264,14 +263,6 @@ function Assert-GameServicePersistenceLog {
   }
   Write-Host "$ok Verified via game-service logs"
   Write-Host "Matched log field: $needle"
-=======
-  param([string]$Expected)
-
-  $logs = Invoke-CommandChecked -File "docker" -Arguments @("compose", "logs", "--no-color", "--tail=120", "game-service") -Quiet
-  $needle = '"persistence":"' + $Expected + '"'
-  Assert-True ($logs.Contains($needle)) "Expected game-service logs to contain $needle."
-  Write-Host "Game Service logs show persistence=$Expected."
->>>>>>> 2b1aa125 (real migration ok)
 }
 
 function Invoke-Migration {
@@ -391,11 +382,7 @@ try {
   $env:PERSISTENCE_MODE = "mongo"
   Invoke-CommandChecked -File "docker" -Arguments @("compose", "up", "-d", "--force-recreate", "game-service")
   Wait-ForComposeService -Service "game-service"
-<<<<<<< HEAD
   Assert-GameServicePersistenceLog -Expected "Mongo" -RuntimeSwitch
-=======
-  Assert-GameServicePersistenceLog -Expected "Mongo"
->>>>>>> 2b1aa125 (real migration ok)
 
   Write-Step "Loading migrated game through Mongo runtime"
   $loaded = Invoke-ApiJson -Method "Get" -Path "/games/$createdGameId"
@@ -416,11 +403,7 @@ try {
     }
     Invoke-CommandChecked -File "docker" -Arguments @("compose", "up", "-d", "--force-recreate", "game-service")
     Wait-ForComposeService -Service "game-service"
-<<<<<<< HEAD
     Assert-GameServicePersistenceLog -Expected "Postgres" -RuntimeSwitch
-=======
-    Assert-GameServicePersistenceLog -Expected "Postgres"
->>>>>>> 2b1aa125 (real migration ok)
   } else {
     Write-Host ""
     Write-Host "Leaving Game Service on Mongo runtime. Use -ReturnToPostgres to restore the default automatically."

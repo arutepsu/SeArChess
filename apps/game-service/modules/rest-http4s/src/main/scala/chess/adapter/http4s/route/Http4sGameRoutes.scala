@@ -28,7 +28,6 @@ import org.http4s.*
 import org.http4s.dsl.io.*
 
 /** http4s routes for the `/games` resource.
-<<<<<<< HEAD
   *
   * Routes:
   *   - `GET /games/{gameId}` → [[handleGetGame]] (query — game state)
@@ -52,31 +51,6 @@ class Http4sGameRoutes(
     gameService: GameServiceApi,
     metrics: DomainMetricsRegistry = new DomainMetricsRegistry()
 ):
-<<<<<<< HEAD
-=======
- *
- *  Routes:
- *  - `GET  /games/{gameId}`            → [[handleGetGame]]     (query  — game state)
- *  - `POST /games/{gameId}/moves`      → [[handleSubmitMove]]  (command — submit move)
- *  - `POST /games/{gameId}/resign`     → [[handleResign]]      (command — resign)
- *  - `POST /games/{gameId}/ai-move`    → [[handleAIMove]]      (command — trigger AI)
- *
- *  All operations are routed through [[GameServiceApi]] — the single Game Service
- *  boundary.  This class has one dependency instead of the previous three
- *  ([[chess.application.session.service.GameSessionCommands]],
- *  [[chess.application.session.service.SessionService]], and
- *  [[chess.application.port.repository.GameRepository]]).
- *
- *  AI capability policy: `/games/{gameId}/ai-move` is always mounted. Runtimes
- *  without an AI client return `422 AI_NOT_CONFIGURED`; configured runtimes
- *  route AI suggestions through the same authoritative Game Service move path.
- *
- *  This class is pure logic tested in-memory via `routes.orNotFound.run(req)`.
- */
-class Http4sGameRoutes(gameService: GameServiceApi):
->>>>>>> 14542117 (fix ai flow)
-=======
->>>>>>> 966317ea (added bot container)
 
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
 
@@ -298,7 +272,6 @@ class Http4sGameRoutes(gameService: GameServiceApi):
       (Status.InternalServerError, "INTERNAL_ERROR", s"Storage error: $cause")
 
   /** Map [[AITurnError]] to (HTTP status, error code, message).
-<<<<<<< HEAD
     *
     * Status rationale for [[AITurnError.NotConfigured]]: 422 is used because the request is
     * syntactically valid but cannot be processed in this deployment configuration. 503 would imply
@@ -365,44 +338,6 @@ class Http4sGameRoutes(gameService: GameServiceApi):
         Left(
           (Status.BadRequest, "BAD_REQUEST", "Query parameter 'ply' must be a non-negative integer")
         )
-=======
-   *
-   *  Status rationale for [[AITurnError.NotConfigured]]: 422 is used because the
-   *  request is syntactically valid but cannot be processed in this deployment
-   *  configuration.  503 would imply temporary unavailability (AI could come back);
-   *  501 (Not Implemented) would also be defensible.  422 is consistent with the
-   *  other "command not applicable in current state" errors in this API.
-   */
-  private def aiErrToHttpErr(err: AITurnError, gameIdStr: String): (Status, String, String) = err match
-    case AITurnError.NotConfigured =>
-      (Status.UnprocessableEntity, "AI_NOT_CONFIGURED",
-        "This deployment has no AI provider configured")
-    case AITurnError.NotAITurn =>
-      (Status.UnprocessableEntity, "NOT_AI_TURN",
-        "It is not the AI's turn")
-    case AITurnError.SessionLookupFailed(SessionError.GameSessionNotFound(_)) =>
-      (Status.NotFound, "GAME_NOT_FOUND", s"Game not found: $gameIdStr")
-    case AITurnError.SessionLookupFailed(_) =>
-      (Status.InternalServerError, "INTERNAL_ERROR", "Failed to load session for AI turn")
-    case AITurnError.GameStateLookupFailed(RepositoryError.NotFound(_)) =>
-      (Status.NotFound, "GAME_NOT_FOUND", s"Game state not found: $gameIdStr")
-    case AITurnError.GameStateLookupFailed(_) =>
-      (Status.InternalServerError, "INTERNAL_ERROR", "Failed to load game state for AI turn")
-    case AITurnError.ProviderFailure(AIError.MalformedResponse(err)) =>
-      (Status.UnprocessableEntity, "AI_MOVE_REJECTED", s"AI provider returned malformed move data: $err")
-    case AITurnError.ProviderFailure(err @ AIError.Unavailable(_)) =>
-      (Status.ServiceUnavailable, "AI_PROVIDER_FAILED", s"AI provider failed: $err")
-    case AITurnError.ProviderFailure(err @ AIError.Timeout(_)) =>
-      (Status.ServiceUnavailable, "AI_PROVIDER_FAILED", s"AI provider failed: $err")
-    case AITurnError.ProviderFailure(err @ AIError.EngineFailure(_)) =>
-      (Status.ServiceUnavailable, "AI_PROVIDER_FAILED", s"AI provider failed: $err")
-    case AITurnError.ProviderFailure(err @ AIError.NoLegalMove) =>
-      (Status.ServiceUnavailable, "AI_PROVIDER_FAILED", s"AI provider failed: $err")
-    case AITurnError.IllegalSuggestedMove(move) =>
-      (Status.UnprocessableEntity, "AI_MOVE_REJECTED", s"AI move rejected: illegal suggestion $move")
-    case AITurnError.MoveFailed(cause) =>
-      (Status.UnprocessableEntity, "AI_MOVE_REJECTED", s"AI move rejected: $cause")
->>>>>>> abcc8c8c (envoy + ai service prerp)
 
   private def resignErrToHttpErr(err: SessionError): (Status, String, String) = err match
     case SessionError.InvalidLifecycleTransition(_) =>

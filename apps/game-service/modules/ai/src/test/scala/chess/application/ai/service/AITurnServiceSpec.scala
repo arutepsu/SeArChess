@@ -1,17 +1,12 @@
 package chess.application.ai.service
 
 import chess.adapter.ai.LocalDeterministicAiClient
-<<<<<<< HEAD
 import chess.adapter.repository.{
   InMemoryGameRepository,
   InMemorySessionGameStore,
   InMemorySessionRepository
 }
 import chess.application.GameStateCommandService
-=======
-import chess.adapter.repository.{InMemoryGameRepository, InMemorySessionGameStore, InMemorySessionRepository}
-import chess.application.ChessService
->>>>>>> 14542117 (fix ai flow)
 import chess.application.port.ai.{AIError, AiMoveSuggestionClient, AIRequestContext, AIResponse}
 import chess.application.session.model.{GameSession, SessionLifecycle, SessionMode, SideController}
 import chess.application.session.model.SessionIds.GameId
@@ -32,7 +27,6 @@ class AITurnServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
       whiteController: SideController = SideController.AI(),
       blackController: SideController = SideController.HumanLocal
   ) =
-<<<<<<< HEAD
     val sessionRepo = InMemorySessionRepository()
     val gameRepo = InMemoryGameRepository()
     val store = InMemorySessionGameStore(sessionRepo, gameRepo)
@@ -48,21 +42,6 @@ class AITurnServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
       )
       .value
     val state = GameStateFactory.initial()
-=======
-    val sessionRepo    = InMemorySessionRepository()
-    val gameRepo       = InMemoryGameRepository()
-    val store          = InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionService = SessionService(sessionRepo, _ => ())
-    val svc            = SessionGameService(sessionService, store, _ => ())
-    val gameId         = GameId.random()
-    val session        = svc.createSession(
-      gameId          = gameId,
-      mode            = SessionMode.HumanVsAI,
-      whiteController = whiteController,
-      blackController = blackController
-    ).value
-    val state     = GameStateFactory.initial()
->>>>>>> 14542117 (fix ai flow)
     val aiService = AITurnService(LocalDeterministicAiClient(), svc, _ => ())
     (aiService, session, state, svc, gameRepo)
 

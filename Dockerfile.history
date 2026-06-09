@@ -11,10 +11,6 @@ COPY modules/ modules/
 
 RUN sbt "historyService / stage"
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 966317ea (added bot container)
 FROM eclipse-temurin:21-jre AS otel-agent
 ARG OTEL_AGENT_VERSION=2.10.0
 RUN apt-get update \
@@ -23,62 +19,25 @@ RUN apt-get update \
     && curl -fsSL -o /opentelemetry-javaagent.jar \
        "https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v${OTEL_AGENT_VERSION}/opentelemetry-javaagent.jar"
 
-<<<<<<< HEAD
-=======
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
-=======
->>>>>>> 966317ea (added bot container)
 FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /build/apps/history-service/target/universal/stage/ ./
 COPY --from=otel-agent /opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
-=======
-    && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p /history-data
-=======
-    && rm -rf /var/lib/apt/lists/*
->>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 
 COPY --from=build /build/apps/history-service/target/universal/stage/ ./
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
-=======
-    && rm -rf /var/lib/apt/lists/*
-
-COPY --from=build /build/apps/history-service/target/universal/stage/ ./
-COPY --from=otel-agent /opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
->>>>>>> 966317ea (added bot container)
 
 EXPOSE 8081
 
 ENV HISTORY_HTTP_HOST=0.0.0.0 \
     HISTORY_HTTP_PORT=8081 \
     GAME_SERVICE_BASE_URL=http://game-service:8080 \
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 966317ea (added bot container)
-=======
->>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
     HISTORY_GAME_SERVICE_TIMEOUT_MILLIS=2000 \
     HISTORY_ACCEPT_LEGACY_INGESTION_PATH=false
-=======
-    HISTORY_DB_PATH=/history-data/history.sqlite \
-<<<<<<< HEAD
-    HISTORY_GAME_SERVICE_TIMEOUT_MILLIS=2000
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services)
-=======
-    HISTORY_GAME_SERVICE_TIMEOUT_MILLIS=2000 \
-    HISTORY_ACCEPT_LEGACY_INGESTION_PATH=false
->>>>>>> ce08c01e (local microservices)
 
 CMD ["bin/searchess-history-service"]

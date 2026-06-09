@@ -25,7 +25,6 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 /** Unit tests for [[DefaultGameService]].
-<<<<<<< HEAD:apps/game-service/modules/persistence/src/test/scala/chess/application/DefaultGameServiceSpec.scala
   *
   * All storage is in-memory. Tests are deterministic and require no network or file I/O. The
   * [[CollectingEventPublisher]] is used to verify event publication side-effects.
@@ -39,21 +38,6 @@ import org.scalatest.matchers.should.Matchers
   *   - [[DefaultGameService.triggerAIMove]] — NotAITurn when aiService=None; delegates when Some
   *   - Query delegation: getSession, getSessionByGameId, getGame, listActiveSessions
   */
-=======
- *
- *  All storage is in-memory.  Tests are deterministic and require no network
- *  or file I/O.  The [[CollectingEventPublisher]] is used to verify event
- *  publication side-effects.
- *
- *  Coverage scope:
- *   - [[DefaultGameService.createGame]]   — delegates to commands.newGame
- *   - [[DefaultGameService.submitMove]]   — loads session+state; publishes MoveRejected on domain rejection
- *   - [[DefaultGameService.resignGame]]   — loads session+state; delegates to commands.resignGame
- *   - [[DefaultGameService.cancelSession]] — delegates to sessionService.cancelSession
- *   - [[DefaultGameService.triggerAIMove]] — NotAITurn when aiService=None; delegates when Some
- *   - Query delegation: getSession, getSessionByGameId, getGame, listActiveSessions
- */
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services):modules/adapter-persistence/src/test/scala/chess/application/DefaultGameServiceSpec.scala
 class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues with OptionValues:
 
   // ── Shared fixture ────────────────────────────────────────────────────────
@@ -242,7 +226,6 @@ class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
   }
 
   it should "return SessionLookupFailed when the session is unknown (even with AI configured)" in {
-<<<<<<< HEAD
     val collector = CollectingEventPublisher()
     val sessionRepo = new InMemorySessionRepository
     val gameRepo = new InMemoryGameRepository
@@ -253,18 +236,6 @@ class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
       _ => Right(AIResponse(Move(Position.from(4, 1).value, Position.from(4, 3).value)))
     val ai = AITurnService(alwaysLegal, commands, collector)
     val svcWithAI = DefaultGameService(commands, sessionLifecycleService, gameRepo, collector, Some(ai))
-=======
-    val collector      = CollectingEventPublisher()
-    val sessionRepo    = new InMemorySessionRepository
-    val gameRepo       = new InMemoryGameRepository
-    val store          = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionService = new SessionService(sessionRepo, _ => ())
-    val commands       = new SessionGameService(sessionService, store, collector)
-    val alwaysLegal: AiMoveSuggestionClient = _ =>
-      Right(AIResponse(Move(Position.from(4, 1).value, Position.from(4, 3).value)))
-    val ai        = AITurnService(alwaysLegal, commands, collector)
-    val svcWithAI = DefaultGameService(commands, sessionService, gameRepo, collector, Some(ai))
->>>>>>> 14542117 (fix ai flow)
     svcWithAI.triggerAIMove(SessionId.random()).left.value shouldBe
       a[AITurnError.SessionLookupFailed]
   }
@@ -278,7 +249,6 @@ class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
   }
 
   it should "return SessionLookupFailed for an unknown game id (even with AI configured)" in {
-<<<<<<< HEAD
     val collector = CollectingEventPublisher()
     val sessionRepo = new InMemorySessionRepository
     val gameRepo = new InMemoryGameRepository
@@ -289,18 +259,6 @@ class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
       _ => Right(AIResponse(Move(Position.from(4, 1).value, Position.from(4, 3).value)))
     val ai = AITurnService(alwaysLegal, commands, collector)
     val svcWithAI = DefaultGameService(commands, sessionLifecycleService, gameRepo, collector, Some(ai))
-=======
-    val collector      = CollectingEventPublisher()
-    val sessionRepo    = new InMemorySessionRepository
-    val gameRepo       = new InMemoryGameRepository
-    val store          = new InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionService = new SessionService(sessionRepo, _ => ())
-    val commands       = new SessionGameService(sessionService, store, collector)
-    val alwaysLegal: AiMoveSuggestionClient = _ =>
-      Right(AIResponse(Move(Position.from(4, 1).value, Position.from(4, 3).value)))
-    val ai        = AITurnService(alwaysLegal, commands, collector)
-    val svcWithAI = DefaultGameService(commands, sessionService, gameRepo, collector, Some(ai))
->>>>>>> 14542117 (fix ai flow)
     svcWithAI.triggerAIMoveByGameId(GameId.random()).left.value shouldBe
       a[AITurnError.SessionLookupFailed]
   }
@@ -333,17 +291,10 @@ class DefaultGameServiceSpec extends AnyFlatSpec with Matchers with EitherValues
     val (svc, _, _, _) = freshFixture()
     val (initialState, session) = createGame(svc).value
     val view = svc.getGame(session.gameId).value
-<<<<<<< HEAD:apps/game-service/modules/persistence/src/test/scala/chess/application/DefaultGameServiceSpec.scala
     view.gameId shouldBe session.gameId
     view.moveHistory shouldBe initialState.moveHistory
     view.currentPlayer shouldBe initialState.currentPlayer
     view.legalMoves should have size 20
-=======
-    view.gameId        shouldBe session.gameId
-    view.moveHistory   shouldBe initialState.moveHistory
-    view.currentPlayer shouldBe initialState.currentPlayer
-    view.legalMoves    should have size 20
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services):modules/adapter-persistence/src/test/scala/chess/application/DefaultGameServiceSpec.scala
   }
 
   it should "return RepositoryError for an unknown game id" in {

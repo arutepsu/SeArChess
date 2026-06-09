@@ -102,7 +102,6 @@ trait GameServiceApi:
   ): Either[SessionError, GameSession]
 
   /** Ask the configured AI client to suggest and submit a move for the current player.
-<<<<<<< HEAD
     *
     * The AI move passes through the same domain-validation and persistence path as a human move.
     *
@@ -118,30 +117,11 @@ trait GameServiceApi:
     *   - [[AITurnError.ProviderFailure]] — AI engine could not produce a candidate
     *   - [[AITurnError.MoveFailed]] — AI's proposed move rejected by domain/session
     */
-=======
-   *
-   *  The AI move passes through the same domain-validation and persistence path
-   *  as a human move.
-   *
-   *  This overload takes a [[SessionId]] for callers (e.g. WebSocket channel) that
-   *  already hold the session identity.  REST adapters that resolve a game ID from
-   *  the URL should prefer [[triggerAIMoveByGameId]] to avoid a redundant lookup.
-   *
-   *  === Error taxonomy ===
-   *  - [[AITurnError.NotConfigured]]         — no AI service is wired; operation unavailable
-   *  - [[AITurnError.NotAITurn]]             — current side is not AI-controlled (policy)
-   *  - [[AITurnError.SessionLookupFailed]]   — session not found or storage error
-   *  - [[AITurnError.GameStateLookupFailed]] — game state not found or storage error
-   *  - [[AITurnError.ProviderFailure]]       — AI engine could not produce a candidate
-   *  - [[AITurnError.MoveFailed]]            — AI's proposed move rejected by domain/session
-   */
->>>>>>> 14542117 (fix ai flow)
   def triggerAIMove(
       sessionId: SessionId,
       now: Instant = Instant.now()
   ): Either[AITurnError, (GameState, GameSession)]
 
-<<<<<<< HEAD
   /** Ask the configured AI client to suggest and submit a move, resolving the session from a
     * [[GameId]].
     *
@@ -151,16 +131,6 @@ trait GameServiceApi:
     *
     * The error taxonomy is identical to [[triggerAIMove]].
     */
-=======
-  /** Ask the configured AI client to suggest and submit a move, resolving the session from a [[GameId]].
-   *
-   *  Equivalent to [[triggerAIMove]] but accepts a [[GameId]] directly, which is the natural
-   *  identifier available to REST adapters.  The game-to-session mapping is handled internally,
-   *  so the route performs no lookup before calling this method.
-   *
-   *  The error taxonomy is identical to [[triggerAIMove]].
-   */
->>>>>>> 14542117 (fix ai flow)
   def triggerAIMoveByGameId(
       gameId: GameId,
       now: Instant = Instant.now()

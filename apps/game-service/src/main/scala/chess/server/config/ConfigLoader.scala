@@ -1,6 +1,5 @@
 package chess.server.config
 
-<<<<<<< HEAD
 import chess.observability.StructuredLog
 
 /** Loads Game Service runtime configuration from environment variables. */
@@ -19,44 +18,17 @@ object ConfigLoader:
   private val DefaultHistoryTimeout: String      = "2000"
   private val DefaultHistoryDeliveryMode: String = "http"
   private val DefaultRedisPort: String           = "6379"
-<<<<<<< HEAD
   private val DefaultHistoryRedisStream: String  = "searchess.history.archives"
-=======
->>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
   private val DefaultAiMode: String = "remote"
   private val DefaultAiRemoteBaseUrl: String = "http://ai-service:8765"
   private val DefaultAiTimeoutMillis: String = "15000"
   private val DefaultMigrationAdminEnabled: String = "false"
-=======
-/** Loads Game Service runtime configuration from environment variables. */
-object ConfigLoader:
-
-  private val DefaultHttpHost:        String = "0.0.0.0"
-  private val DefaultHttpPort:        String = "8080"
-  private val DefaultWsEnabled:       String = "true"
-  private val DefaultWsPort:          String = "9090"
-  private val DefaultPersistence:     String = "in-memory"
-  private val DefaultSqlitePath:      String = "chess.db"
-  private val DefaultEventMode:       String = "in-process"
-  private val DefaultCorsEnabled:     String = "false"
-  private val DefaultCorsAllowOrigin: String = "*"
-  private val DefaultHistoryEnabled:  String = "false"
-  private val DefaultHistoryTimeout:  String = "2000"
-  private val DefaultAiMode:          String = "remote"
-  private val DefaultAiRemoteBaseUrl: String = "http://ai-service:8765"
-  private val DefaultAiTimeoutMillis: String = "2000"
-<<<<<<< HEAD
->>>>>>> f7a07f01 (runnable mains, hardered event contracts)
-=======
-  private val DefaultMigrationAdminEnabled: String = "false"
->>>>>>> 2b1aa125 (real migration ok)
 
   def load(): Either[String, AppConfig] =
     loadFrom(key => Option(System.getenv(key)).filter(_.nonEmpty))
 
   private[config] def loadFrom(env: String => Option[String]): Either[String, AppConfig] =
     for
-<<<<<<< HEAD
       httpHost <- Right(env("HTTP_HOST").getOrElse(DefaultHttpHost))
       httpPort <- parsePort("HTTP_PORT", env("HTTP_PORT").getOrElse(DefaultHttpPort))
       wsEnabled <- parseBool("WS_ENABLED", env("WS_ENABLED").getOrElse(DefaultWsEnabled))
@@ -79,29 +51,19 @@ object ConfigLoader:
       histDeliveryMode <- parseHistoryDeliveryMode(
         env("HISTORY_DELIVERY_MODE").getOrElse(DefaultHistoryDeliveryMode)
       )
-<<<<<<< HEAD
       redisEndpoint <- parseRedisEndpoint(
         env("HISTORY_REDIS_URL"),
         env("REDIS_HOST"),
         env("REDIS_PORT").getOrElse(DefaultRedisPort)
       )
       redisStream = env("HISTORY_REDIS_STREAM").getOrElse(DefaultHistoryRedisStream)
-=======
-      redisHost = env("REDIS_HOST")
-      redisPort <- parsePort("REDIS_PORT", env("REDIS_PORT").getOrElse(DefaultRedisPort))
->>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
       history <- parseHistoryForwardingConfig(
         histEnabled,
         env("HISTORY_SERVICE_BASE_URL"),
         histTimeout,
         histDeliveryMode,
-<<<<<<< HEAD
         redisEndpoint,
         redisStream
-=======
-        redisHost,
-        redisPort
->>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
       )
       aiMode <- parseAiProviderMode(env("AI_PROVIDER_MODE").getOrElse(DefaultAiMode))
       aiTimeout <- parsePositiveInt(
@@ -137,68 +99,22 @@ object ConfigLoader:
       ),
       migrationAdminEnabled = migrationAdmin,
       migrationAdminToken = migrationToken
-<<<<<<< HEAD
-=======
-      httpHost    <- Right(env("HTTP_HOST").getOrElse(DefaultHttpHost))
-      httpPort    <- parsePort("HTTP_PORT", env("HTTP_PORT").getOrElse(DefaultHttpPort))
-      wsEnabled   <- parseBool("WS_ENABLED", env("WS_ENABLED").getOrElse(DefaultWsEnabled))
-      wsPort      <- parsePort("WS_PORT", env("WS_PORT").getOrElse(DefaultWsPort))
-      persistence <- parsePersistenceMode(env("PERSISTENCE_MODE").getOrElse(DefaultPersistence))
-      sqlitePath   = env("CHESS_DB_PATH").getOrElse(DefaultSqlitePath)
-      eventMode   <- parseEventMode(env("EVENT_MODE").getOrElse(DefaultEventMode))
-      corsEnabled <- parseBool("CORS_ENABLED", env("CORS_ENABLED").getOrElse(DefaultCorsEnabled))
-      corsOrigin   = env("CORS_ALLOWED_ORIGIN").getOrElse(DefaultCorsAllowOrigin)
-      histEnabled <- parseBool("HISTORY_FORWARDING_ENABLED", env("HISTORY_FORWARDING_ENABLED").getOrElse(DefaultHistoryEnabled))
-      histTimeout <- parsePositiveInt("HISTORY_FORWARDING_TIMEOUT_MILLIS", env("HISTORY_FORWARDING_TIMEOUT_MILLIS").getOrElse(DefaultHistoryTimeout))
-      history     <- parseHistoryForwardingConfig(histEnabled, env("HISTORY_SERVICE_BASE_URL"), histTimeout)
-      aiMode      <- parseAiProviderMode(env("AI_PROVIDER_MODE").getOrElse(DefaultAiMode))
-      aiTimeout   <- parsePositiveInt("AI_TIMEOUT_MILLIS", env("AI_TIMEOUT_MILLIS").getOrElse(DefaultAiTimeoutMillis))
-      remoteUrl    = env("AI_REMOTE_BASE_URL").orElse(if aiMode == AiProviderMode.Remote then Some(DefaultAiRemoteBaseUrl) else None)
-      remote      <- parseRemoteAiConfig(aiMode, remoteUrl, env("AI_REMOTE_TEST_MODE"))
-      engineId     = env("AI_DEFAULT_ENGINE_ID")
-    yield AppConfig(
-      http        = HttpConfig(httpHost, httpPort),
-      webSocket   = WebSocketConfig(wsEnabled, wsPort),
-      persistence = persistence,
-      sqlite      = if persistence == PersistenceMode.SQLite then Some(SqliteConfig(sqlitePath)) else None,
-      eventMode   = eventMode,
-      cors        = CorsConfig(corsEnabled, corsOrigin),
-      history     = history,
-      ai          = AiConfig(
-                      mode            = aiMode,
-                      remote          = remote,
-                      timeoutMillis   = aiTimeout,
-                      defaultEngineId = engineId
-                    )
->>>>>>> f7a07f01 (runnable mains, hardered event contracts)
-=======
->>>>>>> 2b1aa125 (real migration ok)
     )
 
   def loadOrExit(): AppConfig =
     load().fold(
-<<<<<<< HEAD
       err => {
         StructuredLog.error("game-service", "configuration_error", "error" -> err)
         sys.exit(1)
       },
-=======
-      err => { System.err.println(s"[game] Configuration error: $err"); sys.exit(1) },
->>>>>>> f7a07f01 (runnable mains, hardered event contracts)
       identity
     )
 
   private def parsePort(varName: String, value: String): Either[String, Int] =
     value.toIntOption match
-<<<<<<< HEAD
       case None                          => Left(s"$varName must be an integer, got: '$value'")
       case Some(p) if p < 1 || p > 65535 => Left(s"$varName must be between 1 and 65535, got: $p")
       case Some(p)                       => Right(p)
-=======
-      case None                           => Left(s"$varName must be an integer, got: '$value'")
-      case Some(p) if p < 1 || p > 65535 => Left(s"$varName must be between 1 and 65535, got: $p")
-      case Some(p)                        => Right(p)
->>>>>>> f7a07f01 (runnable mains, hardered event contracts)
 
   private def parsePositiveInt(varName: String, value: String): Either[String, Int] =
     value.toIntOption match
@@ -214,7 +130,6 @@ object ConfigLoader:
 
   private def parsePersistenceMode(value: String): Either[String, PersistenceMode] =
     value.toLowerCase match
-<<<<<<< HEAD
       case "postgres" | "postgresql" => Right(PersistenceMode.Postgres)
       case "mongo" | "mongodb"       => Right(PersistenceMode.Mongo)
       case "in-memory" | "inmemory" => Right(PersistenceMode.InMemory)
@@ -238,21 +153,6 @@ object ConfigLoader:
           )
           .map(Some.apply)
       case PersistenceMode.Mongo | PersistenceMode.InMemory | PersistenceMode.SQLite =>
-<<<<<<< HEAD
-=======
-        Right(None)
-
-  private def loadMongoConfigIfNeeded(
-      persistence: PersistenceMode,
-      env: String => Option[String]
-  ): Either[String, Option[MongoConfig]] =
-    persistence match
-      case PersistenceMode.Mongo =>
-        MongoConfigLoader
-          .load(env, contextMessage = Some("Mongo runtime persistence requires SEARCHESS_MONGO_URI."))
-          .map(Some.apply)
-      case PersistenceMode.Postgres | PersistenceMode.InMemory | PersistenceMode.SQLite =>
->>>>>>> 2b1aa125 (real migration ok)
         Right(None)
 
   private def loadMongoConfigIfNeeded(
@@ -266,11 +166,6 @@ object ConfigLoader:
           .map(Some.apply)
       case PersistenceMode.Postgres | PersistenceMode.InMemory | PersistenceMode.SQLite =>
         Right(None)
-=======
-      case "in-memory" | "inmemory" => Right(PersistenceMode.InMemory)
-      case "sqlite"                 => Right(PersistenceMode.SQLite)
-      case _                        => Left(s"PERSISTENCE_MODE must be 'in-memory' or 'sqlite', got: '$value'")
->>>>>>> f7a07f01 (runnable mains, hardered event contracts)
 
   private def parseEventMode(value: String): Either[String, EventMode] =
     value.toLowerCase match
@@ -289,21 +184,14 @@ object ConfigLoader:
         Left(s"AI_PROVIDER_MODE must be 'remote', 'local', or 'disabled', got: '$value'")
 
   private def parseRemoteAiConfig(
-<<<<<<< HEAD
       mode: AiProviderMode,
       baseUrl: Option[String],
       testMode: Option[String]
-=======
-    mode:     AiProviderMode,
-    baseUrl:  Option[String],
-    testMode: Option[String]
->>>>>>> f7a07f01 (runnable mains, hardered event contracts)
   ): Either[String, Option[RemoteAiConfig]] =
     val normalisedTestMode = testMode.map(_.trim).filter(_.nonEmpty)
     mode match
       case AiProviderMode.Remote =>
         baseUrl match
-<<<<<<< HEAD
           case Some(url) if url.trim.nonEmpty =>
             Right(Some(RemoteAiConfig(url.trim, normalisedTestMode)))
           case _ => Left("AI_REMOTE_BASE_URL is required when AI_PROVIDER_MODE is 'remote'")
@@ -335,10 +223,8 @@ object ConfigLoader:
       baseUrl: Option[String],
       timeoutMillis: Int,
       deliveryMode: HistoryDeliveryMode,
-<<<<<<< HEAD
       redisEndpoint: Option[RedisEndpoint],
       redisStream: String
-<<<<<<< HEAD
   ): Either[String, HistoryForwardingConfig] =
     val cleanUrl = baseUrl.map(_.trim).filter(_.nonEmpty)
     val cleanStream = redisStream.trim
@@ -426,129 +312,3 @@ object ConfigLoader:
           case Some(h) =>
             parsePort("REDIS_PORT", rawPort).map(p => Some(RedisEndpoint(s"redis://$h:$p", h, p)))
           case None => Right(None)
-=======
-          case Some(url) if url.trim.nonEmpty => Right(Some(RemoteAiConfig(url.trim, normalisedTestMode)))
-          case _                              => Left("AI_REMOTE_BASE_URL is required when AI_PROVIDER_MODE is 'remote'")
-      case _ =>
-        Right(baseUrl.map(url => RemoteAiConfig(url.trim, normalisedTestMode)).filter(_.baseUrl.nonEmpty))
-
-  private def parseHistoryForwardingConfig(
-    enabled:       Boolean,
-    baseUrl:       Option[String],
-    timeoutMillis: Int
-  ): Either[String, HistoryForwardingConfig] =
-    if enabled then
-      baseUrl.map(_.trim).filter(_.nonEmpty) match
-        case Some(url) => Right(HistoryForwardingConfig(true, Some(url), timeoutMillis))
-        case None      => Left("HISTORY_SERVICE_BASE_URL is required when HISTORY_FORWARDING_ENABLED is true")
-    else
-      Right(HistoryForwardingConfig(false, baseUrl.map(_.trim).filter(_.nonEmpty), timeoutMillis))
->>>>>>> f7a07f01 (runnable mains, hardered event contracts)
-=======
-  ): Either[String, HistoryForwardingConfig] =
-    val cleanUrl = baseUrl.map(_.trim).filter(_.nonEmpty)
-    val cleanStream = redisStream.trim
-    if !enabled then
-      Right(
-        HistoryForwardingConfig(
-          enabled      = false,
-          baseUrl      = cleanUrl,
-          timeoutMillis = timeoutMillis,
-          deliveryMode = deliveryMode,
-          redisUrl     = redisEndpoint.map(_.url),
-          redisHost    = redisEndpoint.map(_.host),
-          redisPort    = redisEndpoint.map(_.port).getOrElse(DefaultRedisPort.toInt),
-          redisStream  = cleanStream
-        )
-      )
-    else
-      deliveryMode match
-        case HistoryDeliveryMode.RedisStream =>
-          redisEndpoint match
-            case Some(endpoint) if cleanStream.nonEmpty =>
-              Right(
-                HistoryForwardingConfig(
-                  enabled      = true,
-                  baseUrl      = cleanUrl,
-                  timeoutMillis = timeoutMillis,
-                  deliveryMode = HistoryDeliveryMode.RedisStream,
-                  redisUrl     = Some(endpoint.url),
-                  redisHost    = Some(endpoint.host),
-                  redisPort    = endpoint.port,
-                  redisStream  = cleanStream
-                )
-              )
-            case Some(_) =>
-              Left("HISTORY_REDIS_STREAM is required when HISTORY_DELIVERY_MODE=redis-stream")
-            case None =>
-              Left(
-                "HISTORY_REDIS_URL or REDIS_HOST is required when HISTORY_FORWARDING_ENABLED=true and HISTORY_DELIVERY_MODE=redis-stream"
-              )
-        case HistoryDeliveryMode.Http =>
-          cleanUrl match
-            case Some(url) =>
-              Right(
-                HistoryForwardingConfig(
-                  enabled      = true,
-                  baseUrl      = Some(url),
-                  timeoutMillis = timeoutMillis,
-                  deliveryMode = HistoryDeliveryMode.Http,
-                  redisUrl     = redisEndpoint.map(_.url),
-                  redisHost    = redisEndpoint.map(_.host),
-                  redisPort    = redisEndpoint.map(_.port).getOrElse(DefaultRedisPort.toInt),
-                  redisStream  = cleanStream
-                )
-              )
-=======
-      redisHost: Option[String],
-      redisPort: Int
-  ): Either[String, HistoryForwardingConfig] =
-    val cleanUrl = baseUrl.map(_.trim).filter(_.nonEmpty)
-    if !enabled then
-      Right(HistoryForwardingConfig(false, cleanUrl, timeoutMillis, deliveryMode, redisHost, redisPort))
-    else
-      deliveryMode match
-        case HistoryDeliveryMode.RedisStream =>
-          Right(HistoryForwardingConfig(true, None, timeoutMillis, HistoryDeliveryMode.RedisStream, redisHost, redisPort))
-        case HistoryDeliveryMode.Http =>
-          cleanUrl match
-            case Some(url) =>
-              Right(HistoryForwardingConfig(true, Some(url), timeoutMillis, HistoryDeliveryMode.Http, redisHost, redisPort))
->>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
-            case None =>
-              Left(
-                "HISTORY_SERVICE_BASE_URL is required when HISTORY_FORWARDING_ENABLED=true and HISTORY_DELIVERY_MODE=http"
-              )
-
-  private def parseHistoryDeliveryMode(value: String): Either[String, HistoryDeliveryMode] =
-    value.trim.toLowerCase match
-      case "http"                        => Right(HistoryDeliveryMode.Http)
-      case "redis-stream" | "redisstream" => Right(HistoryDeliveryMode.RedisStream)
-      case _ =>
-        Left(s"HISTORY_DELIVERY_MODE must be 'http' or 'redis-stream', got: '$value'")
-<<<<<<< HEAD
-
-  private final case class RedisEndpoint(url: String, host: String, port: Int)
-
-  private def parseRedisEndpoint(
-      url: Option[String],
-      host: Option[String],
-      rawPort: String
-  ): Either[String, Option[RedisEndpoint]] =
-    url.map(_.trim).filter(_.nonEmpty) match
-      case Some(value) =>
-        try
-          val uri  = java.net.URI(value)
-          val port = if uri.getPort == -1 then 6379 else uri.getPort
-          Option(uri.getHost).filter(_.nonEmpty) match
-            case Some(h) => Right(Some(RedisEndpoint(value, h, port)))
-            case None    => Left(s"HISTORY_REDIS_URL must include a host, got: '$value'")
-        catch case _: java.net.URISyntaxException => Left(s"HISTORY_REDIS_URL is invalid: '$value'")
-      case None =>
-        host.map(_.trim).filter(_.nonEmpty) match
-          case Some(h) =>
-            parsePort("REDIS_PORT", rawPort).map(p => Some(RedisEndpoint(s"redis://$h:$p", h, p)))
-          case None => Right(None)
->>>>>>> 966317ea (added bot container)
-=======
->>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)

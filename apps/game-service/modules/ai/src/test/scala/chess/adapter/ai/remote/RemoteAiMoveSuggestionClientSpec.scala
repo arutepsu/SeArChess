@@ -20,7 +20,6 @@ class RemoteAiMoveSuggestionClientSpec extends AnyFlatSpec with Matchers with Ei
 
   private def stateFromFen(fen: String): GameState =
     val parsed = FenParser.parse(fen).fold(e => throw RuntimeException(s"FEN parse: $e"), identity)
-<<<<<<< HEAD
     FenImporter
       .importNotation(parsed, ImportTarget.PositionTarget)
       .fold(e => throw RuntimeException(s"FEN import: $e"), identity) match
@@ -38,34 +37,13 @@ class RemoteAiMoveSuggestionClientSpec extends AnyFlatSpec with Matchers with Ei
         SideController.AI(Some("stockfish")),
         SideController.HumanLocal
       ),
-=======
-    FenImporter.importNotation(parsed, ImportTarget.PositionTarget)
-      .fold(e => throw RuntimeException(s"FEN import: $e"), identity) match
-        case r: ImportResult.PositionImportResult[GameState @unchecked] => r.data
-        case other => throw RuntimeException(s"unexpected: $other")
-
-  private def context(
-    state:     GameState = GameStateFactory.initial(),
-    requestId: String    = "ctx-request"
-  ): AIRequestContext =
-    AIRequestContext.fromSession(
-      GameSession.create(GameId.random(), SessionMode.HumanVsAI, SideController.AI(Some("stockfish")), SideController.HumanLocal),
->>>>>>> 14542117 (fix ai flow)
       state,
       requestId = requestId
     )
 
   private def withServer(handler: HttpExchange => Unit)(test: String => Unit): Unit =
     val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
-<<<<<<< HEAD
-<<<<<<< HEAD
     server.createContext(RemoteAiServiceContract.MoveSuggestionsPath, exchange => handler(exchange))
-=======
-    server.createContext("/v1/move-suggestions", exchange => handler(exchange))
->>>>>>> 14542117 (fix ai flow)
-=======
-    server.createContext(RemoteAiServiceContract.MoveSuggestionsPath, exchange => handler(exchange))
->>>>>>> f7a07f01 (runnable mains, hardered event contracts)
     server.start()
     try test(s"http://127.0.0.1:${server.getAddress.getPort}")
     finally server.stop(0)
@@ -90,7 +68,6 @@ class RemoteAiMoveSuggestionClientSpec extends AnyFlatSpec with Matchers with Ei
 
     withServer { exchange =>
       capturedBody = requestBody(exchange)
-<<<<<<< HEAD
       respond(
         exchange,
         200,
@@ -104,13 +81,6 @@ class RemoteAiMoveSuggestionClientSpec extends AnyFlatSpec with Matchers with Ei
       )
       val aiContext = context(requestId = "req-1")
       val response = provider.suggestMove(aiContext).value
-=======
-      respond(exchange, 200, """{"requestId":"req-1","move":{"from":"e2","to":"e4"},"engineId":"stockfish"}""")
-    } { baseUrl =>
-      val provider   = RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 1000, defaultEngineId = Some("stockfish"))
-      val aiContext  = context(requestId = "req-1")
-      val response   = provider.suggestMove(aiContext).value
->>>>>>> 14542117 (fix ai flow)
 
       response.move shouldBe Move(
         chess.domain.model.Position.fromAlgebraic("e2").value,
@@ -118,7 +88,6 @@ class RemoteAiMoveSuggestionClientSpec extends AnyFlatSpec with Matchers with Ei
       )
 
       val json = ujson.read(capturedBody)
-<<<<<<< HEAD
       json("requestId").str shouldBe "req-1"
       json("gameId").str shouldBe aiContext.gameId.value.toString
       json("sessionId").str shouldBe aiContext.sessionId.value.toString
@@ -126,39 +95,21 @@ class RemoteAiMoveSuggestionClientSpec extends AnyFlatSpec with Matchers with Ei
       json("sideToMove").str shouldBe "white"
       json("legalMoves").arr should not be empty
       json("engine")("engineId").str shouldBe "stockfish"
-=======
-      json("requestId").str                     shouldBe "req-1"
-      json("gameId").str                        shouldBe aiContext.gameId.value.toString
-      json("sessionId").str                     shouldBe aiContext.sessionId.value.toString
-      json("fen").str                           should include (" w ")
-      json("sideToMove").str                    shouldBe "white"
-      json("legalMoves").arr                    should not be empty
-      json("engine")("engineId").str            shouldBe "stockfish"
->>>>>>> 14542117 (fix ai flow)
       json("limits")("timeoutMillis").num.toInt shouldBe 1000
     }
   }
 
   it should "parse engineVersion, elapsedMillis, and confidence from a successful response" in {
     val json = RemoteAiJson
-<<<<<<< HEAD
       .responseFromJson(
         """{"requestId":"r","move":{"from":"e2","to":"e4"},"engineId":"e","engineVersion":"1.2.3","elapsedMillis":42,"confidence":0.87}"""
       )
-=======
-      .responseFromJson("""{"requestId":"r","move":{"from":"e2","to":"e4"},"engineId":"e","engineVersion":"1.2.3","elapsedMillis":42,"confidence":0.87}""")
->>>>>>> 14542117 (fix ai flow)
       .value
 
     json.engineVersion shouldBe Some("1.2.3")
     json.elapsedMillis shouldBe Some(42)
-<<<<<<< HEAD
     json.confidence shouldBe Some(0.87)
     json.engineId shouldBe Some("e")
-=======
-    json.confidence    shouldBe Some(0.87)
-    json.engineId      shouldBe Some("e")
->>>>>>> 14542117 (fix ai flow)
   }
 
   it should "handle a response that omits optional metadata fields" in {
@@ -166,17 +117,10 @@ class RemoteAiMoveSuggestionClientSpec extends AnyFlatSpec with Matchers with Ei
       .responseFromJson("""{"requestId":"r","move":{"from":"e2","to":"e4"}}""")
       .value
 
-<<<<<<< HEAD
     json.engineId shouldBe None
     json.engineVersion shouldBe None
     json.elapsedMillis shouldBe None
     json.confidence shouldBe None
-=======
-    json.engineId      shouldBe None
-    json.engineVersion shouldBe None
-    json.elapsedMillis shouldBe None
-    json.confidence    shouldBe None
->>>>>>> 14542117 (fix ai flow)
   }
 
   // ---------------------------------------------------------------------------
@@ -196,24 +140,16 @@ class RemoteAiMoveSuggestionClientSpec extends AnyFlatSpec with Matchers with Ei
   }
 
   it should "send promotion values as lowercase in legalMoves" in {
-<<<<<<< HEAD
     val promoState = stateFromFen("8/P7/8/8/8/8/8/K6k w - - 0 1")
-=======
-    val promoState   = stateFromFen("8/P7/8/8/8/8/8/K6k w - - 0 1")
->>>>>>> 14542117 (fix ai flow)
     var capturedBody = ""
 
     withServer { exchange =>
       capturedBody = requestBody(exchange)
-<<<<<<< HEAD
       respond(
         exchange,
         200,
         """{"requestId":"req-promo","move":{"from":"a7","to":"a8","promotion":"queen"}}"""
       )
-=======
-      respond(exchange, 200, """{"requestId":"req-promo","move":{"from":"a7","to":"a8","promotion":"queen"}}""")
->>>>>>> 14542117 (fix ai flow)
     } { baseUrl =>
       RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 1000)
         .suggestMove(context(state = promoState, requestId = "req-promo"))
@@ -226,10 +162,6 @@ class RemoteAiMoveSuggestionClientSpec extends AnyFlatSpec with Matchers with Ei
     }
   }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> ce08c01e (local microservices)
   it should "send local-dev test mode as a header instead of a body field" in {
     var capturedBody = ""
     var capturedMode: Option[String] = None
@@ -247,11 +179,6 @@ class RemoteAiMoveSuggestionClientSpec extends AnyFlatSpec with Matchers with Ei
     }
   }
 
-<<<<<<< HEAD
-=======
->>>>>>> 14542117 (fix ai flow)
-=======
->>>>>>> ce08c01e (local microservices)
   // ---------------------------------------------------------------------------
   // Error code mapping — all six contract codes
   // ---------------------------------------------------------------------------
@@ -259,15 +186,11 @@ class RemoteAiMoveSuggestionClientSpec extends AnyFlatSpec with Matchers with Ei
   it should "map NO_LEGAL_MOVE (422) to AIError.NoLegalMove" in {
     withServer { exchange =>
       requestBody(exchange)
-<<<<<<< HEAD
       respond(
         exchange,
         422,
         """{"requestId":"req-err","code":"NO_LEGAL_MOVE","message":"no legal moves"}"""
       )
-=======
-      respond(exchange, 422, """{"requestId":"req-err","code":"NO_LEGAL_MOVE","message":"no legal moves"}""")
->>>>>>> 14542117 (fix ai flow)
     } { baseUrl =>
       val provider = RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 1000)
       provider.suggestMove(context(requestId = "req-err")).left.value shouldBe AIError.NoLegalMove
@@ -277,15 +200,11 @@ class RemoteAiMoveSuggestionClientSpec extends AnyFlatSpec with Matchers with Ei
   it should "map BAD_REQUEST (400) to AIError.EngineFailure" in {
     withServer { exchange =>
       requestBody(exchange)
-<<<<<<< HEAD
       respond(
         exchange,
         400,
         """{"requestId":"req-br","code":"BAD_REQUEST","message":"missing field fen"}"""
       )
-=======
-      respond(exchange, 400, """{"requestId":"req-br","code":"BAD_REQUEST","message":"missing field fen"}""")
->>>>>>> 14542117 (fix ai flow)
     } { baseUrl =>
       val provider = RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 1000)
       provider.suggestMove(context(requestId = "req-br")).left.value shouldBe
@@ -296,15 +215,11 @@ class RemoteAiMoveSuggestionClientSpec extends AnyFlatSpec with Matchers with Ei
   it should "map BAD_POSITION (422) to AIError.EngineFailure" in {
     withServer { exchange =>
       requestBody(exchange)
-<<<<<<< HEAD
       respond(
         exchange,
         422,
         """{"requestId":"req-bp","code":"BAD_POSITION","message":"invalid FEN"}"""
       )
-=======
-      respond(exchange, 422, """{"requestId":"req-bp","code":"BAD_POSITION","message":"invalid FEN"}""")
->>>>>>> 14542117 (fix ai flow)
     } { baseUrl =>
       val provider = RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 1000)
       provider.suggestMove(context(requestId = "req-bp")).left.value shouldBe
@@ -315,15 +230,11 @@ class RemoteAiMoveSuggestionClientSpec extends AnyFlatSpec with Matchers with Ei
   it should "map ENGINE_UNAVAILABLE (503) to AIError.Unavailable" in {
     withServer { exchange =>
       requestBody(exchange)
-<<<<<<< HEAD
       respond(
         exchange,
         503,
         """{"requestId":"req-eu","code":"ENGINE_UNAVAILABLE","message":"engine missing"}"""
       )
-=======
-      respond(exchange, 503, """{"requestId":"req-eu","code":"ENGINE_UNAVAILABLE","message":"engine missing"}""")
->>>>>>> 14542117 (fix ai flow)
     } { baseUrl =>
       val provider = RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 1000)
       provider.suggestMove(context(requestId = "req-eu")).left.value shouldBe
@@ -334,15 +245,11 @@ class RemoteAiMoveSuggestionClientSpec extends AnyFlatSpec with Matchers with Ei
   it should "map ENGINE_TIMEOUT (504) to AIError.Timeout" in {
     withServer { exchange =>
       requestBody(exchange)
-<<<<<<< HEAD
       respond(
         exchange,
         504,
         """{"requestId":"req-et","code":"ENGINE_TIMEOUT","message":"timed out after 3000ms"}"""
       )
-=======
-      respond(exchange, 504, """{"requestId":"req-et","code":"ENGINE_TIMEOUT","message":"timed out after 3000ms"}""")
->>>>>>> 14542117 (fix ai flow)
     } { baseUrl =>
       val provider = RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 1000)
       provider.suggestMove(context(requestId = "req-et")).left.value shouldBe
@@ -353,15 +260,11 @@ class RemoteAiMoveSuggestionClientSpec extends AnyFlatSpec with Matchers with Ei
   it should "map ENGINE_FAILURE (500) to AIError.EngineFailure" in {
     withServer { exchange =>
       requestBody(exchange)
-<<<<<<< HEAD
       respond(
         exchange,
         500,
         """{"requestId":"req-ef","code":"ENGINE_FAILURE","message":"internal error"}"""
       )
-=======
-      respond(exchange, 500, """{"requestId":"req-ef","code":"ENGINE_FAILURE","message":"internal error"}""")
->>>>>>> 14542117 (fix ai flow)
     } { baseUrl =>
       val provider = RemoteAiMoveSuggestionClient(baseUrl, timeoutMillis = 1000)
       provider.suggestMove(context(requestId = "req-ef")).left.value shouldBe

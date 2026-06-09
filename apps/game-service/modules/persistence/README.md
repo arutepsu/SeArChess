@@ -398,20 +398,7 @@ docker compose down -v
 ```
 
 The local/demo volumes are `searchess_postgres_data` for Postgres,
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 `searchess_mongo_data` for Mongo, and `searchess_redis_data` for Redis.
-=======
-`searchess_mongo_data` for Mongo, and `history-service-data` for the separate
-History Service SQLite database.
->>>>>>> 2b1aa125 (real migration ok)
-=======
-`searchess_mongo_data` for Mongo, and `searchess_redis_data` for Redis.
->>>>>>> 966317ea (added bot container)
-=======
-`searchess_mongo_data` for Mongo, and `searchess_redis_data` for Redis.
->>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 
 ## How to Run the Tests
 

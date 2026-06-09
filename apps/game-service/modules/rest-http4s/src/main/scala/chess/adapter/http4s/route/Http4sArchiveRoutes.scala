@@ -1,15 +1,9 @@
 package chess.adapter.http4s.route
 
 import cats.effect.IO
-<<<<<<< HEAD:apps/game-service/modules/rest-http4s/src/main/scala/chess/adapter/http4s/route/Http4sArchiveRoutes.scala
 import chess.adapter.http4s.mapper.ArchiveSnapshotMapper
 import chess.adapter.http4s.route.Http4sRouteSupport.*
 import chess.adapter.rest.contract.dto.ArchiveSnapshotResponse
-=======
-import chess.adapter.http4s.route.Http4sRouteSupport.*
-import chess.adapter.rest.contract.dto.ArchiveSnapshotResponse
-import chess.adapter.rest.contract.mapper.ArchiveSnapshotMapper
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services):modules/adapter-rest-http4s/src/main/scala/chess/adapter/http4s/route/Http4sArchiveRoutes.scala
 import chess.application.{ArchiveError, GameServiceApi}
 import chess.application.session.model.SessionIds.GameId
 import org.http4s.*
@@ -17,14 +11,8 @@ import org.http4s.dsl.io.*
 
 class Http4sArchiveRoutes(gameService: GameServiceApi):
 
-<<<<<<< HEAD:apps/game-service/modules/rest-http4s/src/main/scala/chess/adapter/http4s/route/Http4sArchiveRoutes.scala
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] { case GET -> Root / "archive" / "games" / id =>
     handleGetArchive(id)
-=======
-  val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
-    case GET -> Root / "archive" / "games" / id =>
-      handleGetArchive(id)
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services):modules/adapter-rest-http4s/src/main/scala/chess/adapter/http4s/route/Http4sArchiveRoutes.scala
   }
 
   private def handleGetArchive(gameIdStr: String): IO[Response[IO]] =
@@ -40,7 +28,6 @@ class Http4sArchiveRoutes(gameService: GameServiceApi):
               ArchiveSnapshotResponse.toJson(ArchiveSnapshotMapper.toResponse(snapshot))
             )
           case Left(ArchiveError.GameNotFound(_)) =>
-<<<<<<< HEAD:apps/game-service/modules/rest-http4s/src/main/scala/chess/adapter/http4s/route/Http4sArchiveRoutes.scala
             jsonError(
               Status.NotFound,
               "ARCHIVE_NOT_FOUND",
@@ -52,10 +39,5 @@ class Http4sArchiveRoutes(gameService: GameServiceApi):
               "ARCHIVE_NOT_READY",
               s"Archive snapshot is not available until the game is closed: $gameIdStr"
             )
-=======
-            jsonError(Status.NotFound, "ARCHIVE_NOT_FOUND", s"Archive snapshot not found for game: $gameIdStr")
-          case Left(ArchiveError.GameNotClosed(_)) =>
-            jsonError(Status.Conflict, "ARCHIVE_NOT_READY", s"Archive snapshot is not available until the game is closed: $gameIdStr")
->>>>>>> 5e4d1e43 (game and history services. add docker, isolate services):modules/adapter-rest-http4s/src/main/scala/chess/adapter/http4s/route/Http4sArchiveRoutes.scala
           case Left(ArchiveError.StorageFailure(msg)) =>
             jsonError(Status.InternalServerError, "INTERNAL_ERROR", msg)

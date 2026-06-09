@@ -84,27 +84,9 @@ adapter indexes, but it is not Flyway-managed and it does not provide the same
 combined-write transaction guarantee as Postgres unless Mongo transactions are
 added later.
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 History Service remains in the main stack and stores its archive data in
 Postgres via its own Slick repository. That history persistence is not part of
 the Game Service Postgres/Mongo migration demo.
-=======
-History Service remains in the main stack and keeps its own separate SQLite
-history database in the `history-service-data` volume. That history persistence
-is not part of the Game Service Postgres/Mongo migration demo.
->>>>>>> 2b1aa125 (real migration ok)
-=======
-History Service remains in the main stack and stores its archive data in
-Postgres via its own Slick repository. That history persistence is not part of
-the Game Service Postgres/Mongo migration demo.
->>>>>>> 966317ea (added bot container)
-=======
-History Service remains in the main stack and stores its archive data in
-Postgres via its own Slick repository. That history persistence is not part of
-the Game Service Postgres/Mongo migration demo.
->>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 
 Use SQLite explicitly when you want the lightweight Game Service container
 mode:
@@ -343,16 +325,4 @@ The data volumes are:
 
 - Game Service Postgres data: `searchess_postgres_data`
 - Mongo data: `searchess_mongo_data`
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 - Redis data: `searchess_redis_data`
-=======
-- History Service data: `history-service-data`
->>>>>>> 2b1aa125 (real migration ok)
-=======
-- Redis data: `searchess_redis_data`
->>>>>>> 966317ea (added bot container)
-=======
-- Redis data: `searchess_redis_data`
->>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)

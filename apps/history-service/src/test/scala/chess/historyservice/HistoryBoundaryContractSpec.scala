@@ -3,11 +3,6 @@ package chess.historyservice
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import chess.adapter.event.GameHistoryIngestionContract
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 import chess.application.session.model.SessionIds.GameId
 import chess.history.{ArchiveMaterializer, ArchiveRecord, ArchiveRepository, ArchiveRepositoryError, HistoryIngestionService, RemoteGameArchiveClient}
 import fs2.Stream
@@ -17,11 +12,6 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.collection.mutable
-<<<<<<< HEAD
-=======
-
-import scala.collection.mutable
->>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 
 import scala.collection.mutable
 
@@ -33,16 +23,8 @@ class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherV
   private def withEnv(extra: (String, String)*)(key: String): Option[String] =
     (minimalEnv ++ extra.toMap).get(key)
 
-<<<<<<< HEAD
   "HistoryServiceConfig" should "disable the legacy ingestion alias by default" in {
     val config = HistoryServiceConfig.load(withEnv()).value
-=======
-import chess.history.{ArchiveMaterializer, HistoryIngestionService, RemoteGameArchiveClient}
-import chess.history.sqlite.SqliteArchiveRepository
-=======
-import chess.application.session.model.SessionIds.GameId
-import chess.history.{ArchiveMaterializer, ArchiveRecord, ArchiveRepository, ArchiveRepositoryError, HistoryIngestionService, RemoteGameArchiveClient}
->>>>>>> 966317ea (added bot container)
 import fs2.Stream
 import org.http4s.{HttpApp, Method, Request, Status, Uri}
 import org.scalatest.{EitherValues, OptionValues}
@@ -55,48 +37,22 @@ import scala.collection.mutable
 
 class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherValues with OptionValues:
 
-=======
->>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
   private val minimalEnv: Map[String, String] = Map(
     "HISTORY_POSTGRES_URL" -> "jdbc:postgresql://localhost/test"
   )
   private def withEnv(extra: (String, String)*)(key: String): Option[String] =
     (minimalEnv ++ extra.toMap).get(key)
-<<<<<<< HEAD
 
   "HistoryServiceConfig" should "disable the legacy ingestion alias by default" in {
-<<<<<<< HEAD
     val config = HistoryServiceConfig.load(_ => None).value
 
->>>>>>> ce08c01e (local microservices)
-=======
-    val config = HistoryServiceConfig.load(withEnv()).value
->>>>>>> 966317ea (added bot container)
-=======
-
-  "HistoryServiceConfig" should "disable the legacy ingestion alias by default" in {
-    val config = HistoryServiceConfig.load(withEnv()).value
->>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
     config.acceptLegacyIngestionPath shouldBe false
   }
 
   it should "allow the legacy ingestion alias to be explicitly enabled" in {
-<<<<<<< HEAD
     val config = HistoryServiceConfig
       .load(withEnv("HISTORY_ACCEPT_LEGACY_INGESTION_PATH" -> "true"))
       .value
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-    val config = HistoryServiceConfig.load(key =>
-      Map("HISTORY_ACCEPT_LEGACY_INGESTION_PATH" -> "true").get(key)
-    ).value
-
->>>>>>> ce08c01e (local microservices)
-=======
->>>>>>> 966317ea (added bot container)
-=======
->>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
     config.acceptLegacyIngestionPath shouldBe true
   }
 
@@ -104,7 +60,6 @@ class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherV
     HistoryServiceConfig
       .load(key => Map("HISTORY_ACCEPT_LEGACY_INGESTION_PATH" -> "yes").get(key))
       .left
-<<<<<<< HEAD
       .value should include("HISTORY_ACCEPT_LEGACY_INGESTION_PATH must be true or false")
   }
 
@@ -115,7 +70,6 @@ class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherV
       .value should include("HISTORY_POSTGRES_URL is required")
   }
 
-<<<<<<< HEAD
   it should "parse Redis Streams ingestion config" in {
     val config = HistoryServiceConfig
       .load(
@@ -143,62 +97,28 @@ class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherV
       .load(withEnv("HISTORY_INGESTION_MODE" -> "redis-stream"))
       .left
       .value should include("HISTORY_REDIS_URL or REDIS_HOST is required")
-<<<<<<< HEAD
-=======
-      .value should include ("HISTORY_ACCEPT_LEGACY_INGESTION_PATH must be true or false")
->>>>>>> ce08c01e (local microservices)
-=======
->>>>>>> 966317ea (added bot container)
   }
 
-=======
->>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
   "HistoryRoutes" should "keep the legacy ingestion alias disabled by default" in {
     withRoutes() { http =>
-<<<<<<< HEAD
       val response =
         http.run(post(GameHistoryIngestionContract.LegacyGameEventsPath, "{}")).unsafeRunSync()
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-      val response = http.run(post(GameHistoryIngestionContract.LegacyGameEventsPath, "{}")).unsafeRunSync()
-
->>>>>>> ce08c01e (local microservices)
-=======
->>>>>>> 966317ea (added bot container)
-=======
->>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
       response.status shouldBe Status.NotFound
     }
   }
 
   it should "enable the legacy ingestion alias only when explicitly configured" in {
     withRoutes(acceptLegacy = true) { http =>
-<<<<<<< HEAD
       val response =
         http.run(post(GameHistoryIngestionContract.LegacyGameEventsPath, "{}")).unsafeRunSync()
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-      val response = http.run(post(GameHistoryIngestionContract.LegacyGameEventsPath, "{}")).unsafeRunSync()
-
->>>>>>> ce08c01e (local microservices)
-=======
->>>>>>> 966317ea (added bot container)
-=======
->>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
       response.status shouldBe Status.BadRequest
     }
   }
 
   it should "report internal boundary details from health without checking optional dependencies" in {
     withRoutes() { http =>
-<<<<<<< HEAD
       val response =
         http.run(Request[IO](Method.GET, Uri.unsafeFromString("/health"))).unsafeRunSync()
-=======
-      val response = http.run(Request[IO](Method.GET, Uri.unsafeFromString("/health"))).unsafeRunSync()
->>>>>>> ce08c01e (local microservices)
       val body = response.bodyText.compile.string.unsafeRunSync()
       val json = ujson.read(body)
 
@@ -211,11 +131,6 @@ class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherV
   }
 
   private def withRoutes(acceptLegacy: Boolean = false)(test: HttpApp[IO] => Unit): Unit =
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
     val historyRepo = TestArchiveRepository()
     val ingestion = HistoryIngestionService(
       archiveClient = RemoteGameArchiveClient("http://127.0.0.1:1", timeoutMillis = 50),
@@ -228,19 +143,11 @@ class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherV
       acceptLegacyIngestionPath = acceptLegacy
     ).routes.orNotFound
     test(http)
-<<<<<<< HEAD
-=======
-    val historyDb = Files.createTempFile("searchess-history-boundary-", ".sqlite")
-    val historyRepo = SqliteArchiveRepository(historyDb.toString)
-=======
-    val historyRepo = TestArchiveRepository()
->>>>>>> 966317ea (added bot container)
     val ingestion = HistoryIngestionService(
       archiveClient = RemoteGameArchiveClient("http://127.0.0.1:1", timeoutMillis = 50),
       materializer  = ArchiveMaterializer(),
       repository    = historyRepo
     )
-<<<<<<< HEAD
 
     try
       val http = HistoryRoutes(
@@ -252,24 +159,10 @@ class HistoryBoundaryContractSpec extends AnyFlatSpec with Matchers with EitherV
     finally
       historyRepo.close()
       Files.deleteIfExists(historyDb)
->>>>>>> ce08c01e (local microservices)
-=======
-    val http = HistoryRoutes(
-      ingestion,
-      historyRepo,
-      acceptLegacyIngestionPath = acceptLegacy
-    ).routes.orNotFound
-    test(http)
->>>>>>> 966317ea (added bot container)
-=======
->>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 
   private def post(path: String, body: String): Request[IO] =
     Request[IO](
       method = Method.POST,
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
       uri    = Uri.unsafeFromString(path),
       body   = Stream.emits(body.getBytes("UTF-8")).covary[IO]
     )
@@ -283,20 +176,6 @@ private class TestArchiveRepository extends ArchiveRepository:
     store(r.gameId) = r; Right(())
   override def findByGameId(id: GameId): Either[ArchiveRepositoryError, Option[ArchiveRecord]] =
     Right(store.get(id))
-=======
-      uri = Uri.unsafeFromString(path),
-      body = Stream.emits(body.getBytes(StandardCharsets.UTF_8)).covary[IO]
-    )
->>>>>>> ce08c01e (local microservices)
-=======
-      uri    = Uri.unsafeFromString(path),
-      body   = Stream.emits(body.getBytes("UTF-8")).covary[IO]
-    )
-=======
-      uri    = Uri.unsafeFromString(path),
-      body   = Stream.emits(body.getBytes("UTF-8")).covary[IO]
-    )
->>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)
 
 private class TestArchiveRepository extends ArchiveRepository:
   import chess.application.session.model.SessionIds.GameId
@@ -307,7 +186,3 @@ private class TestArchiveRepository extends ArchiveRepository:
     store(r.gameId) = r; Right(())
   override def findByGameId(id: GameId): Either[ArchiveRepositoryError, Option[ArchiveRecord]] =
     Right(store.get(id))
-<<<<<<< HEAD
->>>>>>> 966317ea (added bot container)
-=======
->>>>>>> 8b003a1f (Use schema-isolated Slick Postgres persistence for history service)

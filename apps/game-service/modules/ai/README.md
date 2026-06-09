@@ -3,16 +3,11 @@
 This module contains Game-owned implementations of the
 `AiMoveSuggestionClient` port.
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> ce08c01e (local microservices)
 The internal HTTP DTOs and JSON codec live in `modules/ai-contract`. This
 module owns only Game Service adapter behavior: mapping Game state into the
 contract, sending the synchronous HTTP request, and converting the response back
 to the application AI port.
 
-<<<<<<< HEAD
 ## Runtime Shape
 
 The canonical runtime client is `RemoteAiMoveSuggestionClient`. It calls the
@@ -30,9 +25,6 @@ be treated as the production-like runtime path.
 adapter sends it as the `X-Searchess-AI-Test-Mode` HTTP header so end-to-end
 tests can prove Game rejects illegal or malformed provider output without
 polluting the inference request body. Leave it unset for normal runtime.
-=======
-=======
->>>>>>> ce08c01e (local microservices)
 ## Runtime Shape
 
 The canonical runtime client is `RemoteAiMoveSuggestionClient`. It calls the
@@ -46,14 +38,6 @@ be treated as the production-like runtime path.
 
 ## Test Hooks
 
-<<<<<<< HEAD
 `AI_REMOTE_TEST_MODE` is a local/dev verification hook. When set, it is sent to
 the Python AI service as `metadata.testMode` so end-to-end tests can prove Game
 rejects illegal or malformed provider output. Leave it unset for normal runtime.
->>>>>>> 14542117 (fix ai flow)
-=======
-`AI_REMOTE_TEST_MODE` is a local/dev verification hook. When set, the Game
-adapter sends it as the `X-Searchess-AI-Test-Mode` HTTP header so end-to-end
-tests can prove Game rejects illegal or malformed provider output without
-polluting the inference request body. Leave it unset for normal runtime.
->>>>>>> ce08c01e (local microservices)

@@ -2,10 +2,7 @@ package chess.adapter.ai.remote
 
 import chess.application.port.ai.{AIError, AiMoveSuggestionClient, AIRequestContext, AIResponse}
 import chess.domain.model.{Move, PieceType, Position}
-<<<<<<< HEAD
 import chess.observability.StructuredLog
-=======
->>>>>>> 14542117 (fix ai flow)
 
 import java.net.URI
 import java.net.http.{HttpClient, HttpRequest, HttpResponse}
@@ -13,7 +10,6 @@ import java.time.Duration
 import scala.util.control.NonFatal
 
 /** HTTP adapter for the standalone remote AI Service.
-<<<<<<< HEAD
   *
   * Implements the application [[AiMoveSuggestionClient]] port so Game Service and AI turn
   * orchestration remain unchanged. The remote service still only proposes a move; Game Service
@@ -70,88 +66,11 @@ class RemoteAiMoveSuggestionClient(
   ): Either[AIError, RemoteAiMoveSuggestionResponse] =
     val body = RemoteAiJson.requestToJson(requestDto)
     val requestBuilder = HttpRequest
-=======
- *
- *  Implements the application [[AiMoveSuggestionClient]] port so Game Service and
- *  AI turn orchestration remain unchanged. The remote service still only
- *  proposes a move; Game Service validates and applies it through the normal
- *  command path.
- */
-class RemoteAiMoveSuggestionClient(
-  baseUrl:          String,
-  timeoutMillis:    Int,
-  defaultEngineId:  Option[String] = None,
-  testMode:         Option[String] = None,
-  client:           HttpClient = HttpClient.newHttpClient()
-) extends AiMoveSuggestionClient:
-
-  private val TestModeHeader = "X-Searchess-AI-Test-Mode"
-
-  private val endpoint: URI =
-    URI.create(s"${baseUrl.stripSuffix("/")}${RemoteAiServiceContract.MoveSuggestionsPath}")
-
-  override def suggestMove(context: AIRequestContext): Either[AIError, AIResponse] =
-<<<<<<< HEAD
-    for
-      request <- RemoteAiRequestMapper
-                   .toRequest(
-                     context         = context,
-                     timeoutMillis   = timeoutMillis,
-                     defaultEngineId = defaultEngineId,
-                     testMode        = testMode
-                   )
-                   .left.map(err => AIError.MalformedResponse(s"failed to build AI request: $err"))
-      response <- send(request)
-      move     <- toDomainMove(response.move)
-    yield AIResponse(move)
-
-  private def send(requestDto: RemoteAiMoveSuggestionRequest): Either[AIError, RemoteAiMoveSuggestionResponse] =
-    val body = RemoteAiJson.requestToJson(requestDto)
-    val request = HttpRequest
->>>>>>> 14542117 (fix ai flow)
-=======
-    val request =
-      RemoteAiRequestMapper
-        .toRequest(
-          context         = context,
-          timeoutMillis   = timeoutMillis,
-          defaultEngineId = defaultEngineId
-        )
-        .left.map { err =>
-          StructuredLog.warn(
-            "game-service",
-            "ai_request_build_failed",
-                "requestId" -> context.requestId,
-                "gameId" -> context.gameId.value.toString,
-                "sessionId" -> context.sessionId.value.toString,
-                "sideToMove" -> context.sideToMove.toString.toLowerCase,
-                "error" -> err.toString
-              )
-          AIError.MalformedResponse(s"failed to build AI request: $err")
-        }
-
-    request.flatMap { requestDto =>
-      send(requestDto).flatMap { response =>
-        toDomainMove(response.move).left.map { err =>
-          logWarn("ai_response_move_invalid", requestDto, "error" -> describe(err))
-          err
-        }.map(AIResponse.apply)
-      }
-    }
-
-  private def send(requestDto: RemoteAiMoveSuggestionRequest): Either[AIError, RemoteAiMoveSuggestionResponse] =
-    val body = RemoteAiJson.requestToJson(requestDto)
-    val requestBuilder = HttpRequest
->>>>>>> ce08c01e (local microservices)
       .newBuilder(endpoint)
       .timeout(Duration.ofMillis(timeoutMillis.toLong))
       .header("Content-Type", "application/json")
       .header("Accept", "application/json")
       .POST(HttpRequest.BodyPublishers.ofString(body))
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> ce08c01e (local microservices)
     testMode.foreach(mode => requestBuilder.header(TestModeHeader, mode))
     val request = requestBuilder.build()
 
@@ -215,21 +134,6 @@ class RemoteAiMoveSuggestionClient(
           "elapsedMillis" -> elapsedMillis(started),
           "error" -> e.getMessage
         )
-=======
-      .build()
-
-    try
-      val response = client.send(request, HttpResponse.BodyHandlers.ofString())
-      response.statusCode() match
-        case status if status >= 200 && status < 300 =>
-          RemoteAiJson.responseFromJson(response.body()).left.map(AIError.MalformedResponse.apply)
-        case _ =>
-          Left(mapRemoteError(response.statusCode(), response.body()))
-    catch
-      case _: java.net.http.HttpTimeoutException =>
-        Left(AIError.Timeout(s"timed out after ${timeoutMillis}ms"))
-      case NonFatal(e) =>
->>>>>>> 14542117 (fix ai flow)
         Left(AIError.Unavailable(s"transport failure: ${e.getMessage}"))
 
   private def mapRemoteError(status: Int, body: String): AIError =
@@ -247,7 +151,6 @@ class RemoteAiMoveSuggestionClient(
 
   private def toDomainMove(dto: RemoteAiMoveDto): Either[AIError, Move] =
     for
-<<<<<<< HEAD
       from <- Position
         .fromAlgebraic(dto.from)
         .left
@@ -256,12 +159,6 @@ class RemoteAiMoveSuggestionClient(
         .fromAlgebraic(dto.to)
         .left
         .map(err => AIError.MalformedResponse(s"invalid AI move to '${dto.to}': $err"))
-=======
-      from      <- Position.fromAlgebraic(dto.from)
-                     .left.map(err => AIError.MalformedResponse(s"invalid AI move from '${dto.from}': $err"))
-      to        <- Position.fromAlgebraic(dto.to)
-                     .left.map(err => AIError.MalformedResponse(s"invalid AI move to '${dto.to}': $err"))
->>>>>>> 14542117 (fix ai flow)
       promotion <- parsePromotion(dto.promotion)
     yield Move(from, to, promotion)
 
@@ -273,7 +170,6 @@ class RemoteAiMoveSuggestionClient(
           .find(_.toString.equalsIgnoreCase(raw))
           .map(pt => Right(Some(pt)))
           .getOrElse(Left(AIError.MalformedResponse(s"invalid AI promotion piece: '$raw'")))
-<<<<<<< HEAD
 
   private def fieldsFor(request: RemoteAiMoveSuggestionRequest): Seq[(String, Any)] =
     Seq(
@@ -307,5 +203,3 @@ class RemoteAiMoveSuggestionClient(
     case AIError.Timeout(message)         => s"Timeout: $message"
     case AIError.EngineFailure(message)   => s"EngineFailure: $message"
     case AIError.MalformedResponse(error) => s"MalformedResponse: $error"
-=======
->>>>>>> 14542117 (fix ai flow)

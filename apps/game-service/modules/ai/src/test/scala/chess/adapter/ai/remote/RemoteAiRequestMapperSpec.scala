@@ -35,7 +35,6 @@ class RemoteAiRequestMapperSpec extends AnyFlatSpec with Matchers with EitherVal
 
     val request = RemoteAiRequestMapper
       .toRequest(
-<<<<<<< HEAD
         context = AIRequestContext.fromSession(session, state, requestId = "req-1"),
         timeoutMillis = 1500,
         defaultEngineId = None
@@ -69,23 +68,6 @@ class RemoteAiRequestMapperSpec extends AnyFlatSpec with Matchers with EitherVal
 
     request.metadata.mode shouldBe "HumanVsAI"
     RemoteAiJson.requestToJson(request) should not include "testMode"
-=======
-        context         = AIRequestContext.fromSession(session, state, requestId = "req-1"),
-        timeoutMillis   = 1500,
-        defaultEngineId = None
-      )
-      .value
-
-    request.requestId              shouldBe "req-1"
-    request.gameId                 shouldBe session.gameId.value.toString
-    request.sessionId              shouldBe session.sessionId.value.toString
-    request.fen                    shouldBe "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-    request.engine.engineId        shouldBe Some("stockfish-default")
-    request.limits.timeoutMillis   shouldBe 1500
-    request.metadata.mode          shouldBe "HumanVsAI"
-    request.legalMoves             should have size 20
-    request.legalMoves.map(m => (m.from, m.to)) should contain allOf (("e2", "e3"), ("e2", "e4"), ("g1", "f3"))
->>>>>>> 14542117 (fix ai flow)
   }
 
   it should "keep local-dev test mode out of the request body contract" in {
@@ -104,21 +86,10 @@ class RemoteAiRequestMapperSpec extends AnyFlatSpec with Matchers with EitherVal
   it should "send sideToMove as lowercase 'white' for a white-to-move position" in {
     val request = RemoteAiRequestMapper
       .toRequest(
-<<<<<<< HEAD
         context = AIRequestContext
           .fromSession(aiSession(), GameStateFactory.initial(), requestId = "req-w"),
         timeoutMillis = 1000,
         defaultEngineId = None
-=======
-        context         = AIRequestContext.fromSession(aiSession(), GameStateFactory.initial(), requestId = "req-w"),
-        timeoutMillis   = 1000,
-<<<<<<< HEAD
-        defaultEngineId = None,
-        testMode        = None
->>>>>>> 14542117 (fix ai flow)
-=======
-        defaultEngineId = None
->>>>>>> ce08c01e (local microservices)
       )
       .value
 
@@ -136,20 +107,9 @@ class RemoteAiRequestMapperSpec extends AnyFlatSpec with Matchers with EitherVal
 
     val request = RemoteAiRequestMapper
       .toRequest(
-<<<<<<< HEAD
         context = AIRequestContext.fromSession(session, blackToMove, requestId = "req-b"),
         timeoutMillis = 1000,
         defaultEngineId = None
-=======
-        context         = AIRequestContext.fromSession(session, blackToMove, requestId = "req-b"),
-        timeoutMillis   = 1000,
-<<<<<<< HEAD
-        defaultEngineId = None,
-        testMode        = None
->>>>>>> 14542117 (fix ai flow)
-=======
-        defaultEngineId = None
->>>>>>> ce08c01e (local microservices)
       )
       .value
 
@@ -163,20 +123,9 @@ class RemoteAiRequestMapperSpec extends AnyFlatSpec with Matchers with EitherVal
 
     val request = RemoteAiRequestMapper
       .toRequest(
-<<<<<<< HEAD
         context = AIRequestContext.fromSession(session, promoState, requestId = "req-promo"),
         timeoutMillis = 1000,
         defaultEngineId = None
-=======
-        context         = AIRequestContext.fromSession(session, promoState, requestId = "req-promo"),
-        timeoutMillis   = 1000,
-<<<<<<< HEAD
-        defaultEngineId = None,
-        testMode        = None
->>>>>>> 14542117 (fix ai flow)
-=======
-        defaultEngineId = None
->>>>>>> ce08c01e (local microservices)
       )
       .value
 

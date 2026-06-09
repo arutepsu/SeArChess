@@ -11,15 +11,7 @@ import chess.adapter.repository.{
 import chess.application.DefaultGameService
 import chess.application.ai.service.AITurnService
 import chess.application.event.AppEvent
-<<<<<<< HEAD
-<<<<<<< HEAD
 import chess.application.port.ai.{AIError, AiMoveSuggestionClient, AIResponse}
-=======
-import chess.application.port.ai.{AIError, AIProvider, AIResponse}
->>>>>>> abcc8c8c (envoy + ai service prerp)
-=======
-import chess.application.port.ai.{AIError, AiMoveSuggestionClient, AIResponse}
->>>>>>> 14542117 (fix ai flow)
 import chess.application.port.event.EventPublisher
 import chess.application.port.repository.{
   GameRepository,
@@ -953,7 +945,6 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "apply an AI move when AI is configured and it is an AI-controlled turn" in {
-<<<<<<< HEAD
     val collector = new TestEventPublisher
     val sessionRepo = InMemorySessionRepository()
     val gameRepo = InMemoryGameRepository()
@@ -964,16 +955,6 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
       val move = GameStateRules
         .legalMoves(context.state)
         .toSeq
-=======
-    val collector      = new TestEventPublisher
-    val sessionRepo    = InMemorySessionRepository()
-    val gameRepo       = InMemoryGameRepository()
-    val store          = InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionService = SessionService(sessionRepo, collector)
-    val svc            = SessionGameService(sessionService, store, collector)
-    val provider: AiMoveSuggestionClient = context =>
-      val move = GameStateRules.legalMoves(context.state).toSeq
->>>>>>> 14542117 (fix ai flow)
         .sortBy(m => (m.from.file, m.from.rank, m.to.file, m.to.rank))
         .head
       Right(AIResponse(move))
@@ -1021,7 +1002,6 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val svc = SessionGameCommandService(sessionLifecycleService, store, collector)
 
     // Provider that always returns e2→e4 — never reached because the guard fires first.
-<<<<<<< HEAD
     val dummyProvider: AiMoveSuggestionClient =
       _ => Right(AIResponse(Move(Position.from(4, 1).value, Position.from(4, 3).value)))
     val ai = AITurnService(dummyProvider, svc, collector)
@@ -1031,14 +1011,6 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val persistentSessionService =
       PersistentSessionService(sessionRepo, gameRepo, store, sessionLifecycleService)
     val sessRoutes = sessionRoutes(gameService, persistentSessionService, store)
-=======
-    val dummyProvider: AiMoveSuggestionClient = _ =>
-      Right(AIResponse(Move(Position.from(4, 1).value, Position.from(4, 3).value)))
-    val ai          = AITurnService(dummyProvider, svc, collector)
-    val gameService = DefaultGameService(svc, sessionService, gameRepo, collector, Some(ai))
-    val gameRoutes  = Http4sGameRoutes(gameService).routes.orNotFound
-    val sessRoutes  = Http4sSessionRoutes(gameService).routes.orNotFound
->>>>>>> 14542117 (fix ai flow)
 
     // Create a HumanVsHuman session — neither side is AI-controlled.
     val createReq = Request[IO](Method.POST, uri"/sessions").withBodyStream(jsonBody("{}"))
@@ -1052,7 +1024,6 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "return 404 for an unknown game id" in {
-<<<<<<< HEAD
     val collector = new TestEventPublisher
     val sessionRepo = InMemorySessionRepository()
     val gameRepo = InMemoryGameRepository()
@@ -1065,19 +1036,6 @@ class Http4sGameRoutesSpec extends AnyFlatSpec with Matchers:
     val gameService =
       DefaultGameService(svc, sessionLifecycleService, gameRepo, collector, Some(ai))
     val gameRoutes = Http4sGameRoutes(gameService).routes.orNotFound
-=======
-    val collector      = new TestEventPublisher
-    val sessionRepo    = InMemorySessionRepository()
-    val gameRepo       = InMemoryGameRepository()
-    val store          = InMemorySessionGameStore(sessionRepo, gameRepo)
-    val sessionService = SessionService(sessionRepo, collector)
-    val svc            = SessionGameService(sessionService, store, collector)
-    val dummyProvider: AiMoveSuggestionClient = _ =>
-      Right(AIResponse(Move(Position.from(4, 1).value, Position.from(4, 3).value)))
-    val ai          = AITurnService(dummyProvider, svc, collector)
-    val gameService = DefaultGameService(svc, sessionService, gameRepo, collector, Some(ai))
-    val gameRoutes  = Http4sGameRoutes(gameService).routes.orNotFound
->>>>>>> 14542117 (fix ai flow)
 
     val resp = run(
       gameRoutes,

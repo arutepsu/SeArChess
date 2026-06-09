@@ -30,11 +30,7 @@ class LocalDeterministicAiClientSpec extends AnyFlatSpec with Matchers with Eith
   // ── suggestMove: legal position ────────────────────────────────────────────
 
   "LocalDeterministicAiClient.suggestMove" should "return a legal move in the initial position" in {
-<<<<<<< HEAD
     val state = GameStateFactory.initial()
-=======
-    val state    = GameStateFactory.initial()
->>>>>>> 14542117 (fix ai flow)
     val response = provider.suggestMove(context(state)).value
     val legal = GameStateRules.legalMoves(state)
     legal should contain(response.move)

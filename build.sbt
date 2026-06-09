@@ -23,6 +23,8 @@ lazy val commonSettings = Seq(
   libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,
   libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "2.4.0",
   libraryDependencies += "com.lihaoyi" %% "fastparse" % "3.1.1",
+  Compile / doc / sources := Seq.empty,
+  Compile / packageDoc / publishArtifact := false,
   // scoverage: coverage is toggled via the report/ci aliases on the root project;
   // individual modules inherit ThisBuild-level coverageEnabled.
   coverageFailOnMinimum := true,
@@ -201,8 +203,11 @@ lazy val adapterAi = project
 
 lazy val adapterEvent = project
   .in(file("apps/game-service/modules/eventing"))
-  .settings(commonSettings)
-  .dependsOn(gameContract)
+  .settings(
+    commonSettings,
+    libraryDependencies += "com.lihaoyi" %% "ujson" % "4.0.2"
+  )
+  .dependsOn(gameContract, gameEventContract)
 
 // Module: game-event-contract (Game event JSON wire serializer)
 
@@ -229,7 +234,7 @@ lazy val gameHistoryDelivery = project
   )
   .dependsOn(gameContract, gameEventContract, observability)
 
-// Module: adapter-rest-contract (wire DTOs/codecs only)
+// Module: adapter-rest-contract (wire DTOs/codecs and transport read-model mappers)
 
 lazy val adapterRestContract = project
   .in(file("modules/adapter-rest-contract"))
@@ -237,6 +242,7 @@ lazy val adapterRestContract = project
     commonSettings,
     libraryDependencies += "com.lihaoyi" %% "ujson" % "4.0.2"
   )
+  .dependsOn(gameCore)
 
 
 // Module: adapter-rest-http4s (authoritative REST adapter)
@@ -253,8 +259,7 @@ lazy val adapterRestHttp4s = project
     // ARE included in coverage.
     excludeFromCoverage(".*adapter.http4s.Http4sApp.*")
   )
-  // gameCore is required by the HTTP adapter's internal mapping layer; the
-  // public adapter-rest-contract module remains wire-only.
+  // gameCore is required by adapter-rest-contract's transport read-model mappers.
   // adapterPersistence is only needed for test fixtures (InMemoryGameRepository etc.)
   .dependsOn(adapterRestContract, gameCore, notation, adapterPersistence % Test)
 
