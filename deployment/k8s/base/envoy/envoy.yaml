@@ -36,6 +36,19 @@ static_resources:
                           route:
                             cluster: user_service
                             prefix_rewrite: /users
+                        # Lichess bridge — read-only status and policy, exact-path only.
+                        # Upstream sees /internal/lichess/*; no other bridge endpoint is reachable.
+                        # JWT is enforced by the prefix: "/api/" rule below — no new JWT rule needed.
+                        - match:
+                            path: /api/lichess/bridge/status
+                          route:
+                            cluster: lichess_bridge
+                            prefix_rewrite: /internal/lichess/status
+                        - match:
+                            path: /api/lichess/bridge/policy
+                          route:
+                            cluster: lichess_bridge
+                            prefix_rewrite: /internal/lichess/policy
                         - match:
                             prefix: /api/
                           route:
@@ -160,6 +173,18 @@ static_resources:
                     socket_address:
                       address: keycloak
                       port_value: 8080
+    - name: lichess_bridge
+      type: STRICT_DNS
+      connect_timeout: 2s
+      load_assignment:
+        cluster_name: lichess_bridge
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: lichess-bridge-service
+                      port_value: 8090
 
 # Admin bound to 0.0.0.0 (not 127.0.0.1) so Kubernetes httpGet readiness probes
 # can reach /ready from the kubelet outside the container's loopback.
