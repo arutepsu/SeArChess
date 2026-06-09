@@ -9,5 +9,6 @@ final case class OAuthLinkState(
     codeVerifier: String,
     redirectAfterSuccess: String,
     expiresAt: Instant,
-    createdAt: Instant
+    createdAt: Instant,
+    targetCapability: String
 )

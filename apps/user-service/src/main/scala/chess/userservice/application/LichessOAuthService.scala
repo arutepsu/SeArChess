@@ -33,7 +33,8 @@ class LichessOAuthService(
         codeVerifier         = verifier,
         redirectAfterSuccess = config.webUiSettingsUrl + "?lichess=linked",
         expiresAt            = Instant.now().plusSeconds(config.stateTtlSeconds),
-        createdAt            = Instant.now()
+        createdAt            = Instant.now(),
+        targetCapability     = "identity_only"
       )
       stateRepo.insert(linkState).map { _ =>
         config.authorizeUrl +
@@ -61,14 +62,18 @@ class LichessOAuthService(
     }
 
   private def exchangeCodeAndLink(code: String, ls: OAuthLinkState): IO[Either[String, ExternalAccountLink]] =
-    fetchToken(code, ls.codeVerifier).flatMap {
-      case Left(err)    => IO.pure(Left(err))
-      case Right(token) =>
-        fetchLichessId(token).flatMap {
-          case Left(err)  => IO.pure(Left(err))
-          case Right(lid) => IO(upsertVerifiedLink(ls.userId, lid))
+    ls.targetCapability match
+      case "identity_only" =>
+        fetchToken(code, ls.codeVerifier).flatMap {
+          case Left(err)    => IO.pure(Left(err))
+          case Right(token) =>
+            fetchLichessId(token).flatMap {
+              case Left(err)  => IO.pure(Left(err))
+              case Right(lid) => IO(upsertVerifiedLink(ls.userId, lid))
+            }
         }
-    }
+      case _ =>
+        IO.pure(Left("unsupported_target_capability"))
 
   private def fetchToken(code: String, codeVerifier: String): IO[Either[String, String]] =
     val body = formEncode(

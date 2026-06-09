@@ -75,7 +75,8 @@ class LichessOAuthServiceSpec extends AnyFlatSpec with Matchers with EitherValue
     url should include("code_challenge=")
     url should include("state=")
     stateRepo.store should have size 1
-    stateRepo.store.values.head.userId shouldBe userId
+    stateRepo.store.values.head.userId           shouldBe userId
+    stateRepo.store.values.head.targetCapability shouldBe "identity_only"
   }
 
   it should "not persist the code_verifier in a link row" in {
@@ -101,7 +102,8 @@ class LichessOAuthServiceSpec extends AnyFlatSpec with Matchers with EitherValue
       codeVerifier         = "verifier",
       redirectAfterSuccess = "http://localhost/settings?lichess=linked",
       expiresAt            = Instant.now().minusSeconds(1),
-      createdAt            = Instant.now().minusSeconds(700)
+      createdAt            = Instant.now().minusSeconds(700),
+      targetCapability     = "identity_only"
     )
     stateRepo.store("expired-state") = expired
     val svc    = makeService(stateRepo = stateRepo)
@@ -119,7 +121,8 @@ class LichessOAuthServiceSpec extends AnyFlatSpec with Matchers with EitherValue
       codeVerifier         = "verifier",
       redirectAfterSuccess = "http://localhost/settings?lichess=linked",
       expiresAt            = Instant.now().plusSeconds(600),
-      createdAt            = Instant.now()
+      createdAt            = Instant.now(),
+      targetCapability     = "identity_only"
     )
     stateRepo.store("one-time-state") = ls
     val svc = makeService(stateRepo = stateRepo, client = lichessMockClient("alice"))
@@ -140,7 +143,8 @@ class LichessOAuthServiceSpec extends AnyFlatSpec with Matchers with EitherValue
       codeVerifier         = "verifier",
       redirectAfterSuccess = "http://localhost/settings?lichess=linked",
       expiresAt            = Instant.now().plusSeconds(600),
-      createdAt            = Instant.now()
+      createdAt            = Instant.now(),
+      targetCapability     = "identity_only"
     )
     stateRepo.store("valid-state") = ls
     val svc    = makeService(stateRepo = stateRepo, linkRepo = linkRepo, client = lichessMockClient("alice_chess"))
@@ -158,6 +162,28 @@ class LichessOAuthServiceSpec extends AnyFlatSpec with Matchers with EitherValue
     // Access token must not appear in any persisted field
     val serialised = link.toString
     serialised should not include "tok-test"
+  }
+
+  it should "fail closed for an unknown targetCapability without updating the link" in {
+    val stateRepo = StubOAuthLinkStateRepository()
+    val linkRepo  = StubExternalAccountLinkRepository()
+    val userId    = UUID.randomUUID()
+    val ls        = OAuthLinkState(
+      state                = "unknown-cap-state",
+      userId               = userId,
+      codeVerifier         = "verifier",
+      redirectAfterSuccess = "http://localhost/settings?lichess=linked",
+      expiresAt            = Instant.now().plusSeconds(600),
+      createdAt            = Instant.now(),
+      targetCapability     = "challenge_ready"  // not yet implemented
+    )
+    stateRepo.store("unknown-cap-state") = ls
+    val svc    = makeService(stateRepo = stateRepo, linkRepo = linkRepo, client = lichessMockClient("alice"))
+    val result = svc.exchangeCallback("code", "unknown-cap-state").unsafeRunSync()
+
+    result.isLeft        shouldBe true
+    result.left.value    shouldBe "unsupported_target_capability"
+    linkRepo.store       shouldBe empty  // no link was upserted
   }
 
   // ── In-memory stubs ───────────────────────────────────────────────────────
