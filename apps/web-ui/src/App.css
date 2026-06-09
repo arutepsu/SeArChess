@@ -353,3 +353,146 @@ pre {
   box-shadow: 0 0 6px #2ecc71;
   animation: pulse-dot 1.5s infinite alternate;
 }
+
+.pekko-room-panel {
+  width: min(100%, 590px);
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(220px, 0.8fr);
+  gap: 14px;
+  margin-bottom: 15px;
+  padding: 14px;
+  border-radius: 8px;
+  background: rgba(43, 24, 28, 0.9);
+}
+
+.pekko-room-main {
+  display: grid;
+  gap: 9px;
+}
+
+.pekko-label {
+  color: #a3a3a3;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06rem;
+  text-transform: uppercase;
+}
+
+.pekko-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.pekko-row input {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid #c5a059;
+  border-radius: 6px;
+  background: #1e1e24;
+  color: #fff;
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.pekko-row input:disabled {
+  opacity: 0.62;
+}
+
+.pekko-row button,
+.pekko-quick-actions button {
+  min-height: 34px;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 11px;
+  background: #e6b347;
+  color: #120a0c;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.pekko-row button:disabled,
+.pekko-quick-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.pekko-row .pekko-danger-button {
+  background: #ef4444;
+  color: #fff;
+}
+
+.pekko-command-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.pekko-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pekko-quick-actions button {
+  border: 1px solid rgba(197, 160, 89, 0.42);
+  background: #1e1e24;
+  color: #d4c7b8;
+  font-size: 0.78rem;
+}
+
+.pekko-quick-actions button.is-active {
+  background: rgba(230, 179, 71, 0.22);
+  color: #e6b347;
+}
+
+.pekko-event-log {
+  height: 178px;
+  overflow: auto;
+  border: 1px solid rgba(197, 160, 89, 0.24);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.24);
+  padding: 8px;
+}
+
+.pekko-event-empty {
+  color: #bfa8a8;
+  font-size: 0.84rem;
+}
+
+.pekko-event {
+  display: grid;
+  grid-template-columns: 28px minmax(92px, auto) minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+  padding: 5px 0;
+  color: #f4efe6;
+  font-size: 0.78rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.pekko-event span {
+  color: #9ca3af;
+  font-family: Consolas, monospace;
+}
+
+.pekko-event strong {
+  color: #a9d7ff;
+  font-size: 0.72rem;
+}
+
+.pekko-event p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.pekko-event-ValidationFailed strong,
+.pekko-event-ParseFailed strong,
+.pekko-event-MoveRejected strong {
+  color: #ff9d9d;
+}
+
+@media (max-width: 900px) {
+  .pekko-room-panel {
+    grid-template-columns: 1fr;
+  }
+}

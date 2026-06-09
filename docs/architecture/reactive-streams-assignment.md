@@ -66,6 +66,38 @@ The batching flow groups envelopes before they reach the sink. This demonstrates
 
 The assignment runner provides console output and a summary sink. The sink prints each batch and collects a `StreamSummary` containing total events, accepted moves, rejected moves, parse failures, validation failures, and finished games.
 
+## Pekko room demonstration
+
+`SearchessRoomStream` adds a live room/session demonstration on top of the same assignment pipeline. A room is one materialized stream with its own parser state, validation state, game-processing state, event-envelope sequence, and bounded input queue.
+
+```text
+Source.queue[String]
+  -> ParseDslFlow
+  -> ValidateCommandFlow
+  -> ProcessGameFlow
+  -> EventEnvelopeFlow
+  -> Backpressure Flow
+  -> BroadcastHub[EventEnvelope]
+```
+
+Commands are submitted as raw Searchess DSL lines. Current subscribers receive live `EventEnvelope` values from the room's `BroadcastHub`, and consumers that need assignment-style batches can use the room's batched event source.
+
+`SearchessRoomRegistry` manages rooms by `roomId`. It intentionally stays inside `apps/chess-streaming`; it does not change production `EventPublisher`, does not persist room state, and does not introduce a custom Publisher/Subscriber framework.
+
+## HTTP/WebSocket adapter
+
+`ChessStreamingServerMain` starts a small Pekko HTTP adapter around `SearchessRoomRegistry`.
+
+Available endpoints:
+
+- `GET /` serves the local demo page.
+- `GET /rooms` returns active room ids.
+- `POST /rooms/{roomId}/commands` enqueues one DSL command line into a room. The request body may be raw DSL text or JSON with a `line` field.
+- `GET /rooms/{roomId}/events` upgrades to a WebSocket and streams live room envelopes.
+- `GET /game?gameId={roomId}` and `GET /game/{roomId}` remain compatibility aliases for the WebSocket route.
+
+The WebSocket input accepts either raw DSL lines or JSON with `roomId`/`gameId` and `line`/`command`. WebSocket output is JSON containing the room id and the Kafka-ready `EventEnvelope`.
+
 ## Kafka future work
 
 Kafka is future work and is not part of this PR. The intended next step is to replace the file source with a Kafka source, or replace the console/file sink with a Kafka sink, while keeping the parse, validation, processing, envelope, and batching flows intact.

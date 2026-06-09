@@ -1,288 +1,284 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pekko HTTP Chess WebSocket Test Client</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #1e1e24;
-            color: #f4efe6;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
-            margin: 0;
-        }
-        h1 {
-            color: #e6b347;
-            margin-bottom: 5px;
-        }
-        .container {
-            display: flex;
-            gap: 40px;
-            margin-top: 20px;
-            max-width: 900px;
-            width: 100%;
-        }
-        .controls, .board-container {
-            background: #2b181c;
-            border: 1px solid rgba(197, 160, 89, 0.4);
-            border-radius: 12px;
-            padding: 20px;
-            flex: 1;
-        }
-        .status-bar {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        .status-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #ef4444;
-            box-shadow: 0 0 8px #ef4444;
-            transition: all 0.3s;
-        }
-        .status-dot.connected {
-            background: #22c55e;
-            box-shadow: 0 0 8px #22c55e;
-        }
-        .input-group {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-        input[type="text"] {
-            flex: 1;
-            padding: 10px;
-            border-radius: 6px;
-            border: 1px solid #c5a059;
-            background: #1e1e24;
-            color: #fff;
-            font-size: 1rem;
-        }
-        button {
-            padding: 10px 20px;
-            border-radius: 6px;
-            border: none;
-            background: #e6b347;
-            color: #120a0c;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        button:hover {
-            background: #ffc75f;
-        }
-        .log-panel {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 6px;
-            padding: 10px;
-            height: 150px;
-            overflow-y: auto;
-            font-family: monospace;
-            font-size: 0.85rem;
-        }
-        .log-entry.error { color: #ef4444; }
-        .log-entry.success { color: #22c55e; }
-        .log-entry.info { color: #a3a3a3; }
-        
-        /* Board Grid Styling */
-        table.chess-board {
-            border-collapse: collapse;
-            margin: 0 auto;
-        }
-        td.square {
-            width: 45px;
-            height: 45px;
-            text-align: center;
-            font-weight: bold;
-            font-size: 1.1rem;
-        }
-        .square.light { background: #f0d9b5; color: #b58863; }
-        .square.dark { background: #b58863; color: #f0d9b5; }
-        .rank-label, .file-label {
-            font-weight: bold;
-            color: #e6b347;
-            padding: 4px;
-            text-align: center;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Searchess Room Streams</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Segoe UI, Tahoma, Geneva, Verdana, sans-serif;
+      background: #17191f;
+      color: #f4efe6;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px;
+    }
+
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      color: #e6b347;
+      font-size: 2rem;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0 0 20px;
+      color: #c9c2b7;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(280px, 360px) 1fr;
+      gap: 18px;
+    }
+
+    .panel {
+      background: #232733;
+      border: 1px solid rgba(230, 179, 71, 0.32);
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #ef4444;
+      box-shadow: 0 0 8px #ef4444;
+      flex: 0 0 auto;
+    }
+
+    .status-dot.connected {
+      background: #22c55e;
+      box-shadow: 0 0 8px #22c55e;
+    }
+
+    label {
+      display: block;
+      margin: 12px 0 6px;
+      color: #d9d0c4;
+      font-size: 0.92rem;
+    }
+
+    input {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #8d7648;
+      background: #17191f;
+      color: #fff;
+      font-size: 1rem;
+    }
+
+    button {
+      min-height: 40px;
+      padding: 9px 14px;
+      border: 0;
+      border-radius: 6px;
+      background: #e6b347;
+      color: #17120a;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #ffc75f;
+    }
+
+    .button-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .log {
+      height: 440px;
+      overflow-y: auto;
+      padding: 12px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.28);
+      font-family: Consolas, Menlo, monospace;
+      font-size: 0.86rem;
+      line-height: 1.45;
+    }
+
+    .entry {
+      margin-bottom: 8px;
+      overflow-wrap: anywhere;
+    }
+
+    .entry.error {
+      color: #ff8d8d;
+    }
+
+    .entry.success {
+      color: #7be59c;
+    }
+
+    .entry.event {
+      color: #a9d7ff;
+    }
+
+    @media (max-width: 760px) {
+      body {
+        padding: 14px;
+      }
+
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </head>
 <body>
-    <h1>Chess WebSocket Stream Visualizer</h1>
-    <p>Interaktiver Pekko HTTP WebSocket-Verbindungstest</p>
+<main>
+  <h1>Searchess Room Streams</h1>
+  <p>Pekko HTTP/WebSocket adapter for live Searchess DSL rooms.</p>
 
-    <div class="container">
-        <!-- Controls & Logs -->
-        <div class="controls">
-            <div class="status-bar">
-                <div id="statusDot" class="status-dot"></div>
-                <span id="statusText">Getrennt / Disconnected</span>
-            </div>
-            
-            <div class="input-group">
-                <input type="text" id="roomIdInput" placeholder="Raum ID (z. B. room-1)" value="room-1">
-                <button id="connectBtn" onclick="toggleConnect()">Trennen</button>
-            </div>
-            
-            <div class="input-group">
-                <input type="text" id="moveInput" placeholder="z. B. e2-e4" value="e2-e4">
-                <button id="sendBtn" onclick="sendMove()">Senden</button>
-            </div>
-            
-            <h3>Protokoll / Event Log</h3>
-            <div id="logPanel" class="log-panel">
-                <div class="log-entry info">Warte auf Verbindung...</div>
-            </div>
-        </div>
+  <div class="layout">
+    <section class="panel">
+      <div class="status-row">
+        <span id="statusDot" class="status-dot"></span>
+        <span id="statusText">Disconnected</span>
+      </div>
 
-        <!-- ASCII Chess Board -->
-        <div class="board-container">
-            <h3 style="text-align: center; margin-top: 0;" id="turnIndicator">Am Zug: -</h3>
-            <div id="boardWrapper"></div>
-        </div>
-    </div>
+      <label for="roomIdInput">Room</label>
+      <input id="roomIdInput" type="text" value="room-1">
 
-    <script>
-        let ws = null;
-        
-        // Initial setup for the 8x8 Board Grid
-        const initialBoard = {
-            "a1": "wR", "b1": "wN", "c1": "wB", "d1": "wQ", "e1": "wK", "f1": "wB", "g1": "wN", "h1": "wR",
-            "a2": "wP", "b2": "wP", "c2": "wP", "d2": "wP", "e2": "wP", "f2": "wP", "g2": "wP", "h2": "wP",
-            "a7": "bP", "b7": "bP", "c7": "bP", "d7": "bP", "e7": "bP", "f7": "bP", "g7": "bP", "h7": "bP",
-            "a8": "bR", "b8": "bN", "c8" : "bB", "d8": "bQ", "e8": "bK", "f8": "bB", "g8": "bN", "h8": "bR"
-        };
-        
-        const pieceSymbols = {
-            "wK": "♔", "wQ": "♕", "wR": "♖", "wB": "♗", "wN": "♘", "wP": "♙",
-            "bK": "♚", "bQ": "♛", "bR": "♜", "bB": "♝", "bN": "♞", "bP": "♟"
-        };
+      <div class="button-row">
+        <button id="connectBtn" type="button" onclick="toggleConnect()">Connect</button>
+        <button type="button" onclick="sendDemoSetup()">Demo setup</button>
+      </div>
 
-        function log(message, type = 'info') {
-            const logPanel = document.getElementById('logPanel');
-            const entry = document.createElement('div');
-            entry.className = `log-entry ${type}`;
-            entry.innerText = `[${new Date().toLocaleTimeString()}] ${message}`;
-            logPanel.appendChild(entry);
-            logPanel.scrollTop = logPanel.scrollHeight;
+      <label for="commandInput">Searchess DSL command</label>
+      <input id="commandInput" type="text" value="move Alice e2e4">
+
+      <div class="button-row">
+        <button type="button" onclick="sendCommand()">Send</button>
+        <button type="button" onclick="setCommand('status')">Status</button>
+        <button type="button" onclick="setCommand('resign Bob')">Resign Bob</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div id="log" class="log">
+        <div class="entry">Ready.</div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+  let ws = null;
+  let activeRoomId = "room-1";
+
+  function log(message, type = "") {
+    const panel = document.getElementById("log");
+    const entry = document.createElement("div");
+    entry.className = `entry ${type}`;
+    entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+    panel.appendChild(entry);
+    panel.scrollTop = panel.scrollHeight;
+  }
+
+  function setConnected(connected) {
+    document.getElementById("statusDot").className = connected ? "status-dot connected" : "status-dot";
+    document.getElementById("statusText").textContent = connected ? `Connected (${activeRoomId})` : "Disconnected";
+    document.getElementById("connectBtn").textContent = connected ? "Disconnect" : "Connect";
+    document.getElementById("roomIdInput").disabled = connected;
+  }
+
+  function toggleConnect() {
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+      ws.close();
+      return;
+    }
+    connect();
+  }
+
+  function connect() {
+    activeRoomId = document.getElementById("roomIdInput").value.trim() || "default";
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const port = window.location.port || "8082";
+    const url = `${protocol}://${window.location.hostname || "localhost"}:${port}/rooms/${encodeURIComponent(activeRoomId)}/events`;
+
+    log(`Connecting to ${url}`);
+    ws = new WebSocket(url);
+
+    ws.onopen = () => {
+      setConnected(true);
+      log("WebSocket connected.", "success");
+    };
+
+    ws.onmessage = event => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "connected") {
+          log(`Joined room ${data.roomId}. Active rooms: ${data.activeRooms.join(", ") || "-"}`, "success");
+        } else if (data.type === "event") {
+          const envelope = data.event;
+          log(`${envelope.sequenceNumber} ${envelope.eventType}: ${envelope.payload}`, "event");
+        } else {
+          log(event.data);
         }
+      } catch (error) {
+        log(`Could not parse server message: ${error.message}`, "error");
+      }
+    };
 
-        let activeRoomId = "room-1";
+    ws.onclose = () => {
+      setConnected(false);
+      log("WebSocket disconnected.", "error");
+    };
 
-        function toggleConnect() {
-            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
-                log("Trennen...");
-                ws.close();
-            } else {
-                const roomInput = document.getElementById('roomIdInput');
-                activeRoomId = roomInput.value.trim() || "default";
-                connect();
-            }
-        }
+    ws.onerror = () => {
+      log("WebSocket error.", "error");
+      ws.close();
+    };
+  }
 
-        function connect() {
-            const wsHost = window.location.hostname || "localhost";
-            const wsPort = window.location.port === "5173" || window.location.port === "3000" ? "8082" : (window.location.port || "8082");
-            const wsUrl = `ws://${wsHost}:${wsPort}/game?gameId=${activeRoomId}`;
-            log(`Verbinde mit ${wsUrl}...`);
-            ws = new WebSocket(wsUrl);
+  function sendCommandLine(line) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      log("WebSocket is not connected.", "error");
+      return;
+    }
+    ws.send(JSON.stringify({ roomId: activeRoomId, line }));
+    log(`Sent: ${line}`);
+  }
 
-            ws.onopen = () => {
-                document.getElementById('statusDot').className = 'status-dot connected';
-                document.getElementById('statusText').innerText = `Verbunden / Connected (${activeRoomId})`;
-                document.getElementById('connectBtn').innerText = 'Trennen';
-                document.getElementById('roomIdInput').disabled = true;
-                log(`WebSocket-Verbindung zu Raum "${activeRoomId}" erfolgreich hergestellt!`, "success");
-                renderBoard(initialBoard);
-                document.getElementById('turnIndicator').innerText = "Am Zug: WEISS";
-            };
+  function sendCommand() {
+    const input = document.getElementById("commandInput");
+    const line = input.value.trim();
+    if (line) sendCommandLine(line);
+  }
 
-            ws.onmessage = (event) => {
-                log(`Server-Antwort empfangen!`);
-                console.log("Empfangener GameState:", event.data);
-                
-                try {
-                    const data = JSON.parse(event.data);
-                    if (data.status === "success") {
-                        log(`Zug erfolgreich! Nächste Farbe: ${data.activeColor.toUpperCase()}`, "success");
-                        document.getElementById('turnIndicator').innerText = `Am Zug: ${data.activeColor.toUpperCase()}`;
-                        renderBoard(data.board);
-                    } else if (data.status === "error") {
-                        log(`Fehler: ${data.message}`, "error");
-                    }
-                } catch(e) {
-                    log(`Fehler beim Parsen der Serverdaten: ${e.message}`, "error");
-                }
-            };
+  function sendDemoSetup() {
+    [
+      `session ${activeRoomId}-session`,
+      "players Alice Bob"
+    ].forEach(sendCommandLine);
+  }
 
-            ws.onclose = () => {
-                document.getElementById('statusDot').className = 'status-dot';
-                document.getElementById('statusText').innerText = 'Getrennt / Disconnected';
-                document.getElementById('connectBtn').innerText = 'Verbinden';
-                document.getElementById('roomIdInput').disabled = false;
-                log("Verbindung getrennt.", "error");
-            };
-
-            ws.onerror = () => {
-                ws.close();
-            };
-        }
-
-        function sendMove() {
-            const input = document.getElementById('moveInput');
-            const moveVal = input.value.trim();
-            if (!moveVal) return;
-            
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                // Send as JSON format containing the "move" and "gameId" fields
-                const payload = JSON.stringify({ gameId: activeRoomId, move: moveVal });
-                ws.send(payload);
-                log(`Sende Zug in Raum "${activeRoomId}": "${moveVal}"`);
-                input.value = ""; // Clear input
-            } else {
-                log("Fehler: WebSocket-Verbindung ist nicht offen.", "error");
-            }
-        }
-
-        function renderBoard(boardState) {
-            const wrapper = document.getElementById('boardWrapper');
-            let html = '<table class="chess-board">';
-            
-            const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-            
-            for (let rank = 8; rank >= 1; rank--) {
-                html += '<tr>';
-                // Rank label left
-                html += `<td class="rank-label">${rank}</td>`;
-                
-                for (let f = 0; f < 8; f++) {
-                    const square = `${files[f]}${rank}`;
-                    const piece = boardState[square] || "";
-                    const symbol = pieceSymbols[piece] || "";
-                    const squareColor = (rank + f) % 2 === 1 ? 'light' : 'dark';
-                    html += `<td class="square ${squareColor}" title="${square}">${symbol}</td>`;
-                }
-                html += '</tr>';
-            }
-            
-            // Bottom files labels
-            html += '<tr><td></td>';
-            for (let f = 0; f < 8; f++) {
-                html += `<td class="file-label">${files[f].toUpperCase()}</td>`;
-            }
-            html += '</tr></table>';
-            
-            wrapper.innerHTML = html;
-        }
-
-        // Initialize connection
-        connect();
-    </script>
+  function setCommand(value) {
+    document.getElementById("commandInput").value = value;
+  }
+</script>
 </body>
 </html>

@@ -171,28 +171,38 @@ function mapBotDataToGameState(
   };
 }
 
-interface PekkoWebSocketData {
-  status: "success" | "error";
-  activeColor?: string;
-  board?: Record<string, string>;
-  moves?: string[];
-  message?: string;
+interface SearchessStreamEnvelope {
+  eventId: string;
+  eventType: string;
+  sessionId: string | null;
+  gameId: string | null;
+  sequenceNumber: number;
+  occurredAt: string;
+  version: number;
+  payload: string;
 }
 
-function mapPekkoDataToGameState(
+interface SearchessRoomMessage {
+  type: "connected" | "event";
+  roomId: string;
+  activeRooms?: string[];
+  event?: SearchessStreamEnvelope;
+}
+
+function mapPekkoMovesToGameState(
   gameId: string,
-  _pekkoBoard: Record<string, string>,
   pekkoMoves: string[]
 ): GameState {
   const chess = new Chess();
   for (const moveStr of pekkoMoves) {
-    const pattern = /^([a-h][1-8])-([a-h][1-8])$/;
+    const pattern = /^([a-h][1-8])([a-h][1-8])([qrbn])?$/;
     const match = moveStr.match(pattern);
     if (match) {
       const from = match[1];
       const to = match[2];
+      const promotion = match[3] ?? "q";
       try {
-        chess.move({ from: from as any, to: to as any, promotion: "q" });
+        chess.move({ from: from as any, to: to as any, promotion: promotion as any });
       } catch (e) {
         console.error("Failed to apply move in chess.js:", moveStr, e);
       }
@@ -265,6 +275,12 @@ function mapPekkoDataToGameState(
   };
 }
 
+function parseAcceptedMoveFromEnvelope(envelope: SearchessStreamEnvelope): string | null {
+  if (envelope.eventType !== "MoveAccepted") return null;
+  const match = envelope.payload.match(/move accepted:\s+\S+\s+([a-h][1-8][a-h][1-8][qrbn]?)/i);
+  return match?.[1].toLowerCase() ?? null;
+}
+
 
 export default function App() {
   const {
@@ -325,6 +341,9 @@ export default function App() {
   const [pekkoConnectionState, setPekkoConnectionState] = useState<"idle" | "connecting" | "live" | "disconnected">("idle");
   const [pekkoSelectedSquare, setPekkoSelectedSquare] = useState<string | undefined>(undefined);
   const [pekkoLegalMoves, setPekkoLegalMoves] = useState<string[]>([]);
+  const [pekkoCommand, setPekkoCommand] = useState<string>("move Alice e2e4");
+  const [pekkoEvents, setPekkoEvents] = useState<SearchessStreamEnvelope[]>([]);
+  const [pekkoAcceptedMoves, setPekkoAcceptedMoves] = useState<string[]>([]);
   const pekkoWsRef = useRef<WebSocket | null>(null);
 
   const lastTickMs = useRef<number | null>(null);
@@ -747,11 +766,13 @@ export default function App() {
     }
 
     setPekkoConnectionState("connecting");
-    setPekkoGame(null);
+    setPekkoGame(mapPekkoMovesToGameState(pekkoRoomId, []));
     setPekkoSelectedSquare(undefined);
     setPekkoLegalMoves([]);
+    setPekkoEvents([]);
+    setPekkoAcceptedMoves([]);
 
-    const ws = new WebSocket(`ws://localhost:8082/game?gameId=${encodeURIComponent(pekkoRoomId)}`);
+    const ws = new WebSocket(`ws://localhost:8082/rooms/${encodeURIComponent(pekkoRoomId)}/events`);
     pekkoWsRef.current = ws;
 
     ws.onopen = () => {
@@ -760,13 +781,27 @@ export default function App() {
 
     ws.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data) as PekkoWebSocketData;
-        if (data.status === "success" && data.board && data.moves) {
-          const game = mapPekkoDataToGameState(pekkoRoomId, data.board, data.moves);
-          setPekkoGame(game);
-        } else if (data.status === "error") {
-          console.error("Pekko server error:", data.message);
-          alert(`Pekko Fehler: ${data.message}`);
+        const data = JSON.parse(event.data) as SearchessRoomMessage;
+        if (data.type === "connected") {
+          return;
+        }
+
+        if (data.type === "event" && data.event) {
+          const envelope = data.event;
+          setPekkoEvents((events) => [...events.slice(-19), envelope]);
+
+          const acceptedMove = parseAcceptedMoveFromEnvelope(envelope);
+          if (acceptedMove) {
+            setPekkoAcceptedMoves((moves) => {
+              const nextMoves = [...moves, acceptedMove];
+              setPekkoGame(mapPekkoMovesToGameState(pekkoRoomId, nextMoves));
+              return nextMoves;
+            });
+          }
+
+          if (envelope.eventType === "ValidationFailed" || envelope.eventType === "ParseFailed" || envelope.eventType === "MoveRejected") {
+            setMessage(envelope.payload);
+          }
         }
       } catch (err) {
         console.error("Failed to parse Pekko websocket message:", err);
@@ -782,7 +817,7 @@ export default function App() {
       console.error("Pekko websocket error:", e);
       ws.close();
     };
-  }, [pekkoRoomId]);
+  }, [pekkoRoomId, setMessage]);
 
   const handlePekkoDisconnect = useCallback(() => {
     if (pekkoWsRef.current) {
@@ -792,7 +827,30 @@ export default function App() {
     setPekkoGame(null);
     setPekkoSelectedSquare(undefined);
     setPekkoLegalMoves([]);
+    setPekkoEvents([]);
+    setPekkoAcceptedMoves([]);
   }, []);
+
+  const sendPekkoCommand = useCallback((line: string) => {
+    const cleanLine = line.trim();
+    if (!cleanLine) return;
+
+    if (!pekkoWsRef.current || pekkoWsRef.current.readyState !== WebSocket.OPEN) {
+      setMessage("Pekko room is not connected.");
+      return;
+    }
+
+    pekkoWsRef.current.send(JSON.stringify({ roomId: pekkoRoomId, line: cleanLine }));
+  }, [pekkoRoomId, setMessage]);
+
+  const sendPekkoDemoSetup = useCallback(() => {
+    sendPekkoCommand(`session ${pekkoRoomId}-session`);
+    sendPekkoCommand("players Alice Bob");
+  }, [pekkoRoomId, sendPekkoCommand]);
+
+  const handleSendPekkoCommand = useCallback(() => {
+    sendPekkoCommand(pekkoCommand);
+  }, [pekkoCommand, sendPekkoCommand]);
 
   // Cleanup Pekko WS on unmount
   useEffect(() => {
@@ -842,16 +900,14 @@ export default function App() {
         return;
       }
 
-      const moveStr = `${pekkoSelectedSquare}-${normalizedSquare}`;
-      console.log(`Move ${moveStr} is legal`);
-      if (pekkoWsRef.current && pekkoWsRef.current.readyState === WebSocket.OPEN) {
-        pekkoWsRef.current.send(JSON.stringify({ gameId: pekkoRoomId, move: moveStr }));
-      }
+      const moveStr = `${pekkoSelectedSquare}${normalizedSquare}`;
+      const playerName = pekkoGame.activeColor === "white" ? "Alice" : "Bob";
+      sendPekkoCommand(`move ${playerName} ${moveStr}`);
 
       setPekkoSelectedSquare(undefined);
       setPekkoLegalMoves([]);
     },
-    [pekkoGame, pekkoConnectionState, pekkoSelectedSquare, pekkoLegalMoves, pekkoRoomId]
+    [pekkoGame, pekkoConnectionState, pekkoSelectedSquare, pekkoLegalMoves, sendPekkoCommand]
   );
 
   // Bot clock ticking
@@ -976,8 +1032,7 @@ export default function App() {
               <CapturedPanel captured={displayedGame?.captured ?? []} spriteCatalog={spriteCatalog} />
             </aside>
 
-            {displayedGame || activeTab === "bot" || activeTab === "pekko" ? (
-              <section className="board-column">
+            <section className="board-column">
                 <nav className="tab-navigation" aria-label="Game Mode Tabs">
                   <button
                     type="button"
@@ -1006,23 +1061,23 @@ export default function App() {
                 </nav>
 
                 {activeTab === "pekko" && (
-                  <div className="pekko-room-controls panel animate-scale-up" style={{ display: "flex", gap: "10px", alignItems: "center", marginBottom: "15px", padding: "12px", border: "1px solid rgba(197, 160, 89, 0.4)", borderRadius: "8px", background: "#2b181c" }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                      <span style={{ fontSize: "0.8rem", color: "#a3a3a3", fontWeight: "bold", textTransform: "uppercase" }}>Pekko Spielraum / Game Room</span>
-                      <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  <section className="pekko-room-panel panel animate-scale-up">
+                    <div className="pekko-room-main">
+                      <label className="pekko-label" htmlFor="pekko-room-id">Pekko Spielraum / Game Room</label>
+                      <div className="pekko-row">
                         <input
+                          id="pekko-room-id"
                           type="text"
                           value={pekkoRoomId}
                           onChange={(e) => setPekkoRoomId(e.target.value)}
                           disabled={pekkoConnectionState === "live" || pekkoConnectionState === "connecting"}
                           placeholder="Raum ID (z.B. room-1)"
-                          style={{ padding: "6px 10px", borderRadius: "4px", border: "1px solid #c5a059", background: "#1e1e24", color: "#fff", outline: "none", fontSize: "0.9rem", width: "150px" }}
                         />
                         {pekkoConnectionState === "live" ? (
                           <button
                             type="button"
                             onClick={handlePekkoDisconnect}
-                            style={{ padding: "6px 12px", borderRadius: "4px", border: "none", background: "#ef4444", color: "#fff", fontWeight: "bold", cursor: "pointer", fontSize: "0.9rem" }}
+                            className="pekko-danger-button"
                           >
                             Trennen
                           </button>
@@ -1031,37 +1086,72 @@ export default function App() {
                             type="button"
                             onClick={handlePekkoConnect}
                             disabled={!pekkoRoomId.trim() || pekkoConnectionState === "connecting"}
-                            style={{ padding: "6px 12px", borderRadius: "4px", border: "none", background: "#e6b347", color: "#120a0c", fontWeight: "bold", cursor: "pointer", fontSize: "0.9rem" }}
                           >
                             {pekkoConnectionState === "connecting" ? "Verbinde..." : "Verbinden"}
                           </button>
                         )}
                       </div>
-                    </div>
-                    <div style={{ marginLeft: "auto", display: "flex", gap: "6px" }}>
-                      {["room-1", "room-2", "room-3"].map((roomName) => (
+
+                      <label className="pekko-label" htmlFor="pekko-command">Searchess DSL Command</label>
+                      <div className="pekko-row pekko-command-row">
+                        <input
+                          id="pekko-command"
+                          type="text"
+                          value={pekkoCommand}
+                          onChange={(event) => setPekkoCommand(event.currentTarget.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") handleSendPekkoCommand();
+                          }}
+                          disabled={pekkoConnectionState !== "live"}
+                          placeholder="move Alice e2e4"
+                        />
                         <button
-                          key={roomName}
                           type="button"
-                          onClick={() => {
-                            setPekkoRoomId(roomName);
-                          }}
-                          disabled={pekkoConnectionState === "live" || pekkoConnectionState === "connecting"}
-                          style={{
-                            padding: "4px 8px",
-                            borderRadius: "4px",
-                            border: "1px solid rgba(197, 160, 89, 0.4)",
-                            background: pekkoRoomId === roomName ? "rgba(230, 179, 71, 0.2)" : "#1e1e24",
-                            color: pekkoRoomId === roomName ? "#e6b347" : "#a3a3a3",
-                            fontSize: "0.8rem",
-                            cursor: "pointer"
-                          }}
+                          onClick={handleSendPekkoCommand}
+                          disabled={pekkoConnectionState !== "live" || !pekkoCommand.trim()}
                         >
-                          {roomName}
+                          Senden
                         </button>
-                      ))}
+                      </div>
+
+                      <div className="pekko-quick-actions">
+                        <button type="button" onClick={sendPekkoDemoSetup} disabled={pekkoConnectionState !== "live"}>
+                          Demo Setup
+                        </button>
+                        <button type="button" onClick={() => setPekkoCommand("status")}>
+                          Status
+                        </button>
+                        <button type="button" onClick={() => setPekkoCommand("resign Bob")}>
+                          Resign Bob
+                        </button>
+                        {["room-1", "room-2", "room-3"].map((roomName) => (
+                          <button
+                            key={roomName}
+                            type="button"
+                            onClick={() => setPekkoRoomId(roomName)}
+                            disabled={pekkoConnectionState === "live" || pekkoConnectionState === "connecting"}
+                            className={pekkoRoomId === roomName ? "is-active" : ""}
+                          >
+                            {roomName}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+
+                    <div className="pekko-event-log" aria-live="polite">
+                      {pekkoEvents.length === 0 ? (
+                        <div className="pekko-event-empty">Noch keine Stream-Events.</div>
+                      ) : (
+                        pekkoEvents.map((event) => (
+                          <div className={`pekko-event pekko-event-${event.eventType}`} key={event.eventId}>
+                            <span>{event.sequenceNumber}</span>
+                            <strong>{event.eventType}</strong>
+                            <p>{event.payload}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </section>
                 )}
 
                 <StatusBanner
@@ -1150,12 +1240,7 @@ export default function App() {
                     </div>
                   </section>
                 )}
-              </section>
-            ) : (
-              <section className="board-shell placeholder">
-                <div className="loading">Waiting for game data...</div>
-              </section>
-            )}
+            </section>
 
             <aside className="side right-side">
               <ControlPanel
