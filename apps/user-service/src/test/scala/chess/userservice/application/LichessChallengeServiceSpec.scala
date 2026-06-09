@@ -1,0 +1,215 @@
+package chess.userservice.application
+
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import chess.userservice.domain.ExternalAccountLink
+import fs2.Stream
+import org.http4s.*
+import org.http4s.client.Client
+import org.scalatest.EitherValues
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+
+import java.time.Instant
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicReference
+
+class LichessChallengeServiceSpec extends AnyFlatSpec with Matchers with EitherValues:
+
+  // 32-byte all-zero AES key for deterministic encryption in tests
+  private val testKey    = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+  private val testCipher = LichessTokenCipher.fromBase64Key(testKey)
+    .getOrElse(fail("cipher init failed for test key"))
+
+  private val botConfig = LichessChallengeBotConfig(
+    botUsername         = "test-bot",
+    challengeApiBaseUrl = "https://lichess.org/api/challenge"
+  )
+
+  private val userId  = UUID.fromString("00000000-0000-0000-0000-000000000001")
+  private val validReq = CreateChallengeRequest()
+
+  private def makeLink(capability: String, token: Option[String] = None): ExternalAccountLink =
+    ExternalAccountLink(
+      linkId             = UUID.randomUUID(),
+      userId             = userId,
+      provider           = "Lichess",
+      externalId         = None,
+      externalUsername   = "testuser",
+      verified           = false,
+      verificationSource = "OAuth",
+      linkedAt           = Instant.now(),
+      capability         = capability,
+      tokenEncrypted     = token.map(t => testCipher.encrypt(t)
+        .getOrElse(fail("test token encryption failed"))),
+      tokenScopes        = token.map(_ => "challenge:write"),
+      tokenStoredAt      = token.map(_ => Instant.now())
+    )
+
+  private def stubbedClient(resp: IO[Response[IO]]): Client[IO] =
+    Client.fromHttpApp(HttpRoutes.of[IO] { case _ => resp }.orNotFound)
+
+  // ── Scenario 1: no Lichess link ──────────────────────────────────────────
+
+  "createChallengeToBot" should "return Left(no_lichess_link) when user has no Lichess link" in {
+    val repo   = StubLinkRepository(None)
+    val svc    = LichessChallengeService(repo, Some(testCipher), stubbedClient(IO.pure(Response[IO](Status.Ok))), botConfig)
+    val result = svc.createChallengeToBot(userId, validReq).unsafeRunSync()
+    result shouldBe Left("no_lichess_link")
+  }
+
+  // ── Scenario 2: identity_only capability ─────────────────────────────────
+
+  it should "return Left(no_challenge_ready_capability) when link has identity_only capability" in {
+    val repo   = StubLinkRepository(Some(makeLink("identity_only")))
+    val svc    = LichessChallengeService(repo, Some(testCipher), stubbedClient(IO.pure(Response[IO](Status.Ok))), botConfig)
+    val result = svc.createChallengeToBot(userId, validReq).unsafeRunSync()
+    result shouldBe Left("no_challenge_ready_capability")
+  }
+
+  // ── Scenario 3: challenge_ready but no stored token ───────────────────────
+
+  it should "return Left(no_stored_lichess_token) when link has challenge_ready but no token" in {
+    val repo   = StubLinkRepository(Some(makeLink("challenge_ready", token = None)))
+    val svc    = LichessChallengeService(repo, Some(testCipher), stubbedClient(IO.pure(Response[IO](Status.Ok))), botConfig)
+    val result = svc.createChallengeToBot(userId, validReq).unsafeRunSync()
+    result shouldBe Left("no_stored_lichess_token")
+  }
+
+  // ── Scenario 4: cipher not configured ────────────────────────────────────
+
+  it should "return Left(token_encryption_not_configured) when cipher is None" in {
+    val repo   = StubLinkRepository(Some(makeLink("challenge_ready", token = Some("lio_test"))))
+    val svc    = LichessChallengeService(repo, cipher = None, stubbedClient(IO.pure(Response[IO](Status.Ok))), botConfig)
+    val result = svc.createChallengeToBot(userId, validReq).unsafeRunSync()
+    result shouldBe Left("token_encryption_not_configured")
+  }
+
+  // ── Scenario 5: valid success ────────────────────────────────────────────
+
+  it should "return Right(challengeId, url) for a valid challenge_ready link and 200 Lichess response" in {
+    val repo    = StubLinkRepository(Some(makeLink("challenge_ready", token = Some("lio_test"))))
+    val json    = """{"challenge":{"id":"abc123","url":"https://lichess.org/abc123"}}"""
+    val client  = stubbedClient(IO.pure(Response[IO](
+      status = Status.Ok,
+      body   = Stream.emits(json.getBytes("UTF-8")).covary[IO]
+    )))
+    val svc    = LichessChallengeService(repo, Some(testCipher), client, botConfig)
+    val result = svc.createChallengeToBot(userId, validReq).unsafeRunSync()
+    result shouldBe Right(CreateChallengeResult("abc123", "https://lichess.org/abc123"))
+  }
+
+  // ── Scenario 6: validation failures ─────────────────────────────────────
+
+  it should "return Left(invalid_challenge_request:...) when rated is true" in {
+    val repo   = StubLinkRepository(Some(makeLink("challenge_ready", token = Some("tok"))))
+    val svc    = LichessChallengeService(repo, Some(testCipher), stubbedClient(IO.pure(Response[IO](Status.Ok))), botConfig)
+    val result = svc.createChallengeToBot(userId, validReq.copy(rated = true)).unsafeRunSync()
+    result.left.value should startWith("invalid_challenge_request:")
+    result.left.value should include("rated")
+  }
+
+  it should "return Left(invalid_challenge_request:...) when variant is chess960" in {
+    val repo   = StubLinkRepository(Some(makeLink("challenge_ready", token = Some("tok"))))
+    val svc    = LichessChallengeService(repo, Some(testCipher), stubbedClient(IO.pure(Response[IO](Status.Ok))), botConfig)
+    val result = svc.createChallengeToBot(userId, validReq.copy(variant = "chess960")).unsafeRunSync()
+    result.left.value should startWith("invalid_challenge_request:")
+    result.left.value should include("variant")
+  }
+
+  it should "return Left(invalid_challenge_request:...) when clockSeconds is below minimum" in {
+    val repo   = StubLinkRepository(Some(makeLink("challenge_ready", token = Some("tok"))))
+    val svc    = LichessChallengeService(repo, Some(testCipher), stubbedClient(IO.pure(Response[IO](Status.Ok))), botConfig)
+    val result = svc.createChallengeToBot(userId, validReq.copy(clockSeconds = 60)).unsafeRunSync()
+    result.left.value should startWith("invalid_challenge_request:")
+    result.left.value should include("clockSeconds")
+  }
+
+  it should "return Left(invalid_challenge_request:...) when clockIncrement exceeds maximum" in {
+    val repo   = StubLinkRepository(Some(makeLink("challenge_ready", token = Some("tok"))))
+    val svc    = LichessChallengeService(repo, Some(testCipher), stubbedClient(IO.pure(Response[IO](Status.Ok))), botConfig)
+    val result = svc.createChallengeToBot(userId, validReq.copy(clockIncrement = 15)).unsafeRunSync()
+    result.left.value should startWith("invalid_challenge_request:")
+    result.left.value should include("clockIncrement")
+  }
+
+  // ── Scenario 7: Lichess 401 → link expired ───────────────────────────────
+
+  it should "return Left(lichess_token_expired) and expire the link when Lichess returns 401" in {
+    val link    = makeLink("challenge_ready", token = Some("lio_test"))
+    val repo    = StubLinkRepository(Some(link))
+    val client  = stubbedClient(IO.pure(Response[IO](Status.Unauthorized)))
+    val svc     = LichessChallengeService(repo, Some(testCipher), client, botConfig)
+    val result  = svc.createChallengeToBot(userId, validReq).unsafeRunSync()
+    result                                         shouldBe Left("lichess_token_expired")
+    repo.lastUpdated.map(_.capability)             shouldBe Some("expired")
+    repo.lastUpdated.flatMap(_.tokenEncrypted)     shouldBe None
+    repo.lastUpdated.flatMap(_.tokenScopes)        shouldBe None
+  }
+
+  it should "return Left(lichess_token_expired) and expire the link when Lichess returns 403" in {
+    val link    = makeLink("challenge_ready", token = Some("lio_test"))
+    val repo    = StubLinkRepository(Some(link))
+    val client  = stubbedClient(IO.pure(Response[IO](Status.Forbidden)))
+    val svc     = LichessChallengeService(repo, Some(testCipher), client, botConfig)
+    val result  = svc.createChallengeToBot(userId, validReq).unsafeRunSync()
+    result                                     shouldBe Left("lichess_token_expired")
+    repo.lastUpdated.map(_.capability)         shouldBe Some("expired")
+  }
+
+  // ── Scenario 8: Lichess 4xx/5xx non-auth → no expiry ────────────────────
+
+  it should "return Left(lichess_challenge_failed) and not expire the link when Lichess returns 422" in {
+    val link    = makeLink("challenge_ready", token = Some("lio_test"))
+    val repo    = StubLinkRepository(Some(link))
+    val client  = stubbedClient(IO.pure(Response[IO](Status.UnprocessableEntity)))
+    val svc     = LichessChallengeService(repo, Some(testCipher), client, botConfig)
+    val result  = svc.createChallengeToBot(userId, validReq).unsafeRunSync()
+    result                shouldBe Left("lichess_challenge_failed")
+    repo.lastUpdated      shouldBe None
+  }
+
+  it should "return Left(lichess_challenge_failed) and not expire the link when Lichess returns 500" in {
+    val link    = makeLink("challenge_ready", token = Some("lio_test"))
+    val repo    = StubLinkRepository(Some(link))
+    val client  = stubbedClient(IO.pure(Response[IO](Status.InternalServerError)))
+    val svc     = LichessChallengeService(repo, Some(testCipher), client, botConfig)
+    val result  = svc.createChallengeToBot(userId, validReq).unsafeRunSync()
+    result           shouldBe Left("lichess_challenge_failed")
+    repo.lastUpdated shouldBe None
+  }
+
+  // ── Scenario extra: expiry DB update fails but result is still safe ──────
+
+  it should "return Left(lichess_token_expired) even when the expiry DB update fails" in {
+    val link   = makeLink("challenge_ready", token = Some("lio_test"))
+    val repo   = StubLinkRepository(Some(link), failUpdate = true)
+    val client = stubbedClient(IO.pure(Response[IO](Status.Unauthorized)))
+    val svc    = LichessChallengeService(repo, Some(testCipher), client, botConfig)
+    val result = svc.createChallengeToBot(userId, validReq).unsafeRunSync()
+    result shouldBe Left("lichess_token_expired")
+  }
+
+  // ── Stub repository ──────────────────────────────────────────────────────
+
+  private class StubLinkRepository(
+      initial: Option[ExternalAccountLink],
+      failUpdate: Boolean = false
+  ) extends ExternalAccountLinkRepository:
+    private val updatedRef = new AtomicReference[Option[ExternalAccountLink]](None)
+
+    def lastUpdated: Option[ExternalAccountLink] = updatedRef.get()
+
+    override def findByUserAndProvider(userId: UUID, provider: String): Either[String, Option[ExternalAccountLink]] =
+      Right(initial.filter(l => l.userId == userId && l.provider == provider))
+
+    override def update(link: ExternalAccountLink): Either[String, Unit] =
+      if failUpdate then Left("db_connection_failed")
+      else
+        updatedRef.set(Some(link))
+        Right(())
+
+    override def findAllByUserId(userId: UUID): Either[String, List[ExternalAccountLink]]                    = Right(Nil)
+    override def insert(link: ExternalAccountLink): Either[String, Unit]                                     = Right(())
+    override def findByLichessUsername(username: String): Either[String, Option[ExternalAccountLink]]        = Right(None)
+    override def delete(userId: UUID, provider: String): Either[String, Unit]                                = Right(())

@@ -16,10 +16,13 @@ class LichessOAuthService(
     stateRepo: OAuthLinkStateRepository,
     linkRepo: ExternalAccountLinkRepository,
     client: Client[IO],
-    config: LichessOAuthConfig
+    config: LichessOAuthConfig,
+    tokenCipher: Option[LichessTokenCipher] = None
 ):
 
-  /** Generates PKCE credentials, persists the state row, and returns the Lichess authorization URL. */
+  /** Generates PKCE credentials, persists the state row, and returns the Lichess authorization URL.
+    * Sets targetCapability=identity_only; token is used only to verify identity and then discarded.
+    */
   def createLinkStart(userId: UUID): Either[String, String] =
     if !config.isConfigured then
       Left("Lichess OAuth is not configured (LICHESS_OAUTH_CLIENT_ID or LICHESS_OAUTH_REDIRECT_URI is empty)")
@@ -33,21 +36,58 @@ class LichessOAuthService(
         codeVerifier         = verifier,
         redirectAfterSuccess = config.webUiSettingsUrl + "?lichess=linked",
         expiresAt            = Instant.now().plusSeconds(config.stateTtlSeconds),
-        createdAt            = Instant.now()
+        createdAt            = Instant.now(),
+        targetCapability     = "identity_only"
       )
       stateRepo.insert(linkState).map { _ =>
         config.authorizeUrl +
           "?response_type=code" +
           s"&client_id=${encode(config.clientId)}" +
           s"&redirect_uri=${encode(config.redirectUri)}" +
-          s"&scope=${encode("preference:read")}" +
+          s"&scope=${encode(config.identityScope)}" +
           s"&state=${encode(state)}" +
           s"&code_challenge=${encode(challenge)}" +
           "&code_challenge_method=S256"
       }
 
-  /** Validates state, exchanges the authorization code, fetches the Lichess account, and upserts the verified link.
-    * The access token is used only to call /api/account and then discarded — never persisted.
+  /** Generates PKCE credentials for an upgrade flow and returns the Lichess authorization URL.
+    * Only "challenge_ready" is a valid targetCapability; all others return Left.
+    * The resulting callback will encrypt and store the token, setting capability=challenge_ready.
+    */
+  def createUpgradeStart(userId: UUID, targetCapability: String): Either[String, String] =
+    targetCapability match
+      case "challenge_ready" =>
+        if !config.isConfigured then
+          Left("Lichess OAuth is not configured (LICHESS_OAUTH_CLIENT_ID or LICHESS_OAUTH_REDIRECT_URI is empty)")
+        else
+          val verifier  = PkceUtil.generateVerifier()
+          val challenge = PkceUtil.computeChallenge(verifier)
+          val state     = PkceUtil.generateState()
+          val linkState = OAuthLinkState(
+            state                = state,
+            userId               = userId,
+            codeVerifier         = verifier,
+            redirectAfterSuccess = config.webUiSettingsUrl + "?lichess=upgraded",
+            expiresAt            = Instant.now().plusSeconds(config.stateTtlSeconds),
+            createdAt            = Instant.now(),
+            targetCapability     = "challenge_ready"
+          )
+          stateRepo.insert(linkState).map { _ =>
+            config.authorizeUrl +
+              "?response_type=code" +
+              s"&client_id=${encode(config.clientId)}" +
+              s"&redirect_uri=${encode(config.redirectUri)}" +
+              s"&scope=${encode(config.upgradeScope)}" +
+              s"&state=${encode(state)}" +
+              s"&code_challenge=${encode(challenge)}" +
+              "&code_challenge_method=S256"
+          }
+      case _ =>
+        Left("unsupported_target_capability")
+
+  /** Validates state, exchanges the code, fetches the Lichess account, and upserts the verified link.
+    * For identity_only: token is used only to call /api/account and is then discarded — never persisted.
+    * For challenge_ready: token is encrypted and stored; existing link username must match the OAuth account.
     */
   def exchangeCallback(code: String, state: String): IO[Either[String, ExternalAccountLink]] =
     IO(stateRepo.findAndDelete(state)).flatMap {
@@ -61,14 +101,31 @@ class LichessOAuthService(
     }
 
   private def exchangeCodeAndLink(code: String, ls: OAuthLinkState): IO[Either[String, ExternalAccountLink]] =
-    fetchToken(code, ls.codeVerifier).flatMap {
-      case Left(err)    => IO.pure(Left(err))
-      case Right(token) =>
-        fetchLichessId(token).flatMap {
-          case Left(err)  => IO.pure(Left(err))
-          case Right(lid) => IO(upsertVerifiedLink(ls.userId, lid))
+    ls.targetCapability match
+      case "identity_only" =>
+        fetchToken(code, ls.codeVerifier).flatMap {
+          case Left(err)    => IO.pure(Left(err))
+          case Right(token) =>
+            fetchLichessId(token).flatMap {
+              case Left(err)  => IO.pure(Left(err))
+              case Right(lid) => IO(upsertVerifiedLink(ls.userId, lid))
+            }
         }
-    }
+      case "challenge_ready" =>
+        tokenCipher match
+          case None =>
+            IO.pure(Left("token_encryption_not_configured"))
+          case Some(cipher) =>
+            fetchToken(code, ls.codeVerifier).flatMap {
+              case Left(err)    => IO.pure(Left(err))
+              case Right(token) =>
+                fetchLichessId(token).flatMap {
+                  case Left(err)  => IO.pure(Left(err))
+                  case Right(lid) => IO(upsertChallengeReadyLink(ls.userId, lid, token, cipher))
+                }
+            }
+      case _ =>
+        IO.pure(Left("unsupported_target_capability"))
 
   private def fetchToken(code: String, codeVerifier: String): IO[Either[String, String]] =
     val body = formEncode(
@@ -127,7 +184,11 @@ class LichessOAuthService(
           externalUsername   = lichessId,
           verified           = true,
           verificationSource = "OAuthPKCE",
-          linkedAt           = Instant.now()
+          linkedAt           = Instant.now(),
+          capability         = "identity_only",
+          tokenEncrypted     = None,
+          tokenScopes        = None,
+          tokenStoredAt      = None
         )
         linkRepo.update(updated).map(_ => updated)
       case None =>
@@ -139,9 +200,58 @@ class LichessOAuthService(
           externalUsername   = lichessId,
           verified           = true,
           verificationSource = "OAuthPKCE",
-          linkedAt           = Instant.now()
+          linkedAt           = Instant.now(),
+          capability         = "identity_only",
+          tokenEncrypted     = None,
+          tokenScopes        = None,
+          tokenStoredAt      = None
         )
         linkRepo.insert(link).map(_ => link)
+    }
+
+  private def upsertChallengeReadyLink(
+      userId: UUID,
+      lichessId: String,
+      token: String,
+      cipher: LichessTokenCipher
+  ): Either[String, ExternalAccountLink] =
+    linkRepo.findByUserAndProvider(userId, "Lichess").flatMap {
+      case Some(existing) if existing.externalUsername.toLowerCase != lichessId.toLowerCase =>
+        Left("lichess_account_mismatch")
+      case existingOpt =>
+        cipher.encrypt(token).flatMap { encrypted =>
+          val now = Instant.now()
+          existingOpt match
+            case Some(existing) =>
+              val updated = existing.copy(
+                externalId         = Some(lichessId),
+                externalUsername   = lichessId,
+                verified           = true,
+                verificationSource = "OAuthPKCE",
+                linkedAt           = now,
+                capability         = "challenge_ready",
+                tokenEncrypted     = Some(encrypted),
+                tokenScopes        = Some(config.upgradeScope),
+                tokenStoredAt      = Some(now)
+              )
+              linkRepo.update(updated).map(_ => updated)
+            case None =>
+              val link = ExternalAccountLink(
+                linkId             = UUID.randomUUID(),
+                userId             = userId,
+                provider           = "Lichess",
+                externalId         = Some(lichessId),
+                externalUsername   = lichessId,
+                verified           = true,
+                verificationSource = "OAuthPKCE",
+                linkedAt           = now,
+                capability         = "challenge_ready",
+                tokenEncrypted     = Some(encrypted),
+                tokenScopes        = Some(config.upgradeScope),
+                tokenStoredAt      = Some(now)
+              )
+              linkRepo.insert(link).map(_ => link)
+        }
     }
 
   private def formEncode(pairs: (String, String)*): String =

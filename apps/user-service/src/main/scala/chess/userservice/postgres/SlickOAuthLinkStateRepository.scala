@@ -36,13 +36,13 @@ class SlickOAuthLinkStateRepository(db: Database, schema: Option[String] = None)
   private def stateToRow(s: OAuthLinkState): OAuthLinkStateRow =
     OAuthLinkStateRow(
       s.state, s.userId, s.codeVerifier, s.redirectAfterSuccess,
-      Timestamp.from(s.expiresAt), Timestamp.from(s.createdAt)
+      Timestamp.from(s.expiresAt), Timestamp.from(s.createdAt), s.targetCapability
     )
 
   private def rowToState(r: OAuthLinkStateRow): OAuthLinkState =
     OAuthLinkState(
       r.state, r.userId, r.codeVerifier, r.redirectAfterSuccess,
-      r.expiresAt.toInstant, r.createdAt.toInstant
+      r.expiresAt.toInstant, r.createdAt.toInstant, r.targetCapability
     )
 
   private def safeMessage(e: Throwable): String =
@@ -54,7 +54,8 @@ private[postgres] final case class OAuthLinkStateRow(
     codeVerifier: String,
     redirectAfterSuccess: String,
     expiresAt: Timestamp,
-    createdAt: Timestamp
+    createdAt: Timestamp,
+    targetCapability: String
 )
 
 private[postgres] final class OAuthLinkStatesTable(tag: Tag, schema: Option[String])
@@ -65,5 +66,6 @@ private[postgres] final class OAuthLinkStatesTable(tag: Tag, schema: Option[Stri
   def redirectAfterSuccess = column[String]("redirect_after_success")
   def expiresAt            = column[Timestamp]("expires_at")
   def createdAt            = column[Timestamp]("created_at")
-  def * = (state, userId, codeVerifier, redirectAfterSuccess, expiresAt, createdAt)
+  def targetCapability     = column[String]("target_capability")
+  def * = (state, userId, codeVerifier, redirectAfterSuccess, expiresAt, createdAt, targetCapability)
     .mapTo[OAuthLinkStateRow]

@@ -4,8 +4,11 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import chess.userservice.application.{
   ExternalAccountLinkRepository,
+  LichessChallengeBotConfig,
+  LichessChallengeService,
   LichessOAuthConfig,
   LichessOAuthService,
+  LichessTokenCipher,
   OAuthLinkStateRepository,
   UserProfileRepository,
   UserProfileService
@@ -42,14 +45,20 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
       IO.pure(Response[IO](status = Status.InternalServerError))
     }.orNotFound)
 
-  private def makeRoutes(): (HttpApp[IO], UserProfileService) =
-    val profileRepo  = InMemUserProfileRepository()
-    val linkRepo     = InMemExternalAccountLinkRepository()
-    val stateRepo    = InMemOAuthLinkStateRepository()
-    val service      = UserProfileService(profileRepo, linkRepo)
-    val oauthService = LichessOAuthService(stateRepo, linkRepo, noopHttpClient, testLichessConfig)
-    val routes       = UserRoutes(service, oauthService, testLichessConfig)
-    (routes.routes.orNotFound, service)
+  private val testChallengeConfig = LichessChallengeBotConfig(
+    botUsername         = "arutepsu2",
+    challengeApiBaseUrl = "https://lichess.org/api/challenge"
+  )
+
+  private def makeRoutes(cipher: Option[LichessTokenCipher] = None): (HttpApp[IO], UserProfileService, InMemExternalAccountLinkRepository) =
+    val profileRepo      = InMemUserProfileRepository()
+    val linkRepo         = InMemExternalAccountLinkRepository()
+    val stateRepo        = InMemOAuthLinkStateRepository()
+    val service          = UserProfileService(profileRepo, linkRepo)
+    val oauthService     = LichessOAuthService(stateRepo, linkRepo, noopHttpClient, testLichessConfig, cipher)
+    val challengeService = LichessChallengeService(linkRepo, cipher, noopHttpClient, testChallengeConfig)
+    val routes           = UserRoutes(service, oauthService, challengeService, testLichessConfig)
+    (routes.routes.orNotFound, service, linkRepo)
 
   private def makeToken(sub: String, username: String): String =
     val payload = s"""{"sub":"$sub","preferred_username":"$username"}"""
@@ -60,14 +69,14 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
     Header.Raw(org.typelevel.ci.CIString("Authorization"), s"Bearer ${makeToken(sub, username)}")
 
   "GET /health" should "return 200 without authorization" in {
-    val (app, _) = makeRoutes()
+    val (app, _, _) = makeRoutes()
     val req = Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/health"))
     val res = app.run(req).unsafeRunSync()
     res.status shouldBe Status.Ok
   }
 
   "GET /users/me" should "create and return a profile on first request" in {
-    val (app, _) = makeRoutes()
+    val (app, _, _) = makeRoutes()
     val req = Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/me"))
       .putHeaders(bearerHeader("sub-001", "alice"))
     val res  = app.run(req).unsafeRunSync()
@@ -79,14 +88,14 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   it should "return 401 when Authorization header is missing" in {
-    val (app, _) = makeRoutes()
+    val (app, _, _) = makeRoutes()
     val req = Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/me"))
     val res = app.run(req).unsafeRunSync()
     res.status shouldBe Status.Unauthorized
   }
 
   it should "return the same profile on subsequent requests" in {
-    val (app, _) = makeRoutes()
+    val (app, _, _) = makeRoutes()
     def req = Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/me"))
       .putHeaders(bearerHeader("sub-002", "bob"))
     val res1 = app.run(req).unsafeRunSync()
@@ -97,7 +106,7 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   "PUT /users/me/links/lichess/manual" should "create a ManualDev Lichess link" in {
-    val (app, _) = makeRoutes()
+    val (app, _, _) = makeRoutes()
     val req = Request[IO](method = Method.PUT, uri = Uri.unsafeFromString("/users/me/links/lichess/manual"))
       .putHeaders(bearerHeader("sub-003", "carol"))
       .withEntity("""{"lichessUsername":"carol_chess"}""")
@@ -109,10 +118,24 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
     body("externalUsername").str shouldBe "carol_chess"
     body("verified").bool    shouldBe false
     body("verificationSource").str shouldBe "ManualDev"
+    body("capability").str   shouldBe "manual_dev"
+  }
+
+  it should "not expose token storage fields in the link JSON" in {
+    val (app, _, _) = makeRoutes()
+    val req = Request[IO](method = Method.PUT, uri = Uri.unsafeFromString("/users/me/links/lichess/manual"))
+      .putHeaders(bearerHeader("sub-notoken", "notokenuser"))
+      .withEntity("""{"lichessUsername":"notokenuser_chess"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    val body = ujson.read(app.run(req).unsafeRunSync().bodyText.compile.string.unsafeRunSync())
+    body.obj.contains("tokenEncrypted") shouldBe false
+    body.obj.contains("tokenScopes")    shouldBe false
+    body.obj.contains("tokenStoredAt")  shouldBe false
+    body.obj.contains("capability")     shouldBe true
   }
 
   it should "return 400 when lichessUsername is missing" in {
-    val (app, _) = makeRoutes()
+    val (app, _, _) = makeRoutes()
     val req = Request[IO](method = Method.PUT, uri = Uri.unsafeFromString("/users/me/links/lichess/manual"))
       .putHeaders(bearerHeader("sub-004", "dave"))
       .withEntity("""{"other":"field"}""")
@@ -122,7 +145,7 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   it should "return 401 when Authorization header is missing" in {
-    val (app, _) = makeRoutes()
+    val (app, _, _) = makeRoutes()
     val req = Request[IO](method = Method.PUT, uri = Uri.unsafeFromString("/users/me/links/lichess/manual"))
       .withEntity("""{"lichessUsername":"nobody"}""")
     val res = app.run(req).unsafeRunSync()
@@ -130,7 +153,7 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   "DELETE /users/me/links/lichess" should "remove the Lichess link and return 204" in {
-    val (app, svc) = makeRoutes()
+    val (app, svc, _) = makeRoutes()
     val putReq = Request[IO](method = Method.PUT, uri = Uri.unsafeFromString("/users/me/links/lichess/manual"))
       .putHeaders(bearerHeader("sub-005", "eve"))
       .withEntity("""{"lichessUsername":"eve_chess"}""")
@@ -144,7 +167,7 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   "GET /users/me" should "include onboardingRequired=true when nickname is absent" in {
-    val (app, _) = makeRoutes()
+    val (app, _, _) = makeRoutes()
     val req = Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/me"))
       .putHeaders(bearerHeader("sub-onboard", "onboarder"))
     val body = ujson.read(app.run(req).unsafeRunSync().bodyText.compile.string.unsafeRunSync())
@@ -153,7 +176,7 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   "PATCH /users/me/profile" should "set nickname and return onboardingRequired=false" in {
-    val (app, _) = makeRoutes()
+    val (app, _, _) = makeRoutes()
     val req = Request[IO](method = Method.PATCH, uri = Uri.unsafeFromString("/users/me/profile"))
       .putHeaders(bearerHeader("sub-patch", "patcher"))
       .withEntity("""{"nickname":"CoolKnight"}""")
@@ -164,14 +187,14 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   it should "return 401 when Authorization header is missing" in {
-    val (app, _) = makeRoutes()
+    val (app, _, _) = makeRoutes()
     val req = Request[IO](method = Method.PATCH, uri = Uri.unsafeFromString("/users/me/profile"))
       .withEntity("""{"nickname":"Ghost"}""")
     app.run(req).unsafeRunSync().status shouldBe Status.Unauthorized
   }
 
   it should "return 422 when nickname is too short" in {
-    val (app, _) = makeRoutes()
+    val (app, _, _) = makeRoutes()
     val req = Request[IO](method = Method.PATCH, uri = Uri.unsafeFromString("/users/me/profile"))
       .putHeaders(bearerHeader("sub-short", "shortie"))
       .withEntity("""{"nickname":"ab"}""")
@@ -180,7 +203,7 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   it should "return 409 when nickname is already taken" in {
-    val (app, _) = makeRoutes()
+    val (app, _, _) = makeRoutes()
     def patch(sub: String, nick: String) =
       Request[IO](method = Method.PATCH, uri = Uri.unsafeFromString("/users/me/profile"))
         .putHeaders(bearerHeader(sub, sub))
@@ -191,14 +214,14 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   "GET /users/me/links/lichess/start" should "return 401 without JWT" in {
-    val (app, _) = makeRoutes()
+    val (app, _, _) = makeRoutes()
     val req = Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/me/links/lichess/start"))
     val res = app.run(req).unsafeRunSync()
     res.status shouldBe Status.Unauthorized
   }
 
   it should "return 200 with authorizationUrl when OAuth is configured" in {
-    val (app, _) = makeRoutes()
+    val (app, _, _) = makeRoutes()
     val req = Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/me/links/lichess/start"))
       .putHeaders(bearerHeader("sub-006", "frank"))
     val res  = app.run(req).unsafeRunSync()
@@ -209,7 +232,7 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   "GET /users/me/links/lichess/callback" should "redirect to settings?lichess=failed for unknown state" in {
-    val (app, _) = makeRoutes()
+    val (app, _, _) = makeRoutes()
     val req = Request[IO](
       method = Method.GET,
       uri    = Uri.unsafeFromString("/users/me/links/lichess/callback?code=c&state=unknown")
@@ -221,12 +244,105 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
   }
 
   it should "redirect to settings?lichess=failed when code or state is missing" in {
-    val (app, _) = makeRoutes()
+    val (app, _, _) = makeRoutes()
     val req = Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/me/links/lichess/callback"))
     val res = app.run(req).unsafeRunSync()
     res.status shouldBe Status.Found
     res.headers.get(org.typelevel.ci.CIString("Location")).map(_.head.value) shouldBe
       Some("http://localhost:10000/settings?lichess=failed")
+  }
+
+  "POST /users/me/links/lichess/upgrade" should "return 401 without JWT" in {
+    val (app, _, _) = makeRoutes()
+    val req = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/links/lichess/upgrade"))
+      .withEntity("""{"targetCapability":"challenge_ready"}""")
+    val res = app.run(req).unsafeRunSync()
+    res.status shouldBe Status.Unauthorized
+  }
+
+  it should "return 200 with authorizationUrl for challenge_ready" in {
+    val (app, _, _) = makeRoutes()
+    val req = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/links/lichess/upgrade"))
+      .putHeaders(bearerHeader("sub-upg", "upgrader"))
+      .withEntity("""{"targetCapability":"challenge_ready"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    val res  = app.run(req).unsafeRunSync()
+    val body = ujson.read(res.bodyText.compile.string.unsafeRunSync())
+    res.status shouldBe Status.Ok
+    body("authorizationUrl").str should include("lichess.org/oauth")
+    body("authorizationUrl").str should include("code_challenge_method=S256")
+    body("authorizationUrl").str should include("challenge")
+  }
+
+  it should "return 400 for an unsupported targetCapability" in {
+    val (app, _, _) = makeRoutes()
+    val req = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/links/lichess/upgrade"))
+      .putHeaders(bearerHeader("sub-upg2", "upgrader2"))
+      .withEntity("""{"targetCapability":"board_play"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    val res = app.run(req).unsafeRunSync()
+    res.status shouldBe Status.BadRequest
+  }
+
+  it should "return 400 when targetCapability field is missing" in {
+    val (app, _, _) = makeRoutes()
+    val req = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/links/lichess/upgrade"))
+      .putHeaders(bearerHeader("sub-upg3", "upgrader3"))
+      .withEntity("""{"wrong":"field"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    val res = app.run(req).unsafeRunSync()
+    res.status shouldBe Status.BadRequest
+  }
+
+  "POST /users/me/lichess/challenges/searchess-bot" should "return 401 without JWT" in {
+    val (app, _, _) = makeRoutes()
+    val req = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/lichess/challenges/searchess-bot"))
+      .withEntity("""{}""")
+    val res = app.run(req).unsafeRunSync()
+    res.status shouldBe Status.Unauthorized
+  }
+
+  it should "return 403 NO_LICHESS_LINK when user has no Lichess link" in {
+    val (app, _, _) = makeRoutes()
+    val req = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/lichess/challenges/searchess-bot"))
+      .putHeaders(bearerHeader("sub-nochallenge", "nochallenge"))
+      .withEntity("""{}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    val res  = app.run(req).unsafeRunSync()
+    val body = ujson.read(res.bodyText.compile.string.unsafeRunSync())
+    res.status          shouldBe Status.Forbidden
+    body("code").str    shouldBe "NO_LICHESS_LINK"
+  }
+
+  it should "return 503 TOKEN_ENCRYPTION_NOT_CONFIGURED when cipher is not configured" in {
+    val (app, _, linkRepo) = makeRoutes(cipher = None)
+    val getRes = app.run(
+      Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/me"))
+        .putHeaders(bearerHeader("sub-cipher-test", "ciphertest"))
+    ).unsafeRunSync()
+    val userId = UUID.fromString(ujson.read(getRes.bodyText.compile.string.unsafeRunSync())("userId").str)
+    linkRepo.insert(ExternalAccountLink(
+      linkId             = UUID.randomUUID(),
+      userId             = userId,
+      provider           = "Lichess",
+      externalId         = None,
+      externalUsername   = "ciphertest_chess",
+      verified           = false,
+      verificationSource = "OAuth",
+      linkedAt           = Instant.now(),
+      capability         = "challenge_ready",
+      tokenEncrypted     = Some(Array[Byte](1, 2, 3)),
+      tokenScopes        = Some("challenge:write"),
+      tokenStoredAt      = Some(Instant.now())
+    )).fold(_ => (), _ => ())
+    val req = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/lichess/challenges/searchess-bot"))
+      .putHeaders(bearerHeader("sub-cipher-test", "ciphertest"))
+      .withEntity("{}")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    val res  = app.run(req).unsafeRunSync()
+    val body = ujson.read(res.bodyText.compile.string.unsafeRunSync())
+    res.status       shouldBe Status.ServiceUnavailable
+    body("code").str shouldBe "TOKEN_ENCRYPTION_NOT_CONFIGURED"
   }
 
   // ── In-memory stubs (thread-safe, per-test instance) ──────────────────────

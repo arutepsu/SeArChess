@@ -27,6 +27,8 @@ export default function ProfilePanel({ onBack }: ProfilePanelProps) {
       setSearchParams({}, { replace: true });
       if (lichessResult === "linked") {
         setLichessNotice({ kind: "success", text: "Lichess account verified and linked." });
+      } else if (lichessResult === "upgraded") {
+        setLichessNotice({ kind: "success", text: "Lichess permissions upgraded successfully." });
       } else {
         setLichessNotice({ kind: "error", text: "Lichess linking failed or was cancelled. Please try again." });
       }

@@ -33,7 +33,7 @@ class UserProfileServiceSpec extends AnyFlatSpec with Matchers with EitherValues
     repo.store should have size 1
   }
 
-  "setManualLichessLink" should "create a new link with verificationSource ManualDev" in {
+  "setManualLichessLink" should "create a new link with verificationSource ManualDev and capability manual_dev" in {
     val (svc, _, linkRepo) = makeService()
     val userId = UUID.randomUUID()
     val link = svc.setManualLichessLink(userId, "alice_chess").value
@@ -41,17 +41,79 @@ class UserProfileServiceSpec extends AnyFlatSpec with Matchers with EitherValues
     link.externalUsername   shouldBe "alice_chess"
     link.verified           shouldBe false
     link.verificationSource shouldBe "ManualDev"
+    link.capability         shouldBe "manual_dev"
     linkRepo.store should have size 1
   }
 
-  it should "update an existing link when called again for the same user" in {
+  it should "update an existing ManualDev link and keep capability manual_dev and verified false" in {
     val (svc, _, linkRepo) = makeService()
     val userId = UUID.randomUUID()
     val first  = svc.setManualLichessLink(userId, "alice_chess").value
     val second = svc.setManualLichessLink(userId, "alice_chess_v2").value
-    second.linkId          shouldBe first.linkId
-    second.externalUsername shouldBe "alice_chess_v2"
+    second.linkId              shouldBe first.linkId
+    second.externalUsername    shouldBe "alice_chess_v2"
+    second.verified            shouldBe false
+    second.verificationSource  shouldBe "ManualDev"
+    second.capability          shouldBe "manual_dev"
     linkRepo.store should have size 1
+  }
+
+  it should "downgrade an OAuth-verified link to manual_dev when username is updated via ManualDev" in {
+    val (svc, _, linkRepo) = makeService()
+    val userId = UUID.randomUUID()
+    val oauthLink = ExternalAccountLink(
+      linkId             = UUID.randomUUID(),
+      userId             = userId,
+      provider           = "Lichess",
+      externalId         = Some("alice_oauth"),
+      externalUsername   = "alice_oauth",
+      verified           = true,
+      verificationSource = "OAuthPKCE",
+      linkedAt           = Instant.now(),
+      capability         = "identity_only",
+      tokenEncrypted     = None,
+      tokenScopes        = None,
+      tokenStoredAt      = None
+    )
+    linkRepo.store.put((userId, "Lichess"), oauthLink)
+
+    val updated = svc.setManualLichessLink(userId, "alice_manual").value
+    updated.externalUsername   shouldBe "alice_manual"
+    updated.verified           shouldBe false
+    updated.verificationSource shouldBe "ManualDev"
+    updated.capability         shouldBe "manual_dev"
+    updated.tokenEncrypted     shouldBe None
+    updated.tokenScopes        shouldBe None
+    updated.tokenStoredAt      shouldBe None
+    linkRepo.store should have size 1
+  }
+
+  it should "clear token fields when downgrading a challenge_ready link via ManualDev" in {
+    val (svc, _, linkRepo) = makeService()
+    val userId = UUID.randomUUID()
+    val challengeReadyLink = ExternalAccountLink(
+      linkId             = UUID.randomUUID(),
+      userId             = userId,
+      provider           = "Lichess",
+      externalId         = Some("alice_cr"),
+      externalUsername   = "alice_cr",
+      verified           = true,
+      verificationSource = "OAuthPKCE",
+      linkedAt           = Instant.now(),
+      capability         = "challenge_ready",
+      tokenEncrypted     = Some(Array[Byte](1, 2, 3)),
+      tokenScopes        = Some("challenge:write preference:read"),
+      tokenStoredAt      = Some(Instant.now())
+    )
+    linkRepo.store.put((userId, "Lichess"), challengeReadyLink)
+
+    val updated = svc.setManualLichessLink(userId, "alice_manual").value
+    updated.verified           shouldBe false
+    updated.verificationSource shouldBe "ManualDev"
+    updated.capability         shouldBe "manual_dev"
+    updated.tokenEncrypted     shouldBe None
+    updated.tokenScopes        shouldBe None
+    updated.tokenStoredAt      shouldBe None
   }
 
   "deleteLink" should "remove a link" in {

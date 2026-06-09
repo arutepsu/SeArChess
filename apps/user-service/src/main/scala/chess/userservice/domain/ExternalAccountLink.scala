@@ -11,5 +11,9 @@ final case class ExternalAccountLink(
     externalUsername: String,
     verified: Boolean,
     verificationSource: String,
-    linkedAt: Instant
+    linkedAt: Instant,
+    capability: String,
+    tokenEncrypted: Option[Array[Byte]],
+    tokenScopes: Option[String],
+    tokenStoredAt: Option[Instant]
 )
