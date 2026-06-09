@@ -4,7 +4,7 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import cats.syntax.semigroupk.*
 import chess.observability.StructuredLog
-import chess.userservice.application.{LichessOAuthService, LichessTokenCipher, UserProfileService}
+import chess.userservice.application.{LichessChallengeService, LichessOAuthService, LichessTokenCipher, UserProfileService}
 import chess.userservice.postgres.{
   SlickExternalAccountLinkRepository,
   SlickOAuthLinkStateRepository,
@@ -56,8 +56,9 @@ object UserServiceWiring:
           StructuredLog.warn("user-service", "token_cipher_init_failed", "reason" -> err)
           None
     }
-    val oauthService = LichessOAuthService(stateRepo, linkRepo, httpClient, config.lichessOAuth, tokenCipher)
-    val routes         = UserRoutes(service, oauthService, config.lichessOAuth)
+    val oauthService     = LichessOAuthService(stateRepo, linkRepo, httpClient, config.lichessOAuth, tokenCipher)
+    val challengeService = LichessChallengeService(linkRepo, tokenCipher, httpClient, config.lichessChallenge)
+    val routes           = UserRoutes(service, oauthService, challengeService, config.lichessOAuth)
     val internalRoutes = InternalLichessRoutes(linkRepo, config.internalApiKey)
 
     val httpApp = (routes.routes <+> internalRoutes.routes).orNotFound

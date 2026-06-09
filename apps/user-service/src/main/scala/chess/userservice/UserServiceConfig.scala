@@ -1,7 +1,7 @@
 package chess.userservice
 
 import chess.observability.StructuredLog
-import chess.userservice.application.LichessOAuthConfig
+import chess.userservice.application.{LichessChallengeBotConfig, LichessOAuthConfig}
 
 final case class UserServiceConfig(
     host: String,
@@ -11,6 +11,7 @@ final case class UserServiceConfig(
     postgresPassword: String,
     postgresSchema: Option[String],
     lichessOAuth: LichessOAuthConfig,
+    lichessChallenge: LichessChallengeBotConfig,
     internalApiKey: String,
     lichessTokenEncryptionKey: Option[String]
 )
@@ -48,6 +49,10 @@ object UserServiceConfig:
         webUiSettingsUrl = env("WEB_UI_SETTINGS_URL").getOrElse("http://localhost:10000/settings"),
         identityScope    = env("LICHESS_OAUTH_IDENTITY_SCOPE").getOrElse("preference:read"),
         upgradeScope     = env("LICHESS_OAUTH_UPGRADE_SCOPE").getOrElse("challenge:write preference:read")
+      ),
+      lichessChallenge = LichessChallengeBotConfig(
+        botUsername         = env("SEARCHESS_LICHESS_BOT_USERNAME").getOrElse("arutepsu2"),
+        challengeApiBaseUrl = env("LICHESS_CHALLENGE_API_BASE_URL").getOrElse("https://lichess.org/api/challenge")
       ),
       internalApiKey            = env("USER_SERVICE_INTERNAL_API_KEY").getOrElse(""),
       lichessTokenEncryptionKey = env("LICHESS_TOKEN_ENCRYPTION_KEY")

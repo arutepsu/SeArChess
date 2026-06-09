@@ -2,7 +2,7 @@ package chess.userservice
 
 import cats.effect.IO
 import chess.observability.StructuredLog
-import chess.userservice.application.{JwtSubjectExtractor, LichessOAuthConfig, LichessOAuthService, UserProfileService}
+import chess.userservice.application.{CreateChallengeRequest, JwtSubjectExtractor, LichessChallengeService, LichessOAuthConfig, LichessOAuthService, UserProfileService}
 import chess.userservice.domain.{ExternalAccountLink, UserProfile}
 import fs2.Stream
 import org.http4s.*
@@ -21,10 +21,12 @@ import org.typelevel.ci.CIString
   *   GET    /users/me/links/lichess/start              — begin Lichess OAuth PKCE flow (JWT required)
   *   POST   /users/me/links/lichess/upgrade            — begin Lichess OAuth upgrade flow (JWT required)
   *   GET    /users/me/links/lichess/callback           — OAuth callback from Lichess (no JWT, browser redirect)
+  *   POST   /users/me/lichess/challenges/searchess-bot — create Lichess challenge to Searchess BOT (challenge_ready only)
   */
 class UserRoutes(
     service: UserProfileService,
     oauthService: LichessOAuthService,
+    challengeService: LichessChallengeService,
     lichessConfig: LichessOAuthConfig
 ):
 
@@ -114,6 +116,37 @@ class UserRoutes(
           }
         case _ =>
           IO.pure(redirect(lichessConfig.webUiSettingsUrl + "?lichess=failed"))
+
+    case req @ POST -> Root / "users" / "me" / "lichess" / "challenges" / "searchess-bot" =>
+      withSubject(req) { (_, profile) =>
+        req.bodyText.compile.string.flatMap { body =>
+          parseChallengeRequest(body) match
+            case Left(err) =>
+              respond(Status.BadRequest, ujson.Obj("code" -> "INVALID_CHALLENGE_REQUEST", "message" -> err))
+            case Right(challengeReq) =>
+              challengeService.createChallengeToBot(profile.userId, challengeReq).flatMap {
+                case Left("no_lichess_link") =>
+                  respond(Status.Forbidden, ujson.Obj("code" -> "NO_LICHESS_LINK"))
+                case Left("no_challenge_ready_capability") =>
+                  respond(Status.Forbidden, ujson.Obj("code" -> "NO_CHALLENGE_READY_CAPABILITY"))
+                case Left("no_stored_lichess_token") =>
+                  respond(Status.Forbidden, ujson.Obj("code" -> "NO_STORED_LICHESS_TOKEN"))
+                case Left("token_encryption_not_configured") =>
+                  respond(Status.ServiceUnavailable, ujson.Obj(
+                    "code"    -> "TOKEN_ENCRYPTION_NOT_CONFIGURED",
+                    "message" -> "Lichess token encryption is not configured."
+                  ))
+                case Left("lichess_token_expired") =>
+                  respond(Status.Forbidden, ujson.Obj("code" -> "LICHESS_TOKEN_EXPIRED"))
+                case Left(err) if err.startsWith("invalid_challenge_request:") =>
+                  respond(Status.BadRequest, ujson.Obj("code" -> "INVALID_CHALLENGE_REQUEST", "message" -> err.stripPrefix("invalid_challenge_request:")))
+                case Left(_) =>
+                  respond(Status.BadGateway, ujson.Obj("code" -> "LICHESS_CHALLENGE_FAILED"))
+                case Right(result) =>
+                  respond(Status.Ok, ujson.Obj("challengeId" -> result.challengeId, "url" -> result.url))
+              }
+        }
+      }
   }
 
   private def withSubject(req: Request[IO])(
@@ -173,6 +206,19 @@ class UserRoutes(
         case Some(t) => Right(t)
     catch
       case _: Exception => Left("Request body must be valid JSON with a 'targetCapability' string field")
+
+  private def parseChallengeRequest(body: String): Either[String, CreateChallengeRequest] =
+    try
+      val json = ujson.read(if body.trim.isEmpty then "{}" else body)
+      Right(CreateChallengeRequest(
+        clockSeconds   = json.obj.get("clockSeconds").flatMap(_.numOpt).map(_.toInt).getOrElse(300),
+        clockIncrement = json.obj.get("clockIncrement").flatMap(_.numOpt).map(_.toInt).getOrElse(3),
+        rated          = json.obj.get("rated").flatMap(_.boolOpt).getOrElse(false),
+        variant        = json.obj.get("variant").flatMap(_.strOpt).getOrElse("standard"),
+        color          = json.obj.get("color").flatMap(_.strOpt).getOrElse("random")
+      ))
+    catch
+      case _: Exception => Left("Request body must be valid JSON")
 
   private def linkJson(link: ExternalAccountLink): ujson.Value =
     ujson.Obj(

@@ -13,8 +13,9 @@ object UserServiceMain:
       "httpHost"                         -> config.host,
       "httpPort"                         -> config.port,
       "postgresSchema"                   -> config.postgresSchema.getOrElse("(default)"),
-      "lichessOAuthEnabled"              -> config.lichessOAuth.isConfigured,
-      "lichessTokenEncryptionKeyConfigured" -> config.lichessTokenEncryptionKey.isDefined
+      "lichessOAuthEnabled"                 -> config.lichessOAuth.isConfigured,
+      "lichessTokenEncryptionKeyConfigured" -> config.lichessTokenEncryptionKey.isDefined,
+      "lichessBotUsername"                  -> config.lichessChallenge.botUsername
     )
 
     val runtime = UserServiceWiring.start(config)
