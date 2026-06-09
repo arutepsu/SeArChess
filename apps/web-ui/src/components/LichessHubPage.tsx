@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { UserProfileResponse, LichessLinkCapability } from "../api/userServiceTypes";
-import { upgradeLichessLink } from "../api/userServiceClient";
+import { createSearchessBotChallenge, upgradeLichessLink } from "../api/userServiceClient";
 import {
   LICHESS_BOT_USERNAME,
   LICHESS_BOT_PROFILE_URL,
@@ -40,6 +40,44 @@ function capabilityLabel(cap: LichessLinkCapability): string {
   }
 }
 
+function challengeErrorMessage(error: unknown): string {
+  const rawMessage = error instanceof Error ? error.message : String(error);
+  let code = rawMessage.trim();
+
+  try {
+    const parsed = JSON.parse(rawMessage) as { code?: unknown };
+    if (typeof parsed.code === "string") {
+      code = parsed.code;
+    }
+  } catch {
+    const match = rawMessage.match(
+      /\b(NO_LICHESS_LINK|NO_CHALLENGE_READY_CAPABILITY|NO_STORED_LICHESS_TOKEN|TOKEN_ENCRYPTION_NOT_CONFIGURED|LICHESS_TOKEN_EXPIRED|INVALID_CHALLENGE_REQUEST|LICHESS_CHALLENGE_FAILED)\b/
+    );
+    if (match !== null) {
+      code = match[1];
+    }
+  }
+
+  switch (code) {
+    case "NO_LICHESS_LINK":
+      return "Link your Lichess account first.";
+    case "NO_CHALLENGE_READY_CAPABILITY":
+      return "Upgrade your Lichess permissions before creating a challenge.";
+    case "NO_STORED_LICHESS_TOKEN":
+      return "Your Lichess authorization is incomplete. Please re-authorize.";
+    case "TOKEN_ENCRYPTION_NOT_CONFIGURED":
+      return "The server is not configured for Lichess challenge creation yet.";
+    case "LICHESS_TOKEN_EXPIRED":
+      return "Your Lichess authorization expired. Please re-authorize.";
+    case "INVALID_CHALLENGE_REQUEST":
+      return "The challenge settings are invalid.";
+    case "LICHESS_CHALLENGE_FAILED":
+      return "Lichess could not create the challenge. Please try again.";
+    default:
+      return "Could not create the Lichess challenge.";
+  }
+}
+
 export default function LichessHubPage({ profile, onOpenSettings, onBack }: LichessHubPageProps) {
   const [bridgeStatus, setBridgeStatus] = useState<LichessBridgeStatusResponse | null>(null);
   const [bridgePolicy, setBridgePolicy] = useState<LichessBridgePolicyResponse | null>(null);
@@ -47,6 +85,9 @@ export default function LichessHubPage({ profile, onOpenSettings, onBack }: Lich
   const [bridgeError, setBridgeError] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
+  const [isCreatingChallenge, setIsCreatingChallenge] = useState(false);
+  const [challengeError, setChallengeError] = useState<string | null>(null);
+  const [createdChallengeUrl, setCreatedChallengeUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -82,6 +123,23 @@ export default function LichessHubPage({ profile, onOpenSettings, onBack }: Lich
       setIsUpgrading(false);
     }
   };
+
+  const handleCreateChallenge = async () => {
+    setIsCreatingChallenge(true);
+    setChallengeError(null);
+    setCreatedChallengeUrl(null);
+
+    try {
+      const response = await createSearchessBotChallenge();
+      setCreatedChallengeUrl(response.url);
+      window.open(response.url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      setChallengeError(challengeErrorMessage(error));
+    } finally {
+      setIsCreatingChallenge(false);
+    }
+  };
+
   const isAccepting = bridgeStatus?.workerRunning === true && bridgeStatus?.acceptChallenges === true;
 
   return (
@@ -263,9 +321,35 @@ export default function LichessHubPage({ profile, onOpenSettings, onBack }: Lich
             ) : lichessLink.capability === "challenge_ready" ? (
               <>
                 <p className="lichess-hub-muted">
-                  Ready to create Lichess challenges from Searchess.
+                  Ready to create a Lichess challenge against the Searchess BOT account.
                 </p>
-                <button type="button" disabled>Create challenge — Coming Soon</button>
+                <p className="lichess-hub-muted">
+                  The game will open on lichess.org. Searchess will control arutepsu2 through
+                  the BOT bridge.
+                </p>
+                {challengeError !== null && (
+                  <p className="lichess-hub-warning">{challengeError}</p>
+                )}
+                <button
+                  type="button"
+                  disabled={isCreatingChallenge}
+                  onClick={() => void handleCreateChallenge()}
+                >
+                  {isCreatingChallenge ? "Creating..." : "Create Lichess Challenge"}
+                </button>
+                {createdChallengeUrl !== null && (
+                  <p className="lichess-hub-muted">
+                    Challenge created.{" "}
+                    <a
+                      href={createdChallengeUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="lichess-hub-link"
+                    >
+                      Open on Lichess ↗
+                    </a>
+                  </p>
+                )}
               </>
             ) : lichessLink.capability === "expired" || lichessLink.capability === "revoked" ? (
               <>

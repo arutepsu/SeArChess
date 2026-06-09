@@ -43,3 +43,18 @@ export interface LichessLinkStartResponse {
 export interface LichessUpgradeResponse {
   authorizationUrl: string;
 }
+
+export type LichessChallengeColor = "random" | "white" | "black";
+
+export interface CreateSearchessBotChallengeRequest {
+  clockSeconds?: number;
+  clockIncrement?: number;
+  rated?: false;
+  variant?: "standard";
+  color?: LichessChallengeColor;
+}
+
+export interface CreateSearchessBotChallengeResponse {
+  challengeId: string;
+  url: string;
+}
