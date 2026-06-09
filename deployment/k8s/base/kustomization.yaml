@@ -25,6 +25,7 @@ resources:
   - bot-service/deployment.yaml
   - lichess-bridge-service/configmap.yaml
   - lichess-bridge-service/deployment.yaml
+  - lichess-bridge-service/service.yaml
   - history-service/configmap.yaml
   - history-service/deployment.yaml
   - history-service/service.yaml
