@@ -520,6 +520,36 @@ lazy val botService = project
     )
   )
 
+// ── App: lichess-bridge-service ──────────────────────────────────────────────
+//
+// Phase 2B-1: event stream, challenge policy, LichessBridgeWorker.
+// JdkLichessStreamClient uses BodyHandlers.ofInputStream + fs2.io (no new deps).
+// Replicas=0 in all overlays; LICHESS_BRIDGE_ENABLED=false by default.
+// Phase 2B-2: game-stream consumer + AI move loop.
+lazy val lichessBridgeService = project
+  .in(file("apps/lichess-bridge-service"))
+  .enablePlugins(JavaAppPackaging)
+  .settings(
+    commonSettings,
+    name := "searchess-lichess-bridge-service",
+    coverageMinimumStmtTotal := 0,
+    Compile / mainClass := Some("chess.lichessbridge.LichessBridgeMain"),
+    run / mainClass     := Some("chess.lichessbridge.LichessBridgeMain"),
+    run / fork          := true,
+    libraryDependencies ++= Seq(
+      "org.http4s" %% "http4s-ember-server" % http4sVersion,
+      "org.http4s" %% "http4s-dsl"          % http4sVersion,
+      "com.lihaoyi" %% "ujson"              % "4.0.2"
+    ),
+    excludeFromCoverage(
+      ".*chess.lichessbridge.LichessBridgeMain.*",
+      ".*chess.lichessbridge.LichessBridgeWiring.*",
+      ".*chess.lichessbridge.LichessBridgeRuntime.*",
+      ".*chess.lichessbridge.LichessBridgeConfig.*"
+    )
+  )
+  .dependsOn(observability)
+
 // App: chess-streaming
 lazy val chessStreaming = project
   .in(file("apps/chess-streaming"))
@@ -660,6 +690,7 @@ addCommandAlias("testAllAdapters",
 
 addCommandAlias("testApps",
   ";startupShared/test;gameService/test;historyService/test;userService/test;aiService/test;desktopGui/test;tuiCli/test")
+addCommandAlias("testLichessBridgeService", "lichessBridgeService/test")
 
 // ── Compile slices ────────────────────────────────────────────────────────────
 
@@ -692,5 +723,5 @@ lazy val root = project
     adapterRestContract, adapterRestHttp4s,
     adapterWebsocket, adapterGui, adapterTui,
     startupShared, gameService, historyService, userService, aiService, desktopGui, tuiCli, loadTests, benchmarks,
-    botService, chessStreaming
+    botService, chessStreaming, lichessBridgeService
   )

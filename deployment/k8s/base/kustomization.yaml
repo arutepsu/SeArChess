@@ -23,6 +23,8 @@ resources:
   - user-service/service.yaml
   - bot-service/configmap.yaml
   - bot-service/deployment.yaml
+  - lichess-bridge-service/configmap.yaml
+  - lichess-bridge-service/deployment.yaml
   - history-service/configmap.yaml
   - history-service/deployment.yaml
   - history-service/service.yaml

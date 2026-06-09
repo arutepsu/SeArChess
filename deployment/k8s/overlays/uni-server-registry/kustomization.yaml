@@ -57,6 +57,11 @@ images:
 - name: searchess/web-ui
   newName: ghcr.io/arutepsu/searchess-web-ui
   newTag: sha-e559b69
+# lichess-bridge-service: replicas=0 in base; image tag managed by CI once Phase 2 lands.
+# sha-placeholder is intentional — no build has been pushed yet.
+- name: searchess/lichess-bridge-service
+  newName: ghcr.io/arutepsu/searchess-lichess-bridge-service
+  newTag: sha-placeholder
 
 # Expose Envoy and Grafana as LoadBalancer — k3d servicelb forwards these
 # through the port mappings in deployment/k3d/server-cluster.yaml.

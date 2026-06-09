@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lichess-bridge-service
+  namespace: searchess
+  labels:
+    app: lichess-bridge-service
+spec:
+  # Intentionally 0 — Phase 1 skeleton; no production traffic until Phase 2.
+  # Overlays must explicitly set replicas: 1 to enable.
+  replicas: 0
+  selector:
+    matchLabels:
+      app: lichess-bridge-service
+  template:
+    metadata:
+      labels:
+        app: lichess-bridge-service
+    spec:
+      containers:
+        - name: lichess-bridge-service
+          image: searchess/lichess-bridge-service:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: lichess-bridge-service-env
+          env:
+            - name: LICHESS_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: searchess-secrets
+                  key: lichess-bot-token
+                  optional: true
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "384Mi"
+              cpu: "200m"

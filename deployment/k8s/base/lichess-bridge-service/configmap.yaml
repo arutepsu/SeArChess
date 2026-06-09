@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lichess-bridge-service-env
+  namespace: searchess
+data:
+  # ── Core ──────────────────────────────────────────────────────────────────────
+  # Bridge is disabled by default. Set LICHESS_BRIDGE_ENABLED=true in an overlay
+  # (together with a real token in the Secret) to activate.
+  LICHESS_BRIDGE_ENABLED: "false"
+  LICHESS_API_BASE_URL: "https://lichess.org"
+  # LICHESS_BOT_USERNAME is intentionally absent here.
+  # Populate it in an overlay ConfigMap patch when a bot account is registered.
+  AI_SERVICE_URL: "http://ai-service:8765"
+  MAX_CONCURRENT_GAMES: "1"
+  LICHESS_BRIDGE_HTTP_HOST: "0.0.0.0"
+  LICHESS_BRIDGE_HTTP_PORT: "8090"
+
+  # ── Phase 2B-1: challenge policy ──────────────────────────────────────────────
+  # All defaults are deliberately conservative — change in overlays to enable.
+  LICHESS_ACCEPT_CHALLENGES: "false"
+  LICHESS_ALLOWED_CHALLENGERS: ""
+  LICHESS_ACCEPT_RATED: "false"
+  LICHESS_ALLOWED_VARIANTS: "standard"
+  LICHESS_MIN_CLOCK_SECONDS: "180"
+  LICHESS_MAX_CLOCK_SECONDS: "600"
