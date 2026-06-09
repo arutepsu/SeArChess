@@ -154,7 +154,8 @@ class UserRoutes(
       "externalUsername"   -> link.externalUsername,
       "verified"           -> link.verified,
       "verificationSource" -> link.verificationSource,
-      "linkedAt"           -> link.linkedAt.toString
+      "linkedAt"           -> link.linkedAt.toString,
+      "capability"         -> link.capability
     )
 
   private def respond(status: Status, body: ujson.Value): IO[Response[IO]] =

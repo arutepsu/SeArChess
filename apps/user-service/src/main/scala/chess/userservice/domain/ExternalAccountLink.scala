@@ -11,5 +11,6 @@ final case class ExternalAccountLink(
     externalUsername: String,
     verified: Boolean,
     verificationSource: String,
-    linkedAt: Instant
+    linkedAt: Instant,
+    capability: String
 )

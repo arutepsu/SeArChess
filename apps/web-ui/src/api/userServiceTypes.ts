@@ -1,3 +1,12 @@
+export type LichessLinkCapability =
+  | "identity_only"
+  | "manual_dev"
+  | "unknown"
+  | "challenge_ready"
+  | "board_play"
+  | "expired"
+  | "revoked";
+
 export interface ExternalAccountLinkDto {
   linkId: string;
   provider: string;
@@ -6,6 +15,7 @@ export interface ExternalAccountLinkDto {
   verified: boolean;
   verificationSource: string;
   linkedAt: string;
+  capability: LichessLinkCapability;
 }
 
 export interface UserProfileResponse {

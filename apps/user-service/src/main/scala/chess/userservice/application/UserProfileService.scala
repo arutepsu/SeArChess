@@ -31,7 +31,12 @@ class UserProfileService(
   def setManualLichessLink(userId: UUID, lichessUsername: String): Either[String, ExternalAccountLink] =
     links.findByUserAndProvider(userId, "Lichess").flatMap {
       case Some(existing) =>
-        val updated = existing.copy(externalUsername = lichessUsername, linkedAt = Instant.now())
+        val updated = existing.copy(
+          externalUsername   = lichessUsername,
+          verificationSource = "ManualDev",
+          capability         = "manual_dev",
+          linkedAt           = Instant.now()
+        )
         links.update(updated).map(_ => updated)
       case None =>
         val link = ExternalAccountLink(
@@ -42,7 +47,8 @@ class UserProfileService(
           externalUsername   = lichessUsername,
           verified           = false,
           verificationSource = "ManualDev",
-          linkedAt           = Instant.now()
+          linkedAt           = Instant.now(),
+          capability         = "manual_dev"
         )
         links.insert(link).map(_ => link)
     }

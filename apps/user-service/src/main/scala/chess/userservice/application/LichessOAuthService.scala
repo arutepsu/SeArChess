@@ -127,7 +127,8 @@ class LichessOAuthService(
           externalUsername   = lichessId,
           verified           = true,
           verificationSource = "OAuthPKCE",
-          linkedAt           = Instant.now()
+          linkedAt           = Instant.now(),
+          capability         = "identity_only"
         )
         linkRepo.update(updated).map(_ => updated)
       case None =>
@@ -139,7 +140,8 @@ class LichessOAuthService(
           externalUsername   = lichessId,
           verified           = true,
           verificationSource = "OAuthPKCE",
-          linkedAt           = Instant.now()
+          linkedAt           = Instant.now(),
+          capability         = "identity_only"
         )
         linkRepo.insert(link).map(_ => link)
     }

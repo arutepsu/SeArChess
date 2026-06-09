@@ -33,7 +33,7 @@ class UserProfileServiceSpec extends AnyFlatSpec with Matchers with EitherValues
     repo.store should have size 1
   }
 
-  "setManualLichessLink" should "create a new link with verificationSource ManualDev" in {
+  "setManualLichessLink" should "create a new link with verificationSource ManualDev and capability manual_dev" in {
     val (svc, _, linkRepo) = makeService()
     val userId = UUID.randomUUID()
     val link = svc.setManualLichessLink(userId, "alice_chess").value
@@ -41,16 +41,43 @@ class UserProfileServiceSpec extends AnyFlatSpec with Matchers with EitherValues
     link.externalUsername   shouldBe "alice_chess"
     link.verified           shouldBe false
     link.verificationSource shouldBe "ManualDev"
+    link.capability         shouldBe "manual_dev"
     linkRepo.store should have size 1
   }
 
-  it should "update an existing link when called again for the same user" in {
+  it should "update an existing ManualDev link and keep capability manual_dev" in {
     val (svc, _, linkRepo) = makeService()
     val userId = UUID.randomUUID()
     val first  = svc.setManualLichessLink(userId, "alice_chess").value
     val second = svc.setManualLichessLink(userId, "alice_chess_v2").value
-    second.linkId          shouldBe first.linkId
-    second.externalUsername shouldBe "alice_chess_v2"
+    second.linkId              shouldBe first.linkId
+    second.externalUsername    shouldBe "alice_chess_v2"
+    second.capability          shouldBe "manual_dev"
+    second.verificationSource  shouldBe "ManualDev"
+    linkRepo.store should have size 1
+  }
+
+  it should "downgrade an OAuth-verified link to manual_dev when username is updated via ManualDev" in {
+    val (svc, _, linkRepo) = makeService()
+    val userId = UUID.randomUUID()
+    // Pre-seed an OAuthPKCE link directly in the repository (simulates a prior OAuth flow)
+    val oauthLink = ExternalAccountLink(
+      linkId             = UUID.randomUUID(),
+      userId             = userId,
+      provider           = "Lichess",
+      externalId         = Some("alice_oauth"),
+      externalUsername   = "alice_oauth",
+      verified           = true,
+      verificationSource = "OAuthPKCE",
+      linkedAt           = Instant.now(),
+      capability         = "identity_only"
+    )
+    linkRepo.store.put((userId, "Lichess"), oauthLink)
+
+    val updated = svc.setManualLichessLink(userId, "alice_manual").value
+    updated.externalUsername   shouldBe "alice_manual"
+    updated.verificationSource shouldBe "ManualDev"
+    updated.capability         shouldBe "manual_dev"
     linkRepo.store should have size 1
   }
 

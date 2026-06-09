@@ -109,6 +109,7 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
     body("externalUsername").str shouldBe "carol_chess"
     body("verified").bool    shouldBe false
     body("verificationSource").str shouldBe "ManualDev"
+    body("capability").str   shouldBe "manual_dev"
   }
 
   it should "return 400 when lichessUsername is missing" in {

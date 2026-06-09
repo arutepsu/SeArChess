@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { UserProfileResponse } from "../api/userServiceTypes";
+import type { UserProfileResponse, LichessLinkCapability } from "../api/userServiceTypes";
 import {
   LICHESS_BOT_USERNAME,
   LICHESS_BOT_PROFILE_URL,
@@ -25,6 +25,18 @@ function formatClock(seconds: number): string {
 
 function capitalize(s: string): string {
   return s.length === 0 ? s : s[0].toUpperCase() + s.slice(1);
+}
+
+function capabilityLabel(cap: LichessLinkCapability): string {
+  switch (cap) {
+    case "identity_only":   return "Identity only";
+    case "manual_dev":      return "Manual dev link";
+    case "challenge_ready": return "Challenge ready";
+    case "board_play":      return "Board play";
+    case "expired":         return "Expired";
+    case "revoked":         return "Revoked";
+    case "unknown":         return "Unknown";
+  }
 }
 
 export default function LichessHubPage({ profile, onOpenSettings, onBack }: LichessHubPageProps) {
@@ -106,7 +118,7 @@ export default function LichessHubPage({ profile, onOpenSettings, onBack }: Lich
                 <p className="lichess-hub-muted">
                   Linked {new Date(lichessLink.linkedAt).toLocaleDateString()}
                 </p>
-                <p className="lichess-hub-capability">Capability: identity only</p>
+                <p className="lichess-hub-capability">Capability: {capabilityLabel(lichessLink.capability)}</p>
               </>
             )}
           </section>
