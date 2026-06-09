@@ -12,20 +12,21 @@ class ChallengePolicySpec extends AnyFlatSpec with Matchers:
   // ── Fixtures ──────────────────────────────────────────────────────────────────
 
   private val baseConfig = LichessBridgeConfig(
-    enabled            = true,
-    lichessApiBaseUrl  = "https://lichess.org",
-    lichessBotUsername = Some("testbot"),
-    lichessBotToken    = Some("lip_test"),
-    aiServiceUrl       = "http://ai-service:8765",
-    maxConcurrentGames = 2,
-    host               = "0.0.0.0",
-    port               = 8090,
-    acceptChallenges   = true,
-    allowedChallengers = Set.empty,
-    acceptRated        = false,
-    allowedVariants    = Set("standard"),
-    minClockSeconds    = 180,
-    maxClockSeconds    = 600
+    enabled                  = true,
+    lichessApiBaseUrl        = "https://lichess.org",
+    lichessBotUsername       = Some("testbot"),
+    lichessBotToken          = Some("lip_test"),
+    aiServiceUrl             = "http://ai-service:8765",
+    maxConcurrentGames       = 2,
+    host                     = "0.0.0.0",
+    port                     = 8090,
+    acceptChallenges         = true,
+    allowedChallengers       = Set.empty,
+    acceptRated              = false,
+    allowedVariants          = Set("standard"),
+    minClockSeconds          = 180,
+    maxClockSeconds          = 600,
+    requireLinkedChallenger  = false   // existing tests exercise static-allowlist path
   )
 
   private val standardCasualChallenge = LichessChallenge(
@@ -40,10 +41,11 @@ class ChallengePolicySpec extends AnyFlatSpec with Matchers:
 
   private def makePolicy(
       config: LichessBridgeConfig = baseConfig,
-      activeGames: Map[String, ActiveGame] = Map.empty
+      activeGames: Map[String, ActiveGame] = Map.empty,
+      userServiceClient: UserServiceClient[IO] = AuthorizedUserServiceClient()
   ): DefaultChallengePolicy =
     val stateRef = IO.ref(WorkerState(running = true, activeGames, None, None)).unsafeRunSync()
-    DefaultChallengePolicy(config, stateRef)
+    DefaultChallengePolicy(config, stateRef, userServiceClient)
 
   private def eval(policy: ChallengePolicy[IO], challenge: LichessChallenge): ChallengeDecision =
     policy.evaluate(challenge).unsafeRunSync()
@@ -196,4 +198,78 @@ class ChallengePolicySpec extends AnyFlatSpec with Matchers:
 
   it should "map ClockOutOfRange(too fast) to tooFast" in {
     DeclineReason.toLichessString(DeclineReason.ClockOutOfRange(Some(60))) shouldBe "tooFast"
+  }
+
+  it should "map LinkedUserRequired to generic" in {
+    DeclineReason.toLichessString(DeclineReason.LinkedUserRequired("not_linked")) shouldBe "generic"
+  }
+
+  // ── Phase 3B: requireLinkedChallenger=true path ───────────────────────────────
+
+  private val linkedConfig = baseConfig.copy(requireLinkedChallenger = true)
+
+  "DefaultChallengePolicy with requireLinkedChallenger=true" should
+    "accept a challenge from a linked user when all policy checks pass" in {
+    val policy = makePolicy(linkedConfig, userServiceClient = AuthorizedUserServiceClient())
+    eval(policy, standardCasualChallenge) shouldBe ChallengeDecision.Accept
+  }
+
+  it should "decline a challenge from an unlinked user (user-service returns NotLinked)" in {
+    val policy = makePolicy(linkedConfig, userServiceClient = NotLinkedUserServiceClient())
+    eval(policy, standardCasualChallenge) shouldBe
+      ChallengeDecision.Decline(DeclineReason.LinkedUserRequired("not_linked"))
+  }
+
+  it should "decline a challenge when user-service is unavailable (fail closed)" in {
+    val policy = makePolicy(linkedConfig, userServiceClient = UnavailableUserServiceClient())
+    eval(policy, standardCasualChallenge) shouldBe
+      ChallengeDecision.Decline(DeclineReason.LinkedUserRequired("user_service_unavailable"))
+  }
+
+  it should "still decline a rated challenge before calling user-service" in {
+    val policy    = makePolicy(linkedConfig, userServiceClient = UnavailableUserServiceClient())
+    val challenge = standardCasualChallenge.copy(rated = true)
+    eval(policy, challenge) shouldBe ChallengeDecision.Decline(DeclineReason.RatedNotAllowed)
+  }
+
+  it should "still decline a wrong-variant challenge before calling user-service" in {
+    val policy    = makePolicy(linkedConfig, userServiceClient = UnavailableUserServiceClient())
+    val challenge = standardCasualChallenge.copy(variant = "chess960")
+    eval(policy, challenge) shouldBe ChallengeDecision.Decline(DeclineReason.VariantNotAllowed("chess960"))
+  }
+
+  it should "still decline when max games reached before calling user-service" in {
+    val active = Map(
+      "g1" -> ActiveGame("g1", "opp1", Some("white"), java.time.Instant.now()),
+      "g2" -> ActiveGame("g2", "opp2", Some("black"), java.time.Instant.now())
+    )
+    val policy = makePolicy(linkedConfig, activeGames = active, userServiceClient = UnavailableUserServiceClient())
+    eval(policy, standardCasualChallenge) shouldBe ChallengeDecision.Decline(DeclineReason.MaxGamesReached)
+  }
+
+  it should "decline all challenges when LICHESS_ACCEPT_CHALLENGES=false regardless of user-service" in {
+    val policy = makePolicy(linkedConfig.copy(acceptChallenges = false),
+      userServiceClient = AuthorizedUserServiceClient())
+    eval(policy, standardCasualChallenge) shouldBe ChallengeDecision.Decline(DeclineReason.ChallengesDisabled)
+  }
+
+  it should "not call user-service when LICHESS_ACCEPT_CHALLENGES=false" in {
+    var called = false
+    val trackingClient = new UserServiceClient[IO]:
+      def authorizeChallenger(username: String): IO[ChallengeAuthResult] =
+        IO { called = true } >> IO.pure(ChallengeAuthResult.Authorized)
+    val policy = makePolicy(linkedConfig.copy(acceptChallenges = false), userServiceClient = trackingClient)
+    eval(policy, standardCasualChallenge)
+    called shouldBe false
+  }
+
+  // ── requireLinkedChallenger=false falls back to existing allowlist behavior ──
+
+  it should "use static allowedChallengers list when requireLinkedChallenger=false" in {
+    val config = baseConfig.copy(requireLinkedChallenger = false, allowedChallengers = Set("trusted1"))
+    val policy = makePolicy(config, userServiceClient = UnavailableUserServiceClient())
+    val allowed = standardCasualChallenge.copy(challengerUsername = "trusted1")
+    val blocked = standardCasualChallenge.copy(challengerUsername = "stranger")
+    eval(policy, allowed) shouldBe ChallengeDecision.Accept
+    eval(policy, blocked) shouldBe ChallengeDecision.Decline(DeclineReason.ChallengerNotAllowed("stranger"))
   }

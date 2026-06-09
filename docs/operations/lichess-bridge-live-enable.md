@@ -111,21 +111,14 @@ in the Settings page. These linked Lichess accounts are human user identities st
 
 ### How the two identities interact at challenge time
 
-When challenge acceptance is eventually enabled (Phase 3B, separate PR), the
-`LICHESS_ALLOWED_CHALLENGERS` allowlist should contain the **linked Lichess usernames of trusted
-human Searchess users** — the usernames users registered on Lichess with their personal accounts,
-not their Keycloak IDs and not the `arutepsu2` bot username.
+When challenge acceptance is enabled (Phase 3B — see §H), `lichess-bridge-service` dynamically
+authorizes each challenger by calling `user-service`. The challenger's Lichess username must be
+linked to a Searchess user account via the Settings page.
 
-Example (Phase 3B only, not this PR):
-```yaml
-# The value here is a Lichess username belonging to a human Searchess user
-# who has linked their Lichess account in Settings.
-LICHESS_ALLOWED_CHALLENGERS: "<linked-lichess-username-of-trusted-user>"
-```
-
-`user-service` is the authoritative source of linked Lichess usernames. The bridge does not
-directly query `user-service` in Phase 3A; the allowlist is a static ConfigMap entry for
-controlled smoke-test scenarios.
+**No static `LICHESS_ALLOWED_CHALLENGERS` list is needed or used** in the standard Phase 3B
+configuration. `user-service` is the authoritative source of linked Lichess usernames, and the
+bridge calls it for each incoming challenge. The static allowlist exists only as a legacy override
+path that is inactive when `LICHESS_REQUIRE_LINKED_CHALLENGER=true` (the default).
 
 ---
 
@@ -222,29 +215,102 @@ The only endpoint that matters for Phase 3A validation is `/internal/lichess/val
 
 ---
 
-## G. Follow-up: controlled challenge acceptance (separate PR/step)
+## G. Phase 3B prerequisites: internal API key
 
-Only after `/validate` confirms `isBot: true` and the logs show `worker_token_valid`,
-create a separate GitOps PR with these changes to the ConfigMap patch only:
+Before enabling challenge acceptance, the service-to-service secret must be provisioned.
+
+`lichess-bridge-service` calls `user-service` to verify that a challenger's Lichess account is
+linked to a Searchess user. This call uses a shared secret header (`X-Internal-Api-Key`).
+
+### Add `user-service-internal-api-key` to the SealedSecret
+
+```bash
+# 1. Generate a secure random key (example — use your own generator)
+openssl rand -hex 32
+
+# 2. Seal a new secret containing only the new key
+kubectl create secret generic searchess-secrets \
+  --namespace searchess \
+  --from-literal=user-service-internal-api-key=REPLACE_WITH_GENERATED_KEY \
+  --dry-run=client \
+  -o yaml \
+| kubeseal \
+    --cert /tmp/searchess-sealing-cert.pem \
+    --format yaml \
+  > /tmp/internal-api-key-patch.yaml
+
+# 3. Merge the encryptedData.user-service-internal-api-key entry
+#    into deployment/k8s/overlays/uni-server-registry/sealed-secret.yaml
+#    alongside the existing keys.
+
+# 4. Commit
+git add deployment/k8s/overlays/uni-server-registry/sealed-secret.yaml
+git commit -m "ops: add user-service-internal-api-key to searchess-secrets"
+```
+
+**Both services read the same key:**
+- `user-service` uses it to verify incoming `X-Internal-Api-Key` header requests
+- `lichess-bridge-service` sends it when calling `GET /internal/lichess/challenge-auth/{username}`
+
+**Fail-closed behavior:**
+If either service starts without the key (key absent or empty), the `/challenge-auth` endpoint
+returns `401` and the bridge declines all challenges. This is intentional and safe.
+
+---
+
+## H. Phase 3B: enabling challenge acceptance
+
+Only after §G (internal API key sealed and deployed) and §E (validate returns `isBot: true`):
+
+### How the authorization works
+
+When a Lichess user challenges `arutepsu2`:
+
+1. `lichess-bridge-service` receives the `ChallengeCreated` event containing `challengerUsername`
+2. Policy checks pass (unrated, standard variant, clock in range, max games not reached)
+3. Bridge calls `GET http://user-service:8082/internal/lichess/challenge-auth/{challengerUsername}`
+   with `X-Internal-Api-Key: <secret>`
+4. `user-service` looks up whether that Lichess username is linked to any Searchess user
+5. If linked → bridge accepts; if not linked → bridge declines
+
+**The challenger must first:**
+1. Register on Searchess
+2. Link their Lichess account in Settings → this creates an `ExternalAccountLink` in `user-service`
+
+No static username list is needed or used. Any Searchess user with a linked Lichess account is
+automatically eligible to challenge `arutepsu2` once challenge acceptance is enabled.
+
+### GitOps PR to enable challenge acceptance
+
+Create a GitOps PR with only this change to the ConfigMap patch:
 
 ```yaml
 # In: deployment/k8s/overlays/uni-server-registry/patches/lichess-bridge-service-live.yaml
 # Change:
 LICHESS_ACCEPT_CHALLENGES: "true"
-# Add one trusted Lichess username for a smoke test (normal user, not a BOT):
-LICHESS_ALLOWED_CHALLENGERS: "<trusted-lichess-username>"
-# Keep:
+# LICHESS_REQUIRE_LINKED_CHALLENGER: "true" is already the default — no change needed
+# Keep everything else unchanged:
 LICHESS_ACCEPT_RATED: "false"
 MAX_CONCURRENT_GAMES: "1"
 ```
 
-Do **not** enable challenge acceptance in this Phase 3A PR.
-The `<trusted-lichess-username>` value must be the Lichess username that the trusted human user
-linked in their Searchess Settings — retrievable from `user-service`, not invented here.
+**Do NOT add `LICHESS_ALLOWED_CHALLENGERS`** — that is a legacy static override that is not
+needed when `LICHESS_REQUIRE_LINKED_CHALLENGER=true` (the default). The dynamic user-service
+authorization replaces it.
+
+### Validation after enabling challenge acceptance
+
+1. Have a Searchess user link their Lichess account in Settings
+2. From that Lichess account, challenge `arutepsu2` on Lichess
+3. Expected: bridge accepts and a game starts
+4. Expected logs: `challenge_accepted`, then `game_started`, then AI move submissions
+
+If the challenger is not linked: bridge declines with `generic` reason (expected).
+If user-service is unavailable: bridge declines (fail-closed, expected).
 
 ---
 
-## H. Rollback
+## I. Rollback
 
 To disable the bridge without removing the GitOps patch:
 

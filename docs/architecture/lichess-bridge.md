@@ -247,6 +247,144 @@ Lichess                         Searchess cluster
 
 ---
 
+## Phase 3A — COMPLETE (live on uni-server-registry)
+
+Controlled live enablement of `lichess-bridge-service` with the dedicated BOT account `arutepsu2`.
+
+- `LICHESS_BRIDGE_ENABLED=true`, `LICHESS_BOT_USERNAME=arutepsu2`, `LICHESS_ACCEPT_CHALLENGES=false`
+- `replicas: 1` in the `uni-server-registry` overlay only (base remains `replicas: 0`)
+- Validated: `GET /internal/lichess/validate` returns `isBot: true`, `id: arutepsu2`
+- Challenge acceptance intentionally disabled for Phase 3A; game loop runs but no new games start
+
+**Identity boundary established in Phase 3A:**
+
+| Identity | Source | Purpose |
+|---|---|---|
+| `arutepsu2` | `LICHESS_BOT_USERNAME` / `searchess-secrets/lichess-bot-token` | Central Lichess BOT service account — NOT a Searchess user |
+| Human linked accounts | `user-service.external_account_links` | Per-user Lichess links from Settings page |
+
+`arutepsu2` is an infrastructure credential. It has no Keycloak principal, no `UserProfile`, and no entry in `user-service`. Human users link their own Lichess accounts separately through the Searchess Settings OAuth PKCE flow.
+
+---
+
+## Phase 3B — COMPLETE
+
+Dynamic linked-user challenge authorization: bridge asks `user-service` whether a challenger's Lichess username is linked to a Searchess user before accepting.
+
+### Challenge authorization flow
+
+```
+Lichess challenge event (challengerUsername = X)
+  ↓
+lichess-bridge-service
+  ChallengePolicy.evaluate(challenge)
+    1. bridge disabled?  → Decline
+    2. acceptChallenges=false? → Decline
+    3. max games reached? → Decline
+    4. rated and acceptRated=false? → Decline
+    5. variant not allowed? → Decline
+    6. clock out of range? → Decline
+    7. requireLinkedChallenger=true?
+       → GET http://user-service:8082/internal/lichess/challenge-auth/{X}
+          X-Internal-Api-Key: <USER_SERVICE_INTERNAL_API_KEY>
+          ├─ Authorized  → Accept
+          ├─ NotLinked   → Decline(LinkedUserRequired("not_linked"))
+          └─ Unavailable → Decline(LinkedUserRequired("user_service_unavailable"))
+    8. requireLinkedChallenger=false and allowedChallengers non-empty?
+       → static allowlist check (legacy admin override)
+       else → Accept
+```
+
+The user-service call is **last in the chain** — obvious policy violations (rated, wrong variant, clock) are rejected before a network call is made.
+
+### New files
+
+| File | Role |
+|---|---|
+| `apps/lichess-bridge-service/.../UserServiceClient.scala` | `UserServiceClient[F[_]]` trait; `ChallengeAuthResult` ADT (`Authorized`, `NotLinked`, `Unavailable`); `JdkUserServiceClient` HTTP impl; `JdkUserServiceClient.parseAuthResponse` pure parser |
+| `apps/user-service/.../InternalLichessRoutes.scala` | `GET /internal/lichess/challenge-auth/{username}` — protected by `X-Internal-Api-Key`; returns `{"allowed": true/false, ...}` |
+
+### Modified files
+
+| File | Change |
+|---|---|
+| `ExternalAccountLinkRepository` | Added `findByLichessUsername(username): Either[String, Option[ExternalAccountLink]]` |
+| `SlickExternalAccountLinkRepository` | Implemented `findByLichessUsername` with case-insensitive Slick query |
+| `UserServiceConfig` | Added `internalApiKey: String` loaded from `USER_SERVICE_INTERNAL_API_KEY` |
+| `UserServiceWiring` | Combines `UserRoutes <+> InternalLichessRoutes` |
+| `LichessBridgeConfig` | Added `userServiceUrl`, `requireLinkedChallenger` (default: `true`), `userServiceApiKey` |
+| `ChallengePolicy` | `DefaultChallengePolicy` takes `UserServiceClient`; `LinkedUserRequired` added to `DeclineReason`; `evaluatePure` gated on `!requireLinkedChallenger` for static allowlist |
+| `LichessBridgeWiring` | Wires `JdkUserServiceClient(config.userServiceUrl, config.userServiceApiKey)` |
+| `LichessStubs` | `AuthorizedUserServiceClient`, `NotLinkedUserServiceClient`, `UnavailableUserServiceClient`, `ControllableUserServiceClient` |
+
+### Fail-closed policy
+
+| Condition | Behavior |
+|---|---|
+| user-service returns `allowed: false` | Decline(LinkedUserRequired("not_linked")) |
+| user-service is unreachable | Decline(LinkedUserRequired("user_service_unavailable")) |
+| user-service returns non-200 | Decline(LinkedUserRequired("user_service_unavailable")) |
+| user-service returns invalid JSON | Decline(LinkedUserRequired("user_service_unavailable")) |
+| `USER_SERVICE_INTERNAL_API_KEY` empty | `/challenge-auth` returns 401; bridge declines (Unavailable) |
+
+The bridge never accepts a challenge when the authorization result is ambiguous.
+
+### Service-to-service authentication
+
+| Component | Role |
+|---|---|
+| Header | `X-Internal-Api-Key` (same pattern as game-service `X-Bot-Api-Key`) |
+| Secret key | `searchess-secrets / user-service-internal-api-key` |
+| Env var (server) | `USER_SERVICE_INTERNAL_API_KEY` (user-service reads it) |
+| Env var (client) | `USER_SERVICE_INTERNAL_API_KEY` (lichess-bridge-service reads it) |
+| Route exposure | NOT exposed through Envoy; cluster-internal only on port 8082 |
+
+Both services read the same secret from `searchess-secrets`. The operator must add `user-service-internal-api-key` to `sealed-secret.yaml` (see runbook).
+
+### New config keys (Phase 3B)
+
+| Key | Default | Where |
+|---|---|---|
+| `USER_SERVICE_URL` | `http://user-service:8082` | `lichess-bridge-service` ConfigMap |
+| `LICHESS_REQUIRE_LINKED_CHALLENGER` | `true` | `lichess-bridge-service` ConfigMap |
+| `USER_SERVICE_INTERNAL_API_KEY` | (empty; must be set via secret) | both deployments, `optional: true` |
+
+### Enabling challenge acceptance (Phase 3B activation)
+
+After the `user-service-internal-api-key` secret is sealed and deployed, enable in the `uni-server-registry` overlay:
+
+```yaml
+LICHESS_ACCEPT_CHALLENGES: "true"
+LICHESS_REQUIRE_LINKED_CHALLENGER: "true"
+```
+
+No static username list is needed. A human challenger only needs to:
+1. Register on Searchess
+2. Link their Lichess account in Settings
+3. Challenge `arutepsu2` on Lichess
+
+---
+
+## Updated flow (Phase 3B)
+
+```
+Lichess challenge event (challengerUsername = X)
+  ↓
+ChallengePolicy: rated / variant / clock checks
+  ↓ (passes)
+UserServiceClient.authorizeChallenger(X)
+  GET /internal/lichess/challenge-auth/X  (X-Internal-Api-Key)
+  ↓
+user-service: findByLichessUsername(X)
+  ├─ found  → {"allowed": true,  "reason": "linked_user"}
+  └─ absent → {"allowed": false, "reason": "not_linked"}
+  ↓
+Authorized → acceptChallenge(token, challengeId)
+NotLinked  → declineChallenge(token, challengeId, "generic")
+```
+
+---
+
 ## Future UI modes
 
 The Lichess Bridge placeholder section contains three future modes:

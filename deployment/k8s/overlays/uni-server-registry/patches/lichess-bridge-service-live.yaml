@@ -20,9 +20,9 @@ data:
   LICHESS_BRIDGE_ENABLED: "true"
   LICHESS_BOT_USERNAME: "arutepsu2"
   # Challenge acceptance remains disabled for Phase 3A validation.
-  # Enable in a separate follow-up commit once /validate confirms bot account is healthy.
-  # When enabled, LICHESS_ALLOWED_CHALLENGERS should list linked Lichess usernames
-  # of trusted human Searchess users — not Keycloak IDs, not bot usernames.
+  # Enable in a separate follow-up commit once /validate confirms bot account is healthy
+  # and the user-service-internal-api-key sealed secret is deployed (see runbook §G, §H).
+  # When enabled, dynamic user-service authorization is used — no static allowlist needed.
   LICHESS_ACCEPT_CHALLENGES: "false"
   LICHESS_ACCEPT_RATED: "false"
   LICHESS_ALLOWED_VARIANTS: "standard"

@@ -19,8 +19,18 @@ data:
   # ── Phase 2B-1: challenge policy ──────────────────────────────────────────────
   # All defaults are deliberately conservative — change in overlays to enable.
   LICHESS_ACCEPT_CHALLENGES: "false"
+  # LICHESS_ALLOWED_CHALLENGERS is a legacy static allowlist.
+  # It is only active when LICHESS_REQUIRE_LINKED_CHALLENGER=false.
+  # Normal operation uses dynamic user-service authorization instead.
   LICHESS_ALLOWED_CHALLENGERS: ""
   LICHESS_ACCEPT_RATED: "false"
   LICHESS_ALLOWED_VARIANTS: "standard"
   LICHESS_MIN_CLOCK_SECONDS: "180"
   LICHESS_MAX_CLOCK_SECONDS: "600"
+
+  # ── Phase 3B: dynamic linked-user authorization ───────────────────────────────
+  # Bridge asks user-service whether the challenger's Lichess username is linked
+  # to a Searchess user. Fails closed: unavailable user-service = decline.
+  USER_SERVICE_URL: "http://user-service:8082"
+  LICHESS_REQUIRE_LINKED_CHALLENGER: "true"
+  # USER_SERVICE_INTERNAL_API_KEY is injected from sealed-secret (see deployment.yaml).

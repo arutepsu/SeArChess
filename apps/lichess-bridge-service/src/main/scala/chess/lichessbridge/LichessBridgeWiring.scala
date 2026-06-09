@@ -11,11 +11,12 @@ object LichessBridgeWiring:
   def start(config: LichessBridgeConfig): LichessBridgeRuntime =
     val io: IO[LichessBridgeRuntime] =
       for
-        stateRef       <- IO.ref(WorkerState.empty)
-        lichessClient   = LichessHttpClient(config.lichessApiBaseUrl)
-        streamClient    = JdkLichessStreamClient(config.lichessApiBaseUrl)
-        aiClient        = JdkAiServiceClient(config.aiServiceUrl)
-        policy          = DefaultChallengePolicy(config, stateRef)
+        stateRef           <- IO.ref(WorkerState.empty)
+        lichessClient       = LichessHttpClient(config.lichessApiBaseUrl)
+        streamClient        = JdkLichessStreamClient(config.lichessApiBaseUrl)
+        aiClient            = JdkAiServiceClient(config.aiServiceUrl)
+        userServiceClient   = JdkUserServiceClient(config.userServiceUrl, config.userServiceApiKey)
+        policy              = DefaultChallengePolicy(config, stateRef, userServiceClient)
         gameFiberMgr   <- GameFiberManager.create(
                             stateRef,
                             config.lichessBotToken.getOrElse(""),
