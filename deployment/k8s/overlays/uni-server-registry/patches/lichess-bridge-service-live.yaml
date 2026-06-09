@@ -4,26 +4,30 @@ metadata:
   name: lichess-bridge-service-env
   namespace: searchess
 data:
-  # Phase 3A: controlled live enablement on uni-server-registry.
-  # Bridge starts and validates the bot account but does NOT accept challenges yet.
+  # Phase 3B: controlled live challenge acceptance on uni-server-registry.
   #
   # INFRASTRUCTURE IDENTITY — NOT a Searchess user or Keycloak principal.
   # arutepsu2 is the dedicated central Lichess BOT service account controlled by
-  # this bridge. It was created separately from the developer's personal Lichess
-  # account because Lichess policy requires a distinct account for BOT upgrade.
-  # Human users link their OWN Lichess accounts through Settings; those linked
-  # accounts are unrelated to this service-level identity.
+  # this bridge. Human users link their OWN Lichess accounts through Settings;
+  # those linked accounts are authorized dynamically through user-service.
   #
   # Bot API endpoints used (required for BOT-upgraded account):
   #   GET  /api/bot/game/stream/{gameId}
   #   POST /api/bot/game/{gameId}/move/{uci}
   LICHESS_BRIDGE_ENABLED: "true"
   LICHESS_BOT_USERNAME: "arutepsu2"
-  # Challenge acceptance remains disabled for Phase 3A validation.
-  # Enable in a separate follow-up commit once /validate confirms bot account is healthy
-  # and the user-service-internal-api-key sealed secret is deployed (see runbook §G, §H).
-  # When enabled, dynamic user-service authorization is used — no static allowlist needed.
-  LICHESS_ACCEPT_CHALLENGES: "false"
+
+  # Phase 3B: challenge acceptance enabled, but only for linked Searchess users.
+  # Dynamic authorization:
+  #   Lichess challenger username
+  #   -> lichess-bridge-service
+  #   -> user-service /internal/lichess/challenge-auth/{username}
+  #   -> accept only if the Lichess account is linked in Searchess Settings.
+  #
+  # Do NOT use LICHESS_ALLOWED_CHALLENGERS here. Static allowlists are legacy only.
+  LICHESS_ACCEPT_CHALLENGES: "true"
+
+  # Conservative safety limits remain enforced.
   LICHESS_ACCEPT_RATED: "false"
   LICHESS_ALLOWED_VARIANTS: "standard"
   MAX_CONCURRENT_GAMES: "1"
