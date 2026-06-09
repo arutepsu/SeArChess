@@ -36,7 +36,10 @@ class UserProfileService(
           verified           = false,
           verificationSource = "ManualDev",
           capability         = "manual_dev",
-          linkedAt           = Instant.now()
+          linkedAt           = Instant.now(),
+          tokenEncrypted     = None,
+          tokenScopes        = None,
+          tokenStoredAt      = None
         )
         links.update(updated).map(_ => updated)
       case None =>
@@ -49,7 +52,10 @@ class UserProfileService(
           verified           = false,
           verificationSource = "ManualDev",
           linkedAt           = Instant.now(),
-          capability         = "manual_dev"
+          capability         = "manual_dev",
+          tokenEncrypted     = None,
+          tokenScopes        = None,
+          tokenStoredAt      = None
         )
         links.insert(link).map(_ => link)
     }

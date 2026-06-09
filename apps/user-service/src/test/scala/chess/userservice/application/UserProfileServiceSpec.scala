@@ -61,7 +61,6 @@ class UserProfileServiceSpec extends AnyFlatSpec with Matchers with EitherValues
   it should "downgrade an OAuth-verified link to manual_dev when username is updated via ManualDev" in {
     val (svc, _, linkRepo) = makeService()
     val userId = UUID.randomUUID()
-    // Pre-seed an OAuthPKCE link directly in the repository (simulates a prior OAuth flow)
     val oauthLink = ExternalAccountLink(
       linkId             = UUID.randomUUID(),
       userId             = userId,
@@ -71,7 +70,10 @@ class UserProfileServiceSpec extends AnyFlatSpec with Matchers with EitherValues
       verified           = true,
       verificationSource = "OAuthPKCE",
       linkedAt           = Instant.now(),
-      capability         = "identity_only"
+      capability         = "identity_only",
+      tokenEncrypted     = None,
+      tokenScopes        = None,
+      tokenStoredAt      = None
     )
     linkRepo.store.put((userId, "Lichess"), oauthLink)
 
@@ -80,7 +82,38 @@ class UserProfileServiceSpec extends AnyFlatSpec with Matchers with EitherValues
     updated.verified           shouldBe false
     updated.verificationSource shouldBe "ManualDev"
     updated.capability         shouldBe "manual_dev"
+    updated.tokenEncrypted     shouldBe None
+    updated.tokenScopes        shouldBe None
+    updated.tokenStoredAt      shouldBe None
     linkRepo.store should have size 1
+  }
+
+  it should "clear token fields when downgrading a challenge_ready link via ManualDev" in {
+    val (svc, _, linkRepo) = makeService()
+    val userId = UUID.randomUUID()
+    val challengeReadyLink = ExternalAccountLink(
+      linkId             = UUID.randomUUID(),
+      userId             = userId,
+      provider           = "Lichess",
+      externalId         = Some("alice_cr"),
+      externalUsername   = "alice_cr",
+      verified           = true,
+      verificationSource = "OAuthPKCE",
+      linkedAt           = Instant.now(),
+      capability         = "challenge_ready",
+      tokenEncrypted     = Some(Array[Byte](1, 2, 3)),
+      tokenScopes        = Some("challenge:write preference:read"),
+      tokenStoredAt      = Some(Instant.now())
+    )
+    linkRepo.store.put((userId, "Lichess"), challengeReadyLink)
+
+    val updated = svc.setManualLichessLink(userId, "alice_manual").value
+    updated.verified           shouldBe false
+    updated.verificationSource shouldBe "ManualDev"
+    updated.capability         shouldBe "manual_dev"
+    updated.tokenEncrypted     shouldBe None
+    updated.tokenScopes        shouldBe None
+    updated.tokenStoredAt      shouldBe None
   }
 
   "deleteLink" should "remove a link" in {

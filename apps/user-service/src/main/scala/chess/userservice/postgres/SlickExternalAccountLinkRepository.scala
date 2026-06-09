@@ -34,8 +34,18 @@ class SlickExternalAccountLinkRepository(db: Database, schema: Option[String] = 
   override def update(link: ExternalAccountLink): Either[String, Unit] =
     val q = table
       .filter(_.linkId === link.linkId)
-      .map(r => (r.externalId, r.externalUsername, r.verified, r.verificationSource, r.linkedAt, r.capability))
-      .update((link.externalId, link.externalUsername, link.verified, link.verificationSource, Timestamp.from(link.linkedAt), link.capability))
+      .map(r => (r.externalId, r.externalUsername, r.verified, r.verificationSource, r.linkedAt, r.capability, r.tokenEncrypted, r.tokenScopes, r.tokenStoredAt))
+      .update((
+        link.externalId,
+        link.externalUsername,
+        link.verified,
+        link.verificationSource,
+        Timestamp.from(link.linkedAt),
+        link.capability,
+        link.tokenEncrypted,
+        link.tokenScopes,
+        link.tokenStoredAt.map(Timestamp.from)
+      ))
     run(q).map(_ => ())
 
   override def delete(userId: UUID, provider: String): Either[String, Unit] =
@@ -48,13 +58,15 @@ class SlickExternalAccountLinkRepository(db: Database, schema: Option[String] = 
   private def linkToRow(l: ExternalAccountLink): ExternalAccountLinkRow =
     ExternalAccountLinkRow(
       l.linkId, l.userId, l.provider, l.externalId, l.externalUsername,
-      l.verified, l.verificationSource, Timestamp.from(l.linkedAt), l.capability
+      l.verified, l.verificationSource, Timestamp.from(l.linkedAt), l.capability,
+      l.tokenEncrypted, l.tokenScopes, l.tokenStoredAt.map(Timestamp.from)
     )
 
   private def rowToLink(r: ExternalAccountLinkRow): ExternalAccountLink =
     ExternalAccountLink(
       r.linkId, r.userId, r.provider, r.externalId, r.externalUsername,
-      r.verified, r.verificationSource, r.linkedAt.toInstant, r.capability
+      r.verified, r.verificationSource, r.linkedAt.toInstant, r.capability,
+      r.tokenEncrypted, r.tokenScopes, r.tokenStoredAt.map(_.toInstant)
     )
 
   private def safeMessage(e: Throwable): String =
@@ -69,7 +81,10 @@ private[postgres] final case class ExternalAccountLinkRow(
     verified: Boolean,
     verificationSource: String,
     linkedAt: Timestamp,
-    capability: String
+    capability: String,
+    tokenEncrypted: Option[Array[Byte]],
+    tokenScopes: Option[String],
+    tokenStoredAt: Option[Timestamp]
 )
 
 private[postgres] final class ExternalAccountLinksTable(tag: Tag, schema: Option[String])
@@ -83,5 +98,8 @@ private[postgres] final class ExternalAccountLinksTable(tag: Tag, schema: Option
   def verificationSource = column[String]("verification_source")
   def linkedAt           = column[Timestamp]("linked_at")
   def capability         = column[String]("capability")
-  def * = (linkId, userId, provider, externalId, externalUsername, verified, verificationSource, linkedAt, capability)
+  def tokenEncrypted     = column[Option[Array[Byte]]]("token_encrypted")
+  def tokenScopes        = column[Option[String]]("token_scopes")
+  def tokenStoredAt      = column[Option[Timestamp]]("token_stored_at")
+  def * = (linkId, userId, provider, externalId, externalUsername, verified, verificationSource, linkedAt, capability, tokenEncrypted, tokenScopes, tokenStoredAt)
     .mapTo[ExternalAccountLinkRow]

@@ -41,7 +41,10 @@ class InternalLichessRoutesSpec extends AnyFlatSpec with Matchers:
       verified           = true,
       verificationSource = "OAuthPKCE",
       linkedAt           = Instant.now(),
-      capability         = "identity_only"
+      capability         = "identity_only",
+      tokenEncrypted     = None,
+      tokenScopes        = None,
+      tokenStoredAt      = None
     )
 
   // ── Allowed (linked user) ─────────────────────────────────────────────────────
@@ -122,7 +125,10 @@ class InternalLichessRoutesSpec extends AnyFlatSpec with Matchers:
       verified           = false,
       verificationSource = "ManualDev",
       linkedAt           = Instant.now(),
-      capability         = "manual_dev"
+      capability         = "manual_dev",
+      tokenEncrypted     = None,
+      tokenScopes        = None,
+      tokenStoredAt      = None
     )
     val req = Request[IO](method = Method.GET,
       uri = Uri.unsafeFromString("/internal/lichess/challenge-auth/dev_user"))

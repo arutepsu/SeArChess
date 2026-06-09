@@ -152,6 +152,9 @@ class LichessOAuthServiceSpec extends AnyFlatSpec with Matchers with EitherValue
     link.verified           shouldBe true
     link.verificationSource shouldBe "OAuthPKCE"
     link.capability         shouldBe "identity_only"
+    link.tokenEncrypted     shouldBe None
+    link.tokenScopes        shouldBe None
+    link.tokenStoredAt      shouldBe None
     // Access token must not appear in any persisted field
     val serialised = link.toString
     serialised should not include "tok-test"

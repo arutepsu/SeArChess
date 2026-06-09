@@ -112,6 +112,19 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
     body("capability").str   shouldBe "manual_dev"
   }
 
+  it should "not expose token storage fields in the link JSON" in {
+    val (app, _) = makeRoutes()
+    val req = Request[IO](method = Method.PUT, uri = Uri.unsafeFromString("/users/me/links/lichess/manual"))
+      .putHeaders(bearerHeader("sub-notoken", "notokenuser"))
+      .withEntity("""{"lichessUsername":"notokenuser_chess"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    val body = ujson.read(app.run(req).unsafeRunSync().bodyText.compile.string.unsafeRunSync())
+    body.obj.contains("tokenEncrypted") shouldBe false
+    body.obj.contains("tokenScopes")    shouldBe false
+    body.obj.contains("tokenStoredAt")  shouldBe false
+    body.obj.contains("capability")     shouldBe true
+  }
+
   it should "return 400 when lichessUsername is missing" in {
     val (app, _) = makeRoutes()
     val req = Request[IO](method = Method.PUT, uri = Uri.unsafeFromString("/users/me/links/lichess/manual"))

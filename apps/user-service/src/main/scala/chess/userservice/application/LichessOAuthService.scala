@@ -128,7 +128,10 @@ class LichessOAuthService(
           verified           = true,
           verificationSource = "OAuthPKCE",
           linkedAt           = Instant.now(),
-          capability         = "identity_only"
+          capability         = "identity_only",
+          tokenEncrypted     = None,
+          tokenScopes        = None,
+          tokenStoredAt      = None
         )
         linkRepo.update(updated).map(_ => updated)
       case None =>
@@ -141,7 +144,10 @@ class LichessOAuthService(
           verified           = true,
           verificationSource = "OAuthPKCE",
           linkedAt           = Instant.now(),
-          capability         = "identity_only"
+          capability         = "identity_only",
+          tokenEncrypted     = None,
+          tokenScopes        = None,
+          tokenStoredAt      = None
         )
         linkRepo.insert(link).map(_ => link)
     }
