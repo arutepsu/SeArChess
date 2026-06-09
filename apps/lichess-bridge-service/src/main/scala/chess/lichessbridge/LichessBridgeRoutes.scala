@@ -8,12 +8,15 @@ import org.http4s.headers.`Content-Type`
 
 /** HTTP routes for the Lichess Bridge service.
   *
-  * Phase 2B-1 surface:
+  * Phase 2B-2 surface (extends 2B-1):
   *   GET  /health                              — liveness probe
   *   GET  /internal/lichess/status             — bridge status + worker state (token never exposed)
   *   GET  /internal/lichess/validate           — token + profile check against Lichess API
   *   POST /internal/lichess/challenge-ai/spike — create a real AI challenge game on Lichess
   *   GET  /internal/lichess/policy             — current challenge policy config (no secrets)
+  *
+  * Phase 2B-2 status additions: activeGamesCount, per-game side, lastMoveCount,
+  * lastSubmittedMove, lastGameEventAt. Token is never present in any response.
   */
 class LichessBridgeRoutes(
     config: LichessBridgeConfig,
@@ -42,6 +45,9 @@ class LichessBridgeRoutes(
               "startedAt" -> g.startedAt.toString
             )
             g.side.foreach(s => obj("side") = s)
+            g.lastMoveCount.foreach(c => obj("lastMoveCount") = c)
+            g.lastSubmittedMove.foreach(m => obj("lastSubmittedMove") = m)
+            g.lastGameEventAt.foreach(t => obj("lastGameEventAt") = t.toString)
             obj
           }*
         )
@@ -49,7 +55,7 @@ class LichessBridgeRoutes(
           Status.Ok,
           ujson.Obj(
             "service"               -> "lichess-bridge-service",
-            "phase"                 -> "2B-1",
+            "phase"                 -> "2B-2",
             "enabled"               -> config.enabled,
             "lichessApiBaseUrl"     -> config.lichessApiBaseUrl,
             "botUsernameConfigured" -> config.botUsernameConfigured,

@@ -41,6 +41,15 @@ class LichessBridgeWorkerSpec extends AnyFlatSpec with Matchers:
   private def makeRef(state: WorkerState = WorkerState.empty): Ref[IO, WorkerState] =
     IO.ref(state).unsafeRunSync()
 
+  /** Creates a no-op GameFiberManager backed by stub dependencies.
+    * Game fibers use StubLichessGameStream (empty), so they complete immediately.
+    */
+  private def makeNoopFiberMgr(stateRef: Ref[IO, WorkerState]): GameFiberManager =
+    GameFiberManager.create(
+      stateRef, "test-token", None,
+      StubLichessGameStream(), StubAiServiceClient(), StubLichessClient()
+    ).unsafeRunSync()
+
   /** Runs the worker with a finite stream and waits for the stream to finish before returning.
     * The resource value is a join-handle: `.use(join => join)` blocks until the stream terminates.
     */
@@ -51,8 +60,9 @@ class LichessBridgeWorkerSpec extends AnyFlatSpec with Matchers:
       policy: ChallengePolicy[IO],
       stateRef: Ref[IO, WorkerState]
   ): WorkerState =
+    val mgr = makeNoopFiberMgr(stateRef)
     LichessBridgeWorker
-      .resource(config, client, stream, policy, stateRef)
+      .resource(config, client, stream, policy, mgr, stateRef)
       .use(join => join)  // wait for the finite test stream to process all events
       .unsafeRunSync()
     stateRef.get.unsafeRunSync()
@@ -218,9 +228,10 @@ class LichessBridgeWorkerSpec extends AnyFlatSpec with Matchers:
 
     val stateRef = makeRef()
     val client   = ControllableLichessClient(validateResult = Right(true))
+    val mgr      = makeNoopFiberMgr(stateRef)
     // join waits for the stream to terminate (after emit + disconnect + retry + empty stream)
     LichessBridgeWorker
-      .resource(enabledConfig, client, stream, AcceptAllChallengePolicy(), stateRef)
+      .resource(enabledConfig, client, stream, AcceptAllChallengePolicy(), mgr, stateRef)
       .use(join => join)
       .unsafeRunSync()
 
@@ -237,8 +248,9 @@ class LichessBridgeWorkerSpec extends AnyFlatSpec with Matchers:
 
     val stateRef = makeRef()
     val client   = ControllableLichessClient(validateResult = Right(true))
+    val mgr      = makeNoopFiberMgr(stateRef)
     LichessBridgeWorker
-      .resource(enabledConfig, client, stream, AcceptAllChallengePolicy(), stateRef)
+      .resource(enabledConfig, client, stream, AcceptAllChallengePolicy(), mgr, stateRef)
       .use(join => join)
       .unsafeRunSync()
 
@@ -251,8 +263,9 @@ class LichessBridgeWorkerSpec extends AnyFlatSpec with Matchers:
   it should "never expose the token in WorkerState" in {
     val stateRef = makeRef()
     val client   = ControllableLichessClient(validateResult = Right(true))
+    val mgr      = makeNoopFiberMgr(stateRef)
     LichessBridgeWorker
-      .resource(enabledConfig, client, StubLichessEventStream(), AcceptAllChallengePolicy(), stateRef)
+      .resource(enabledConfig, client, StubLichessEventStream(), AcceptAllChallengePolicy(), mgr, stateRef)
       .use(join => join)
       .unsafeRunSync()
 

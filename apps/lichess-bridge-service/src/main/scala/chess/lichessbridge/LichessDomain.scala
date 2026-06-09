@@ -61,8 +61,15 @@ final case class ActiveGame(
     gameId: String,
     opponent: String,
     side: Option[String],
-    startedAt: Instant
-)
+    startedAt: Instant,
+    lastMoveCount: Option[Int] = None,
+    lastSubmittedMove: Option[String] = None,
+    lastGameEventAt: Option[Instant] = None
+):
+  def withSubmittedMove(move: String, count: Int): ActiveGame =
+    copy(lastSubmittedMove = Some(move), lastMoveCount = Some(count))
+  def withGameEventAt(at: Instant): ActiveGame =
+    copy(lastGameEventAt = Some(at))
 
 // ── Parse error ────────────────────────────────────────────────────────────────
 

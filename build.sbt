@@ -526,6 +526,8 @@ lazy val botService = project
 // JdkLichessStreamClient uses BodyHandlers.ofInputStream + fs2.io (no new deps).
 // Replicas=0 in all overlays; LICHESS_BRIDGE_ENABLED=false by default.
 // Phase 2B-2: game-stream consumer + AI move loop.
+//   notation  — FEN parse/export (FenNotationFacade, GamePositionAdapter)
+//   aiContract — RemoteAiMoveDto, RemoteAiJson, request/response wire types
 lazy val lichessBridgeService = project
   .in(file("apps/lichess-bridge-service"))
   .enablePlugins(JavaAppPackaging)
@@ -548,7 +550,7 @@ lazy val lichessBridgeService = project
       ".*chess.lichessbridge.LichessBridgeConfig.*"
     )
   )
-  .dependsOn(observability)
+  .dependsOn(observability, notation, aiContract)
 
 // App: chess-streaming
 lazy val chessStreaming = project

@@ -135,22 +135,99 @@ Decline reasons map to Lichess API strings (`generic`, `later`, `casual`, `stand
 
 ---
 
-## Phase 2B-2 — PLANNED
+## Phase 2B-2 — COMPLETE
 
-Game stream consumer + Searchess AI move loop:
+Per-game board stream + Searchess AI move loop + move submission.
 
-1. On `GameStart`, spin up a per-game `Fiber` consuming `/api/board/game/stream/{gameId}`.
-2. On `GameFull` / `GameState`, determine whose turn it is.
-3. Call `ai-service` (`http://ai-service:8765`) for the best move.
-4. Submit via `POST /api/board/game/{gameId}/move/{move}`.
-5. On `GameFinish`, cancel the game fiber and remove from `WorkerState`.
-6. Handle `OpponentGone`.
-7. New in `LichessClient`: `submitMove(token, gameId, move)`.
-8. New: `AiServiceClient` — calls `ai-service` using JDK `HttpClient` (same pattern as `LichessHttpClient`).
+### New files
+
+| File | Role |
+|---|---|
+| `TurnDetector.scala` | Pure, IO-free logic: `isBotTurn(botSide, moveCount, status)`, `countMoves(movesStr)`, `determineBotSide(botUsername, white, black)`, `isTerminal(status)` |
+| `GamePositionAdapter.scala` | Converts Lichess stream data (initialFen + UCI history) into domain types for ai-service: `toGameState`, `toLegalMoveDtos`, `toCurrentFen`, `toSideToMove` |
+| `AiServiceClient.scala` | `AiServiceClient[F[_]]` trait + `JdkAiServiceClient` implementation; domain types `AiMoveRequest`, `UciMove`, `AiError` |
+| `GameFiberManager.scala` | Separate `Ref[IO, Map[String, Fiber[IO, Throwable, Unit]]]`; `startGame`, `stopGame`, `cancelAll`; duplicate-start guard |
+| `GameLoopHandler.scala` | Per-game event loop: opens board stream, handles `GameFull`/`GameState`/`ChatLine`/`OpponentGone`/`Unknown`, calls AI, submits move |
+
+### Modified files
+
+| File | Change |
+|---|---|
+| `LichessClient.scala` | Added `submitMove(token, gameId, move): F[Either[LichessError, Unit]]` |
+| `LichessHttpClient.scala` | Implemented `submitMove` via `POST /api/board/game/{gameId}/move/{move}` |
+| `LichessDomain.scala` | `ActiveGame` extended with `lastMoveCount`, `lastSubmittedMove`, `lastGameEventAt`; helpers `withSubmittedMove`, `withGameEventAt` |
+| `WorkerState.scala` | Added `updateGameMeta(gameId, f)` |
+| `LichessBridgeWorker.scala` | Accepts `GameFiberManager`; `GameStart` → `startGame`; `GameFinish` → `stopGame`; resource release calls `cancelAll` |
+| `LichessBridgeWiring.scala` | Wires `JdkAiServiceClient`, creates `GameFiberManager`, passes to worker |
+| `LichessBridgeRoutes.scala` | Status route now `phase=2B-2`; active game objects include `lastMoveCount`, `lastSubmittedMove`, `lastGameEventAt` |
+| `build.sbt` | `lichessBridgeService` now `.dependsOn(observability, notation, aiContract)` |
+
+### Turn detection
+
+`TurnDetector.isBotTurn(botSide, moveCount, status)` implements the parity rule:
+
+| `moveCount % 2` | Side to move |
+|---|---|
+| 0 (even) | White |
+| 1 (odd) | Black |
+
+Terminal statuses (`mate`, `resign`, `stalemate`, `timeout`, `draw`, `outoftime`, `cheat`, `noStart`, `unknownFinish`, `variantEnd`, `aborted`) always block move submission, regardless of turn.
+
+`moveCount` is computed from the space-separated UCI move string in the Lichess event. An empty or blank string → 0 moves.
+
+### Position reconstruction (GamePositionAdapter)
+
+The Lichess board stream provides `initialFen` (or `"startpos"`) plus a space-separated sequence of UCI moves. The ai-service requires the **current** FEN and the list of legal moves in `RemoteAiMoveDto` format. `GamePositionAdapter` bridges this gap:
+
+1. Parse `initialFen` (treating `"startpos"` as the standard starting FEN) via `FenNotationFacade.parseAndImport`.
+2. Replay each UCI move in sequence via `GameStateRules.applyMove`.
+3. Compute legal moves for the resulting state via `GameStateRules.legalMoves`.
+4. Serialize the current state back to FEN via `FenNotationFacade.executeExport`.
+5. Convert `Move` objects to `RemoteAiMoveDto(from.toString, to.toString, promotion)`.
+
+If any step fails (malformed FEN, illegal UCI move in sequence), the error is logged and no move is submitted. The fiber does not crash.
+
+### AI service boundary
+
+The move brain is `ai-service` at `http://ai-service:8765` (`POST /v1/move-suggestions`). This service returns the best `RemoteAiMoveDto`. The bridge converts the response to a UCI string (`from + to + optionalPromotion`) and submits it to Lichess.
+
+`python-ai-service` is **not** called directly. `ai-service` is the sole internal boundary.
+
+### Error and fallback policy
+
+| Failure | Behavior |
+|---|---|
+| FEN parse / UCI replay fails | Log; skip move; fiber continues |
+| AI returns `Left(AiError.*)` | Log; skip move; fiber continues |
+| AI throws exception | Log; skip move; fiber continues |
+| `submitMove` returns `Left(...)` | Log; no retry; fiber continues |
+| Parse error in game stream | Log; continue reading next events |
+| Game stream terminates | Fiber ends naturally; `GameFiberManager` entry remains until `GameFinish` clears it |
+
+There is **no random or illegal fallback move**. If the AI cannot produce a move the turn is skipped silently (with a log entry).
+
+### Duplicate-move prevention
+
+`GameLoopHandler` maintains an internal `lastMoves: String` initialized to the sentinel `"__initial__"`. Before calling the AI, it checks whether the incoming `moves` string equals `lastMoves`. If so the event is skipped. The sentinel ensures the first event (empty moves string) is always processed.
+
+### Live enablement
+
+Live play requires an operator action:
+1. Create the `searchess-secrets / lichess-bot-token` secret in the cluster.
+2. Set `LICHESS_BRIDGE_ENABLED=true` in the Deployment.
+3. Scale replicas from 0 to 1.
+
+None of these steps are automated. The Deployment yaml remains at `replicas: 0` and `LICHESS_BRIDGE_ENABLED=false`.
+
+### What is NOT implemented in Phase 2B-2
+
+- No tournament service (separate future phase).
+- No Lichess OAuth on behalf of users.
+- No public-facing routes (all routes remain under `/internal`).
 
 ---
 
-## Current flow (Phase 2B-1)
+## Current flow (Phase 2B-2)
 
 ```
 Lichess                         Searchess cluster
@@ -159,14 +236,13 @@ Lichess                         Searchess cluster
   Event stream (NDJSON)  ←───  streamBotEvents() [JdkLichessStreamClient]
   Accept challenge       ───►  ChallengePolicy.evaluate() → acceptChallenge()
   Decline challenge      ───►  ChallengePolicy.evaluate() → declineChallenge()
-  Game start/finish      ───►  WorkerState.addGame / removeGame
-```
+  Game start/finish      ───►  GameFiberManager.startGame / stopGame
 
-Phase 2B-2 will add:
-```
-  Game stream (NDJSON)   ←───  streamGame() per active game
-  Move suggestion        ───►  ai-service:8765 (internal)
-  Submit move            ───►  submitMove() → Lichess board API
+                                per-game fiber [GameLoopHandler]
+  Game stream (NDJSON)   ←───  streamGame() [JdkLichessStreamClient]
+  GameFull / GameState   ───►  TurnDetector → GamePositionAdapter
+  Move suggestion        ───►  ai-service:8765 POST /v1/move-suggestions
+  Submit move            ───►  submitMove() POST /api/board/game/{id}/move/{uci}
 ```
 
 ---

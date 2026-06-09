@@ -4,8 +4,9 @@ import cats.effect.IO
 
 /** Lichess HTTP API client trait (request/response only — streaming is in LichessEventStream/LichessGameStream).
   *
-  * Phase 2A: getBotProfile, validateToken, challengeAi.
+  * Phase 2A:   getBotProfile, validateToken, challengeAi.
   * Phase 2B-1: acceptChallenge, declineChallenge.
+  * Phase 2B-2: submitMove.
   */
 trait LichessClient[F[_]]:
   def getBotProfile(token: String): F[Either[LichessError, BotProfile]]
@@ -18,6 +19,10 @@ trait LichessClient[F[_]]:
   ): F[Either[LichessError, ChallengeResult]]
   def acceptChallenge(token: String, challengeId: String): F[Either[LichessError, Unit]]
   def declineChallenge(token: String, challengeId: String, reason: String): F[Either[LichessError, Unit]]
+  /** POST /api/board/game/{gameId}/move/{move}
+    * Token is passed as Authorization header and never echoed in error messages.
+    */
+  def submitMove(token: String, gameId: String, move: String): F[Either[LichessError, Unit]]
 
 // ── Domain types ──────────────────────────────────────────────────────────────
 

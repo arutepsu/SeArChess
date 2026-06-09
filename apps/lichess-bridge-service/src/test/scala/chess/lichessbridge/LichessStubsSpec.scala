@@ -31,6 +31,10 @@ class LichessStubsSpec extends AnyFlatSpec with Matchers:
     StubLichessClient().declineChallenge("any-token", "ch1", "generic").unsafeRunSync().isLeft shouldBe true
   }
 
+  it should "return Left from submitMove" in {
+    StubLichessClient().submitMove("any-token", "g1", "e2e4").unsafeRunSync().isLeft shouldBe true
+  }
+
   // ── ControllableLichessClient ─────────────────────────────────────────────────
 
   "ControllableLichessClient" should "return the configured validateResult" in {
@@ -47,6 +51,40 @@ class LichessStubsSpec extends AnyFlatSpec with Matchers:
     val client = ControllableLichessClient(declineResult = Left(Unauthorized("rejected")))
     client.declineChallenge("t", "ch1", "generic").unsafeRunSync() shouldBe
       Left(Unauthorized("rejected"))
+  }
+
+  it should "return Right(()) from submitMove by default" in {
+    val client = ControllableLichessClient()
+    client.submitMove("t", "g1", "e2e4").unsafeRunSync() shouldBe Right(())
+  }
+
+  it should "return the configured submitMoveResult" in {
+    val client = ControllableLichessClient(submitMoveResult = Left(NetworkError("rejected")))
+    client.submitMove("t", "g1", "e2e4").unsafeRunSync() shouldBe Left(NetworkError("rejected"))
+  }
+
+  // ── StubLichessGameStream ─────────────────────────────────────────────────────
+
+  "StubLichessGameStream" should "emit no game events by default" in {
+    StubLichessGameStream()
+      .streamGame("t", "g1")
+      .compile.toList.unsafeRunSync() shouldBe empty
+  }
+
+  it should "emit the provided game events" in {
+    val event = Right(LichessGameEvent.Unknown("test", "{}"))
+    StubLichessGameStream(List(event))
+      .streamGame("t", "g1")
+      .compile.toList.unsafeRunSync() shouldBe List(event)
+  }
+
+  // ── StubAiServiceClient ───────────────────────────────────────────────────────
+
+  "StubAiServiceClient" should "return the configured result" in {
+    import chess.adapter.ai.remote.RemoteAiMoveDto
+    val client = StubAiServiceClient(Right(UciMove("e2e4")))
+    val req    = AiMoveRequest("g1", "startpos", List(RemoteAiMoveDto("e2", "e4")), "White")
+    client.suggestMove(req).unsafeRunSync() shouldBe Right(UciMove("e2e4"))
   }
 
   // ── StubLichessEventStream ────────────────────────────────────────────────────

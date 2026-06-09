@@ -14,7 +14,16 @@ object LichessBridgeWiring:
         stateRef       <- IO.ref(WorkerState.empty)
         lichessClient   = LichessHttpClient(config.lichessApiBaseUrl)
         streamClient    = JdkLichessStreamClient(config.lichessApiBaseUrl)
+        aiClient        = JdkAiServiceClient(config.aiServiceUrl)
         policy          = DefaultChallengePolicy(config, stateRef)
+        gameFiberMgr   <- GameFiberManager.create(
+                            stateRef,
+                            config.lichessBotToken.getOrElse(""),
+                            config.lichessBotUsername,
+                            streamClient,
+                            aiClient,
+                            lichessClient
+                          )
         httpApp         = LichessBridgeRoutes(config, lichessClient, stateRef).routes.orNotFound
         host            = Host
                             .fromString(config.host)
@@ -22,18 +31,16 @@ object LichessBridgeWiring:
         port            = Port
                             .fromInt(config.port)
                             .getOrElse(throw RuntimeException(s"Invalid LICHESS_BRIDGE_HTTP_PORT: ${config.port}"))
-        (_, shutdownHttp)   <- EmberServerBuilder
-                                 .default[IO]
-                                 .withHost(host)
-                                 .withPort(port)
-                                 .withHttpApp(httpApp)
-                                 .build
-                                 .allocated
-        // The resource value is a join-handle IO[Unit]; discard it in production
-        // (the fiber runs until shutdown cancels the resource).
-        (_, releaseWorker)  <- LichessBridgeWorker
-                                 .resource(config, lichessClient, streamClient, policy, stateRef)
-                                 .allocated
+        (_, shutdownHttp)  <- EmberServerBuilder
+                                .default[IO]
+                                .withHost(host)
+                                .withPort(port)
+                                .withHttpApp(httpApp)
+                                .build
+                                .allocated
+        (_, releaseWorker) <- LichessBridgeWorker
+                                .resource(config, lichessClient, streamClient, policy, gameFiberMgr, stateRef)
+                                .allocated
       yield LichessBridgeRuntime(shutdownHttp, releaseWorker)
 
     io.unsafeRunSync()

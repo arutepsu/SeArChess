@@ -44,6 +44,7 @@ class LichessBridgeRoutesSpec extends AnyFlatSpec with Matchers:
       def challengeAi(token: String, level: Int, clockLimit: Int, clockIncrement: Int)             = IO.pure(Left(NetworkError("not used")))
       def acceptChallenge(token: String, challengeId: String)                                      = IO.pure(Left(NetworkError("not used")))
       def declineChallenge(token: String, challengeId: String, reason: String)                     = IO.pure(Left(NetworkError("not used")))
+      def submitMove(token: String, gameId: String, move: String)                                  = IO.pure(Left(NetworkError("not used")))
 
   /** Mock LichessClient that returns a fixed challenge result. */
   private def mockChallengeClient(result: Either[LichessError, ChallengeResult]): LichessClient[IO] =
@@ -53,6 +54,7 @@ class LichessBridgeRoutesSpec extends AnyFlatSpec with Matchers:
       def challengeAi(token: String, level: Int, clockLimit: Int, clockIncrement: Int)             = IO.pure(result)
       def acceptChallenge(token: String, challengeId: String)                                      = IO.pure(Left(NetworkError("not used")))
       def declineChallenge(token: String, challengeId: String, reason: String)                     = IO.pure(Left(NetworkError("not used")))
+      def submitMove(token: String, gameId: String, move: String)                                  = IO.pure(Left(NetworkError("not used")))
 
   private def makeApp(
       config: LichessBridgeConfig = defaultConfig,
@@ -101,7 +103,7 @@ class LichessBridgeRoutesSpec extends AnyFlatSpec with Matchers:
     json("botUsernameConfigured").bool shouldBe false
     json("tokenConfigured").bool       shouldBe false
     json("activeGames").arr            shouldBe empty
-    json("phase").str                  shouldBe "2B-1"
+    json("phase").str                  shouldBe "2B-2"
   }
 
   it should "reflect workerRunning=false when state is empty" in {
@@ -168,6 +170,25 @@ class LichessBridgeRoutesSpec extends AnyFlatSpec with Matchers:
     val body     = get(uri"/internal/lichess/status", cfg, stateRef = stateRef)
       .bodyText.compile.string.unsafeRunSync()
     body should not include "lip_secret"
+  }
+
+  it should "include lastSubmittedMove and lastMoveCount in active game when set" in {
+    val game = ActiveGame("g1", "human1", Some("white"), Instant.parse("2025-01-01T00:00:00Z"))
+      .withSubmittedMove("e2e4", 0)
+    val stateRef = IO.ref(WorkerState.empty.addGame(game)).unsafeRunSync()
+    val json     = bodyJson(get(uri"/internal/lichess/status", stateRef = stateRef))
+    val gameObj  = json("activeGames").arr.head
+    gameObj("lastSubmittedMove").str shouldBe "e2e4"
+    gameObj("lastMoveCount").num     shouldBe 0.0
+  }
+
+  it should "not expose Fiber references or raw NDJSON in the status response" in {
+    val game     = ActiveGame("g1", "human1", None, Instant.now())
+    val stateRef = IO.ref(WorkerState.empty.addGame(game)).unsafeRunSync()
+    val body     = get(uri"/internal/lichess/status", stateRef = stateRef)
+      .bodyText.compile.string.unsafeRunSync()
+    body should not include "Fiber"
+    body should not include "ndjson"
   }
 
   // ── /internal/lichess/validate ───────────────────────────────────────────────

@@ -9,7 +9,7 @@ import java.time.Instant
 import scala.concurrent.duration.*
 import scala.util.control.NonFatal
 
-/** Background worker that manages the Lichess bot event stream and challenge handling.
+/** Background worker that manages the Lichess bot event stream, challenge handling, and per-game loops.
   *
   * Phase 2B-1 behaviour:
   *   - Validates the token once at startup; aborts gracefully if invalid.
@@ -18,14 +18,11 @@ import scala.util.control.NonFatal
   *   - On GameStart/GameFinish: updates the WorkerState active-game map.
   *   - Reconnects with exponential backoff on transient errors (max 30 s).
   *   - Auth errors are fatal — the stream is not restarted.
-  *   - All active-game state is exposed via the shared Ref read by /internal/lichess/status.
   *
-  * The resource value is an IO[Unit] join handle that completes when the background stream
-  * terminates. In production the stream is infinite, so the join never returns; the resource
-  * is cancelled on service shutdown. In tests, finite stub streams complete quickly and the
-  * join lets tests wait for all events to be processed before asserting.
-  *
-  * Phase 2B-2 will add: game-stream consumer per active game + AI move submission.
+  * Phase 2B-2 additions:
+  *   - On GameStart: calls GameFiberManager.startGame to launch per-game stream consumer.
+  *   - On GameFinish: calls GameFiberManager.stopGame before removing game from state.
+  *   - On shutdown: GameFiberManager.cancelAll() is called after the event-stream fiber is cancelled.
   */
 object LichessBridgeWorker:
 
@@ -34,7 +31,7 @@ object LichessBridgeWorker:
 
   /** Returns a cats-effect Resource whose value is a join handle (IO[Unit]).
     * The join completes when the background stream terminates.
-    * The Resource release cancels the fiber (production shutdown path).
+    * The Resource release cancels all fibers (event-stream + all game loops).
     * If the bridge is disabled or no token is configured, returns a no-op resource immediately.
     */
   def resource(
@@ -42,6 +39,7 @@ object LichessBridgeWorker:
       lichessClient: LichessClient[IO],
       eventStream: LichessEventStream[IO],
       policy: ChallengePolicy[IO],
+      gameFiberMgr: GameFiberManager,
       stateRef: Ref[IO, WorkerState]
   ): Resource[IO, IO[Unit]] =
     if !config.enabled then
@@ -58,7 +56,7 @@ object LichessBridgeWorker:
               .as(IO.unit)
           )
         case Some(token) =>
-          startWorker(config, token, lichessClient, eventStream, policy, stateRef)
+          startWorker(config, token, lichessClient, eventStream, policy, gameFiberMgr, stateRef)
 
   // ── Private helpers ─────────────────────────────────────────────────────────
 
@@ -68,13 +66,15 @@ object LichessBridgeWorker:
       lichessClient: LichessClient[IO],
       eventStream: LichessEventStream[IO],
       policy: ChallengePolicy[IO],
+      gameFiberMgr: GameFiberManager,
       stateRef: Ref[IO, WorkerState]
   ): Resource[IO, IO[Unit]] =
     Resource
-      .make(acquireWorker(config, token, lichessClient, eventStream, policy, stateRef))(
+      .make(acquireWorker(config, token, lichessClient, eventStream, policy, gameFiberMgr, stateRef))(
         fiber =>
           IO.delay(StructuredLog.info("lichess-bridge-service", "worker_stopping")) >>
           fiber.cancel >>
+          gameFiberMgr.cancelAll() >>
           stateRef.update(_.stopped) >>
           IO.delay(StructuredLog.info("lichess-bridge-service", "worker_stopped"))
       )
@@ -86,6 +86,7 @@ object LichessBridgeWorker:
       lichessClient: LichessClient[IO],
       eventStream: LichessEventStream[IO],
       policy: ChallengePolicy[IO],
+      gameFiberMgr: GameFiberManager,
       stateRef: Ref[IO, WorkerState]
   ): IO[Fiber[IO, Throwable, Unit]] =
     IO.delay(StructuredLog.info("lichess-bridge-service", "worker_validating_token")) >>
@@ -93,23 +94,23 @@ object LichessBridgeWorker:
       case Left(err) =>
         IO.delay(StructuredLog.error("lichess-bridge-service", "worker_token_invalid", "error" -> err.toString)) >>
         stateRef.update(_.withError(s"Token validation failed: $err")) >>
-        IO.unit.start  // no-op fiber; already done; cancel is safe
+        IO.unit.start
       case Right(_) =>
         IO.delay(StructuredLog.info("lichess-bridge-service", "worker_token_valid")) >>
         stateRef.update(_.started) >>
-        eventStreamLoop(config, token, lichessClient, eventStream, policy, stateRef, InitialRetryDelay)
+        eventStreamLoop(config, token, lichessClient, eventStream, policy, gameFiberMgr, stateRef, InitialRetryDelay)
           .compile
           .drain
           .start
     }
 
-  // Processes bot events; reconnects with exponential backoff on transient failures.
   private def eventStreamLoop(
       config: LichessBridgeConfig,
       token: String,
       lichessClient: LichessClient[IO],
       eventStream: LichessEventStream[IO],
       policy: ChallengePolicy[IO],
+      gameFiberMgr: GameFiberManager,
       stateRef: Ref[IO, WorkerState],
       retryDelay: FiniteDuration
   ): Stream[IO, Unit] =
@@ -121,12 +122,11 @@ object LichessBridgeWorker:
           case Left(err) =>
             IO.delay(StructuredLog.warn("lichess-bridge-service", "event_parse_error", "error" -> err.message))
           case Right(event) =>
-            handleBotEvent(config, token, lichessClient, policy, stateRef, event)
+            handleBotEvent(config, token, lichessClient, policy, gameFiberMgr, stateRef, event)
         )
       }
       .handleErrorWith {
         case _: LichessAuthException =>
-          // Fatal — bad token. Do not reconnect.
           Stream.eval(
             stateRef.update(_.withError("Fatal: Lichess auth error. Check LICHESS_BOT_TOKEN.")) >>
             IO.delay(StructuredLog.error("lichess-bridge-service", "stream_auth_fatal"))
@@ -140,7 +140,7 @@ object LichessBridgeWorker:
               "delaySeconds" -> delay.toSeconds))
           ) >>
           Stream.sleep[IO](delay) >>
-          eventStreamLoop(config, token, lichessClient, eventStream, policy, stateRef, delay)
+          eventStreamLoop(config, token, lichessClient, eventStream, policy, gameFiberMgr, stateRef, delay)
 
         case NonFatal(e) =>
           val nextDelay = (retryDelay * 2).min(MaxRetryDelay)
@@ -151,7 +151,7 @@ object LichessBridgeWorker:
               "retryInSec" -> retryDelay.toSeconds))
           ) >>
           Stream.sleep[IO](retryDelay) >>
-          eventStreamLoop(config, token, lichessClient, eventStream, policy, stateRef, nextDelay)
+          eventStreamLoop(config, token, lichessClient, eventStream, policy, gameFiberMgr, stateRef, nextDelay)
       }
 
   private def handleBotEvent(
@@ -159,6 +159,7 @@ object LichessBridgeWorker:
       token: String,
       lichessClient: LichessClient[IO],
       policy: ChallengePolicy[IO],
+      gameFiberMgr: GameFiberManager,
       stateRef: Ref[IO, WorkerState],
       event: LichessBotEvent
   ): IO[Unit] =
@@ -192,13 +193,14 @@ object LichessBridgeWorker:
 
       case LichessBotEvent.GameStart(game) =>
         stateRef.update(_.addGame(ActiveGame(game.gameId, game.opponent, game.side, Instant.now()))) >>
+        gameFiberMgr.startGame(game) >>
         IO.delay(StructuredLog.info("lichess-bridge-service", "game_started",
           "gameId"   -> game.gameId,
           "opponent" -> game.opponent,
           "side"     -> game.side.getOrElse("unknown")))
-        // Phase 2B-2: start per-game stream consumer fiber here
 
       case LichessBotEvent.GameFinish(game) =>
+        gameFiberMgr.stopGame(game.gameId) >>
         stateRef.update(_.removeGame(game.gameId)) >>
         IO.delay(StructuredLog.info("lichess-bridge-service", "game_finished",
           "gameId" -> game.gameId))

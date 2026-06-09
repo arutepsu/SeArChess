@@ -41,7 +41,7 @@ images:
   newTag: sha-e559b69
 - name: searchess/bot-service
   newName: ghcr.io/arutepsu/searchess-bot-service
-  newTag: sha-e559b69
+  newTag: sha-c35aba6
 - name: searchess/game-service
   newName: ghcr.io/arutepsu/searchess-game-service
   newTag: sha-e559b69

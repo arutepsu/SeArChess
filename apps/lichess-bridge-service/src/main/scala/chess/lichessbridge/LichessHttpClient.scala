@@ -100,6 +100,25 @@ final class LichessHttpClient(
       IO.pure(Left(NetworkError(e.getMessage)))
     }
 
+  def submitMove(token: String, gameId: String, move: String): IO[Either[LichessError, Unit]] =
+    IO.blocking {
+      val req = HttpRequest
+        .newBuilder(URI.create(s"$baseUrl/api/board/game/$gameId/move/$move"))
+        .timeout(readTimeout)
+        .header("Authorization", s"Bearer $token")
+        .POST(HttpRequest.BodyPublishers.noBody())
+        .build()
+      val resp = underlying.send(req, HttpResponse.BodyHandlers.ofString())
+      resp.statusCode() match
+        case 200       => Right(())
+        case 400       => Left(UnexpectedResponse(400, "Move rejected: illegal move or game already finished."))
+        case 401 | 403 => Left(Unauthorized("Token rejected by Lichess."))
+        case 429       => Left(RateLimited(retryAfterHeader(resp)))
+        case status    => Left(UnexpectedResponse(status, resp.body().take(300)))
+    }.handleErrorWith { case NonFatal(e) =>
+      IO.pure(Left(NetworkError(e.getMessage)))
+    }
+
   // ── Private helpers ────────────────────────────────────────────────────────
 
   private def executeProfileRequest(req: HttpRequest): Either[LichessError, BotProfile] =
