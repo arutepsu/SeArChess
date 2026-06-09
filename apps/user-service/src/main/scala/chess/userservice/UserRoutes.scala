@@ -2,7 +2,7 @@ package chess.userservice
 
 import cats.effect.IO
 import chess.observability.StructuredLog
-import chess.userservice.application.{CreateChallengeRequest, JwtSubjectExtractor, LichessChallengeService, LichessGameStateResult, LichessOAuthConfig, LichessOAuthService, SubmitLichessMoveResult, UserProfileService}
+import chess.userservice.application.{CreateChallengeRequest, JwtSubjectExtractor, LichessActiveGameSummary, LichessChallengeService, LichessGameStateResult, LichessOAuthConfig, LichessOAuthService, SubmitLichessMoveResult, UserProfileService}
 import chess.userservice.domain.{ExternalAccountLink, UserProfile}
 import fs2.Stream
 import org.http4s.*
@@ -145,6 +145,29 @@ class UserRoutes(
                 case Right(result) =>
                   respond(Status.Ok, ujson.Obj("challengeId" -> result.challengeId, "url" -> result.url))
               }
+        }
+      }
+
+    case req @ GET -> Root / "users" / "me" / "lichess" / "games" / "active" =>
+      withSubject(req) { (_, profile) =>
+        challengeService.getActiveGamesVsBot(profile.userId).flatMap {
+          case Left("no_lichess_link") =>
+            respond(Status.Forbidden, ujson.Obj("code" -> "NO_LICHESS_LINK"))
+          case Left("no_lichess_game_capability") =>
+            respond(Status.Forbidden, ujson.Obj("code" -> "NO_CHALLENGE_READY_CAPABILITY"))
+          case Left("no_stored_lichess_token") =>
+            respond(Status.Forbidden, ujson.Obj("code" -> "NO_STORED_LICHESS_TOKEN"))
+          case Left("token_encryption_not_configured") =>
+            respond(Status.ServiceUnavailable, ujson.Obj(
+              "code"    -> "TOKEN_ENCRYPTION_NOT_CONFIGURED",
+              "message" -> "Lichess token encryption is not configured."
+            ))
+          case Left("lichess_token_expired") =>
+            respond(Status.Forbidden, ujson.Obj("code" -> "LICHESS_TOKEN_EXPIRED"))
+          case Left(_) =>
+            respond(Status.BadGateway, ujson.Obj("code" -> "LICHESS_ACTIVE_GAMES_FAILED"))
+          case Right(games) =>
+            respond(Status.Ok, ujson.Obj("games" -> ujson.Arr(games.map(lichessActiveGameSummaryJson)*)))
         }
       }
 
@@ -322,6 +345,24 @@ class UserRoutes(
       "botColor"      -> state.botColor.map(ujson.Str(_)).getOrElse(ujson.Null),
       "url"           -> state.url,
       "lastUpdatedAt" -> state.lastUpdatedAt.toString
+    )
+
+  private def lichessActiveGameSummaryJson(game: LichessActiveGameSummary): ujson.Value =
+    ujson.Obj(
+      "gameId"        -> game.gameId,
+      "status"        -> game.status,
+      "url"           -> game.url,
+      "white"         -> ujson.Obj(
+        "username"       -> game.white.username,
+        "isSearchessBot" -> game.white.isSearchessBot
+      ),
+      "black"         -> ujson.Obj(
+        "username"       -> game.black.username,
+        "isSearchessBot" -> game.black.isSearchessBot
+      ),
+      "userColor"     -> game.userColor.map(ujson.Str(_)).getOrElse(ujson.Null),
+      "botColor"      -> game.botColor.map(ujson.Str(_)).getOrElse(ujson.Null),
+      "lastUpdatedAt" -> game.lastUpdatedAt.toString
     )
 
   private def submitMoveJson(result: SubmitLichessMoveResult): ujson.Value =

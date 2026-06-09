@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { getLichessGameState, submitLichessMove } from "../api/userServiceClient";
 import type { LichessGameStateResponse } from "../api/userServiceTypes";
 import type { BoardMatrix } from "../api/types";
+import type { PromotionPiece } from "../api/backendTypes";
 import ChessBoard from "./ChessBoard";
 import { fenToBoardMatrix } from "../domain/fen";
 import { pieceAt } from "../domain/board";
@@ -144,6 +145,7 @@ export default function LichessGamePage({ onBack }: LichessGamePageProps) {
   const [moveMessage, setMoveMessage] = useState<string | null>(null);
   const [moveError, setMoveError] = useState<string | null>(null);
   const [lichessSelectedSquare, setLichessSelectedSquare] = useState<string | undefined>();
+  const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null);
 
   const refreshGameState = useCallback(async (options?: { clearMoveFeedback?: boolean; showRefreshing?: boolean }) => {
     if (!gameId) {
@@ -218,8 +220,18 @@ export default function LichessGamePage({ onBack }: LichessGamePageProps) {
     return fenToBoardMatrix(state.fen) ?? EMPTY_BOARD;
   }, [state?.fen]);
 
+  const lastMove = useMemo<{ from: string; to: string } | undefined>(() => {
+    const parts = (state?.moves ?? "").split(/\s+/).filter(Boolean);
+    const last = parts[parts.length - 1];
+    if (!last || last.length < 4) return undefined;
+    return { from: last.slice(0, 2), to: last.slice(2, 4) };
+  }, [state?.moves]);
+
   useEffect(() => {
-    if (!canInteractWithBoard) setLichessSelectedSquare(undefined);
+    if (!canInteractWithBoard) {
+      setLichessSelectedSquare(undefined);
+      setPendingPromotion(null);
+    }
   }, [canInteractWithBoard]);
 
   const submitMove = async (move: string) => {
@@ -259,11 +271,24 @@ export default function LichessGamePage({ onBack }: LichessGamePageProps) {
       setLichessSelectedSquare(undefined);
       return;
     }
-    const move = isPromotionMove(boardFromFen, lichessSelectedSquare, square)
-      ? `${lichessSelectedSquare}${square}q`
-      : `${lichessSelectedSquare}${square}`;
     setLichessSelectedSquare(undefined);
+    if (isPromotionMove(boardFromFen, lichessSelectedSquare, square)) {
+      setPendingPromotion({ from: lichessSelectedSquare, to: square });
+      return;
+    }
+    void submitMove(`${lichessSelectedSquare}${square}`);
+  };
+
+  const handleResolvePromotion = (piece: PromotionPiece): void => {
+    if (!pendingPromotion) return;
+    const char = { Queen: "q", Rook: "r", Bishop: "b", Knight: "n" }[piece];
+    const move = `${pendingPromotion.from}${pendingPromotion.to}${char}`;
+    setPendingPromotion(null);
     void submitMove(move);
+  };
+
+  const handleCancelPromotion = (): void => {
+    setPendingPromotion(null);
   };
 
   return (
@@ -340,10 +365,10 @@ export default function LichessGamePage({ onBack }: LichessGamePageProps) {
             <section className="lichess-game-card lichess-game-card--wide" aria-label="Interactive board">
               <h2>Board</h2>
               <p className="lichess-game-muted">
-                Click a piece, then click a target square. Use UCI input below for promotions or special cases.
+                Click a piece, then click a target square. Use UCI input below for advanced cases.
               </p>
               <p className="lichess-game-muted">
-                Pawn promotions from the board default to queen. Use the UCI input for underpromotion.
+                For pawn promotion, choose the promotion piece when prompted. UCI input remains available for advanced cases.
               </p>
               <div className="lichess-board-wrapper">
                 <ChessBoard
@@ -357,8 +382,15 @@ export default function LichessGamePage({ onBack }: LichessGamePageProps) {
                   inCheck={false}
                   activeColor={state.sideToMove}
                   animation={null}
+                  lastMove={lastMove}
+                  promotionPending={pendingPromotion}
+                  onResolvePromotion={handleResolvePromotion}
+                  onCancelPromotion={handleCancelPromotion}
                 />
               </div>
+              {lichessSelectedSquare !== undefined && (
+                <p className="lichess-game-muted">Selected: {lichessSelectedSquare}</p>
+              )}
             </section>
 
             {gameIsPlayable ? (

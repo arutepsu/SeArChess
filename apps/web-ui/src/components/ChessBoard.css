@@ -114,6 +114,14 @@
   background: #aaa23a;
 }
 
+.board-square.square-light.is-last-move {
+  background: #f5e28a;
+}
+
+.board-square.square-dark.is-last-move {
+  background: #c8b03c;
+}
+
 .board-square.square-light.is-selected {
   background: #f6f669;
 }

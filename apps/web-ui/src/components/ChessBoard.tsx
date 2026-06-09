@@ -27,6 +27,7 @@ type ChessBoardProps = {
   onCancelPromotion?: () => void;
   onNewGame?: () => void;
   orientation?: PlayerColor;
+  lastMove?: { from: string; to: string };
 };
 
 type SpriteState = "idle" | "move";
@@ -276,7 +277,8 @@ export default function ChessBoard({
   onResolvePromotion,
   onCancelPromotion,
   onNewGame,
-  orientation = "white"
+  orientation = "white",
+  lastMove
 }: ChessBoardProps) {
   const [spriteCatalog, setSpriteCatalog] = useState<SpriteCatalog | null>(null);
   const boardRef = useRef<HTMLDivElement | null>(null);
@@ -364,12 +366,13 @@ export default function ChessBoard({
   const squareState = useCallback(
     (square: string): string[] => {
       const classes: string[] = [];
+      if (lastMove && (lastMove.from === square || lastMove.to === square)) classes.push("is-last-move");
       if (selectedSquare === square) classes.push("is-selected");
       if (legalMoves?.includes(square)) classes.push("is-legal");
       if (checkSquare === square) classes.push("is-check");
       return classes;
     },
-    [legalMoves, selectedSquare, checkSquare]
+    [legalMoves, selectedSquare, checkSquare, lastMove]
   );
 
   const suppressedSquare = useMemo(

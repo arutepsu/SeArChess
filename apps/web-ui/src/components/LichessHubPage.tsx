@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import type { UserProfileResponse, LichessLinkCapability } from "../api/userServiceTypes";
-import { createSearchessBotChallenge, upgradeLichessLink } from "../api/userServiceClient";
+import type { LichessActiveGameSummary, UserProfileResponse, LichessLinkCapability } from "../api/userServiceTypes";
+import { createSearchessBotChallenge, getActiveLichessGames, upgradeLichessLink } from "../api/userServiceClient";
 import {
   LICHESS_BOT_USERNAME,
   LICHESS_BOT_PROFILE_URL,
@@ -103,6 +103,9 @@ export default function LichessHubPage({ profile, onOpenSettings, onOpenLichessG
   const [challengeError, setChallengeError] = useState<string | null>(null);
   const [createdChallengeUrl, setCreatedChallengeUrl] = useState<string | null>(null);
   const [createdGameId, setCreatedGameId] = useState<string | null>(null);
+  const [activeGames, setActiveGames] = useState<LichessActiveGameSummary[] | null>(null);
+  const [activeGamesLoading, setActiveGamesLoading] = useState(false);
+  const [activeGamesError, setActiveGamesError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -125,6 +128,30 @@ export default function LichessHubPage({ profile, onOpenSettings, onOpenLichessG
   }, []);
 
   const lichessLink = profile?.links.find((link) => link.provider === "Lichess") ?? null;
+  const capability  = lichessLink?.capability;
+
+  useEffect(() => {
+    if (capability !== "challenge_ready") return;
+    let active = true;
+    setActiveGamesLoading(true);
+    setActiveGamesError(null);
+    getActiveLichessGames()
+      .then((response) => {
+        if (!active) return;
+        setActiveGames(response.games);
+      })
+      .catch(() => {
+        if (!active) return;
+        setActiveGamesError("Could not check for active games. You can still create a new challenge.");
+      })
+      .finally(() => {
+        if (active) setActiveGamesLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [capability]);
+
   const bridgeHealth = deriveBridgeHealth(bridgeStatus, bridgeError);
 
   const handleUpgrade = async () => {
@@ -337,44 +364,87 @@ export default function LichessHubPage({ profile, onOpenSettings, onOpenLichessG
               </>
             ) : lichessLink.capability === "challenge_ready" ? (
               <>
-                <p className="lichess-hub-muted">
-                  Ready to create a Lichess challenge against the Searchess BOT account.
-                </p>
-                <p className="lichess-hub-muted">
-                  The game will open on lichess.org. Searchess will control arutepsu2 through
-                  the BOT bridge.
-                </p>
-                {challengeError !== null && (
-                  <p className="lichess-hub-warning">{challengeError}</p>
+                {/* ── Active game check ─────────────────────────────────── */}
+                {activeGamesLoading && (
+                  <p className="lichess-hub-muted">Checking active Lichess games…</p>
                 )}
-                <button
-                  type="button"
-                  disabled={isCreatingChallenge}
-                  onClick={() => void handleCreateChallenge()}
-                >
-                  {isCreatingChallenge ? "Creating..." : "Create Lichess Challenge"}
-                </button>
-                {createdChallengeUrl !== null && (
-                  <p className="lichess-hub-muted">
-                    Challenge created.{" "}
-                    <a
-                      href={createdChallengeUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="lichess-hub-link"
+
+                {!activeGamesLoading && activeGamesError !== null && (
+                  <p className="lichess-hub-warning">{activeGamesError}</p>
+                )}
+
+                {!activeGamesLoading && activeGames !== null && activeGames.length > 0 ? (
+                  /* Active game found */
+                  <div className="lichess-hub-active-game">
+                    <div className="lichess-hub-card-header">
+                      <span className="lichess-hub-badge lichess-hub-badge--healthy">Active game found</span>
+                    </div>
+                    {activeGames.map((game) => (
+                      <div key={game.gameId} className="lichess-hub-active-game-entry">
+                        <p className="lichess-hub-muted">
+                          {game.white.username} vs {game.black.username}
+                          {game.userColor != null ? ` · You play as ${game.userColor}` : ""}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => onOpenLichessGame(game.gameId)}
+                        >
+                          Continue in Searchess
+                        </button>
+                        <a
+                          href={game.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="lichess-hub-link"
+                        >
+                          Open on Lichess ↗
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                ) : !activeGamesLoading ? (
+                  /* No active game — show challenge creation */
+                  <>
+                    <p className="lichess-hub-muted">
+                      Ready to create a Lichess challenge against the Searchess BOT account.
+                    </p>
+                    <p className="lichess-hub-muted">
+                      The game will open on lichess.org. Searchess will control arutepsu2 through
+                      the BOT bridge.
+                    </p>
+                    {challengeError !== null && (
+                      <p className="lichess-hub-warning">{challengeError}</p>
+                    )}
+                    <button
+                      type="button"
+                      disabled={isCreatingChallenge}
+                      onClick={() => void handleCreateChallenge()}
                     >
-                      Open on Lichess ↗
-                    </a>
-                  </p>
-                )}
-                {createdGameId !== null && (
-                  <button
-                    type="button"
-                    onClick={() => onOpenLichessGame(createdGameId)}
-                  >
-                    Open in Searchess
-                  </button>
-                )}
+                      {isCreatingChallenge ? "Creating..." : "Create Lichess Challenge"}
+                    </button>
+                    {createdChallengeUrl !== null && (
+                      <p className="lichess-hub-muted">
+                        Challenge created.{" "}
+                        <a
+                          href={createdChallengeUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="lichess-hub-link"
+                        >
+                          Open on Lichess ↗
+                        </a>
+                      </p>
+                    )}
+                    {createdGameId !== null && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenLichessGame(createdGameId)}
+                      >
+                        Open in Searchess
+                      </button>
+                    )}
+                  </>
+                ) : null}
               </>
             ) : lichessLink.capability === "expired" || lichessLink.capability === "revoked" ? (
               <>
