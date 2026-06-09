@@ -77,3 +77,13 @@ export interface LichessGameStateResponse {
   url: string;
   lastUpdatedAt: string;
 }
+
+export interface SubmitLichessMoveRequest {
+  move: string;
+}
+
+export interface SubmitLichessMoveResponse {
+  gameId: string;
+  move: string;
+  accepted: true;
+}

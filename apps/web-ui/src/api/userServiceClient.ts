@@ -7,6 +7,7 @@ import type {
   LichessUpgradeResponse,
   PatchProfileRequest,
   SetManualLichessLinkRequest,
+  SubmitLichessMoveResponse,
   UserProfileResponse,
 } from "./userServiceTypes";
 import keycloak from "../auth/keycloak";
@@ -82,6 +83,13 @@ export async function createSearchessBotChallenge(
 
 export async function getLichessGameState(gameId: string): Promise<LichessGameStateResponse> {
   return fetchUserJson<LichessGameStateResponse>(`/api/users/me/lichess/games/${encodeURIComponent(gameId)}`);
+}
+
+export async function submitLichessMove(gameId: string, move: string): Promise<SubmitLichessMoveResponse> {
+  return fetchUserJson<SubmitLichessMoveResponse>(`/api/users/me/lichess/games/${encodeURIComponent(gameId)}/move`, {
+    method: "POST",
+    body: JSON.stringify({ move }),
+  });
 }
 
 export async function deleteLichessLink(): Promise<void> {

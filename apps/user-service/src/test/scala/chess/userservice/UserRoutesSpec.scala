@@ -26,6 +26,7 @@ import org.scalatest.matchers.should.Matchers
 import java.time.Instant
 import java.util.{Base64, UUID}
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicReference
 import scala.jdk.CollectionConverters.*
 
 class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
@@ -419,6 +420,85 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
     body.obj.contains("tokenEncrypted")  shouldBe false
     body.obj.contains("tokenScopes")     shouldBe false
     body.obj.contains("tokenStoredAt")   shouldBe false
+  }
+
+  "POST /users/me/lichess/games/{gameId}/move" should "return INVALID_MOVE_FORMAT for invalid UCI moves" in {
+    val (app, _, _) = makeRoutes(cipher = Some(testCipher))
+
+    List("e2e", "hello", "e9e4", "e7e8x").foreach { move =>
+      val req = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/lichess/games/abc123/move"))
+        .putHeaders(bearerHeader("sub-move-invalid", "moveinvalid"))
+        .withEntity(s"""{"move":"$move"}""")
+        .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+      val res  = app.run(req).unsafeRunSync()
+      val body = ujson.read(res.bodyText.compile.string.unsafeRunSync())
+      res.status       shouldBe Status.BadRequest
+      body("code").str shouldBe "INVALID_MOVE_FORMAT"
+    }
+  }
+
+  it should "return 403 NO_LICHESS_LINK when user has no Lichess link" in {
+    val (app, _, _) = makeRoutes(cipher = Some(testCipher))
+    val req = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/lichess/games/abc123/move"))
+      .putHeaders(bearerHeader("sub-move-nolink", "movenolink"))
+      .withEntity("""{"move":"e2e4"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    val res  = app.run(req).unsafeRunSync()
+    val body = ujson.read(res.bodyText.compile.string.unsafeRunSync())
+    res.status       shouldBe Status.Forbidden
+    body("code").str shouldBe "NO_LICHESS_LINK"
+  }
+
+  it should "submit the move through Lichess and return accepted without token fields" in {
+    val captured = new AtomicReference[Option[(Method, String, Option[String])]](None)
+    val httpClient = Client.fromHttpApp(HttpRoutes.of[IO] { case req =>
+      captured.set(Some((
+        req.method,
+        req.uri.path.renderString,
+        req.headers.get(org.typelevel.ci.CIString("Authorization")).map(_.head.value)
+      )))
+      IO.pure(Response[IO](status = Status.Ok))
+    }.orNotFound)
+    val (app, _, linkRepo) = makeRoutes(cipher = Some(testCipher), httpClient = httpClient)
+    val getRes = app.run(
+      Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/me"))
+        .putHeaders(bearerHeader("sub-move-ok", "moveuser"))
+    ).unsafeRunSync()
+    val userId = UUID.fromString(ujson.read(getRes.bodyText.compile.string.unsafeRunSync())("userId").str)
+    linkRepo.insert(ExternalAccountLink(
+      linkId             = UUID.randomUUID(),
+      userId             = userId,
+      provider           = "Lichess",
+      externalId         = None,
+      externalUsername   = "moveuser_chess",
+      verified           = true,
+      verificationSource = "OAuth",
+      linkedAt           = Instant.now(),
+      capability         = "challenge_ready",
+      tokenEncrypted     = Some(testCipher.encrypt("lio_move").getOrElse(fail("test token encryption failed"))),
+      tokenScopes        = Some("challenge:write"),
+      tokenStoredAt      = Some(Instant.now())
+    )).fold(err => fail(err), _ => ())
+
+    val req = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/lichess/games/abc123/move"))
+      .putHeaders(bearerHeader("sub-move-ok", "moveuser"))
+      .withEntity("""{"move":"e2e4"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    val res  = app.run(req).unsafeRunSync()
+    val body = ujson.read(res.bodyText.compile.string.unsafeRunSync())
+
+    res.status            shouldBe Status.Ok
+    body("gameId").str    shouldBe "abc123"
+    body("move").str      shouldBe "e2e4"
+    body("accepted").bool shouldBe true
+    body.obj.contains("tokenEncrypted") shouldBe false
+    body.obj.contains("tokenScopes")    shouldBe false
+    body.obj.contains("tokenStoredAt")  shouldBe false
+
+    val lichessReq = captured.get().getOrElse(fail("expected Lichess move request"))
+    lichessReq._1.shouldBe(Method.POST)
+    lichessReq._2.shouldBe("/api/board/game/abc123/move/e2e4")
+    lichessReq._3.shouldBe(Some("Bearer lio_move"))
   }
 
   private class InMemUserProfileRepository extends UserProfileRepository:

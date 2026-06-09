@@ -44,6 +44,12 @@ final case class LichessGameStateResult(
     lastUpdatedAt: java.time.Instant
 )
 
+final case class SubmitLichessMoveResult(
+    gameId: String,
+    move: String,
+    accepted: Boolean = true
+)
+
 class LichessChallengeService(
     linkRepo: ExternalAccountLinkRepository,
     cipher: Option[LichessTokenCipher],
@@ -74,6 +80,20 @@ class LichessChallengeService(
             IO(decryptToken(link)).flatMap {
               case Left(err)    => IO.pure(Left(err))
               case Right(token) => fetchGameState(link, token, gameId)
+            }
+        }
+
+  def submitMove(userId: UUID, gameId: String, move: String): IO[Either[String, SubmitLichessMoveResult]] =
+    (validateGameId(gameId), validateMove(move)) match
+      case (Left(err), _) => IO.pure(Left(s"invalid_lichess_game_id:$err"))
+      case (_, Left(_))   => IO.pure(Left("invalid_move_format"))
+      case (Right(_), Right(normalizedMove)) =>
+        IO(loadGameLink(userId)).flatMap {
+          case Left(err)   => IO.pure(Left(err))
+          case Right(link) =>
+            IO(decryptToken(link)).flatMap {
+              case Left(err)    => IO.pure(Left(err))
+              case Right(token) => postMove(link, token, gameId, normalizedMove)
             }
         }
 
@@ -173,6 +193,34 @@ class LichessChallengeService(
           logGameStateFailed(resp.status, gameId, raw).as(Left("lichess_game_state_failed"))
       }
     }.handleErrorWith(_ => IO.pure(Left("lichess_game_state_failed")))
+
+  private def postMove(
+      link: ExternalAccountLink,
+      token: String,
+      gameId: String,
+      move: String
+  ): IO[Either[String, SubmitLichessMoveResult]] =
+    val request = Request[IO](
+      method  = Method.POST,
+      uri     = Uri.unsafeFromString(config.boardMoveEndpointFor(gameId, move)),
+      headers = Headers(
+        Authorization(Credentials.Token(AuthScheme.Bearer, token)),
+        Header.Raw(CIString("Accept"), "application/json")
+      )
+    )
+    client.run(request).use { resp =>
+      resp.bodyText.compile.string.flatMap { raw =>
+        if resp.status.isSuccess then
+          IO.pure(Right(SubmitLichessMoveResult(gameId, move)))
+        else if resp.status.code == 400 || resp.status.code == 422 then
+          logMoveFailed(resp.status, gameId, move, raw).as(Left("illegal_or_invalid_move"))
+        else if resp.status.code == 401 || resp.status.code == 403 then
+          logMoveFailed(resp.status, gameId, move, raw) >>
+          expireLink(link).as(Left[String, SubmitLichessMoveResult]("lichess_token_expired"))
+        else
+          logMoveFailed(resp.status, gameId, move, raw).as(Left("lichess_move_failed"))
+      }
+    }.handleErrorWith(_ => IO.pure(Left("lichess_move_failed")))
 
   private def parseChallengeResponse(raw: String): Either[String, CreateChallengeResult] =
     try
@@ -294,12 +342,27 @@ class LichessChallengeService(
       "targetBot" -> config.botUsername
     ))
 
+  private def logMoveFailed(status: Status, gameId: String, move: String, raw: String): IO[Unit] =
+    IO(StructuredLog.warn(
+      "user-service",
+      "lichess_move_failed",
+      "status"          -> status.code,
+      "gameId"          -> gameId,
+      "move"            -> move,
+      "responsePreview" -> sanitizedPreview(raw)
+    ))
+
   private def sanitizedPreview(raw: String): String =
     raw.replaceAll("\\s+", " ").trim.take(300)
 
   private def validateGameId(gameId: String): Either[String, Unit] =
     if gameId.matches("[A-Za-z0-9_-]{4,32}") then Right(())
     else Left("gameId must be 4-32 URL-safe characters")
+
+  private def validateMove(move: String): Either[String, String] =
+    val normalized = move.trim.toLowerCase
+    if normalized.matches("^[a-h][1-8][a-h][1-8][qrbn]?$") then Right(normalized)
+    else Left("move must be UCI format")
 
   private def expireLink(link: ExternalAccountLink): IO[Unit] =
     val expired = link.copy(

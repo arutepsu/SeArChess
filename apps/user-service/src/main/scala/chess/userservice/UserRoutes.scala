@@ -2,7 +2,7 @@ package chess.userservice
 
 import cats.effect.IO
 import chess.observability.StructuredLog
-import chess.userservice.application.{CreateChallengeRequest, JwtSubjectExtractor, LichessChallengeService, LichessGameStateResult, LichessOAuthConfig, LichessOAuthService, UserProfileService}
+import chess.userservice.application.{CreateChallengeRequest, JwtSubjectExtractor, LichessChallengeService, LichessGameStateResult, LichessOAuthConfig, LichessOAuthService, SubmitLichessMoveResult, UserProfileService}
 import chess.userservice.domain.{ExternalAccountLink, UserProfile}
 import fs2.Stream
 import org.http4s.*
@@ -172,6 +172,43 @@ class UserRoutes(
             respond(Status.Ok, lichessGameStateJson(state))
         }
       }
+
+    case req @ POST -> Root / "users" / "me" / "lichess" / "games" / gameId / "move" =>
+      withSubject(req) { (_, profile) =>
+        req.bodyText.compile.string.flatMap { body =>
+          parseMoveRequest(body) match
+            case Left(err) =>
+              respond(Status.BadRequest, ujson.Obj("code" -> "INVALID_MOVE_FORMAT", "message" -> err))
+            case Right(move) =>
+              challengeService.submitMove(profile.userId, gameId, move).flatMap {
+                case Left("no_lichess_link") =>
+                  respond(Status.Forbidden, ujson.Obj("code" -> "NO_LICHESS_LINK"))
+                case Left("no_lichess_game_capability") =>
+                  respond(Status.Forbidden, ujson.Obj("code" -> "NO_CHALLENGE_READY_CAPABILITY"))
+                case Left("no_stored_lichess_token") =>
+                  respond(Status.Forbidden, ujson.Obj("code" -> "NO_STORED_LICHESS_TOKEN"))
+                case Left("token_encryption_not_configured") =>
+                  respond(Status.ServiceUnavailable, ujson.Obj(
+                    "code"    -> "TOKEN_ENCRYPTION_NOT_CONFIGURED",
+                    "message" -> "Lichess token encryption is not configured."
+                  ))
+                case Left("invalid_move_format") =>
+                  respond(Status.BadRequest, ujson.Obj("code" -> "INVALID_MOVE_FORMAT"))
+                case Left("not_user_turn") =>
+                  respond(Status.Conflict, ujson.Obj("code" -> "NOT_USER_TURN"))
+                case Left("illegal_or_invalid_move") =>
+                  respond(Status.UnprocessableEntity, ujson.Obj("code" -> "ILLEGAL_OR_INVALID_MOVE"))
+                case Left("lichess_token_expired") =>
+                  respond(Status.Forbidden, ujson.Obj("code" -> "LICHESS_TOKEN_EXPIRED"))
+                case Left(err) if err.startsWith("invalid_lichess_game_id:") =>
+                  respond(Status.BadRequest, ujson.Obj("code" -> "INVALID_LICHESS_GAME_ID", "message" -> err.stripPrefix("invalid_lichess_game_id:")))
+                case Left(_) =>
+                  respond(Status.BadGateway, ujson.Obj("code" -> "LICHESS_MOVE_FAILED"))
+                case Right(result) =>
+                  respond(Status.Ok, submitMoveJson(result))
+              }
+        }
+      }
   }
 
   private def withSubject(req: Request[IO])(
@@ -245,6 +282,15 @@ class UserRoutes(
     catch
       case _: Exception => Left("Request body must be valid JSON")
 
+  private def parseMoveRequest(body: String): Either[String, String] =
+    try
+      val json = ujson.read(body)
+      json.obj.get("move").flatMap(_.strOpt).map(_.trim).filter(_.nonEmpty) match
+        case None       => Left("Missing or empty 'move' field")
+        case Some(move) => Right(move)
+    catch
+      case _: Exception => Left("Request body must be valid JSON with a 'move' string field")
+
   private def linkJson(link: ExternalAccountLink): ujson.Value =
     ujson.Obj(
       "linkId"             -> link.linkId.toString,
@@ -276,6 +322,13 @@ class UserRoutes(
       "botColor"      -> state.botColor.map(ujson.Str(_)).getOrElse(ujson.Null),
       "url"           -> state.url,
       "lastUpdatedAt" -> state.lastUpdatedAt.toString
+    )
+
+  private def submitMoveJson(result: SubmitLichessMoveResult): ujson.Value =
+    ujson.Obj(
+      "gameId"   -> result.gameId,
+      "move"     -> result.move,
+      "accepted" -> result.accepted
     )
 
   private def respond(status: Status, body: ujson.Value): IO[Response[IO]] =

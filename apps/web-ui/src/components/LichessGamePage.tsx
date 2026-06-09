@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { getLichessGameState } from "../api/userServiceClient";
+import { getLichessGameState, submitLichessMove } from "../api/userServiceClient";
 import type { LichessGameStateResponse } from "../api/userServiceTypes";
 import "./LichessGamePage.css";
 
@@ -46,11 +46,55 @@ function gameStateErrorMessage(error: unknown): string {
   }
 }
 
+function moveSubmitErrorMessage(error: unknown): string {
+  const rawMessage = error instanceof Error ? error.message : String(error);
+  let code = rawMessage.trim();
+
+  try {
+    const parsed = JSON.parse(rawMessage) as { code?: unknown };
+    if (typeof parsed.code === "string") {
+      code = parsed.code;
+    }
+  } catch {
+    const match = rawMessage.match(
+      /\b(INVALID_MOVE_FORMAT|NOT_USER_TURN|ILLEGAL_OR_INVALID_MOVE|LICHESS_TOKEN_EXPIRED|LICHESS_MOVE_FAILED|NO_CHALLENGE_READY_CAPABILITY|NO_STORED_LICHESS_TOKEN|TOKEN_ENCRYPTION_NOT_CONFIGURED)\b/
+    );
+    if (match !== null) {
+      code = match[1];
+    }
+  }
+
+  switch (code) {
+    case "INVALID_MOVE_FORMAT":
+      return "Use UCI move format, for example e2e4 or e7e8q.";
+    case "NOT_USER_TURN":
+      return "It is not your turn.";
+    case "ILLEGAL_OR_INVALID_MOVE":
+      return "Lichess rejected this move. Check that it is legal and your turn.";
+    case "LICHESS_TOKEN_EXPIRED":
+      return "Your Lichess authorization expired. Please re-authorize.";
+    case "LICHESS_MOVE_FAILED":
+      return "Could not submit the move to Lichess.";
+    case "NO_CHALLENGE_READY_CAPABILITY":
+      return "Upgrade your Lichess permissions before playing from Searchess.";
+    case "NO_STORED_LICHESS_TOKEN":
+      return "Your Lichess authorization is incomplete. Please re-authorize.";
+    case "TOKEN_ENCRYPTION_NOT_CONFIGURED":
+      return "The server is not configured for Lichess move submission yet.";
+    default:
+      return "Could not submit the move to Lichess.";
+  }
+}
+
 export default function LichessGamePage({ onBack }: LichessGamePageProps) {
   const { gameId } = useParams<{ gameId: string }>();
   const [state, setState] = useState<LichessGameStateResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [moveDraft, setMoveDraft] = useState("");
+  const [isSubmittingMove, setIsSubmittingMove] = useState(false);
+  const [moveMessage, setMoveMessage] = useState<string | null>(null);
+  const [moveError, setMoveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!gameId) {
@@ -90,6 +134,31 @@ export default function LichessGamePage({ onBack }: LichessGamePageProps) {
   );
 
   const lichessUrl = state?.url ?? (gameId ? `https://lichess.org/${gameId}` : "https://lichess.org");
+  const isPlayableStatus = state?.status === "started" || state?.status === "playing";
+  const hasKnownTurn = state !== null && state.userColor !== null;
+  const isUserTurn = !hasKnownTurn || state?.userColor === state?.sideToMove;
+  const canSubmitMove = Boolean(gameId) && isPlayableStatus && isUserTurn && !isSubmittingMove && moveDraft.trim().length > 0;
+
+  const handleSubmitMove = async () => {
+    if (!gameId || !canSubmitMove) return;
+
+    setIsSubmittingMove(true);
+    setMoveMessage(null);
+    setMoveError(null);
+
+    try {
+      const result = await submitLichessMove(gameId, moveDraft.trim());
+      setMoveDraft("");
+      setMoveMessage(`Move ${result.move} submitted.`);
+      const refreshed = await getLichessGameState(gameId);
+      setState(refreshed);
+      setError(null);
+    } catch (err) {
+      setMoveError(moveSubmitErrorMessage(err));
+    } finally {
+      setIsSubmittingMove(false);
+    }
+  };
 
   return (
     <main className="lichess-game-page">
@@ -149,6 +218,45 @@ export default function LichessGamePage({ onBack }: LichessGamePageProps) {
               <h2>Current FEN</h2>
               <pre className="lichess-game-code">{state.fen ?? "Not available from Lichess yet."}</pre>
             </section>
+
+            {isPlayableStatus ? (
+              <section className="lichess-game-card lichess-game-card--wide" aria-label="Submit move">
+                <h2>Submit Move</h2>
+                {hasKnownTurn && !isUserTurn ? (
+                  <p className="lichess-game-muted">Waiting for opponent...</p>
+                ) : null}
+                {moveMessage !== null ? (
+                  <p className="lichess-game-success">{moveMessage}</p>
+                ) : null}
+                {moveError !== null ? (
+                  <p className="lichess-game-warning">{moveError}</p>
+                ) : null}
+                <div className="lichess-game-move-form">
+                  <input
+                    type="text"
+                    value={moveDraft}
+                    placeholder="e2e4"
+                    autoComplete="off"
+                    inputMode="text"
+                    disabled={isSubmittingMove || !isUserTurn}
+                    onChange={(event) => setMoveDraft(event.currentTarget.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void handleSubmitMove();
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={!canSubmitMove}
+                    onClick={() => void handleSubmitMove()}
+                  >
+                    {isSubmittingMove ? "Submitting..." : "Submit move"}
+                  </button>
+                </div>
+              </section>
+            ) : null}
 
             <section className="lichess-game-card lichess-game-card--wide" aria-label="Moves">
               <h2>Moves</h2>
