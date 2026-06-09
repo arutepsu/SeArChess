@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { PlayableGameMode } from "../api/types";
 import type { UserProfileResponse } from "../api/userServiceTypes";
-import { gameModes, lichessBridgeModes, isPlayableGameMode, type GameModeId } from "../gameModes";
+import { gameModes, isPlayableGameMode, type GameModeId } from "../gameModes";
 import ResumeGamePanel from "./ResumeGamePanel.tsx";
 import "./Homepage.css";
 
@@ -41,7 +41,7 @@ export default function Homepage({
       <section className="panel homepage-panel">
         <header>
           <h1 className="homepage-title">SeArChess</h1>
-          <p className="homepage-subtitle">Wähle deinen Spielmodus, um zu beginnen.</p>
+          <p className="homepage-subtitle">Choose how you want to play.</p>
         </header>
 
         <div className="mode-selection" aria-label="Game modes">
@@ -75,23 +75,22 @@ export default function Homepage({
           })}
         </div>
 
-        <div className="lichess-bridge-section" aria-label="Lichess Bridge (Coming Soon)">
-          <h2 className="lichess-bridge-heading">Lichess Bridge <span className="lichess-bridge-badge">Coming Soon</span></h2>
-          <div className="mode-selection">
-            {lichessBridgeModes.map((item) => (
-              <article key={item.id} className="mode-card is-disabled">
-                <header>
-                  <h2>{item.title}</h2>
-                  <span>Coming Soon</span>
-                </header>
-                <p>{item.summary}</p>
-                <button type="button" disabled>
-                  {item.startLabel}
-                </button>
-              </article>
-            ))}
-          </div>
-        </div>
+        <section className="lichess-hub-section" aria-label="Play on Lichess">
+          <h2 className="lichess-hub-heading">Play on Lichess</h2>
+          <article className="lichess-hub-card">
+            <p className="lichess-hub-description">
+              Challenge the Searchess Bot on Lichess from your linked Lichess account. More Lichess features will appear here as OAuth support grows.
+            </p>
+            <p className="lichess-hub-account-hint">
+              {hasVerifiedLichessLink
+                ? "Linked Lichess account detected."
+                : "Link your Lichess account in Settings first."}
+            </p>
+            <button type="button" disabled className="lichess-hub-cta">
+              Lichess Hub Coming Soon
+            </button>
+          </article>
+        </section>
 
         {onboardingRequired && (
           <p className="onboarding-notice">
@@ -114,7 +113,7 @@ export default function Homepage({
             disabled={busy || onboardingRequired}
             onClick={() => onStart(mode)}
           >
-            Spiel Starten
+            Start Game
           </button>
         ) : null}
 
@@ -124,7 +123,7 @@ export default function Homepage({
             type="button"
             onClick={onContinueActiveGame}
           >
-            Aktuelles Spiel fortsetzen
+            Continue Active Game
           </button>
         )}
 
