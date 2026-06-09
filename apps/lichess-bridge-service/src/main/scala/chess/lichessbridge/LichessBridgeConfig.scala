@@ -8,22 +8,27 @@ import chess.observability.StructuredLog
   * Phase 1:    service is always disabled at runtime (LICHESS_BRIDGE_ENABLED defaults to false).
   * Phase 2A:   LICHESS_BOT_TOKEN is now read (but never logged).
   * Phase 2B-1: challenge policy keys added; all default to the most conservative values.
+  * Phase 3B:   dynamic linked-user authorization via user-service; LICHESS_ALLOWED_CHALLENGERS
+  *             remains as a legacy/admin override but is no longer the primary authorization path.
   *
   * Environment variables:
-  *   LICHESS_BRIDGE_ENABLED      — must be "true" to enable bridge logic (default: false)
-  *   LICHESS_API_BASE_URL        — Lichess API root (default: https://lichess.org)
-  *   LICHESS_BOT_USERNAME        — Lichess bot account username (default: empty = not configured)
-  *   LICHESS_BOT_TOKEN           — Lichess bot OAuth token (optional; never logged)
-  *   AI_SERVICE_URL              — URL of the internal Searchess AI service (default: http://ai-service:8765)
-  *   MAX_CONCURRENT_GAMES        — maximum simultaneous bridged games (default: 1)
-  *   LICHESS_BRIDGE_HTTP_HOST    — bind address for the HTTP server (default: 0.0.0.0)
-  *   LICHESS_BRIDGE_HTTP_PORT    — bind port for the HTTP server (default: 8090)
-  *   LICHESS_ACCEPT_CHALLENGES   — must be "true" to auto-accept incoming challenges (default: false)
-  *   LICHESS_ALLOWED_CHALLENGERS — comma-separated lowercase usernames; empty = accept all (default: "")
-  *   LICHESS_ACCEPT_RATED        — must be "true" to accept rated games (default: false)
-  *   LICHESS_ALLOWED_VARIANTS    — comma-separated variant keys (default: "standard")
-  *   LICHESS_MIN_CLOCK_SECONDS   — minimum acceptable total clock in seconds (default: 180 = 3+0)
-  *   LICHESS_MAX_CLOCK_SECONDS   — maximum acceptable total clock in seconds (default: 600 = 10+0)
+  *   LICHESS_BRIDGE_ENABLED           — must be "true" to enable bridge logic (default: false)
+  *   LICHESS_API_BASE_URL             — Lichess API root (default: https://lichess.org)
+  *   LICHESS_BOT_USERNAME             — Lichess bot account username (default: empty = not configured)
+  *   LICHESS_BOT_TOKEN                — Lichess bot OAuth token (optional; never logged)
+  *   AI_SERVICE_URL                   — URL of the internal AI service (default: http://ai-service:8765)
+  *   MAX_CONCURRENT_GAMES             — maximum simultaneous bridged games (default: 1)
+  *   LICHESS_BRIDGE_HTTP_HOST         — bind address for the HTTP server (default: 0.0.0.0)
+  *   LICHESS_BRIDGE_HTTP_PORT         — bind port for the HTTP server (default: 8090)
+  *   LICHESS_ACCEPT_CHALLENGES        — must be "true" to auto-accept incoming challenges (default: false)
+  *   LICHESS_REQUIRE_LINKED_CHALLENGER — when true, challenger must be a linked Searchess user (default: true)
+  *   LICHESS_ALLOWED_CHALLENGERS      — legacy static allowlist; empty = accept all when requireLinkedChallenger=false
+  *   LICHESS_ACCEPT_RATED             — must be "true" to accept rated games (default: false)
+  *   LICHESS_ALLOWED_VARIANTS         — comma-separated variant keys (default: "standard")
+  *   LICHESS_MIN_CLOCK_SECONDS        — minimum acceptable total clock in seconds (default: 180 = 3+0)
+  *   LICHESS_MAX_CLOCK_SECONDS        — maximum acceptable total clock in seconds (default: 600 = 10+0)
+  *   USER_SERVICE_URL                 — base URL of user-service (default: http://user-service:8082)
+  *   USER_SERVICE_INTERNAL_API_KEY    — service-to-service secret for /internal/lichess/challenge-auth (never logged)
   */
 final case class LichessBridgeConfig(
     enabled: Boolean,
@@ -40,7 +45,11 @@ final case class LichessBridgeConfig(
     acceptRated: Boolean = false,
     allowedVariants: Set[String] = Set("standard"),
     minClockSeconds: Int = 180,
-    maxClockSeconds: Int = 600
+    maxClockSeconds: Int = 600,
+    // Phase 3B: dynamic linked-user authorization
+    userServiceUrl: String = "http://user-service:8082",
+    requireLinkedChallenger: Boolean = true,
+    userServiceApiKey: String = ""
 ):
   /** True if a non-empty bot username was configured. */
   def botUsernameConfigured: Boolean = lichessBotUsername.isDefined
@@ -86,7 +95,10 @@ object LichessBridgeConfig:
       allowedVariants  = env("LICHESS_ALLOWED_VARIANTS")
         .fold(Set("standard"))(s => s.split(',').map(_.trim).filter(_.nonEmpty).toSet),
       minClockSeconds  = env("LICHESS_MIN_CLOCK_SECONDS").flatMap(_.toIntOption).getOrElse(180),
-      maxClockSeconds  = env("LICHESS_MAX_CLOCK_SECONDS").flatMap(_.toIntOption).getOrElse(600)
+      maxClockSeconds  = env("LICHESS_MAX_CLOCK_SECONDS").flatMap(_.toIntOption).getOrElse(600),
+      userServiceUrl           = env("USER_SERVICE_URL").getOrElse("http://user-service:8082"),
+      requireLinkedChallenger  = env("LICHESS_REQUIRE_LINKED_CHALLENGER").forall(_.toLowerCase != "false"),
+      userServiceApiKey        = env("USER_SERVICE_INTERNAL_API_KEY").getOrElse("")
     )
 
   private def parsePort(name: String, value: String): Either[String, Int] =

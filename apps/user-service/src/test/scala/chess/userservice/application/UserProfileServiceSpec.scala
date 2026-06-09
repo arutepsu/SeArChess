@@ -154,6 +154,9 @@ class UserProfileServiceSpec extends AnyFlatSpec with Matchers with EitherValues
       store.put((link.userId, link.provider), link)
       Right(())
 
+    override def findByLichessUsername(username: String): Either[String, Option[ExternalAccountLink]] =
+      Right(None)
+
     override def delete(userId: UUID, provider: String): Either[String, Unit] =
       store.remove((userId, provider))
       Right(())

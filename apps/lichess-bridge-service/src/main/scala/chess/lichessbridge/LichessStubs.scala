@@ -82,6 +82,28 @@ final class FailingAiServiceClient extends AiServiceClient[IO]:
   def suggestMove(request: AiMoveRequest): IO[Either[AiError, UciMove]] =
     IO.raiseError(RuntimeException("AI service unavailable"))
 
+// ── UserServiceClient stubs ───────────────────────────────────────────────────
+
+/** Always authorizes. */
+final class AuthorizedUserServiceClient extends UserServiceClient[IO]:
+  def authorizeChallenger(lichessUsername: String): IO[ChallengeAuthResult] =
+    IO.pure(ChallengeAuthResult.Authorized)
+
+/** Always returns NotLinked. */
+final class NotLinkedUserServiceClient extends UserServiceClient[IO]:
+  def authorizeChallenger(lichessUsername: String): IO[ChallengeAuthResult] =
+    IO.pure(ChallengeAuthResult.NotLinked)
+
+/** Always returns Unavailable (simulates user-service down). */
+final class UnavailableUserServiceClient extends UserServiceClient[IO]:
+  def authorizeChallenger(lichessUsername: String): IO[ChallengeAuthResult] =
+    IO.pure(ChallengeAuthResult.Unavailable)
+
+/** Returns a configurable result. */
+final class ControllableUserServiceClient(result: ChallengeAuthResult) extends UserServiceClient[IO]:
+  def authorizeChallenger(lichessUsername: String): IO[ChallengeAuthResult] =
+    IO.pure(result)
+
 // ── ChallengePolicy stubs ─────────────────────────────────────────────────────
 
 /** Always accepts. */

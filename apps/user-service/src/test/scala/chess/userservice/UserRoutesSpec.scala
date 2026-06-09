@@ -277,6 +277,11 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
       store.put(key(link.userId, link.provider), link)
       Right(())
 
+    override def findByLichessUsername(username: String): Either[String, Option[ExternalAccountLink]] =
+      Right(store.values.asScala.find(l =>
+        l.provider == "Lichess" && l.externalUsername.equalsIgnoreCase(username)
+      ))
+
     override def delete(userId: UUID, provider: String): Either[String, Unit] =
       store.remove(key(userId, provider))
       Right(())

@@ -12,14 +12,17 @@ class LichessBridgeConfigSpec extends AnyFlatSpec with Matchers:
   "LichessBridgeConfig.load" should "use defaults when no env vars are set" in {
     val result = LichessBridgeConfig.load(env())
     result shouldBe Right(LichessBridgeConfig(
-      enabled            = false,
-      lichessApiBaseUrl  = "https://lichess.org",
-      lichessBotUsername = None,
-      lichessBotToken    = None,
-      aiServiceUrl       = "http://ai-service:8765",
-      maxConcurrentGames = 1,
-      host               = "0.0.0.0",
-      port               = 8090
+      enabled                  = false,
+      lichessApiBaseUrl        = "https://lichess.org",
+      lichessBotUsername       = None,
+      lichessBotToken          = None,
+      aiServiceUrl             = "http://ai-service:8765",
+      maxConcurrentGames       = 1,
+      host                     = "0.0.0.0",
+      port                     = 8090,
+      requireLinkedChallenger  = true,
+      userServiceUrl           = "http://user-service:8082",
+      userServiceApiKey        = ""
     ))
   }
 
@@ -174,4 +177,42 @@ class LichessBridgeConfigSpec extends AnyFlatSpec with Matchers:
   it should "parse LICHESS_ALLOWED_CHALLENGERS comma-separated, lowercased" in {
     val result = LichessBridgeConfig.load(env("LICHESS_ALLOWED_CHALLENGERS" -> "Alice, Bob, CAROL"))
     result.map(_.allowedChallengers) shouldBe Right(Set("alice", "bob", "carol"))
+  }
+
+  // Phase 3B: linked-user authorization config
+
+  it should "have requireLinkedChallenger=true by default" in {
+    val result = LichessBridgeConfig.load(env())
+    result.map(_.requireLinkedChallenger) shouldBe Right(true)
+  }
+
+  it should "set requireLinkedChallenger=false when LICHESS_REQUIRE_LINKED_CHALLENGER=false" in {
+    val result = LichessBridgeConfig.load(env("LICHESS_REQUIRE_LINKED_CHALLENGER" -> "false"))
+    result.map(_.requireLinkedChallenger) shouldBe Right(false)
+  }
+
+  it should "keep requireLinkedChallenger=true when LICHESS_REQUIRE_LINKED_CHALLENGER=true" in {
+    val result = LichessBridgeConfig.load(env("LICHESS_REQUIRE_LINKED_CHALLENGER" -> "true"))
+    result.map(_.requireLinkedChallenger) shouldBe Right(true)
+  }
+
+  it should "have userServiceUrl default to http://user-service:8082" in {
+    val result = LichessBridgeConfig.load(env())
+    result.map(_.userServiceUrl) shouldBe Right("http://user-service:8082")
+  }
+
+  it should "read USER_SERVICE_URL when provided" in {
+    val result = LichessBridgeConfig.load(env("USER_SERVICE_URL" -> "http://user-service:9999"))
+    result.map(_.userServiceUrl) shouldBe Right("http://user-service:9999")
+  }
+
+  it should "have userServiceApiKey empty by default" in {
+    val result = LichessBridgeConfig.load(env())
+    result.map(_.userServiceApiKey) shouldBe Right("")
+  }
+
+  it should "never expose userServiceApiKey in default config toString" in {
+    val result = LichessBridgeConfig.load(env("USER_SERVICE_INTERNAL_API_KEY" -> "secret-key-123"))
+    result.map(_.tokenConfigured) shouldBe Right(false)  // tokenConfigured is for lichess token only
+    result.map(_.userServiceApiKey) shouldBe Right("secret-key-123")
   }

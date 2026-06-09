@@ -17,6 +17,7 @@ enum DeclineReason:
   case VariantNotAllowed(variant: String)
   case ClockOutOfRange(limitSeconds: Option[Int])
   case ChallengerNotAllowed(username: String)
+  case LinkedUserRequired(reason: String)
 
 object DeclineReason:
   // Maps to Lichess's decline reason API values.
@@ -30,6 +31,7 @@ object DeclineReason:
     case ClockOutOfRange(Some(s)) if s < 180 => "tooFast"
     case ClockOutOfRange(_)        => "tooSlow"
     case ChallengerNotAllowed(_)   => "generic"
+    case LinkedUserRequired(_)     => "generic"
 
 // ── Policy interface ───────────────────────────────────────────────────────────
 
@@ -40,7 +42,8 @@ trait ChallengePolicy[F[_]]:
 
 final class DefaultChallengePolicy(
     config: LichessBridgeConfig,
-    stateRef: Ref[IO, WorkerState]
+    stateRef: Ref[IO, WorkerState],
+    userServiceClient: UserServiceClient[IO]
 ) extends ChallengePolicy[IO]:
 
   def evaluate(challenge: LichessChallenge): IO[ChallengeDecision] =
@@ -49,7 +52,18 @@ final class DefaultChallengePolicy(
     else if !config.acceptChallenges then
       IO.pure(ChallengeDecision.Decline(DeclineReason.ChallengesDisabled))
     else
-      stateRef.get.map(state => evaluatePure(challenge, state.activeGames.size))
+      stateRef.get.flatMap { state =>
+        evaluatePure(challenge, state.activeGames.size) match
+          case ChallengeDecision.Accept if config.requireLinkedChallenger =>
+            userServiceClient.authorizeChallenger(challenge.challengerUsername).map {
+              case ChallengeAuthResult.Authorized  => ChallengeDecision.Accept
+              case ChallengeAuthResult.NotLinked   =>
+                ChallengeDecision.Decline(DeclineReason.LinkedUserRequired("not_linked"))
+              case ChallengeAuthResult.Unavailable =>
+                ChallengeDecision.Decline(DeclineReason.LinkedUserRequired("user_service_unavailable"))
+            }
+          case decision => IO.pure(decision)
+      }
 
   private def evaluatePure(challenge: LichessChallenge, activeCount: Int): ChallengeDecision =
     if activeCount >= config.maxConcurrentGames then
@@ -60,7 +74,8 @@ final class DefaultChallengePolicy(
       ChallengeDecision.Decline(DeclineReason.VariantNotAllowed(challenge.variant))
     else if !clockInRange(challenge.timeControl) then
       ChallengeDecision.Decline(DeclineReason.ClockOutOfRange(challenge.timeControl.limit))
-    else if config.allowedChallengers.nonEmpty &&
+    else if !config.requireLinkedChallenger &&
+            config.allowedChallengers.nonEmpty &&
             !config.allowedChallengers.contains(challenge.challengerUsername.toLowerCase) then
       ChallengeDecision.Decline(DeclineReason.ChallengerNotAllowed(challenge.challengerUsername))
     else

@@ -22,6 +22,12 @@ class SlickExternalAccountLinkRepository(db: Database, schema: Option[String] = 
   override def findByUserAndProvider(userId: UUID, provider: String): Either[String, Option[ExternalAccountLink]] =
     run(table.filter(r => r.userId === userId && r.provider === provider).result.headOption).map(_.map(rowToLink))
 
+  override def findByLichessUsername(username: String): Either[String, Option[ExternalAccountLink]] =
+    val lower = username.toLowerCase
+    run(
+      table.filter(r => r.provider === "Lichess" && r.externalUsername.toLowerCase === lower).result.headOption
+    ).map(_.map(rowToLink))
+
   override def insert(link: ExternalAccountLink): Either[String, Unit] =
     run(table += linkToRow(link)).map(_ => ())
 

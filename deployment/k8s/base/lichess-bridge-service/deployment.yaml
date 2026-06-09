@@ -31,6 +31,12 @@ spec:
                   name: searchess-secrets
                   key: lichess-bot-token
                   optional: true
+            - name: USER_SERVICE_INTERNAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: searchess-secrets
+                  key: user-service-internal-api-key
+                  optional: true
           resources:
             requests:
               memory: "128Mi"

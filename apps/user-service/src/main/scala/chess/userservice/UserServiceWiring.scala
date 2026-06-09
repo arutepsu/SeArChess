@@ -2,6 +2,7 @@ package chess.userservice
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
+import cats.syntax.semigroupk.*
 import chess.observability.StructuredLog
 import chess.userservice.application.{LichessOAuthService, UserProfileService}
 import chess.userservice.postgres.{
@@ -49,9 +50,10 @@ object UserServiceWiring:
     val stateRepo    = SlickOAuthLinkStateRepository(db, schema)
     val service      = UserProfileService(profileRepo, linkRepo)
     val oauthService = LichessOAuthService(stateRepo, linkRepo, httpClient, config.lichessOAuth)
-    val routes       = UserRoutes(service, oauthService, config.lichessOAuth)
+    val routes         = UserRoutes(service, oauthService, config.lichessOAuth)
+    val internalRoutes = InternalLichessRoutes(linkRepo, config.internalApiKey)
 
-    val httpApp = routes.routes.orNotFound
+    val httpApp = (routes.routes <+> internalRoutes.routes).orNotFound
 
     val host = Host.fromString(config.host).getOrElse(
       throw RuntimeException(s"[user-service] Invalid USER_HTTP_HOST: '${config.host}'")
