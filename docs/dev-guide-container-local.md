@@ -87,6 +87,20 @@ traffic; in a container, `localhost` means the same container.
 Inside Compose, `game-service` reaches History by DNS name:
 `http://history-service:8081`.
 
+| `AI_TIMEOUT_MILLIS` | `2000` | Remote AI client timeout |
+
+The AI Service uses:
+
+| Variable | Value | Meaning |
+|---|---|---|
+| `AI_HTTP_HOST` | `0.0.0.0` | Bind inside the container |
+| `AI_HTTP_PORT` | `8765` | Internal HTTP port |
+| `AI_ENGINE_ID` | `random-legal` | Engine identifier returned by the Scala AI capability |
+
+Inside Compose, `game-service` reaches AI by DNS name:
+`http://ai-service:8765`. Do not use `localhost` for container-to-container
+traffic; in a container, `localhost` means the same container.
+
 ## SQLite Persistence
 
 The Game Service mounts a named volume:

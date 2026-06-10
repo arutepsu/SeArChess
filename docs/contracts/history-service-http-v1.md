@@ -163,6 +163,14 @@ This path is disabled by default. It is available only when
 `HISTORY_ACCEPT_LEGACY_INGESTION_PATH=true`, and it should not be routed through
 the public edge. New callers must use `POST /internal/events/game`.
 
+### POST /events/game
+
+Temporary compatibility alias for older local/dev callers.
+
+This path is disabled by default. It is available only when
+`HISTORY_ACCEPT_LEGACY_INGESTION_PATH=true`, and it should not be routed through
+the public edge. New callers must use `POST /internal/events/game`.
+
 ### GET /archives/{gameId}
 
 Read the History-owned archive record for a game.

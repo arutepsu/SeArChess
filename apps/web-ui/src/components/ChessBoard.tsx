@@ -53,7 +53,6 @@ const PIECE_SCALE = 2;
 
 const pieceTransform = (flipX: boolean, scale: number = PIECE_SCALE): string =>
   `scaleX(${flipX ? -1 : 1}) scale(${scale})`;
-
 const indices = Array.from({ length: 8 }, (_, index) => index);
 
 const pieceLabel = (piece: BoardSquare): string => {

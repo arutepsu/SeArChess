@@ -30,6 +30,8 @@ RUN apt-get update \
 COPY --from=build /build/apps/history-service/target/universal/stage/ ./
 COPY --from=otel-agent /opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
 
+COPY --from=build /build/apps/history-service/target/universal/stage/ ./
+
 EXPOSE 8081
 
 ENV HISTORY_HTTP_HOST=0.0.0.0 \

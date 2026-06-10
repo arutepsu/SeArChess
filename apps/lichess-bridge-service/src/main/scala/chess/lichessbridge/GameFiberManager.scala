@@ -20,7 +20,9 @@ final class GameFiberManager(
     botUsername: Option[String],
     gameStream: LichessGameStream[IO],
     aiClient: AiServiceClient[IO],
-    lichessClient: LichessClient[IO]
+    lichessClient: LichessClient[IO],
+    snapshotHub: BotGameSnapshotHub,
+    chatEnabled: Boolean = false
 ):
 
   def startGame(game: LichessGameRef): IO[Unit] =
@@ -29,7 +31,7 @@ final class GameFiberManager(
         IO.delay(StructuredLog.warn("lichess-bridge-service", "game_fiber_duplicate",
           "gameId" -> game.gameId))
       else
-        GameLoopHandler(token, game, botUsername, gameStream, aiClient, lichessClient, stateRef)
+        GameLoopHandler(token, game, botUsername, gameStream, aiClient, lichessClient, stateRef, snapshotHub, chatEnabled)
           .run
           .start
           .flatMap(fiber => fiberRef.update(_ + (game.gameId -> fiber)))
@@ -58,8 +60,10 @@ object GameFiberManager:
       botUsername: Option[String],
       gameStream: LichessGameStream[IO],
       aiClient: AiServiceClient[IO],
-      lichessClient: LichessClient[IO]
+      lichessClient: LichessClient[IO],
+      snapshotHub: BotGameSnapshotHub,
+      chatEnabled: Boolean = false
   ): IO[GameFiberManager] =
     Ref.of[IO, Map[String, Fiber[IO, Throwable, Unit]]](Map.empty).map { fiberRef =>
-      new GameFiberManager(stateRef, fiberRef, token, botUsername, gameStream, aiClient, lichessClient)
+      new GameFiberManager(stateRef, fiberRef, token, botUsername, gameStream, aiClient, lichessClient, snapshotHub, chatEnabled)
     }

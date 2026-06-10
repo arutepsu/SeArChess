@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Searchess Room Streams</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Segoe UI, Tahoma, Geneva, Verdana, sans-serif;
+      background: #17191f;
+      color: #f4efe6;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px;
+    }
+
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      color: #e6b347;
+      font-size: 2rem;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0 0 20px;
+      color: #c9c2b7;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(280px, 360px) 1fr;
+      gap: 18px;
+    }
+
+    .panel {
+      background: #232733;
+      border: 1px solid rgba(230, 179, 71, 0.32);
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #ef4444;
+      box-shadow: 0 0 8px #ef4444;
+      flex: 0 0 auto;
+    }
+
+    .status-dot.connected {
+      background: #22c55e;
+      box-shadow: 0 0 8px #22c55e;
+    }
+
+    label {
+      display: block;
+      margin: 12px 0 6px;
+      color: #d9d0c4;
+      font-size: 0.92rem;
+    }
+
+    input {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #8d7648;
+      background: #17191f;
+      color: #fff;
+      font-size: 1rem;
+    }
+
+    button {
+      min-height: 40px;
+      padding: 9px 14px;
+      border: 0;
+      border-radius: 6px;
+      background: #e6b347;
+      color: #17120a;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #ffc75f;
+    }
+
+    .button-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .log {
+      height: 440px;
+      overflow-y: auto;
+      padding: 12px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.28);
+      font-family: Consolas, Menlo, monospace;
+      font-size: 0.86rem;
+      line-height: 1.45;
+    }
+
+    .entry {
+      margin-bottom: 8px;
+      overflow-wrap: anywhere;
+    }
+
+    .entry.error {
+      color: #ff8d8d;
+    }
+
+    .entry.success {
+      color: #7be59c;
+    }
+
+    .entry.event {
+      color: #a9d7ff;
+    }
+
+    @media (max-width: 760px) {
+      body {
+        padding: 14px;
+      }
+
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Searchess Room Streams</h1>
+  <p>Pekko HTTP/WebSocket adapter for live Searchess DSL rooms.</p>
+
+  <div class="layout">
+    <section class="panel">
+      <div class="status-row">
+        <span id="statusDot" class="status-dot"></span>
+        <span id="statusText">Disconnected</span>
+      </div>
+
+      <label for="roomIdInput">Room</label>
+      <input id="roomIdInput" type="text" value="room-1">
+
+      <div class="button-row">
+        <button id="connectBtn" type="button" onclick="toggleConnect()">Connect</button>
+        <button type="button" onclick="sendDemoSetup()">Demo setup</button>
+      </div>
+
+      <label for="commandInput">Searchess DSL command</label>
+      <input id="commandInput" type="text" value="move Alice e2e4">
+
+      <div class="button-row">
+        <button type="button" onclick="sendCommand()">Send</button>
+        <button type="button" onclick="setCommand('status')">Status</button>
+        <button type="button" onclick="setCommand('resign Bob')">Resign Bob</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div id="log" class="log">
+        <div class="entry">Ready.</div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+  let ws = null;
+  let activeRoomId = "room-1";
+
+  function log(message, type = "") {
+    const panel = document.getElementById("log");
+    const entry = document.createElement("div");
+    entry.className = `entry ${type}`;
+    entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+    panel.appendChild(entry);
+    panel.scrollTop = panel.scrollHeight;
+  }
+
+  function setConnected(connected) {
+    document.getElementById("statusDot").className = connected ? "status-dot connected" : "status-dot";
+    document.getElementById("statusText").textContent = connected ? `Connected (${activeRoomId})` : "Disconnected";
+    document.getElementById("connectBtn").textContent = connected ? "Disconnect" : "Connect";
+    document.getElementById("roomIdInput").disabled = connected;
+  }
+
+  function toggleConnect() {
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+      ws.close();
+      return;
+    }
+    connect();
+  }
+
+  function connect() {
+    activeRoomId = document.getElementById("roomIdInput").value.trim() || "default";
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const port = window.location.port || "8082";
+    const url = `${protocol}://${window.location.hostname || "localhost"}:${port}/rooms/${encodeURIComponent(activeRoomId)}/events`;
+
+    log(`Connecting to ${url}`);
+    ws = new WebSocket(url);
+
+    ws.onopen = () => {
+      setConnected(true);
+      log("WebSocket connected.", "success");
+    };
+
+    ws.onmessage = event => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "connected") {
+          log(`Joined room ${data.roomId}. Active rooms: ${data.activeRooms.join(", ") || "-"}`, "success");
+        } else if (data.type === "event") {
+          const envelope = data.event;
+          log(`${envelope.sequenceNumber} ${envelope.eventType}: ${envelope.payload}`, "event");
+        } else {
+          log(event.data);
+        }
+      } catch (error) {
+        log(`Could not parse server message: ${error.message}`, "error");
+      }
+    };
+
+    ws.onclose = () => {
+      setConnected(false);
+      log("WebSocket disconnected.", "error");
+    };
+
+    ws.onerror = () => {
+      log("WebSocket error.", "error");
+      ws.close();
+    };
+  }
+
+  function sendCommandLine(line) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      log("WebSocket is not connected.", "error");
+      return;
+    }
+    ws.send(JSON.stringify({ roomId: activeRoomId, line }));
+    log(`Sent: ${line}`);
+  }
+
+  function sendCommand() {
+    const input = document.getElementById("commandInput");
+    const line = input.value.trim();
+    if (line) sendCommandLine(line);
+  }
+
+  function sendDemoSetup() {
+    [
+      `session ${activeRoomId}-session`,
+      "players Alice Bob"
+    ].forEach(sendCommandLine);
+  }
+
+  function setCommand(value) {
+    document.getElementById("commandInput").value = value;
+  }
+</script>
+</body>
+</html>

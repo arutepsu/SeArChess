@@ -14,14 +14,13 @@ class GameFiberManagerSpec extends AnyFlatSpec with Matchers:
     IO.ref(WorkerState.empty).unsafeRunSync()
 
   private def makeMgr(stateRef: Ref[IO, WorkerState] = makeRef()): GameFiberManager =
-    GameFiberManager.create(
-      stateRef,
-      "test-token",
-      Some("testbot"),
-      StubLichessGameStream(),
-      StubAiServiceClient(),
-      StubLichessClient()
-    ).unsafeRunSync()
+    (for
+      hub <- BotGameSnapshotHub.create
+      mgr <- GameFiberManager.create(
+               stateRef, "test-token", Some("testbot"),
+               StubLichessGameStream(), StubAiServiceClient(), StubLichessClient(), hub
+             )
+    yield mgr).unsafeRunSync()
 
   private val game1 = LichessGameRef("g1", "https://lichess.org/g1", "opponent1", Some("white"))
   private val game2 = LichessGameRef("g2", "https://lichess.org/g2", "opponent2", Some("black"))

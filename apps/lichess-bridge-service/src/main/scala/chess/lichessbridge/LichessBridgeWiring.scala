@@ -12,6 +12,7 @@ object LichessBridgeWiring:
     val io: IO[LichessBridgeRuntime] =
       for
         stateRef           <- IO.ref(WorkerState.empty)
+        snapshotHub      <- BotGameSnapshotHub.create
         lichessClient       = LichessHttpClient(config.lichessApiBaseUrl)
         streamClient        = JdkLichessStreamClient(config.lichessApiBaseUrl)
         aiClient            = JdkAiServiceClient(config.aiServiceUrl)
@@ -23,9 +24,11 @@ object LichessBridgeWiring:
                             config.lichessBotUsername,
                             streamClient,
                             aiClient,
-                            lichessClient
+                            lichessClient,
+                            snapshotHub,
+                            config.chatEnabled
                           )
-        httpApp         = LichessBridgeRoutes(config, lichessClient, stateRef).routes.orNotFound
+        httpApp         = LichessBridgeRoutes(config, lichessClient, stateRef, snapshotHub).routes.orNotFound
         host            = Host
                             .fromString(config.host)
                             .getOrElse(throw RuntimeException(s"Invalid LICHESS_BRIDGE_HTTP_HOST: ${config.host}"))

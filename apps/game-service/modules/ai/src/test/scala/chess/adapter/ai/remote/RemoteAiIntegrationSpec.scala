@@ -18,6 +18,14 @@ import org.scalatest.EitherValues
   *
   * To run: sbt "adapterAi/testOnly chess.adapter.ai.remote.RemoteAiIntegrationSpec"
   */
+ *
+ *  Requires the provider to be running at INFERENCE_SERVICE_URL (default
+ *  http://127.0.0.1:8765). The tests are skipped automatically when the service
+ *  is not reachable so they do not break CI.
+ *
+ *  To run:
+ *    sbt "adapterAi/testOnly chess.adapter.ai.remote.RemoteAiIntegrationSpec"
+ */
 class RemoteAiIntegrationSpec extends AnyFlatSpec with Matchers with EitherValues:
 
   private val baseUrl: String =

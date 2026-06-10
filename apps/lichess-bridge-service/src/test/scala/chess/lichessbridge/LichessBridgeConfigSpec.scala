@@ -211,6 +211,23 @@ class LichessBridgeConfigSpec extends AnyFlatSpec with Matchers:
     result.map(_.userServiceApiKey) shouldBe Right("")
   }
 
+  // Phase 2B-3: chat config
+
+  it should "have chatEnabled=false by default" in {
+    val result = LichessBridgeConfig.load(env())
+    result.map(_.chatEnabled) shouldBe Right(false)
+  }
+
+  it should "set chatEnabled=true when LICHESS_BOT_CHAT_ENABLED=true" in {
+    val result = LichessBridgeConfig.load(env("LICHESS_BOT_CHAT_ENABLED" -> "true"))
+    result.map(_.chatEnabled) shouldBe Right(true)
+  }
+
+  it should "keep chatEnabled=false when LICHESS_BOT_CHAT_ENABLED=yes (not exact true)" in {
+    val result = LichessBridgeConfig.load(env("LICHESS_BOT_CHAT_ENABLED" -> "yes"))
+    result.map(_.chatEnabled) shouldBe Right(false)
+  }
+
   it should "never expose userServiceApiKey in default config toString" in {
     val result = LichessBridgeConfig.load(env("USER_SERVICE_INTERNAL_API_KEY" -> "secret-key-123"))
     result.map(_.tokenConfigured) shouldBe Right(false)  // tokenConfigured is for lichess token only

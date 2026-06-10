@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App.tsx";
+import PersistenceAdminPage from "./admin/PersistenceAdminPage.tsx";
 import { SessionProvider } from "./session/SessionProvider";
 import keycloak from "./auth/keycloak";
 import "./assets/base.css";
@@ -19,13 +20,19 @@ keycloak
       void keycloak.updateToken(30).catch(() => void keycloak.login());
     };
 
-    createRoot(container).render(
-      <BrowserRouter>
-        <SessionProvider>
-          <App />
-        </SessionProvider>
-      </BrowserRouter>
-    );
+    const root = createRoot(container);
+
+    if (window.location.pathname === "/admin/persistence") {
+      root.render(<PersistenceAdminPage onBack={() => { window.location.href = "/"; }} />);
+    } else {
+      root.render(
+        <BrowserRouter>
+          <SessionProvider>
+            <App />
+          </SessionProvider>
+        </BrowserRouter>
+      );
+    }
   })
   .catch(() => {
     const keycloakUrl = import.meta.env.VITE_KEYCLOAK_URL ?? "http://localhost:8080";

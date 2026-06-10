@@ -60,6 +60,7 @@ class HistoryRoutes(
     val baseRoutes = operationalRoutes <+> internalArchiveRoutes <+> downstreamIngestionRoutes
     if acceptLegacyIngestionPath then baseRoutes <+> legacyDownstreamIngestionRoutes else baseRoutes
 
+
   private def handleEvent(body: String): IO[Response[IO]] =
     ingestion.ingestEventJson(body) match
       case Right(record) =>

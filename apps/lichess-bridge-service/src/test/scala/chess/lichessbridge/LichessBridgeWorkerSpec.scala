@@ -45,10 +45,13 @@ class LichessBridgeWorkerSpec extends AnyFlatSpec with Matchers:
     * Game fibers use StubLichessGameStream (empty), so they complete immediately.
     */
   private def makeNoopFiberMgr(stateRef: Ref[IO, WorkerState]): GameFiberManager =
-    GameFiberManager.create(
-      stateRef, "test-token", None,
-      StubLichessGameStream(), StubAiServiceClient(), StubLichessClient()
-    ).unsafeRunSync()
+    (for
+      hub <- BotGameSnapshotHub.create
+      mgr <- GameFiberManager.create(
+               stateRef, "test-token", None,
+               StubLichessGameStream(), StubAiServiceClient(), StubLichessClient(), hub
+             )
+    yield mgr).unsafeRunSync()
 
   /** Runs the worker with a finite stream and waits for the stream to finish before returning.
     * The resource value is a join-handle: `.use(join => join)` blocks until the stream terminates.

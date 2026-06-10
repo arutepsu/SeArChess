@@ -70,6 +70,19 @@ class RemoteAiRequestMapperSpec extends AnyFlatSpec with Matchers with EitherVal
     RemoteAiJson.requestToJson(request) should not include "testMode"
   }
 
+  it should "keep local-dev test mode out of the request body contract" in {
+    val request = RemoteAiRequestMapper
+      .toRequest(
+        context         = AIRequestContext.fromSession(aiSession(), GameStateFactory.initial(), requestId = "req-test"),
+        timeoutMillis   = 1000,
+        defaultEngineId = None
+      )
+      .value
+
+    request.metadata.mode          shouldBe "HumanVsAI"
+    RemoteAiJson.requestToJson(request) should not include "testMode"
+  }
+
   it should "send sideToMove as lowercase 'white' for a white-to-move position" in {
     val request = RemoteAiRequestMapper
       .toRequest(

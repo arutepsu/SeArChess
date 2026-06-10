@@ -119,6 +119,27 @@ final class LichessHttpClient(
       IO.pure(Left(NetworkError(e.getMessage)))
     }
 
+  def sendChatMessage(token: String, gameId: String, text: String): IO[Either[LichessError, Unit]] =
+    IO.blocking {
+      val encodedText = java.net.URLEncoder.encode(text, "UTF-8")
+      val body        = s"room=player&text=$encodedText"
+      val req = HttpRequest
+        .newBuilder(URI.create(s"$baseUrl/api/bot/game/$gameId/chat"))
+        .timeout(readTimeout)
+        .header("Authorization", s"Bearer $token")
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .POST(HttpRequest.BodyPublishers.ofString(body))
+        .build()
+      val resp = underlying.send(req, HttpResponse.BodyHandlers.ofString())
+      resp.statusCode() match
+        case 200       => Right(())
+        case 401 | 403 => Left(Unauthorized("Token rejected by Lichess."))
+        case 429       => Left(RateLimited(retryAfterHeader(resp)))
+        case status    => Left(UnexpectedResponse(status, resp.body().take(300)))
+    }.handleErrorWith { case NonFatal(e) =>
+      IO.pure(Left(NetworkError(e.getMessage)))
+    }
+
   // ── Private helpers ────────────────────────────────────────────────────────
 
   private def executeProfileRequest(req: HttpRequest): Either[LichessError, BotProfile] =

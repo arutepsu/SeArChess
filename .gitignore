@@ -39,4 +39,15 @@ docs/performance/**/runs/
 .env
 
 # Docker image archives
+*.tarvite.err.log
+vite.out.log
+.sbt/boot/
+
+# Local build artifacts
 *.tar
+apps/web-ui/vite*.log
+
+# Local build artifacts
+*.tar
+apps/web-ui/vite*.log
+.sbt/

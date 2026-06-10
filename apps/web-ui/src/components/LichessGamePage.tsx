@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getLichessGameState, submitLichessMove } from "../api/userServiceClient";
+import { subscribeToLichessGameEvents } from "../api/lichessBridgeClient";
+import type { BotGameSnapshot } from "../api/lichessBridgeClient";
 import type { LichessGameStateResponse } from "../api/userServiceTypes";
 import type { BoardMatrix } from "../api/types";
 import type { PromotionPiece } from "../api/backendTypes";
@@ -134,6 +136,34 @@ function botUsername(state: LichessGameStateResponse | null): string {
   return "arutepsu2";
 }
 
+function formatClock(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function playMoveSound(): void {
+  try {
+    const AudioCtx =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx  = new AudioCtx();
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.08);
+  } catch {
+    // audio unavailable
+  }
+}
+
 export default function LichessGamePage({ onBack }: LichessGamePageProps) {
   const { gameId } = useParams<{ gameId: string }>();
   const [state, setState] = useState<LichessGameStateResponse | null>(null);
@@ -146,6 +176,70 @@ export default function LichessGamePage({ onBack }: LichessGamePageProps) {
   const [moveError, setMoveError] = useState<string | null>(null);
   const [lichessSelectedSquare, setLichessSelectedSquare] = useState<string | undefined>();
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null);
+
+  // ── Live game state via SSE ────────────────────────────────────────────────
+
+  const [liveSnapshot, setLiveSnapshot] = useState<BotGameSnapshot | null>(null);
+  const [isLiveConnected, setIsLiveConnected] = useState(false);
+
+  useEffect(() => {
+    if (!gameId) return;
+    setLiveSnapshot(null);
+    setIsLiveConnected(false);
+    const cleanup = subscribeToLichessGameEvents(gameId, {
+      onSnapshot: setLiveSnapshot,
+      onError: () => setIsLiveConnected(false),
+      onOpen: () => setIsLiveConnected(true),
+    });
+    return cleanup;
+  }, [gameId]);
+
+  // ── Move sound ─────────────────────────────────────────────────────────────
+
+  const prevLastMoveRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const cur = liveSnapshot?.lastMove;
+    if (cur && cur !== prevLastMoveRef.current) {
+      prevLastMoveRef.current = cur;
+      playMoveSound();
+    }
+  }, [liveSnapshot?.lastMove]);
+
+  // ── Clock countdown ────────────────────────────────────────────────────────
+
+  const clockBaseRef = useRef<{
+    wtime: number;
+    btime: number;
+    activeSide: "white" | "black";
+    receivedAt: number;
+  } | null>(null);
+  const [clockDisplay, setClockDisplay] = useState<{ white: string; black: string } | null>(null);
+
+  useEffect(() => {
+    if (liveSnapshot?.wtime != null && liveSnapshot.btime != null) {
+      const moveCount = liveSnapshot.moves.split(/\s+/).filter(Boolean).length;
+      clockBaseRef.current = {
+        wtime:      liveSnapshot.wtime,
+        btime:      liveSnapshot.btime,
+        activeSide: moveCount % 2 === 0 ? "white" : "black",
+        receivedAt: Date.now(),
+      };
+    }
+  }, [liveSnapshot]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const base = clockBaseRef.current;
+      if (!base) return;
+      const elapsed = Date.now() - base.receivedAt;
+      const wDisp = base.activeSide === "white" ? Math.max(0, base.wtime - elapsed) : base.wtime;
+      const bDisp = base.activeSide === "black" ? Math.max(0, base.btime - elapsed) : base.btime;
+      setClockDisplay({ white: formatClock(wDisp), black: formatClock(bDisp) });
+    }, 250);
+    return () => window.clearInterval(id);
+  }, []);
+
+  // ── Polling (fallback) ─────────────────────────────────────────────────────
 
   const refreshGameState = useCallback(async (options?: { clearMoveFeedback?: boolean; showRefreshing?: boolean }) => {
     if (!gameId) {
@@ -193,14 +287,20 @@ export default function LichessGamePage({ onBack }: LichessGamePageProps) {
     };
   }, [refreshGameState]);
 
+  // ── Derived display state ─────────────────────────────────────────────────
+
+  const activeFen    = liveSnapshot?.fen   ?? state?.fen   ?? null;
+  const activeMoves  = liveSnapshot?.moves ?? state?.moves ?? "";
+  const activeStatus = liveSnapshot?.status ?? state?.status;
+
   const moves = useMemo(
-    () => state?.moves.split(/\s+/).filter(Boolean) ?? [],
-    [state?.moves]
+    () => activeMoves.split(/\s+/).filter(Boolean),
+    [activeMoves]
   );
 
   const lichessUrl = state?.url ?? (gameId ? `https://lichess.org/${gameId}` : "https://lichess.org");
-  const gameIsPlayable = isPlayableStatus(state?.status);
-  const gameIsFinished = isFinishedStatus(state?.status);
+  const gameIsPlayable = isPlayableStatus(activeStatus);
+  const gameIsFinished = isFinishedStatus(activeStatus);
   const hasKnownTurn = state !== null && state.userColor !== null;
   const isUserTurn = !hasKnownTurn || state?.userColor === state?.sideToMove;
   const waitingForBot = hasKnownTurn && !isUserTurn;
@@ -212,20 +312,20 @@ export default function LichessGamePage({ onBack }: LichessGamePageProps) {
       : isUserTurn
         ? "Your turn"
         : `Waiting for ${botUsername(state)}`;
-  const canInteractWithBoard = Boolean(gameId) && gameIsPlayable && isUserTurn && !isSubmittingMove && state?.fen !== null;
+  const canInteractWithBoard = Boolean(gameId) && gameIsPlayable && isUserTurn && !isSubmittingMove && activeFen !== null;
   const canSubmitMove = Boolean(gameId) && gameIsPlayable && isUserTurn && !isSubmittingMove && moveDraft.trim().length > 0;
 
   const boardFromFen = useMemo<BoardMatrix>(() => {
-    if (!state?.fen) return EMPTY_BOARD;
-    return fenToBoardMatrix(state.fen) ?? EMPTY_BOARD;
-  }, [state?.fen]);
+    if (!activeFen) return EMPTY_BOARD;
+    return fenToBoardMatrix(activeFen) ?? EMPTY_BOARD;
+  }, [activeFen]);
 
   const lastMove = useMemo<{ from: string; to: string } | undefined>(() => {
-    const parts = (state?.moves ?? "").split(/\s+/).filter(Boolean);
+    const parts = activeMoves.split(/\s+/).filter(Boolean);
     const last = parts[parts.length - 1];
     if (!last || last.length < 4) return undefined;
     return { from: last.slice(0, 2), to: last.slice(2, 4) };
-  }, [state?.moves]);
+  }, [activeMoves]);
 
   useEffect(() => {
     if (!canInteractWithBoard) {
@@ -311,6 +411,9 @@ export default function LichessGamePage({ onBack }: LichessGamePageProps) {
             >
               {isRefreshing ? "Refreshing..." : "Refresh now"}
             </button>
+            {isLiveConnected && (
+              <span className="lichess-live-badge">● Live</span>
+            )}
           </div>
         </header>
 
@@ -329,7 +432,7 @@ export default function LichessGamePage({ onBack }: LichessGamePageProps) {
               </p>
               <dl className="lichess-game-facts">
                 <dt>State</dt>
-                <dd>{state.status}</dd>
+                <dd>{activeStatus}</dd>
                 <dt>Side to move</dt>
                 <dd>{state.sideToMove}</dd>
                 <dt>Your color</dt>
@@ -341,6 +444,14 @@ export default function LichessGamePage({ onBack }: LichessGamePageProps) {
                 <dt>Updated</dt>
                 <dd>{new Date(state.lastUpdatedAt).toLocaleTimeString()}</dd>
               </dl>
+              {clockDisplay !== null && (
+                <dl className="lichess-game-facts lichess-game-clocks">
+                  <dt>White clock</dt>
+                  <dd className="lichess-clock">{clockDisplay.white}</dd>
+                  <dt>Black clock</dt>
+                  <dd className="lichess-clock">{clockDisplay.black}</dd>
+                </dl>
+              )}
             </section>
 
             <section className="lichess-game-card" aria-label="Players">
@@ -359,7 +470,7 @@ export default function LichessGamePage({ onBack }: LichessGamePageProps) {
 
             <section className="lichess-game-card lichess-game-card--wide" aria-label="Current FEN">
               <h2>Current FEN</h2>
-              <pre className="lichess-game-code">{state.fen ?? "Not available from Lichess yet."}</pre>
+              <pre className="lichess-game-code">{activeFen ?? "Not available from Lichess yet."}</pre>
             </section>
 
             <section className="lichess-game-card lichess-game-card--wide" aria-label="Interactive board">

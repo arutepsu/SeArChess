@@ -4,7 +4,8 @@ import cats.effect.{IO, Ref}
 import fs2.Stream
 import org.http4s.*
 import org.http4s.dsl.io.*
-import org.http4s.headers.`Content-Type`
+import org.http4s.headers.`Content-Type`  // used for JSON responses
+import org.typelevel.ci.CIString
 
 /** HTTP routes for the Lichess Bridge service.
   *
@@ -14,6 +15,7 @@ import org.http4s.headers.`Content-Type`
   *   GET  /internal/lichess/validate           — token + profile check against Lichess API
   *   POST /internal/lichess/challenge-ai/spike — create a real AI challenge game on Lichess
   *   GET  /internal/lichess/policy             — current challenge policy config (no secrets)
+  *   GET  /internal/lichess/games/{id}/events  — SSE stream of live bot game snapshots
   *
   * Phase 2B-2 status additions: activeGamesCount, per-game side, lastMoveCount,
   * lastSubmittedMove, lastGameEventAt. Token is never present in any response.
@@ -21,7 +23,8 @@ import org.http4s.headers.`Content-Type`
 class LichessBridgeRoutes(
     config: LichessBridgeConfig,
     client: LichessClient[IO],
-    stateRef: Ref[IO, WorkerState]
+    stateRef: Ref[IO, WorkerState],
+    snapshotHub: BotGameSnapshotHub
 ):
 
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
@@ -124,6 +127,35 @@ class LichessBridgeRoutes(
           "allowedChallengers"  -> challengers
         )
       )
+
+    case GET -> Root / "internal" / "lichess" / "games" / gameId / "events" =>
+      val snapStream: Stream[IO, BotGameSnapshot] =
+        Stream.eval(snapshotHub.latest(gameId)).flatMap {
+          case Some(snap) if isTerminalStatus(snap.status) =>
+            Stream.emit(snap)
+          case Some(snap) =>
+            Stream.emit(snap) ++
+              snapshotHub.subscribe(gameId)
+                .filter(_.lastUpdated > snap.lastUpdated)
+                .takeThrough(s => !isTerminalStatus(s.status))
+          case None =>
+            snapshotHub.subscribe(gameId)
+              .takeThrough(s => !isTerminalStatus(s.status))
+        }
+      val sseBody: Stream[IO, Byte] = snapStream
+        .map(snap => s"data: ${ujson.write(BotGameSnapshot.toJson(snap))}\n\n")
+        .through(fs2.text.utf8.encode)
+      IO.pure(
+        Response[IO](
+          status  = Status.Ok,
+          headers = Headers(
+            Header.Raw(CIString("Content-Type"),      "text/event-stream"),
+            Header.Raw(CIString("Cache-Control"),     "no-cache"),
+            Header.Raw(CIString("X-Accel-Buffering"), "no")
+          ),
+          body = sseBody
+        )
+      )
   }
 
   // ── Error mapping helpers ───────────────────────────────────────────────────
@@ -178,3 +210,10 @@ class LichessBridgeRoutes(
         body    = Stream.emits(ujson.write(body).getBytes("UTF-8")).covary[IO]
       )
     )
+
+  private val terminalStatuses: Set[String] =
+    Set("aborted", "mate", "resign", "stalemate", "timeout", "draw", "outoftime", "cheat", "nostart", "unknownfinish", "variantend")
+
+  private def isTerminalStatus(status: String): Boolean =
+    val s = status.toLowerCase
+    terminalStatuses.contains(s) || s.contains("finish")

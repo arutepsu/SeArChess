@@ -44,3 +44,4 @@ export interface GameState {
   legalTargetsByFrom: Record<string, string[]>;
 }
 
+

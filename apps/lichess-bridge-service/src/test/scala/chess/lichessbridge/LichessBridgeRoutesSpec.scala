@@ -10,6 +10,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.time.Instant
+import scala.concurrent.duration.*
 
 class LichessBridgeRoutesSpec extends AnyFlatSpec with Matchers:
 
@@ -36,6 +37,13 @@ class LichessBridgeRoutesSpec extends AnyFlatSpec with Matchers:
   private def emptyStateRef(): Ref[IO, WorkerState] =
     IO.ref(WorkerState.empty).unsafeRunSync()
 
+  private def makeHub(): BotGameSnapshotHub =
+    BotGameSnapshotHub.create.unsafeRunSync()
+
+  private def makeSnap(gameId: String, status: String = "started"): BotGameSnapshot =
+    BotGameSnapshot(gameId, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "", "white", Some(300000), Some(300000), status, None, System.currentTimeMillis())
+
   /** Mock LichessClient that returns a fixed profile result. */
   private def mockProfileClient(result: Either[LichessError, BotProfile]): LichessClient[IO] =
     new LichessClient[IO]:
@@ -45,6 +53,7 @@ class LichessBridgeRoutesSpec extends AnyFlatSpec with Matchers:
       def acceptChallenge(token: String, challengeId: String)                                      = IO.pure(Left(NetworkError("not used")))
       def declineChallenge(token: String, challengeId: String, reason: String)                     = IO.pure(Left(NetworkError("not used")))
       def submitMove(token: String, gameId: String, move: String)                                  = IO.pure(Left(NetworkError("not used")))
+      def sendChatMessage(token: String, gameId: String, text: String)                             = IO.pure(Left(NetworkError("not used")))
 
   /** Mock LichessClient that returns a fixed challenge result. */
   private def mockChallengeClient(result: Either[LichessError, ChallengeResult]): LichessClient[IO] =
@@ -55,29 +64,33 @@ class LichessBridgeRoutesSpec extends AnyFlatSpec with Matchers:
       def acceptChallenge(token: String, challengeId: String)                                      = IO.pure(Left(NetworkError("not used")))
       def declineChallenge(token: String, challengeId: String, reason: String)                     = IO.pure(Left(NetworkError("not used")))
       def submitMove(token: String, gameId: String, move: String)                                  = IO.pure(Left(NetworkError("not used")))
+      def sendChatMessage(token: String, gameId: String, text: String)                             = IO.pure(Left(NetworkError("not used")))
 
   private def makeApp(
       config: LichessBridgeConfig = defaultConfig,
       client: LichessClient[IO] = StubLichessClient(),
-      stateRef: Ref[IO, WorkerState] = emptyStateRef()
+      stateRef: Ref[IO, WorkerState] = emptyStateRef(),
+      hub: BotGameSnapshotHub = makeHub()
   ): HttpApp[IO] =
-    LichessBridgeRoutes(config, client, stateRef).routes.orNotFound
+    LichessBridgeRoutes(config, client, stateRef, hub).routes.orNotFound
 
   private def get(
       path: Uri,
       config: LichessBridgeConfig = defaultConfig,
       client: LichessClient[IO] = StubLichessClient(),
-      stateRef: Ref[IO, WorkerState] = emptyStateRef()
+      stateRef: Ref[IO, WorkerState] = emptyStateRef(),
+      hub: BotGameSnapshotHub = makeHub()
   ): Response[IO] =
-    makeApp(config, client, stateRef).run(Request[IO](Method.GET, path)).unsafeRunSync()
+    makeApp(config, client, stateRef, hub).run(Request[IO](Method.GET, path)).unsafeRunSync()
 
   private def post(
       path: Uri,
       config: LichessBridgeConfig = defaultConfig,
       client: LichessClient[IO] = StubLichessClient(),
-      stateRef: Ref[IO, WorkerState] = emptyStateRef()
+      stateRef: Ref[IO, WorkerState] = emptyStateRef(),
+      hub: BotGameSnapshotHub = makeHub()
   ): Response[IO] =
-    makeApp(config, client, stateRef).run(Request[IO](Method.POST, path)).unsafeRunSync()
+    makeApp(config, client, stateRef, hub).run(Request[IO](Method.POST, path)).unsafeRunSync()
 
   private def bodyJson(resp: Response[IO]): ujson.Value =
     ujson.read(resp.bodyText.compile.string.unsafeRunSync())
@@ -333,6 +346,47 @@ class LichessBridgeRoutesSpec extends AnyFlatSpec with Matchers:
     val cfg  = defaultConfig.copy(lichessBotToken = Some("lip_secret"))
     val body = get(uri"/internal/lichess/policy", cfg).bodyText.compile.string.unsafeRunSync()
     body should not include "lip_secret"
+  }
+
+  // ── /internal/lichess/games/{id}/events ──────────────────────────────────────
+
+  "GET /internal/lichess/games/abc123/events" should "return 200 text/event-stream" in {
+    val resp = get(uri"/internal/lichess/games/abc123/events")
+    resp.status shouldBe Status.Ok
+    val ct = resp.headers.get(org.typelevel.ci.CIString("Content-Type")).map(_.head.value).getOrElse("")
+    ct should include ("text/event-stream")
+  }
+
+  it should "include Cache-Control: no-cache header" in {
+    val resp = get(uri"/internal/lichess/games/abc123/events")
+    resp.headers.get(org.typelevel.ci.CIString("Cache-Control")).map(_.head.value) shouldBe Some("no-cache")
+  }
+
+  it should "emit the pre-published latest snapshot immediately on connect" in {
+    val hub  = makeHub()
+    val snap = makeSnap("abc123").copy(lastUpdated = 1000L)
+    hub.publish(snap).unsafeRunSync()
+
+    val resp = makeApp(hub = hub).run(Request[IO](Method.GET, uri"/internal/lichess/games/abc123/events")).unsafeRunSync()
+
+    val (body, _) = IO.both(
+      resp.body.through(fs2.text.utf8.decode).compile.string,
+      IO.sleep(50.millis) >> hub.publish(snap.copy(status = "mate", lastUpdated = 2000L))
+    ).unsafeRunSync()
+
+    body should include ("\"gameId\":\"abc123\"")
+    body should include ("\"status\":\"started\"")
+  }
+
+  it should "close the SSE stream immediately after emitting a terminal latest snapshot" in {
+    val hub  = makeHub()
+    val snap = makeSnap("abc123", "mate").copy(lastUpdated = 1000L)
+    hub.publish(snap).unsafeRunSync()
+
+    val resp = makeApp(hub = hub).run(Request[IO](Method.GET, uri"/internal/lichess/games/abc123/events")).unsafeRunSync()
+
+    val body = resp.body.through(fs2.text.utf8.decode).compile.string.unsafeRunSync()
+    body should include ("\"status\":\"mate\"")
   }
 
   // ── 404 ──────────────────────────────────────────────────────────────────────

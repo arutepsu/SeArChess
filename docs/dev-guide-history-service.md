@@ -18,6 +18,12 @@ Contract reference: `docs/contracts/history-service-http-v1.md`.
   own archive record in its own Postgres database.
 - In SQLite mode, Game Service writes terminal History-facing events to a small
   SQLite outbox before a background forwarder POSTs them to History.
+- The event is only a trigger. History then pulls the archive snapshot from Game
+  Service over HTTP.
+- History materializes PGN/FEN with the existing notation path and stores its
+  own archive record in its own SQLite database.
+- The HTTP forwarding bridge is best-effort. It is useful for local extraction
+  proof, but it is not durable delivery.
 
 ## Services
 
@@ -117,6 +123,15 @@ inside `/data/searchess.sqlite`. Rows remain pending while `delivered_at` is
 
 `POST /events/game` remains available only when
 `HISTORY_ACCEPT_LEGACY_INGESTION_PATH=true` as a local/dev compatibility hook for exercising
+docker compose exec history-service ls -l /history-data
+```
+
+The History record is stored in `/history-data/history.sqlite`, not in the Game
+Service SQLite file.
+
+## Manual Test Hook
+
+`POST /events/game` remains available as a local/dev test hook for exercising
 History directly, but it is no longer required for the normal compose proof.
 
 ## Honest Boundary

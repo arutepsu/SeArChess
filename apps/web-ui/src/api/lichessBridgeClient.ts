@@ -60,6 +60,80 @@ export function deriveBridgeHealth(
   return { label: "Online · Accepting challenges", variant: "healthy" };
 }
 
+export interface BotGameSnapshot {
+  gameId: string;
+  fen: string;
+  moves: string;
+  botColor: "white" | "black";
+  wtime?: number;
+  btime?: number;
+  status: string;
+  lastMove?: string;
+  lastUpdated: number;
+}
+
+export interface GameEventsCallbacks {
+  onSnapshot: (snap: BotGameSnapshot) => void;
+  onError: (err: Error) => void;
+  onOpen?: () => void;
+}
+
+export function subscribeToLichessGameEvents(
+  gameId: string,
+  callbacks: GameEventsCallbacks
+): () => void {
+  const controller = new AbortController();
+
+  void (async () => {
+    try {
+      const resp = await fetch(`/api/lichess/games/${gameId}/events`, {
+        headers: { Accept: "text/event-stream", ...authHeaders() },
+        signal: controller.signal,
+      });
+
+      if (!resp.ok) {
+        callbacks.onError(new Error(`SSE failed: ${resp.status}`));
+        return;
+      }
+
+      callbacks.onOpen?.();
+
+      const reader = resp.body?.getReader();
+      if (!reader) {
+        callbacks.onError(new Error("No response body"));
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const snap = JSON.parse(line.slice(6)) as BotGameSnapshot;
+              callbacks.onSnapshot(snap);
+            } catch {
+              // malformed event — skip
+            }
+          }
+        }
+      }
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        callbacks.onError(err instanceof Error ? err : new Error(String(err)));
+      }
+    }
+  })();
+
+  return () => controller.abort();
+}
+
 function authHeaders(): Record<string, string> {
   return keycloak.token ? { Authorization: `Bearer ${keycloak.token}` } : {};
 }

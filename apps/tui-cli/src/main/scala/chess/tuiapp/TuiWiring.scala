@@ -35,6 +35,9 @@ object TuiWiring:
     // ── Mode selection ───────────────────────────────────────────────────────
     val (mode, whiteController, blackController) = promptForMode()
 
+    // ── Mode selection ───────────────────────────────────────────────────────
+    val (mode, whiteController, blackController) = promptForMode()
+
     // ── TUI-local session ────────────────────────────────────────────────────
     val session = ctx.sessionLifecycleService
       .createSession(

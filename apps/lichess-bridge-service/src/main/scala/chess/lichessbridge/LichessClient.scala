@@ -23,6 +23,10 @@ trait LichessClient[F[_]]:
     * Token is passed as Authorization header and never echoed in error messages.
     */
   def submitMove(token: String, gameId: String, move: String): F[Either[LichessError, Unit]]
+  /** POST /api/bot/game/{gameId}/chat with room=player form body.
+    * Chat failures must never surface to callers as thrown exceptions.
+    */
+  def sendChatMessage(token: String, gameId: String, text: String): F[Either[LichessError, Unit]]
 
 // ── Domain types ──────────────────────────────────────────────────────────────
 

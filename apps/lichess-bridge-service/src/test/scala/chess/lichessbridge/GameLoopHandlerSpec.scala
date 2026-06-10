@@ -18,6 +18,9 @@ class GameLoopHandlerSpec extends AnyFlatSpec with Matchers:
     IO.ref(WorkerState.empty.addGame(ActiveGame("g1", "opponent", Some("white"), Instant.now())))
       .unsafeRunSync()
 
+  private def makeHub(): BotGameSnapshotHub =
+    BotGameSnapshotHub.create.unsafeRunSync()
+
   private def runHandler(
       events: List[Either[ParseError, LichessGameEvent]],
       aiResult: Either[AiError, UciMove] = Right(UciMove("e2e4")),
@@ -31,7 +34,8 @@ class GameLoopHandlerSpec extends AnyFlatSpec with Matchers:
       gameStream     = StubLichessGameStream(events),
       aiClient       = StubAiServiceClient(aiResult),
       lichessClient  = ControllableLichessClient(submitMoveResult = submitResult),
-      stateRef       = stateRef
+      stateRef       = stateRef,
+      snapshotHub    = makeHub()
     )
     handler.run.unsafeRunSync()
     stateRef.get.unsafeRunSync()
@@ -61,7 +65,8 @@ class GameLoopHandlerSpec extends AnyFlatSpec with Matchers:
       gameStream    = StubLichessGameStream(List(Right(gameFull))),
       aiClient      = StubAiServiceClient(Right(UciMove("e2e4"))),
       lichessClient = client,
-      stateRef      = makeStateRef()
+      stateRef      = makeStateRef(),
+      snapshotHub   = makeHub()
     )
     handler.run.unsafeRunSync()
     submitted should contain("e2e4")
@@ -83,7 +88,8 @@ class GameLoopHandlerSpec extends AnyFlatSpec with Matchers:
       gameStream = StubLichessGameStream(List(Right(gameFull))),
       aiClient = StubAiServiceClient(Right(UciMove("e2e4"))),
       lichessClient = client,
-      stateRef = makeStateRef()
+      stateRef = makeStateRef(),
+      snapshotHub   = makeHub()
     )
     handler.run.unsafeRunSync()
     submitted shouldBe empty
@@ -110,7 +116,8 @@ class GameLoopHandlerSpec extends AnyFlatSpec with Matchers:
       gameStream = StubLichessGameStream(List(Right(gameFull), Right(gameState))),
       aiClient = StubAiServiceClient(Right(UciMove("d2d4"))),
       lichessClient = client,
-      stateRef = makeStateRef()
+      stateRef = makeStateRef(),
+      snapshotHub   = makeHub()
     )
     handler.run.unsafeRunSync()
     submitted should contain("d2d4")
@@ -138,7 +145,8 @@ class GameLoopHandlerSpec extends AnyFlatSpec with Matchers:
       gameStream = StubLichessGameStream(List(Right(gameFull), Right(event))),
       aiClient = StubAiServiceClient(Right(UciMove("e7e5"))),
       lichessClient = client,
-      stateRef = makeStateRef()
+      stateRef = makeStateRef(),
+      snapshotHub   = makeHub()
     )
     handler.run.unsafeRunSync()
     submitCount shouldBe 1
@@ -158,7 +166,8 @@ class GameLoopHandlerSpec extends AnyFlatSpec with Matchers:
       gameStream = StubLichessGameStream(List(Right(gameFull))),
       aiClient = StubAiServiceClient(Left(AiError.ServiceError("down"))),
       lichessClient = ControllableLichessClient(),
-      stateRef = stateRef
+      stateRef = stateRef,
+      snapshotHub   = makeHub()
     )
     handler.run.unsafeRunSync()
     succeed
@@ -176,7 +185,8 @@ class GameLoopHandlerSpec extends AnyFlatSpec with Matchers:
       gameStream = StubLichessGameStream(List(Right(gameFull))),
       aiClient = FailingAiServiceClient(),
       lichessClient = ControllableLichessClient(),
-      stateRef = stateRef
+      stateRef = stateRef,
+      snapshotHub   = makeHub()
     )
     handler.run.unsafeRunSync()
     succeed
@@ -200,7 +210,8 @@ class GameLoopHandlerSpec extends AnyFlatSpec with Matchers:
       gameStream = StubLichessGameStream(List(Right(gameFull))),
       aiClient = StubAiServiceClient(Right(UciMove("e2e4"))),
       lichessClient = client,
-      stateRef = makeStateRef()
+      stateRef = makeStateRef(),
+      snapshotHub   = makeHub()
     )
     handler.run.unsafeRunSync()
     submitted shouldBe empty
@@ -221,7 +232,8 @@ class GameLoopHandlerSpec extends AnyFlatSpec with Matchers:
       gameStream = StubLichessGameStream(List(parseErr, Right(gameFull))),
       aiClient = StubAiServiceClient(),
       lichessClient = ControllableLichessClient(),
-      stateRef = stateRef
+      stateRef = stateRef,
+      snapshotHub   = makeHub()
     )
     handler.run.unsafeRunSync()
     succeed
@@ -241,7 +253,8 @@ class GameLoopHandlerSpec extends AnyFlatSpec with Matchers:
       gameStream = StubLichessGameStream(List(Right(gameFull))),
       aiClient = StubAiServiceClient(Right(UciMove("e2e4"))),
       lichessClient = ControllableLichessClient(submitMoveResult = Left(LichessError.UnexpectedResponse(400, "illegal"))),
-      stateRef = stateRef
+      stateRef = stateRef,
+      snapshotHub   = makeHub()
     )
     handler.run.unsafeRunSync()
     succeed
@@ -261,7 +274,8 @@ class GameLoopHandlerSpec extends AnyFlatSpec with Matchers:
       gameStream = StubLichessGameStream(List(Right(gameFull))),
       aiClient = StubAiServiceClient(Right(UciMove("e2e4"))),
       lichessClient = ControllableLichessClient(),
-      stateRef = stateRef
+      stateRef = stateRef,
+      snapshotHub   = makeHub()
     )
     handler.run.unsafeRunSync()
     val state = stateRef.get.unsafeRunSync()

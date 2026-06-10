@@ -49,6 +49,14 @@ static_resources:
                           route:
                             cluster: lichess_bridge
                             prefix_rewrite: /internal/lichess/policy
+                        # Lichess game events — SSE. Must be before the /api/ catch-all.
+                        # timeout: 0s disables request timeout for long-lived SSE connections.
+                        - match:
+                            prefix: /api/lichess/games/
+                          route:
+                            cluster: lichess_bridge
+                            prefix_rewrite: /internal/lichess/games/
+                            timeout: 0s
                         - match:
                             prefix: /api/
                           route:

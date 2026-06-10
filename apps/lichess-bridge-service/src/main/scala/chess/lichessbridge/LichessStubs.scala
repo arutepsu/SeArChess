@@ -21,13 +21,16 @@ final class StubLichessClient extends LichessClient[IO]:
     IO.pure(Left(NetworkError("StubLichessClient: not implemented")))
   def submitMove(token: String, gameId: String, move: String): IO[Either[LichessError, Unit]] =
     IO.pure(Left(NetworkError("StubLichessClient: not implemented")))
+  def sendChatMessage(token: String, gameId: String, text: String): IO[Either[LichessError, Unit]] =
+    IO.pure(Left(NetworkError("StubLichessClient: not implemented")))
 
 /** Stub LichessClient with configurable results. Used in worker and route tests. */
 class ControllableLichessClient(
     validateResult: Either[LichessError, Boolean] = Right(true),
     acceptResult: Either[LichessError, Unit] = Right(()),
     declineResult: Either[LichessError, Unit] = Right(()),
-    submitMoveResult: Either[LichessError, Unit] = Right(())
+    submitMoveResult: Either[LichessError, Unit] = Right(()),
+    sendChatResult: Either[LichessError, Unit] = Right(())
 ) extends LichessClient[IO]:
   def getBotProfile(token: String): IO[Either[LichessError, BotProfile]] =
     IO.pure(Left(NetworkError("not used")))
@@ -41,6 +44,8 @@ class ControllableLichessClient(
     IO.pure(declineResult)
   def submitMove(token: String, gameId: String, move: String): IO[Either[LichessError, Unit]] =
     IO.pure(submitMoveResult)
+  def sendChatMessage(token: String, gameId: String, text: String): IO[Either[LichessError, Unit]] =
+    IO.pure(sendChatResult)
 
 // ── LichessEventStream stubs ──────────────────────────────────────────────────
 

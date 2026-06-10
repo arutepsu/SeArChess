@@ -29,6 +29,7 @@ import chess.observability.StructuredLog
   *   LICHESS_MAX_CLOCK_SECONDS        — maximum acceptable total clock in seconds (default: 600 = 10+0)
   *   USER_SERVICE_URL                 — base URL of user-service (default: http://user-service:8082)
   *   USER_SERVICE_INTERNAL_API_KEY    — service-to-service secret for /internal/lichess/challenge-auth (never logged)
+  *   LICHESS_BOT_CHAT_ENABLED         — must be "true" to send in-game chat messages (default: false)
   */
 final case class LichessBridgeConfig(
     enabled: Boolean,
@@ -49,7 +50,8 @@ final case class LichessBridgeConfig(
     // Phase 3B: dynamic linked-user authorization
     userServiceUrl: String = "http://user-service:8082",
     requireLinkedChallenger: Boolean = true,
-    userServiceApiKey: String = ""
+    userServiceApiKey: String = "",
+    chatEnabled: Boolean = false
 ):
   /** True if a non-empty bot username was configured. */
   def botUsernameConfigured: Boolean = lichessBotUsername.isDefined
@@ -98,7 +100,8 @@ object LichessBridgeConfig:
       maxClockSeconds  = env("LICHESS_MAX_CLOCK_SECONDS").flatMap(_.toIntOption).getOrElse(600),
       userServiceUrl           = env("USER_SERVICE_URL").getOrElse("http://user-service:8082"),
       requireLinkedChallenger  = env("LICHESS_REQUIRE_LINKED_CHALLENGER").forall(_.toLowerCase != "false"),
-      userServiceApiKey        = env("USER_SERVICE_INTERNAL_API_KEY").getOrElse("")
+      userServiceApiKey        = env("USER_SERVICE_INTERNAL_API_KEY").getOrElse(""),
+      chatEnabled              = env("LICHESS_BOT_CHAT_ENABLED").exists(_.toLowerCase == "true")
     )
 
   private def parsePort(name: String, value: String): Either[String, Int] =

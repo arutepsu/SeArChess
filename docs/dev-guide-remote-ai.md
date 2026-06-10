@@ -6,6 +6,10 @@ treating the boundary as stable. The canonical Compose topology uses the Scala
 `ai-service` container documented in
 [`docs/dev-guide-container-local.md`](dev-guide-container-local.md).
 
+This guide explains how to run the Scala Game Service against the Python
+`searchess-ai-service` for local development, and what to verify before
+treating the boundary as stable.
+
 ---
 
 ## Services overview
@@ -34,6 +38,24 @@ If you are testing against an external AI provider, start it on the host:
 cd searchess-ai-service
 uv run uvicorn searchess_ai.api.app:create_app \
   --factory --host 127.0.0.1 --port 8765 --reload
+
+The Game Service calls the AI service at `POST /v1/move-suggestions`. Remote
+mode is the default runtime path; the AI service calls back nothing and remains
+stateless.
+
+For the full local container deployment, see
+[`docs/dev-guide-container-local.md`](dev-guide-container-local.md).
+
+---
+
+## External provider on the host
+
+If you are testing against an external AI provider, start it on the host:
+
+```bash
+# Example only; use the provider's own run command.
+cd searchess-ai-service
+docker compose up --build
 ```
 
 Verify it is up:
@@ -53,6 +75,22 @@ not published as a host port by `docker-compose.yml`.
 
 Remote AI mode is the default for the Game Service. When running directly via
 sbt against a host-run AI provider:
+```
+
+When running the Scala Game Service directly on the host, set
+`AI_REMOTE_BASE_URL=http://127.0.0.1:8765`. In the repo-level Compose setup,
+Game reaches AI by service name at `http://ai-service:8765`.
+
+The Compose AI Service is internal-only. It is not exposed through Envoy and is
+not published as a host port by `docker-compose.yml`.
+
+## Starting the Scala Game Service in remote AI mode
+
+For the two-container local deployment, see
+[`docs/dev-guide-container-local.md`](dev-guide-container-local.md).
+
+To run the Scala server directly via sbt, the Python service must already be
+up (either via Docker or Option B above) before starting the Scala server.
 
 ```bash
 cd searchess
@@ -65,6 +103,7 @@ At startup you will see:
 
 ```text
 [chess] AI client: remote @ http://127.0.0.1:8765
+[chess] AI provider: remote @ http://127.0.0.1:8765
 ```
 
 ### Scala server env var reference
@@ -83,6 +122,11 @@ in-process `LocalDeterministicAiClient` as a transitional/dev-only fallback.
 Inside Game Service, `/games/{id}/ai-move` depends on the single
 `AiMoveSuggestionClient` port. The normal runtime implementation is
 `RemoteAiMoveSuggestionClient`, which calls the configured AI service. The local
+deterministic client is not selected unless `AI_PROVIDER_MODE=local` is set.
+
+Inside Game Service, `/games/{id}/ai-move` depends on the single
+`AiMoveSuggestionClient` port. The normal runtime implementation is
+`RemoteAiMoveSuggestionClient`, which calls the Python AI service. The local
 deterministic client is not selected unless `AI_PROVIDER_MODE=local` is set.
 
 ---
@@ -122,6 +166,7 @@ game state.
 
 **3. Run the Scala integration tests** when an external provider is reachable on
 the host at port `8765`:
+the host at port `8765`:
 
 ```bash
 sbt "adapterAi/testOnly chess.adapter.ai.remote.RemoteAiIntegrationSpec"
@@ -151,6 +196,23 @@ responses and illegal provider suggestions are rejected as
 
 The Game Service always re-validates the move returned by the AI service
 against its own legal-move list before applying it.
+`503 AI_PROVIDER_FAILED` at the Game Service REST boundary. Malformed provider
+responses and illegal provider suggestions are rejected as
+`422 AI_MOVE_REJECTED`.
+
+| Scenario | `AIError` inside Scala adapter | Game Service response |
+|---|---|---|
+| Python service not reachable | `Unavailable(...)` | `503 AI_PROVIDER_FAILED` |
+| Python service timeout | `Timeout(...)` | `503 AI_PROVIDER_FAILED` |
+| Python returns `ENGINE_UNAVAILABLE` | `Unavailable(...)` | `503 AI_PROVIDER_FAILED` |
+| Python returns `ENGINE_TIMEOUT` | `Timeout(...)` | `503 AI_PROVIDER_FAILED` |
+| Python returns `ENGINE_FAILURE` | `EngineFailure(...)` | `503 AI_PROVIDER_FAILED` |
+| Python returns malformed success JSON | `MalformedResponse(...)` | `422 AI_MOVE_REJECTED` |
+| AI proposes an illegal move | `AITurnError.IllegalSuggestedMove(...)` | `422 AI_MOVE_REJECTED` |
+| `AI_PROVIDER_MODE=remote` with blank `AI_REMOTE_BASE_URL` | startup config error | Server fails fast |
+
+The game server **always re-validates** the move returned by the AI service
+against its own legal-move list.
 
 ---
 
@@ -172,4 +234,18 @@ resources are available.
 | Authentication / API keys | No auth on either side |
 | Health / readiness probes | `/health` is unconditional liveness only |
 | Retry / circuit-breaker policy | No circuit breaker; Game maps provider failure explicitly |
+engine is loaded, whether FEN parsing is functional, or whether downstream
+resources are available.
+
+---
+
+## What remains before AI Service is production-grade
+
+| Area | Status |
+|---|---|
+| Real chess engine (Stockfish / lc0) | Not wired; only `random` and `fake` backends exist |
+| FEN validation in AI service | `BAD_POSITION` error code exists but no FEN parser is called |
+| Authentication / API keys | No auth on either side |
+| Health / readiness probes | `/health` is unconditional liveness only |
+| Retry / circuit-breaker policy | Callers retry once; no circuit-breaker wired |
 | Observability (tracing, metrics) | No instrumentation |

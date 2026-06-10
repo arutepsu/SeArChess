@@ -107,7 +107,7 @@ export default function ResumeGamePanel({ busy, onResume }: Props) {
           {sessions.length === 0 ? (
             <p className="resume-empty">No resumable sessions found.</p>
           ) : (
-            sessions.map(session => (
+            sessions.slice(0, 10).map(session => (
               <article
                 key={session.sessionId}
                 className="session-item"
