@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Chess } from "chess.js";
 import { Routes, Route, useNavigate } from "react-router-dom";
 import type { PlayableGameMode, GameState } from "./api/types";
 import type { MoveHistoryEntryDto } from "./api/backendTypes";
@@ -200,8 +201,8 @@ export default function App() {
   const { session, setSession, getSessionId } = useSession();
   const navigate = useNavigate();
 
-  const [, setConnection] = useState<ConnectionState>("loading");
-  const [, setLiveConnection] =
+  const [connection, setConnection] = useState<ConnectionState>("loading");
+  const [liveConnection, setLiveConnection] =
     useState<LiveConnectionState>("idle");
   const [whiteClockMs, setWhiteClockMs] = useState(baseClockMs);
   const [blackClockMs, setBlackClockMs] = useState(baseClockMs);
@@ -767,9 +768,9 @@ export default function App() {
 
                 <StatusBanner
                   game={displayedGame}
-                  connection={connection}
-                  liveConnection={liveConnection}
-                  message={message}
+                  connection={displayedConnection}
+                  liveConnection={displayedLiveConnection}
+                  message={displayedMessage}
                 />
 
                 {displayedGame ? (
