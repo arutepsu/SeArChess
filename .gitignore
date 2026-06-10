@@ -36,6 +36,7 @@ docs/performance/**/logs/
 docs/performance/**/runs/
 
 # Local environment overrides — never commit real values
+<<<<<<< HEAD
 .env
 
 # Docker image archives

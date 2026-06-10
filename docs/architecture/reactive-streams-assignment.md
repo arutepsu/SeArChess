@@ -1,245 +1,105 @@
 # Reactive Streams Assignment Architecture
 
-## 1. Assignment Goal
+The `apps/chess-streaming` module contains the university assignment pipeline for Searchess-specific reactive streams. It is intentionally local to the assignment module and does not change the production `EventPublisher` implementation or the domain model.
 
-The university assignment asks for an application stream with a source, one or
-more processing flows, and a sink. In Searchess terms, the assignment should be
-a small chess-related Pekko Streams pipeline:
-
-```text
-Source[String]
-  -> Flow(s) that parse and validate Searchess game commands
-  -> Flow(s) that process those commands into game results/events
-  -> Sink that collects a summary or event envelopes
-```
-
-The first source should be a file containing an external Searchess DSL. Kafka is
-intentionally deferred to a later lecture/task, where it can replace the file
-source and/or final sink without changing the core parsing and processing
-flows.
-
-## 2. Current Repository State
-
-`apps/chess-streaming/src/main/scala/chess/streaming/ChessStreamingMain.scala`
-already contains a standalone Pekko Streams demo. It currently has:
-
-- a `Source[String, _]` named `movesSource`, built from an in-memory list of
-  move-like DSL strings;
-- a parser `Flow[String, Either[Throwable, Move], _]`;
-- a validator/processor `Flow[Either[Throwable, Move], Either[String, GameState], _]`;
-- a `Sink[Either[String, GameState], Future[Done]]` that prints board states or
-  errors;
-- materialization with `.toMat(consoleSink)(Keep.right).run()`;
-- completion handling with `runningStream.onComplete`, which terminates the
-  `ActorSystem`.
-
-`build.sbt` defines `lazy val chessStreaming = project.in(file("apps/chess-streaming"))`
-and includes the Pekko Streams dependency:
-
-```scala
-"org.apache.pekko" %% "pekko-stream" % "1.1.2"
-```
-
-The production event system is separate. `EventPublisher`,
-`FanOutEventPublisher`, WebSocket publishing, Redis history delivery, and Game
-Service event wiring are not a Reactive Streams pipeline. They are production
-eventing and delivery infrastructure and should not be used as proof that the
-assignment requirement is satisfied.
-
-Files inspected for this architecture note:
-
-- `apps/chess-streaming/src/main/scala/chess/streaming/ChessStreamingMain.scala`
-- `build.sbt`
-- `docs/architecture/event-module-ownership.md`
-- `docs/contracts/game-events-v1.md`
-- `docs/architecture/redis-history-delivery.md`
-
-This assignment should evolve `apps/chess-streaming`, not production Game
-Service fan-out.
-
-## 3. Chosen Stream Scenario
-
-The chosen source is a file-based external Searchess DSL. The stream reads lines
-from a file such as `searchess-game.dsl`, parses each line into a command,
-validates the command against the current stream/session context, processes the
-command into game state changes, creates event envelopes, and finally collects a
-summary or writes envelopes to a sink.
-
-A file DSL is a better first source than keyboard input, random data, or a web
-site for this project because it is deterministic, testable, chess-related, and
-easy to replay. It also prepares the architecture for Kafka: each file line can
-later become one Kafka record value, while the parsing and processing flows stay
-the same.
-
-## 4. Proposed DSL
-
-Initial commands:
-
-| Command | Meaning |
-|---|---|
-| `session <sessionId>` | Start or identify the streamed game session. |
-| `players <whitePlayer> <blackPlayer>` | Assign white and black player names. |
-| `move <player> <uciMove>` | Submit a move by player name, using UCI-like notation such as `e2e4`. |
-| `status` | Request a status event or summary snapshot. |
-| `resign <player>` | End the game by resignation from the named player. |
-
-Example input file:
-
-```text
-# searchess-game.dsl
-
-session demo-game-1
-players Alice Bob
-move Alice e2e4
-move Bob e7e5
-move Alice g1f3
-move Bob b8c6
-status
-resign Bob
-```
-
-Blank lines and lines starting with `#` should be ignored by the parser.
-
-## 5. Proposed Source / Flow / Sink Pipeline
-
-Target pipeline:
+## Pipeline
 
 ```text
 Source[String]
   -> ParseDslFlow
   -> ValidateCommandFlow
-  -> ProcessGameCommandFlow
-  -> CreateEventEnvelopeFlow
+  -> ProcessGameFlow
+  -> EventEnvelopeFlow
   -> Batch/Backpressure Flow
-  -> Summary/File/Console Sink
+  -> Sink
 ```
 
-| Stage | Conceptual input | Conceptual output | Responsibility | Failure behavior |
-|---|---|---|---|---|
-| `Source[String]` | File path or stream configuration | Raw DSL lines | Read one command line at a time. | File open/read failure fails the stream. |
-| `ParseDslFlow` | Raw line | `DslCommand` or parse error | Ignore comments/blank lines, parse command shape, normalize move text. | Invalid syntax becomes a structured parse error; fatal parser bugs fail the stream. |
-| `ValidateCommandFlow` | `DslCommand` | `ValidatedCommand` or validation error | Enforce command ordering and required context, such as session before moves and known player names. | Invalid commands become validation failures; impossible stream state can fail the stream. |
-| `ProcessGameCommandFlow` | `ValidatedCommand` | `ProcessedCommand` or domain/application error | Apply commands to stream-local game state and produce command results. | Illegal moves are reported explicitly, not silently dropped. |
-| `CreateEventEnvelopeFlow` | `ProcessedCommand` | `EventEnvelope` | Convert meaningful results into versioned event envelopes for collection or later Kafka publishing. | Missing required envelope data fails that element or the stream, depending on severity. |
-| `Batch/Backpressure Flow` | `EventEnvelope` | `Seq[EventEnvelope]` or grouped output | Demonstrate bounded buffering, grouping, and Kafka-readiness. | Buffer overflow should backpressure or fail, not drop chess commands. |
-| `Summary/File/Console Sink` | Envelopes or batches | `StreamSummary` / output file / console output | Collect counts, final status, errors, and emitted envelopes. | Sink write failure fails the materialized stream result. |
+## Source: Searchess DSL file
 
-This document intentionally avoids full Scala implementation. The next task
-should introduce small pure models and flows incrementally.
+The stream starts from a Searchess DSL file. The default demo input is `apps/chess-streaming/src/main/resources/searchess-game.dsl`, and the command-line runner can also accept a file path from `args`.
 
-## 6. Backpressure and Strategy Plan
+Each line is emitted as one `String` element. Empty lines and comment lines beginning with `#` are intentionally handled by the parser flow, so the source stays simple and only owns file reading.
 
-Pekko Streams provides backpressure through the stream runtime: downstream
-demand controls upstream pulling when stages are connected normally. The first
-Searchess assignment implementation should demonstrate that capability without
-inventing custom `Publisher`, `Subscriber`, or `Subscription` abstractions.
+## Flow 1: ParseDslFlow
 
-Recommended first-phase strategies:
+`ParseDslFlow` turns raw text lines into streaming-local `DslCommand` values:
 
-- Use bounded buffers where a boundary needs explicit capacity.
-- Use a fail strategy for fatal invalid stream state.
-- Use batching/grouping to show how the pipeline can prepare events for Kafka.
-- Optionally use throttle in demo mode to make stream behavior visible during a
-  presentation.
+- `session <sessionId>`
+- `players <whiteName> <blackName>`
+- `move <playerName> <uciMove>`
+- `status`
+- `resign <playerName>`
 
-`DropNewest`, `DropOldest`, `Latest`, and fan-out subscriber strategies are not
-needed for the first assignment pipeline. Chess move commands, resignations, and
-game results must not be silently dropped. Lossy strategies may make sense later
-for UI refresh signals or progress updates, but not for the command stream that
-drives game state.
+Malformed input is represented as `DslParseError` data with the line number and raw input. Parse errors do not fail the stream by default, which lets the sink summarize both successful commands and rejected input.
 
-## 7. Kafka Future Compatibility
+## Flow 2: ValidateCommandFlow
 
-Current assignment shape:
+`ValidateCommandFlow` checks stream-level command ordering and syntax assumptions before game processing:
+
+- a session must be declared first
+- players must be declared after the session
+- moves, status, and resign commands require registered players
+- a player cannot resign before players are known
+
+Validation failures become `ValidationFailed` results. They continue through the stream as data so the assignment pipeline can report them at the sink.
+
+## Flow 3: ProcessGameFlow
+
+`ProcessGameFlow` owns assignment-local orchestration state:
+
+- current session id
+- registered white and black player names
+- current domain `GameState`
+- finished flag after resignation, checkmate, or draw
+
+Move processing delegates chess legality to the existing domain `GameStateRules` boundary. This keeps rules in the domain layer and keeps Pekko-specific flow types out of the domain.
+
+## Flow 4: EventEnvelopeFlow
+
+`EventEnvelopeFlow` wraps each processing result into an `EventEnvelope`. The envelope shape is Kafka-ready: it contains an event id, event type, session id, sequence number, timestamp, and payload text. It is still only an in-memory assignment representation.
+
+## Batch and backpressure flow
+
+The batching flow groups envelopes before they reach the sink. This demonstrates a concrete backpressure boundary: downstream sinks receive bounded batches rather than an unbounded event firehose.
+
+## Sink
+
+The assignment runner provides console output and a summary sink. The sink prints each batch and collects a `StreamSummary` containing total events, accepted moves, rejected moves, parse failures, validation failures, and finished games.
+
+## Pekko room demonstration
+
+`SearchessRoomStream` adds a live room/session demonstration on top of the same assignment pipeline. A room is one materialized stream with its own parser state, validation state, game-processing state, event-envelope sequence, and bounded input queue.
 
 ```text
-File Source[String]
-  -> same parsing/validation/processing/envelope flows
-  -> File/Console/Summary Sink
+Source.queue[String]
+  -> ParseDslFlow
+  -> ValidateCommandFlow
+  -> ProcessGameFlow
+  -> EventEnvelopeFlow
+  -> Backpressure Flow
+  -> BroadcastHub[EventEnvelope]
 ```
 
-Later Kafka shape:
+Commands are submitted as raw Searchess DSL lines. Current subscribers receive live `EventEnvelope` values from the room's `BroadcastHub`, and consumers that need assignment-style batches can use the room's batched event source.
 
-```text
-Kafka Source[String]
-  -> same parsing/validation/processing/envelope flows
-  -> Kafka Sink[EventEnvelope]
-```
+`SearchessRoomRegistry` manages rooms by `roomId`. It intentionally stays inside `apps/chess-streaming`; it does not change production `EventPublisher`, does not persist room state, and does not introduce a custom Publisher/Subscriber framework.
 
-Kafka should be introduced as a source/sink adapter later, not by rewriting the
-core flows. The flow input can remain raw command text, and the flow output can
-remain event envelopes.
+## HTTP/WebSocket adapter
 
-Conceptual `EventEnvelope` fields:
+`ChessStreamingServerMain` starts a small Pekko HTTP adapter around `SearchessRoomRegistry`.
 
-| Field | Purpose |
-|---|---|
-| `eventId` | Unique event identifier, suitable for idempotency. |
-| `eventType` | Stable type such as `searchess.dsl.move.applied.v1`. |
-| `sessionId` | DSL/session identifier. |
-| `gameId` | Game identifier when available. |
-| `occurredAt` | Event creation timestamp. |
-| `version` | Envelope or event schema version. |
-| `payload` | Event-specific data, such as move, player, status, or result. |
+Available endpoints:
 
-The production `docs/contracts/game-events-v1.md` file already shows how
-Searchess thinks about stable event names and versions. The assignment envelope
-can borrow that discipline without modifying production event contracts.
+- `GET /` serves the local demo page.
+- `GET /rooms` returns active room ids.
+- `POST /rooms/{roomId}/commands` enqueues one DSL command line into a room. The request body may be raw DSL text or JSON with a `line` field.
+- `GET /rooms/{roomId}/events` upgrades to a WebSocket and streams live room envelopes.
+- `GET /game?gameId={roomId}` and `GET /game/{roomId}` remain compatibility aliases for the WebSocket route.
 
-## 8. Clean Architecture Boundaries
+The WebSocket input accepts either raw DSL lines or JSON with `roomId`/`gameId` and `line`/`command`. WebSocket output is JSON containing the room id and the Kafka-ready `EventEnvelope`.
 
-The domain model should not depend on Pekko Streams. Pekko-specific imports,
-materialization, source/sink adapters, and runtime wiring should stay in
-`apps/chess-streaming`.
+## Kafka future work
 
-Parsing, validation, and game-processing concepts should be pure and testable.
-That means future work should prefer small data models such as `DslCommand`,
-`ValidatedCommand`, `ProcessedCommand`, `EventEnvelope`, and `StreamSummary`
-before wiring them into Pekko stages.
+Kafka is future work and is not part of this PR. The intended next step is to replace the file source with a Kafka source, or replace the console/file sink with a Kafka sink, while keeping the parse, validation, processing, envelope, and batching flows intact.
 
-Production `EventPublisher`, `FanOutEventPublisher`, WebSocket publishers,
-Redis history publishers, and Game Service event assembly should not be
-modified for this assignment foundation. The existing architecture docs already
-mark broker abstractions and delivery-semantics changes as non-goals for the
-production eventing cleanup.
-
-## 9. Implementation Roadmap
-
-Task 2: Introduce DSL model and parser flow.
-
-Task 3: Add validation flow.
-
-Task 4: Add game-processing flow.
-
-Task 5: Add event-envelope flow.
-
-Task 6: Add sink and stream summary.
-
-Task 7: Add backpressure/batch demonstration.
-
-Task 8: Add tests.
-
-Task 9: Prepare Kafka adapter later.
-
-Each task should keep production Game Service eventing untouched unless a later
-assignment explicitly changes scope.
-
-## 10. Risks and Tradeoffs
-
-The main risk is staying too close to a toy demo. The current
-`ChessStreamingMain` already satisfies the broad Source/Flow/Sink shape, but it
-uses an in-memory list and stream-local chess models. A Searchess DSL file makes
-the assignment more realistic without changing production services.
-
-Another risk is overengineering. This assignment does not need a custom
-Reactive Streams contract, a full production event bus, WebSocket fan-out,
-persistence subscribers, analytics subscribers, or Kafka dependencies. Pekko
-Streams already supplies the stream runtime needed for the university task.
-
-Move commands must not be dropped. Bounded buffers, batching, throttling, and
-failure behavior are appropriate demonstrations. Lossy overflow strategies
-should wait for later UI/progress use cases.
-
-Kafka should remain a future adapter. The core design win is that a file source
-and Kafka source can feed the same flows, and a console/file sink and Kafka sink
-can consume the same event envelopes.
+The production `EventPublisher` remains untouched. This assignment pipeline is a learning module that prepares the stream shape for a later Kafka lecture without introducing production fan-out, persistence subscribers, WebSocket subscribers, analytics subscribers, bot subscribers, or a custom Publisher/Subscriber framework.
