@@ -18,6 +18,7 @@ spec:
       containers:
         - name: web-ui
           image: searchess/web-ui
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 80

@@ -174,7 +174,7 @@ jobs:
           AI=$(echo                "$CHANGED" | grep -E "^apps/ai-service/|^Dockerfile\.ai$"               || true)
           BOT_SERVICE=$(echo       "$CHANGED" | grep -E "^apps/bot-service/|^Dockerfile\.bot-service$|^deployment/" || true)
           USER_SERVICE=$(echo      "$CHANGED" | grep -E "^apps/user-service/|^Dockerfile\.user-service$|^deployment/k8s/base/user-service/" || true)
-          WEB_UI=$(echo            "$CHANGED" | grep -E "^apps/web-ui/"                                    || true)
+          WEB_UI=$(echo            "$CHANGED" | grep -E "^apps/web-ui/|^deployment/k8s/base/web-ui/"     || true)
           LICHESS_BRIDGE=$(echo    "$CHANGED" | grep -E "^apps/lichess-bridge-service/|^Dockerfile\.lichess-bridge-service$" || true)
 
           # Safety: if the overlay still carries sha-placeholder the image was never
@@ -517,7 +517,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.ORG }}/searchess-web-ui
           tags: |
             type=raw,value=sha-${{ steps.sha.outputs.SHORT_SHA }}
-            type=raw,value=main-latest
+            type=raw,value=main
             type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
 
       - name: Set up Docker Buildx
@@ -702,8 +702,11 @@ jobs:
             IMAGES_UPDATED="${IMAGES_UPDATED} user-service"
           fi
           if [ "${{ needs.build-web-ui.result }}" = "success" ]; then
-            kustomize edit set image \
-              searchess/web-ui=ghcr.io/${{ env.ORG }}/searchess-web-ui:sha-${SHORT_SHA}
+            # web-ui uses the stable 'main' tag — do not overwrite with a SHA tag.
+            # Instead stamp the pod template annotation so Argo CD sees the change
+            # and restarts the pod; imagePullPolicy: Always then pulls the new image.
+            sed -i "s/deploy-sha: .*/deploy-sha: \"sha-${SHORT_SHA}\"/" \
+              patches/web-ui-deploy-sha.yaml
             IMAGES_UPDATED="${IMAGES_UPDATED} web-ui"
           fi
           if [ "${{ needs.build-python-ai-service.result }}" = "success" ]; then
@@ -730,7 +733,11 @@ jobs:
           RENDERED=$(kubectl kustomize deployment/k8s/overlays/uni-server-registry)
           echo "$RENDERED"
           for SERVICE in ${{ steps.update.outputs.images_updated }}; do
-            EXPECTED="ghcr.io/${{ env.ORG }}/searchess-${SERVICE}:sha-${SHORT_SHA}"
+            if [ "$SERVICE" = "web-ui" ]; then
+              EXPECTED="ghcr.io/${{ env.ORG }}/searchess-web-ui:main"
+            else
+              EXPECTED="ghcr.io/${{ env.ORG }}/searchess-${SERVICE}:sha-${SHORT_SHA}"
+            fi
             if ! echo "$RENDERED" | grep -qF "$EXPECTED"; then
               echo "ERROR: expected image not found in rendered output: $EXPECTED"
               exit 1
@@ -753,6 +760,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add deployment/k8s/overlays/uni-server-registry/kustomization.yaml
+          git add deployment/k8s/overlays/uni-server-registry/patches/web-ui-deploy-sha.yaml
           if git diff --cached --quiet; then
             echo "kustomization.yaml unchanged — no commit needed."
             exit 0

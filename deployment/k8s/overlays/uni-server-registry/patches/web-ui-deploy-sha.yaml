@@ -1,0 +1,9 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-ui
+spec:
+  template:
+    metadata:
+      annotations:
+        deploy-sha: "sha-placeholder"
