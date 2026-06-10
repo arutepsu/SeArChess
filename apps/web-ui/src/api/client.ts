@@ -90,6 +90,7 @@ export async function getGameState(gameId: string): Promise<GameSnapshot> {
   return fetchJson<GameSnapshot>(`/games/${gameId}`);
 }
 
+
 export async function getReplayFrame(
   gameId: string,
   ply: number
@@ -162,7 +163,6 @@ export async function importGameFromNotation(
 ): Promise<CreateGameResponse> {
   return importNotation(payload);
 }
-
 export async function importNotation(
   payload: ImportNotationRequest
 ): Promise<CreateGameResponse> {
@@ -265,7 +265,6 @@ export async function runMigration(
     body: JSON.stringify(request)
   });
 }
-
 export async function getHeatmapStats(
   gameId: string,
   player: "White" | "Black"

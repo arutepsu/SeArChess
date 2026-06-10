@@ -5,6 +5,7 @@
  * This is a template demonstrating the integration pattern.
  */
 
+
 import { HeatmapPanel } from "../components/HeatmapPanel";
 import { useHeatmapStats } from "../game/useHeatmapStats";
 import type { GameSnapshot } from "../api/backendTypes";
@@ -70,4 +71,5 @@ export function GameAnalysisView({
         </div>
     );
 }
+
 
