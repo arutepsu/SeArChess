@@ -40,25 +40,25 @@ images:
   newTag: "4.4"
 - name: searchess/ai-service
   newName: ghcr.io/arutepsu/searchess-ai-service
-  newTag: sha-10fe99d
+  newTag: sha-1bfb049
 - name: searchess/bot-service
   newName: ghcr.io/arutepsu/searchess-bot-service
-  newTag: sha-cb8574f
+  newTag: sha-1bfb049
 - name: searchess/game-service
   newName: ghcr.io/arutepsu/searchess-game-service
-  newTag: sha-10fe99d
+  newTag: sha-1bfb049
 - name: searchess/history-service
   newName: ghcr.io/arutepsu/searchess-history-service
-  newTag: sha-10fe99d
+  newTag: sha-1bfb049
 - name: searchess/lichess-bridge-service
   newName: ghcr.io/arutepsu/searchess-lichess-bridge-service
-  newTag: sha-bf39bab
+  newTag: sha-1bfb049
 - name: searchess/python-ai-service
   newName: ghcr.io/arutepsu/searchess-python-ai-service
   newTag: sha-2247329
 - name: searchess/user-service
   newName: ghcr.io/arutepsu/searchess-user-service
-  newTag: sha-53ce0d0
+  newTag: sha-1bfb049
 - name: searchess/web-ui
   newName: ghcr.io/arutepsu/searchess-web-ui
   newTag: sha-53ce0d0
