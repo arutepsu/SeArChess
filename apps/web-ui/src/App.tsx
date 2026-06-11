@@ -184,7 +184,6 @@ export default function App() {
 
   const displayedWhiteTimeMs = activeTab === "bot" ? (botWhiteClockMs ?? 0) : whiteClockMs;
   const displayedBlackTimeMs = activeTab === "bot" ? (botBlackClockMs ?? 0) : blackClockMs;
-  const displayedActiveColor = activeTab === "bot" ? displayedGame?.activeColor : game?.activeColor;
   const displayedClockRunning = activeTab === "bot" ? botClockRunning : clockRunning;
 
   const canResign =
@@ -581,9 +580,9 @@ export default function App() {
               replayModeActive={replayModeActive}
               boundedTimelinePly={boundedTimelinePly}
               currentReplayMove={currentReplayMove}
-              whiteClockMs={whiteClockMs}
-              blackClockMs={blackClockMs}
-              clockRunning={clockRunning}
+              whiteClockMs={displayedWhiteTimeMs}
+              blackClockMs={displayedBlackTimeMs}
+              clockRunning={displayedClockRunning}
               backgroundId={backgroundId}
               onBackgroundChange={setBackgroundId}
               backgrounds={backgrounds}

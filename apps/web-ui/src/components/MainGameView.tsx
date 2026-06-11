@@ -272,7 +272,7 @@ export default function MainGameView({
           busy={busy}
           whiteTimeMs={whiteClockMs}
           blackTimeMs={blackClockMs}
-          activeColor={game?.activeColor}
+          activeColor={displayedGame?.activeColor ?? game?.activeColor}
           clockRunning={clockRunning}
           gameMode={gameMode}
           canResign={canResign}
