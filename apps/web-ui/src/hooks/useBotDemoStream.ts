@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Chess } from "chess.js";
+import { Chess, type Square } from "chess.js";
 import type { GameState, BoardMatrix, PieceCode } from "../api/types";
 import { computeCapturedPieces } from "../api/mapper";
 
@@ -27,9 +27,14 @@ function mapBotDataToGameState(data: BotWebSocketData): GameState {
   const moveList = data.moves ? data.moves.split(" ").filter(Boolean) : [];
   for (const moveStr of moveList) {
     if (moveStr.length >= 4) {
-      const from = moveStr.substring(0, 2);
-      const to = moveStr.substring(2, 4);
-      const promotion = moveStr.length > 4 ? moveStr.substring(4, 5).toLowerCase() : undefined;
+      const from = moveStr.substring(0, 2) as Square;
+      const to = moveStr.substring(2, 4) as Square;
+      const promotion = (moveStr.length > 4 ? moveStr.substring(4, 5).toLowerCase() : undefined) as
+        | "b"
+        | "n"
+        | "r"
+        | "q"
+        | undefined;
       chess.move({ from, to, promotion });
     }
   }
@@ -202,10 +207,11 @@ export function useBotDemoStream(activeTab: "local" | "bot"): UseBotDemoStreamRe
           : [];
         for (const moveStr of moveList) {
           if (moveStr.length >= 4) {
-            const from = moveStr.substring(0, 2);
-            const to = moveStr.substring(2, 4);
-            const promotion =
-              moveStr.length > 4 ? moveStr.substring(4, 5).toLowerCase() : undefined;
+            const from = moveStr.substring(0, 2) as Square;
+            const to = moveStr.substring(2, 4) as Square;
+            const promotion = (
+              moveStr.length > 4 ? moveStr.substring(4, 5).toLowerCase() : undefined
+            ) as "b" | "n" | "r" | "q" | undefined;
             chess.move({ from, to, promotion });
           }
         }
