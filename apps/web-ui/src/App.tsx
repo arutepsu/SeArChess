@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chess } from "chess.js";
 import { Routes, Route, useNavigate } from "react-router-dom";
-import type { PlayableGameMode, GameState } from "./api/types";
+import type { PlayableGameMode, GameState, BoardMatrix, PieceCode } from "./api/types";
 import type { MoveHistoryEntryDto } from "./api/backendTypes";
 import { getReplayFrame } from "./api/client";
-import keycloak from "./auth/keycloak";
 import { getMyProfile } from "./api/userServiceClient";
 import type { UserProfileResponse } from "./api/userServiceTypes";
-import { mapGameSnapshotToGameState } from "./api/mapper";
+import { mapGameSnapshotToGameState, computeCapturedPieces } from "./api/mapper";
 import type { SpriteCatalog } from "./assets/spriteCatalog";
 import { loadSpriteCatalog } from "./assets/spriteCatalog";
 import { connectWebSocket, type WsClient } from "./api/ws";
@@ -34,6 +33,14 @@ import "./App.css";
 
 type ConnectionState = "connected" | "offline" | "loading";
 type LiveConnectionState = "idle" | "connecting" | "live" | "disconnected";
+
+interface BotWebSocketData {
+  moves?: string;
+  wtime?: number | null;
+  btime?: number | null;
+  gameId?: string | null;
+  botColor?: "white" | "black";
+}
 
 const baseClockMs = 10 * 60 * 1000;
 
@@ -155,7 +162,7 @@ function mapBotDataToGameState(
   const winner = status === "checkmate" ? (activeColor === "white" ? "black" : "white") : undefined;
 
   return {
-    id: data.gameId,
+    id: data.gameId ?? "",
     board,
     activeColor,
     status,
@@ -223,6 +230,19 @@ export default function App() {
   const [hasNewBotMoveNotification, setHasNewBotMoveNotification] = useState(false);
   const [botConnectionState, setBotConnectionState] = useState<"idle" | "connecting" | "live" | "disconnected">("idle");
 
+  const [profile, setProfile] = useState<UserProfileResponse | null>(null);
+  const [onboardingRequired, setOnboardingRequired] = useState(false);
+
+  useEffect(() => {
+    getMyProfile()
+      .then((p) => {
+        setProfile(p);
+        setOnboardingRequired(p.onboardingRequired);
+        if (p.onboardingRequired) navigate("/onboarding");
+      })
+      .catch(() => { /* ignore — don't block the app if user-service is unreachable */ });
+  }, [navigate]);
+
   const lastTickMs = useRef<number | null>(null);
   const wsClientRef = useRef<WsClient | null>(null);
   const previousTimelineTotalRef = useRef(0);
@@ -242,6 +262,7 @@ export default function App() {
 
   const boardInteractionDisabled = activeTab === "bot" || busy || sessionClosed || !clockRunning;
   const replayModeActive = timelinePly < timelineTotalPlies;
+  const boundedTimelinePly = Math.min(timelinePly, timelineTotalPlies);
 
   const mappedBotGame = useMemo(() => {
     if (!botGameData) return null;
@@ -586,7 +607,7 @@ export default function App() {
           }
 
           prevBotMovesCountRef.current = movesCount;
-          prevBotGameIdRef.current = data.gameId;
+          prevBotGameIdRef.current = data.gameId ?? null;
         } catch (e) {
           console.error("Failed to parse bot websocket message: ", e);
         }
