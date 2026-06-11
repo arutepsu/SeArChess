@@ -296,6 +296,11 @@ export default function App() {
     navigate("/");
   }, [navigate]);
 
+  const handleOpenBotDemo = useCallback(() => {
+    setActiveTab("bot");
+    navigate("/game");
+  }, [navigate]);
+
   useEffect(() => {
     wsClientRef.current?.close();
     wsClientRef.current = null;
@@ -527,6 +532,7 @@ export default function App() {
               onOpenSettings={() => navigate("/settings")}
               onOpenOnboarding={() => navigate("/onboarding")}
               onOpenLichessHub={() => navigate("/lichess")}
+              onOpenBotDemo={handleOpenBotDemo}
             />
           }
         />
