@@ -102,6 +102,83 @@ final class SearchessRoomStreamsSpec extends AnyFlatSpec with Matchers:
     }
   }
 
+  it should "expose parse validation and move rejections as dead letters" in {
+    implicit val system: ActorSystem = ActorSystem("SearchessRoomStreamDeadLetterSpec")
+    val room = SearchessRoomStream.create("room-dead-letters")
+
+    try {
+      val deadLettersFuture = room.deadLetters.take(3).runWith(Sink.seq)
+
+      submitAll(room, List(
+        "unknown abc",
+        "move Alice e2e4",
+        "session dead-letter-session",
+        "players Alice Bob",
+        "move Bob e7e5"
+      ))
+
+      val deadLetters = Await.result(deadLettersFuture, 5.seconds)
+
+      deadLetters.map(_.eventType) shouldBe Seq("ParseFailed", "ValidationFailed", "MoveRejected")
+    } finally {
+      room.close()
+      Await.result(system.terminate(), 5.seconds)
+    }
+  }
+
+  it should "materialize a stream summary when the room is closed" in {
+    implicit val system: ActorSystem = ActorSystem("SearchessRoomStreamSummarySpec")
+    val registry = SearchessRoomRegistry()
+    val room = registry.getOrCreate("room-summary")
+
+    try {
+      submitAll(room, List(
+        "session summary-session",
+        "players Alice Bob",
+        "move Alice e2e4",
+        "resign Bob"
+      ))
+
+      val summary = Await.result(registry.closeAndSummarize("room-summary"), 5.seconds) match
+        case Some(value) => value
+        case None => fail("room summary should be available after close")
+
+      summary.parsedCommands shouldBe 4
+      summary.acceptedMoves shouldBe 1
+      summary.finishedGames shouldBe 1
+      registry.getClosedSummary("room-summary") shouldBe Some(summary)
+    } finally {
+      registry.closeAll()
+      Await.result(system.terminate(), 5.seconds)
+    }
+  }
+
+  it should "support throttled demo mode" in {
+    implicit val system: ActorSystem = ActorSystem("SearchessRoomStreamThrottleSpec")
+    val room = SearchessRoomStream.create(
+      "room-throttle",
+      RoomStreamSettings(throttlePerElement = Some(150.millis))
+    )
+
+    try {
+      val startedAt = System.nanoTime()
+      val eventsFuture = room.events.take(2).runWith(Sink.seq)
+
+      submitAll(room, List(
+        "session throttle-session",
+        "players Alice Bob"
+      ))
+
+      Await.result(eventsFuture, 5.seconds)
+      val elapsedMillis = (System.nanoTime() - startedAt).nanos.toMillis
+
+      elapsedMillis should be >= 120L
+    } finally {
+      room.close()
+      Await.result(system.terminate(), 5.seconds)
+    }
+  }
+
   "SearchessRoomRegistry" should "create, reuse, list, and close rooms" in {
     implicit val system: ActorSystem = ActorSystem("SearchessRoomRegistrySpec")
     val registry = SearchessRoomRegistry()
@@ -118,6 +195,43 @@ final class SearchessRoomStreamsSpec extends AnyFlatSpec with Matchers:
       registry.close("room-a") shouldBe true
       registry.get("room-a") shouldBe None
       registry.activeRoomIds shouldBe Set("room-b")
+    } finally {
+      registry.closeAll()
+      Await.result(system.terminate(), 5.seconds)
+    }
+  }
+
+  it should "reset a room so a new session command is accepted for the same room id" in {
+    implicit val system: ActorSystem = ActorSystem("SearchessRoomRegistryResetSpec")
+    val registry = SearchessRoomRegistry()
+
+    try {
+      val firstRoom = registry.getOrCreate("room-reset")
+      val firstEventsFuture = firstRoom.events.take(2).runWith(Sink.seq)
+
+      submitAll(firstRoom, List(
+        "session reset-session",
+        "players Alice Bob"
+      ))
+
+      Await.result(firstEventsFuture, 5.seconds).map(_.eventType) shouldBe Seq(
+        "SessionStarted",
+        "PlayersRegistered"
+      )
+
+      val resetRoom = registry.reset("room-reset")
+      resetRoom should not be theSameInstanceAs(firstRoom)
+
+      val resetEventsFuture = resetRoom.events.take(2).runWith(Sink.seq)
+      submitAll(resetRoom, List(
+        "session reset-session",
+        "players Alice Bob"
+      ))
+
+      Await.result(resetEventsFuture, 5.seconds).map(_.eventType) shouldBe Seq(
+        "SessionStarted",
+        "PlayersRegistered"
+      )
     } finally {
       registry.closeAll()
       Await.result(system.terminate(), 5.seconds)

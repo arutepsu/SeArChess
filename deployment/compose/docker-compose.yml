@@ -236,8 +236,9 @@ services:
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 5s
-      timeout: 3s
-      retries: 12
+      timeout: 10s
+      retries: 24
+      start_period: 30s
     restart: unless-stopped
 
   redis:

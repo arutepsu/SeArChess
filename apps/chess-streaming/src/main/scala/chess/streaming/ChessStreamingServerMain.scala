@@ -3,6 +3,7 @@ package chess.streaming
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.Http
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse, StatusCodes}
+import org.apache.pekko.http.scaladsl.model.headers.RawHeader
 import org.apache.pekko.http.scaladsl.model.ws.{Message, TextMessage}
 import org.apache.pekko.http.scaladsl.server.Directives.*
 import org.apache.pekko.http.scaladsl.server.Route
@@ -19,8 +20,12 @@ final class SearchessRoomHttpAdapter(registry: SearchessRoomRegistry)(implicit
 ):
   private given ExecutionContext = system.dispatcher
 
-  def webSocketFlow(roomId: String): Flow[Message, Message, Any] =
-    val room = registry.getOrCreate(roomId)
+  def webSocketFlow(
+      roomId: String,
+      settings: RoomStreamSettings = RoomStreamSettings(),
+      deadLettersOnly: Boolean = false
+  ): Flow[Message, Message, Any] =
+    val room = registry.getOrCreate(roomId, settings)
 
     val incoming: Sink[Message, Any] =
       Flow[Message]
@@ -45,11 +50,13 @@ final class SearchessRoomHttpAdapter(registry: SearchessRoomRegistry)(implicit
       ))))
 
     val outgoing =
-      room.events.map(envelope => TextMessage.Strict(envelopeJson(roomId, envelope)))
+      val source = if deadLettersOnly then room.deadLetters else room.events
+      source.map(envelope => TextMessage.Strict(envelopeJson(roomId, envelope)))
 
     Flow.fromSinkAndSource(incoming, connected.concat(outgoing))
 
   def route(indexHtmlPath: String): Route =
+    withCors {
     pathSingleSlash {
       getFromFile(indexHtmlPath)
     } ~
@@ -57,6 +64,59 @@ final class SearchessRoomHttpAdapter(registry: SearchessRoomRegistry)(implicit
         get {
           completeJson(ujson.Obj(
             "rooms" -> ujson.Arr.from(registry.activeRoomIds.toSeq.sorted.map(ujson.Str(_)))
+          ))
+        }
+      } ~
+      path("rooms" / Segment / "summary") { roomId =>
+        get {
+          registry.get(roomId) match
+            case Some(room) =>
+              completeJson(summaryJson(roomId, "active", None))
+            case None =>
+              registry.getClosedSummary(roomId) match
+                case Some(summary) => completeJson(summaryJson(roomId, "closed", Some(summary)))
+                case None =>
+                  complete(
+                    HttpResponse(
+                      StatusCodes.NotFound,
+                      entity = HttpEntity(
+                        ContentTypes.`application/json`,
+                        ujson.write(ujson.Obj(
+                          "roomId" -> roomId,
+                          "status" -> "unknown"
+                        ))
+                      )
+                    )
+                  )
+        }
+      } ~
+      path("rooms" / Segment / "close") { roomId =>
+        post {
+          onSuccess(registry.closeAndSummarize(roomId)) {
+            case Some(summary) =>
+              completeJson(summaryJson(roomId, "closed", Some(summary)))
+            case None =>
+              complete(
+                HttpResponse(
+                  StatusCodes.NotFound,
+                  entity = HttpEntity(
+                    ContentTypes.`application/json`,
+                    ujson.write(ujson.Obj(
+                      "roomId" -> roomId,
+                      "status" -> "unknown"
+                    ))
+                  )
+                )
+              )
+          }
+        }
+      } ~
+      path("rooms" / Segment / "reset") { roomId =>
+        post {
+          registry.reset(roomId)
+          completeJson(ujson.Obj(
+            "roomId" -> roomId,
+            "status" -> "reset"
           ))
         }
       } ~
@@ -90,7 +150,20 @@ final class SearchessRoomHttpAdapter(registry: SearchessRoomRegistry)(implicit
         }
       } ~
       path("rooms" / Segment / "events") { roomId =>
-        handleWebSocketMessages(webSocketFlow(roomId))
+        parameters("failFast".?, "recover".?, "throttleMillis".?) { (failFast, recover, throttleMillis) =>
+          handleWebSocketMessages(webSocketFlow(roomId, roomSettings(failFast, recover, throttleMillis)))
+        }
+      } ~
+      path("rooms" / Segment / "dead-letters") { roomId =>
+        parameters("failFast".?, "recover".?, "throttleMillis".?) { (failFast, recover, throttleMillis) =>
+          handleWebSocketMessages(
+            webSocketFlow(
+              roomId = roomId,
+              settings = roomSettings(failFast, recover, throttleMillis),
+              deadLettersOnly = true
+            )
+          )
+        }
       } ~
       path("game") {
         parameter("gameId".?) {
@@ -101,6 +174,35 @@ final class SearchessRoomHttpAdapter(registry: SearchessRoomRegistry)(implicit
       path("game" / Segment) { roomId =>
         handleWebSocketMessages(webSocketFlow(roomId))
       }
+    }
+
+  private def withCors(inner: Route): Route =
+    respondWithHeaders(
+      RawHeader("Access-Control-Allow-Origin", "*"),
+      RawHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS"),
+      RawHeader("Access-Control-Allow-Headers", "content-type")
+    ) {
+      options {
+        complete(HttpResponse(StatusCodes.OK))
+      } ~ inner
+    }
+
+  private def roomSettings(
+      rawFailFast: Option[String],
+      rawRecover: Option[String],
+      rawThrottleMillis: Option[String]
+  ): RoomStreamSettings =
+    val failFast = rawFailFast.exists(parseBool)
+    RoomStreamSettings(
+      recoverNonFatal = rawRecover.forall(parseBool) && !failFast,
+      failFast = failFast,
+      throttlePerElement = rawThrottleMillis.flatMap(_.toLongOption).filter(_ > 0).map(_.millis)
+    )
+
+  private def parseBool(value: String): Boolean =
+    value.trim.toLowerCase match
+      case "true" | "1" | "yes" | "on" => true
+      case _ => false
 
   private def strictText(message: Message): Future[String] =
     message match
@@ -138,6 +240,25 @@ final class SearchessRoomHttpAdapter(registry: SearchessRoomRegistry)(implicit
 
   private def completeJson(value: ujson.Value): Route =
     complete(HttpEntity(ContentTypes.`application/json`, ujson.write(value)))
+
+  private def summaryJson(roomId: String, status: String, summary: Option[StreamSummary]): ujson.Obj =
+    val obj = ujson.Obj(
+      "roomId" -> roomId,
+      "status" -> status
+    )
+    summary.foreach { value =>
+      obj("summary") = ujson.Obj(
+        "totalLines" -> value.totalLines,
+        "parsedCommands" -> value.parsedCommands,
+        "totalEvents" -> value.totalEvents,
+        "acceptedMoves" -> value.acceptedMoves,
+        "rejectedMoves" -> value.rejectedMoves,
+        "parseFailures" -> value.parseFailures,
+        "validationFailures" -> value.validationFailures,
+        "finishedGames" -> value.finishedGames
+      )
+    }
+    obj
 
 private final case class RoomClientCommand(roomId: String, line: String)
 

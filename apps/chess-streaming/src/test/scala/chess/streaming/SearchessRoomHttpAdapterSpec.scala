@@ -70,3 +70,31 @@ final class SearchessRoomHttpAdapterSpec extends AnyFlatSpec with Matchers:
       Await.result(system.terminate(), 5.seconds)
     }
   }
+
+  it should "expose room dead letters over a dedicated WebSocket flow" in {
+    implicit val system: ActorSystem = ActorSystem("SearchessRoomHttpAdapterDeadLetterSpec")
+    val registry = SearchessRoomRegistry()
+    val adapter = SearchessRoomHttpAdapter(registry)
+
+    try {
+      val messages = Source(List(
+        TextMessage.Strict("unknown abc"),
+        TextMessage.Strict("move Alice e2e4")
+      ))
+
+      val output = Await.result(
+        messages
+          .via(adapter.webSocketFlow("room-dead-websocket", deadLettersOnly = true))
+          .collect { case TextMessage.Strict(text) => text }
+          .take(3)
+          .runWith(Sink.seq),
+        5.seconds
+      )
+
+      val eventTypes = output.drop(1).map(text => ujson.read(text)("event")("eventType").str)
+      eventTypes shouldBe Seq("ParseFailed", "ValidationFailed")
+    } finally {
+      registry.closeAll()
+      Await.result(system.terminate(), 5.seconds)
+    }
+  }

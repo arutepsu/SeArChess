@@ -19,7 +19,7 @@ import type {
 import type { MigrationReport, MigrationRequest } from "./migrationTypes";
 import keycloak from "../auth/keycloak";
 
-const DEFAULT_API_BASE = "http://localhost:10000";
+const DEFAULT_API_BASE = "http://localhost:11000";
 
 export const apiBaseUrl =
   import.meta.env.VITE_API_BASE_URL?.toString() || DEFAULT_API_BASE;

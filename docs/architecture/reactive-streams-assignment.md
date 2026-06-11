@@ -14,6 +14,23 @@ Source[String]
   -> Sink
 ```
 
+```mermaid
+flowchart LR
+    source["Source[String]<br/>Searchess DSL file"]
+    parse["ParseDslFlow<br/>String -> Either[DslParseError, DslCommand]"]
+    validate["ValidateCommandFlow<br/>DslCommand -> Either[ValidationError, ValidatedCommand]"]
+    process["ProcessGameFlow<br/>ValidatedCommand -> GameProcessingResult"]
+    envelope["EventEnvelopeFlow<br/>GameProcessingResult -> EventEnvelope"]
+    buffer["Bounded buffer<br/>OverflowStrategy.backpressure"]
+    batch["groupedWithin<br/>Batch envelopes"]
+    sink["Sink<br/>Console / JSON Lines / StreamSummary"]
+
+    source --> parse --> validate --> process --> envelope --> buffer --> batch --> sink
+
+    parse -. parse failures as data .-> process
+    validate -. validation failures as data .-> process
+```
+
 ## Source: Searchess DSL file
 
 The stream starts from a Searchess DSL file. The default demo input is `apps/chess-streaming/src/main/resources/searchess-game.dsl`, and the command-line runner can also accept a file path from `args`.
@@ -80,9 +97,51 @@ Source.queue[String]
   -> BroadcastHub[EventEnvelope]
 ```
 
+```mermaid
+flowchart LR
+    webui["Web UI / demo client"]
+    http["Pekko HTTP adapter<br/>ChessStreamingServerMain"]
+    registry["SearchessRoomRegistry<br/>roomId -> SearchessRoomStream"]
+    queue["Source.queue[String]<br/>bounded room input"]
+    pipeline["Searchess DSL pipeline<br/>parse -> validate -> process -> envelope"]
+    dead["Dead-letter stream<br/>parse/validation/move errors"]
+    summary["Materialized StreamSummary<br/>available after room close"]
+    hub["BroadcastHub[EventEnvelope]<br/>live room events"]
+    ws["WebSocket subscribers<br/>/rooms/{roomId}/events"]
+    post["HTTP command submit<br/>POST /rooms/{roomId}/commands"]
+
+    webui -->|WebSocket JSON or raw DSL| http
+    webui -->|HTTP POST raw DSL or JSON line| post
+    post --> http
+    http --> registry --> queue --> pipeline --> hub --> ws --> webui
+    pipeline -. filter error envelopes .-> dead
+    pipeline -. fold materialized result .-> summary
+
+    registry -. one materialized stream per room .-> queue
+```
+
 Commands are submitted as raw Searchess DSL lines. Current subscribers receive live `EventEnvelope` values from the room's `BroadcastHub`, and consumers that need assignment-style batches can use the room's batched event source.
 
 `SearchessRoomRegistry` manages rooms by `roomId`. It intentionally stays inside `apps/chess-streaming`; it does not change production `EventPublisher`, does not persist room state, and does not introduce a custom Publisher/Subscriber framework.
+
+## Error, summary, and demo strategy extensions
+
+The room stream has a small assignment-local `RoomStreamSettings` model:
+
+- `recoverNonFatal`: keep non-fatal stream errors as recovered error envelopes.
+- `failFast`: fail the stream on fatal event envelopes instead of recovering.
+- `throttlePerElement`: slow down room output for demos.
+
+Dead-letter handling is modeled as a filtered stream of error envelopes rather than as exceptions:
+
+- `ParseFailed`
+- `ValidationFailed`
+- `MoveRejected`
+- `StreamRecovered`
+
+This demonstrates a common reactive-streams pattern: malformed or rejected input can continue as data through a separate observable channel while valid game events keep flowing.
+
+Each room also materializes a `StreamSummary`. The summary is completed when the room input queue is closed and can then be stored by `SearchessRoomRegistry`.
 
 ## HTTP/WebSocket adapter
 
@@ -94,9 +153,20 @@ Available endpoints:
 - `GET /rooms` returns active room ids.
 - `POST /rooms/{roomId}/commands` enqueues one DSL command line into a room. The request body may be raw DSL text or JSON with a `line` field.
 - `GET /rooms/{roomId}/events` upgrades to a WebSocket and streams live room envelopes.
+- `GET /rooms/{roomId}/dead-letters` upgrades to a WebSocket and streams only error/dead-letter envelopes.
+- `GET /rooms/{roomId}/summary` returns a closed room's materialized summary when available.
+- `POST /rooms/{roomId}/close` closes the room input queue and returns its materialized `StreamSummary`.
 - `GET /game?gameId={roomId}` and `GET /game/{roomId}` remain compatibility aliases for the WebSocket route.
 
 The WebSocket input accepts either raw DSL lines or JSON with `roomId`/`gameId` and `line`/`command`. WebSocket output is JSON containing the room id and the Kafka-ready `EventEnvelope`.
+
+Room WebSocket endpoints accept optional query parameters:
+
+- `failFast=true`
+- `recover=false`
+- `throttleMillis=<positive number>`
+
+These options are intentionally demonstrational and local to newly created rooms. They are not production configuration.
 
 ## Kafka future work
 

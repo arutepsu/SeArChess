@@ -759,24 +759,24 @@ export default function App() {
     };
   }, []);
 
-  // Connect/disconnect handler for Pekko Streams
-  const handlePekkoConnect = useCallback(() => {
+  const connectPekkoRoom = useCallback((roomId: string, afterOpen?: (ws: WebSocket) => void) => {
     if (pekkoWsRef.current) {
       pekkoWsRef.current.close();
     }
 
     setPekkoConnectionState("connecting");
-    setPekkoGame(mapPekkoMovesToGameState(pekkoRoomId, []));
+    setPekkoGame(mapPekkoMovesToGameState(roomId, []));
     setPekkoSelectedSquare(undefined);
     setPekkoLegalMoves([]);
     setPekkoEvents([]);
     setPekkoAcceptedMoves([]);
 
-    const ws = new WebSocket(`ws://localhost:8082/rooms/${encodeURIComponent(pekkoRoomId)}/events`);
+    const ws = new WebSocket(`ws://localhost:8082/rooms/${encodeURIComponent(roomId)}/events`);
     pekkoWsRef.current = ws;
 
     ws.onopen = () => {
       setPekkoConnectionState("live");
+      afterOpen?.(ws);
     };
 
     ws.onmessage = (event) => {
@@ -794,7 +794,7 @@ export default function App() {
           if (acceptedMove) {
             setPekkoAcceptedMoves((moves) => {
               const nextMoves = [...moves, acceptedMove];
-              setPekkoGame(mapPekkoMovesToGameState(pekkoRoomId, nextMoves));
+              setPekkoGame(mapPekkoMovesToGameState(roomId, nextMoves));
               return nextMoves;
             });
           }
@@ -809,15 +809,22 @@ export default function App() {
     };
 
     ws.onclose = () => {
-      setPekkoConnectionState("disconnected");
-      pekkoWsRef.current = null;
+      if (pekkoWsRef.current === ws) {
+        setPekkoConnectionState("disconnected");
+        pekkoWsRef.current = null;
+      }
     };
 
     ws.onerror = (e) => {
       console.error("Pekko websocket error:", e);
       ws.close();
     };
-  }, [pekkoRoomId, setMessage]);
+  }, [setMessage]);
+
+  // Connect/disconnect handler for Pekko Streams
+  const handlePekkoConnect = useCallback(() => {
+    connectPekkoRoom(pekkoRoomId);
+  }, [connectPekkoRoom, pekkoRoomId]);
 
   const handlePekkoDisconnect = useCallback(() => {
     if (pekkoWsRef.current) {
@@ -843,10 +850,32 @@ export default function App() {
     pekkoWsRef.current.send(JSON.stringify({ roomId: pekkoRoomId, line: cleanLine }));
   }, [pekkoRoomId, setMessage]);
 
-  const sendPekkoDemoSetup = useCallback(() => {
-    sendPekkoCommand(`session ${pekkoRoomId}-session`);
-    sendPekkoCommand("players Alice Bob");
-  }, [pekkoRoomId, sendPekkoCommand]);
+  const sendPekkoDemoSetup = useCallback(async () => {
+    const roomId = pekkoRoomId.trim();
+    if (!roomId) {
+      setMessage("Pekko room id is required.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:8082/rooms/${encodeURIComponent(roomId)}/reset`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        throw new Error(`Reset failed with status ${response.status}`);
+      }
+
+      connectPekkoRoom(roomId, (ws) => {
+        ws.send(JSON.stringify({ roomId, line: `session ${roomId}-session` }));
+        ws.send(JSON.stringify({ roomId, line: "players Alice Bob" }));
+        setMessage(`Pekko room ${roomId} reset for a new demo.`);
+      });
+    } catch (err) {
+      console.error("Failed to reset Pekko room:", err);
+      setMessage("Pekko room could not be reset. Is the streaming server running on port 8082?");
+    }
+  }, [connectPekkoRoom, pekkoRoomId, setMessage]);
 
   const handleSendPekkoCommand = useCallback(() => {
     sendPekkoCommand(pekkoCommand);
