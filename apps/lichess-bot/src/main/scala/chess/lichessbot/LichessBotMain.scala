@@ -197,7 +197,8 @@ class LichessBot(val token: String)(implicit ec: ExecutionContext) {
         try {
           is.close()
         } catch {
-          case NonFatal(e) => println(s"[LichessBot] Error closing event stream input stream: ${e.getMessage}")
+          case NonFatal(e) =>
+            println(s"[LichessBot] Error closing event stream input stream: ${e.getMessage}")
         }
       }
       currentInputStream = None
@@ -206,7 +207,10 @@ class LichessBot(val token: String)(implicit ec: ExecutionContext) {
         try {
           is.close()
         } catch {
-          case NonFatal(e) => println(s"[LichessBot] Error closing game stream input stream for $gameId: ${e.getMessage}")
+          case NonFatal(e) =>
+            println(
+              s"[LichessBot] Error closing game stream input stream for $gameId: ${e.getMessage}"
+            )
         }
       }
       activeGameStreams.clear()
