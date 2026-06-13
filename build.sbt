@@ -627,9 +627,10 @@ lazy val sparkAnalytics = project
     name                     := "spark-analytics",
     Compile / mainClass      := Some("chess.analytics.GameAnalyticsJob"),
     libraryDependencies ++= Seq(
-      "org.apache.spark" %% "spark-sql" % sparkVersion,
-      "org.apache.spark" %% "spark-sql-kafka-0-10" % sparkVersion,
-      "org.scalatest"    %% "scalatest" % "3.2.19"     % Test
+      "org.apache.spark" %% "spark-sql"             % sparkVersion,
+      "org.apache.spark" %% "spark-sql-kafka-0-10"  % sparkVersion,
+      "org.postgresql"    % "postgresql"            % postgresVersion,
+      "org.scalatest"    %% "scalatest"             % "3.2.19"        % Test
     ),
     fork                     := true,
     // Run from project root so relative paths resolve consistently with demoHeuristicTournament.
@@ -715,6 +716,18 @@ lazy val arenaDemoAi = project
     commonSettings,
     coverageMinimumStmtTotal := 0,
     Compile / mainClass      := Some("chess.arena.demo.SearchessAiTournamentDemo"),
+    run / fork               := true,
+    run / baseDirectory      := (ThisBuild / baseDirectory).value
+  )
+  .dependsOn(arenaBotsAi, arenaBotsHeuristic, arenaBotsUci, arenaWriterJsonl)
+
+// App: arena-demo-evaluation (unified strong evaluation tournament — all bot families)
+lazy val arenaDemoEvaluation = project
+  .in(file("apps/bot-arena/demo-evaluation"))
+  .settings(
+    commonSettings,
+    coverageMinimumStmtTotal := 0,
+    Compile / mainClass      := Some("chess.arena.demo.EvaluationTournamentDemo"),
     run / fork               := true,
     run / baseDirectory      := (ThisBuild / baseDirectory).value
   )
@@ -885,6 +898,9 @@ addCommandAlias("demoStockfishSparkAnalytics",
 addCommandAlias("demoSearchessAiTournament",  "arenaDemoAi/run")
 addCommandAlias("demoSearchessAiSparkAnalytics",
   "sparkAnalytics/run target/arena/searchess-ai-tournament/game-events.jsonl target/spark-analytics-searchess-ai")
+addCommandAlias("demoEvaluationTournament",   "arenaDemoEvaluation/run")
+addCommandAlias("demoEvaluationSparkAnalytics",
+  "sparkAnalytics/run target/arena/evaluation-tournament/game-events.jsonl target/spark-analytics-evaluation")
 addCommandAlias("stockfishSmokeCheck",
   "arenaDemoStockfish/runMain chess.arena.demo.StockfishSmokeCheck")
 addCommandAlias("demoSparkStreamingAnalytics",
@@ -924,5 +940,5 @@ lazy val root = project
     botService, chessStreaming, lichessBridgeService,
     arenaEvents, arenaCore, arenaWriterJsonl, arenaWriterKafka, sparkAnalytics, arenaBotsHeuristic, arenaBotsUci,
     arenaBotsAi,
-    arenaDemoHeuristic, arenaDemoKafka, arenaDemoStockfish, arenaDemoAi
+    arenaDemoHeuristic, arenaDemoKafka, arenaDemoStockfish, arenaDemoAi, arenaDemoEvaluation
   )

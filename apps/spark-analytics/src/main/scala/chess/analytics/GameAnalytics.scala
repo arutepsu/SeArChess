@@ -2,6 +2,7 @@ package chess.analytics
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
+import java.util.UUID
 
 object GameAnalytics {
 
@@ -257,7 +258,12 @@ object GameAnalytics {
       .orderBy(desc("score"))
   }
 
-  def run(spark: SparkSession, inputPath: String, outputPath: String): Unit = {
+  def run(
+    spark:      SparkSession,
+    inputPath:  String,
+    outputPath: String,
+    pgConfig:   Option[PostgresConfig] = None
+  ): Unit = {
     val gameFinished = loadGameFinished(spark, inputPath).cache()
     val count        = gameFinished.count()
     println(s"\n=== Arena Analytics: $count games loaded from $inputPath ===\n")
@@ -323,6 +329,41 @@ object GameAnalytics {
       println(s"\n[WARN] CSV write skipped — Hadoop native libraries (winutils.exe) not available.")
       println(s"       Console tables above are the complete analytics result.")
       println(s"       See docs/architecture/bot-arena-spark-demo.md for the Windows workaround.")
+    }
+
+    pgConfig.foreach { cfg =>
+      val runId  = UUID.randomUUID().toString
+      val writer = new PostgresWriter(cfg, runId, inputPath)
+      println(s"\n=== Writing analytics to PostgreSQL [run_id=$runId, mode=${cfg.writeMode}] ===")
+      writer.createSchemaIfNeeded()
+
+      var pgSucceeded = 0
+      var pgFailed    = List.empty[String]
+      def pg(df: DataFrame, name: String): Unit = {
+        if (writer.writeTable(df, name)) pgSucceeded += 1
+        else pgFailed = pgFailed :+ name
+      }
+
+      pg(leaderboard,        "analytics_leaderboard")
+      pg(headToHead,         "analytics_head_to_head")
+      pg(avgLength,          "analytics_avg_game_length")
+      pg(terminations,       "analytics_terminations")
+      pg(familyComparison,   "analytics_bot_family_comparison")
+      pg(strategyComparison, "analytics_strategy_comparison")
+      pg(colorPerformance,   "analytics_color_performance")
+      pg(fastestWins,        "analytics_fastest_wins")
+      pg(stockfishComp,      "analytics_stockfish_comparison")
+      pg(familyMatchups,     "analytics_family_matchups")
+      pg(searchessAiComp,    "analytics_searchess_ai_comparison")
+
+      val total = pgSucceeded + pgFailed.length
+      if (pgFailed.isEmpty) {
+        println(s"[PG] Done. $pgSucceeded of $total tables written to ${cfg.schema}.*")
+      } else {
+        println(s"[PG WARN] $pgSucceeded of $total tables written; ${pgFailed.length} failed: ${pgFailed.mkString(", ")}")
+        if (cfg.strictWrite)
+          throw new RuntimeException(s"PostgreSQL strict write failed for: ${pgFailed.mkString(", ")}")
+      }
     }
 
     gameFinished.unpersist()

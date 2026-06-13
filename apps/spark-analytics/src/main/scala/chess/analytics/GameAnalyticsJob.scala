@@ -17,8 +17,10 @@ object GameAnalyticsJob {
 
     spark.sparkContext.setLogLevel("WARN")
 
+    val pgConfig = PostgresConfig.fromEnv()
+
     try {
-      GameAnalytics.run(spark, inputPath, outputPath)
+      GameAnalytics.run(spark, inputPath, outputPath, pgConfig)
     } finally {
       spark.stop()
     }
