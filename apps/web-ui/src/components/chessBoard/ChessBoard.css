@@ -5,7 +5,7 @@
   width: fit-content;
   justify-self: center;
   margin-left: 0;
-  --square-size: 72px;
+  --square-size: 80px;
 }
 
 .board-grid {

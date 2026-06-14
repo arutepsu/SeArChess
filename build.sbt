@@ -558,6 +558,33 @@ lazy val analyticsService = project
   )
   .dependsOn(observability)
 
+// App: tournament-service
+// Owns Bot Evaluation Arena tournament job lifecycle and JSONL event output.
+lazy val tournamentService = project
+  .in(file("apps/tournament-service"))
+  .enablePlugins(JavaAppPackaging)
+  .settings(
+    commonSettings,
+    name := "searchess-tournament-service",
+    coverageMinimumStmtTotal := 0,
+    Compile / mainClass := Some("chess.tournamentservice.TournamentServiceMain"),
+    run / mainClass     := Some("chess.tournamentservice.TournamentServiceMain"),
+    run / fork          := true,
+    run / baseDirectory := (ThisBuild / baseDirectory).value,
+    libraryDependencies ++= Seq(
+      "org.http4s"  %% "http4s-ember-server" % http4sVersion,
+      "org.http4s"  %% "http4s-dsl"          % http4sVersion,
+      "com.lihaoyi" %% "ujson"               % "4.0.2"
+    ),
+    excludeFromCoverage(
+      ".*chess.tournamentservice.TournamentServiceMain.*",
+      ".*chess.tournamentservice.TournamentServiceWiring.*",
+      ".*chess.tournamentservice.TournamentServiceRuntime.*",
+      ".*chess.tournamentservice.TournamentServiceConfig.*"
+    )
+  )
+  .dependsOn(arenaCore, arenaEvents, arenaWriterJsonl, arenaBotsHeuristic, arenaBotsUci, arenaBotsAi, observability)
+
 // App: bot-service (searchess-bot-worker)
 // Talks to game-service; polls pending bot turns and submits AI moves.
 // Lichess integration removed. No Lichess token or external-game APIs.
@@ -916,6 +943,7 @@ addCommandAlias("testArenaBotsAi",          "arenaBotsAi/test")
 addCommandAlias("testArenaWriterKafka",     "arenaWriterKafka/test")
 addCommandAlias("testArena",                ";arenaEvents/test;arenaCore/test;arenaBotsHeuristic/test;arenaBotsUci/test")
 addCommandAlias("testAnalyticsService",     "analyticsService/test")
+addCommandAlias("testTournamentService",    "tournamentService/test")
 addCommandAlias("testSparkAnalytics",       "sparkAnalytics/test")
 addCommandAlias("demoHeuristicTournament",  "arenaDemoHeuristic/run")
 addCommandAlias("demoKafkaHeuristicTournament", "arenaDemoKafka/run")
@@ -930,6 +958,7 @@ addCommandAlias("demoSearchessAiTournament",  "arenaDemoAi/run")
 addCommandAlias("demoSearchessAiSparkAnalytics",
   "sparkAnalytics/run target/arena/searchess-ai-tournament/game-events.jsonl target/spark-analytics-searchess-ai")
 addCommandAlias("demoEvaluationTournament",   "arenaDemoEvaluation/run")
+addCommandAlias("demoTournamentService",      "tournamentService/run")
 addCommandAlias("demoEvaluationSparkAnalytics",
   "sparkAnalytics/run target/arena/evaluation-tournament/game-events.jsonl target/spark-analytics-evaluation")
 addCommandAlias("stockfishSmokeCheck",
@@ -974,5 +1003,5 @@ lazy val root = project
     arenaEvents, arenaCore, arenaWriterJsonl, arenaWriterKafka, sparkAnalytics, arenaBotsHeuristic, arenaBotsUci,
     arenaBotsAi,
     arenaDemoHeuristic, arenaDemoKafka, arenaDemoStockfish, arenaDemoAi, arenaDemoEvaluation,
-    analyticsService
+    analyticsService, tournamentService
   )

@@ -12,7 +12,7 @@
 .layout {
   display: grid;
   grid-template-columns: minmax(200px, 0.4fr) minmax(360px, 1.2fr) minmax(200px, 0.4fr);
-  gap: 100px;
+  gap: 20px;
   align-items: start;
   padding-top: 20px;
 }
@@ -83,13 +83,13 @@
 
 .left-side {
   justify-self: end;
-  margin-right: 170px;
+  margin-right: 0;
   margin-top: 0%;
 }
 
 .right-side {
   justify-self: start;
-  margin-left: 90px;
+  margin-left: 0;
 }
 
 .placeholder {

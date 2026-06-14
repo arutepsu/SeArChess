@@ -17,16 +17,13 @@ interface BoardSceneViewProps extends ChessBoardProps {
 export default function BoardSceneView({ gameScene, ...chessBoardProps }: BoardSceneViewProps) {
   const containerStyle = useMemo((): React.CSSProperties => {
     const { left, top, width, height } = gameScene.boardRect;
-    const scenePx = gameScene.sceneSize;
-    // Force a square grid (min of w/h) so squareSize maps both axes correctly.
-    const boardSizePx = Math.round(Math.min(width, height) * scenePx);
+    // Use min(width, height) so the 8×8 overlay grid is always square.
+    const sizePct = (Math.min(width, height) * 100).toFixed(3);
     return {
       ["--board-scene-image" as string]: `url(${gameScene.imageUrl})`,
-      ["--board-rect-left" as string]: `${Math.round(left * scenePx)}px`,
-      ["--board-rect-top" as string]: `${Math.round(top * scenePx)}px`,
-      ["--board-rect-size" as string]: `${boardSizePx}px`,
-      width: `${scenePx}px`,
-      height: `${scenePx}px`,
+      ["--board-rect-left-pct" as string]: `${(left * 100).toFixed(3)}%`,
+      ["--board-rect-top-pct" as string]: `${(top * 100).toFixed(3)}%`,
+      ["--board-rect-size-pct" as string]: `${sizePct}%`,
     } as React.CSSProperties;
   }, [gameScene]);
 

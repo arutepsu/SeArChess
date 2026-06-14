@@ -14,6 +14,7 @@ import { OnboardingPage } from "../features/onboarding";
 import { ProfilePanel } from "../features/settings";
 import { LichessHubPage, LichessGamePage } from "../features/lichess";
 import { AnalyticsPage, GameAnalysisView } from "../features/analytics";
+import { TournamentBuilderPage } from "../features/tournaments";
 
 interface AppRoutesProps {
   // Game state
@@ -286,6 +287,7 @@ export default function AppRoutes({
       />
 
       <Route path="/analytics" element={<AnalyticsPage />} />
+      <Route path="/tournaments" element={<TournamentBuilderPage />} />
     </Routes>
   );
 }

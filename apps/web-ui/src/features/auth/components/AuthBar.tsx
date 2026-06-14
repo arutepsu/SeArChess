@@ -15,6 +15,9 @@ export default function AuthBar() {
         <Button size="sm" variant="ghost" onClick={() => navigate("/analytics")}>
           Analytics
         </Button>
+        <Button size="sm" variant="ghost" onClick={() => navigate("/tournaments")}>
+          Tournaments
+        </Button>
       </div>
     );
   }
@@ -26,6 +29,9 @@ export default function AuthBar() {
       <span>{username ?? "—"}</span>
       <Button size="sm" variant="ghost" onClick={() => navigate("/analytics")}>
         Analytics
+      </Button>
+      <Button size="sm" variant="ghost" onClick={() => navigate("/tournaments")}>
+        Tournaments
       </Button>
       <Button size="sm" variant="ghost" onClick={() => navigate("/settings")}>
         Profile

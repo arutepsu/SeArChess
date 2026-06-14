@@ -1,0 +1,255 @@
+/* Backdrop — dims the board while drawer is open */
+.gmd-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 900;
+}
+
+/* Drawer panel — slides in from the right */
+.gmd-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(440px, 100vw);
+  height: 100vh;
+  overflow: hidden;
+  z-index: 901;
+  background: rgba(14, 7, 10, 0.97);
+  backdrop-filter: blur(16px);
+  border-left: 2px solid #5a3a3a;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Sticky header with close button */
+.gmd-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid rgba(90, 58, 58, 0.6);
+  flex-shrink: 0;
+}
+
+.gmd-title {
+  margin: 0;
+  font-family: 'Georgia', serif;
+  font-size: 1.3rem;
+  letter-spacing: 0.04rem;
+  color: #e6b347;
+}
+
+/* Scrollable body */
+.gmd-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 20px 28px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Thin scrollbar */
+.gmd-body::-webkit-scrollbar { width: 5px; }
+.gmd-body::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+.gmd-body::-webkit-scrollbar-thumb { background: #5a3a3a; border-radius: 4px; }
+.gmd-body::-webkit-scrollbar-thumb:hover { background: #e6b347; }
+
+/* Section blocks separated by a subtle border */
+.gmd-section {
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(90, 58, 58, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gmd-section:last-child {
+  border-bottom: none;
+}
+
+/* Section title (uppercase monospace label) */
+.gmd-section-label {
+  margin: 0 0 2px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.12rem;
+  text-transform: uppercase;
+  color: #a08070;
+}
+
+/* BackgroundPanel nested inside drawer — strip its own panel chrome */
+.gmd-section .background-panel {
+  width: 100%;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  backdrop-filter: none;
+  border-radius: 0;
+}
+
+/* Field labels */
+.gmd-label {
+  display: block;
+  color: #bfa8a8;
+  font-family: 'Courier New', monospace;
+  font-size: 0.63rem;
+  letter-spacing: 0.09rem;
+  text-transform: uppercase;
+}
+
+/* Small hint text */
+.gmd-note {
+  margin: 0;
+  font-size: 0.74rem;
+  color: #8a7a6a;
+  line-height: 1.4;
+}
+
+/* Feedback messages */
+.gmd-success {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #baf0c3;
+}
+
+.gmd-error {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #ff9d9d;
+}
+
+/* Notation format row */
+.gmd-notation-format {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.gmd-select {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid #5a3a3a;
+  border-radius: 8px;
+  color: #f0e6d2;
+  font-family: 'Courier New', monospace;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+
+.gmd-select:focus {
+  border-color: #e6b347;
+  outline: none;
+}
+
+.gmd-select:disabled {
+  opacity: 0.6;
+}
+
+/* Notation preformatted text */
+.gmd-notation-text {
+  margin: 0;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 90px;
+  overflow-y: auto;
+  color: #e8ddd0;
+}
+
+/* Two-column action row */
+.gmd-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+/* Import sub-section */
+.gmd-import {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.gmd-textarea {
+  width: 100%;
+  border: 1px solid rgba(255, 206, 116, 0.2);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f4efe6;
+  font: inherit;
+  font-size: 0.76rem;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.gmd-textarea:focus {
+  border-color: #e6b347;
+  outline: none;
+}
+
+.gmd-textarea:disabled {
+  opacity: 0.6;
+}
+
+/* Session identifier key/value list */
+.gmd-identifiers {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.gmd-identifiers div { display: grid; gap: 2px; }
+
+.gmd-identifiers dt {
+  font-family: 'Courier New', monospace;
+  font-size: 0.60rem;
+  letter-spacing: 0.05rem;
+  text-transform: uppercase;
+  color: #9a8a7a;
+}
+
+.gmd-identifiers dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-family: 'Courier New', monospace;
+  font-size: 0.68rem;
+  color: #f4efe6;
+  line-height: 1.2;
+}
+
+/* AI max-plies number input */
+.gmd-number-input {
+  width: 100%;
+  border: 1px solid #5a3a3a;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.3);
+  color: #f0e6d2;
+  font-family: 'Courier New', monospace;
+  box-sizing: border-box;
+}
+
+.gmd-number-input:focus {
+  border-color: #e6b347;
+  outline: none;
+}
+
+.gmd-number-input:disabled {
+  opacity: 0.6;
+}
+
+/* Navigation / bottom actions row */
+.gmd-section--nav {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+}

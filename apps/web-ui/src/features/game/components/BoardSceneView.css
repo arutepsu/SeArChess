@@ -2,16 +2,19 @@
  * BoardSceneView — full game-scene background with transparent ChessBoard overlay.
  *
  * Layout model:
- *   .board-scene-container   fixed square; full scene image as CSS background
+ *   .board-scene-container   responsive square; full scene image as CSS background
  *     .board-scene-grid-area  absolutely positioned over the playable 8×8 area
  *       ChessBoard             fills 100% of the grid area; transparent overlay mode
  *   .board-scene-debug        DEV-ONLY; pointer-events:none calibration overlay
  *
- * All geometry derives from CSS custom properties set as inline style by BoardSceneView.tsx:
- *   --board-scene-image   url() of the full 2048×2048 scene image
- *   --board-rect-left     px offset from scene left edge to grid left edge
- *   --board-rect-top      px offset from scene top  edge to grid top  edge
- *   --board-rect-size     px size of the square 8×8 grid area
+ * Geometry custom properties (inline style set by BoardSceneView.tsx):
+ *   --board-scene-image       url() of the full scene image
+ *   --board-rect-left-pct     grid left edge as % of scene width   (e.g. "22.400%")
+ *   --board-rect-top-pct      grid top edge as % of scene height   (e.g. "25.500%")
+ *   --board-rect-size-pct     square grid size as % of scene size  (e.g. "52.000%")
+ *
+ * Because the container keeps aspect-ratio 1/1, %-based left/top/width/height are
+ * equivalent in absolute px, so a single --board-rect-size-pct drives both dimensions.
  */
 
 .board-scene-container {
@@ -20,15 +23,23 @@
   background-size: cover;
   background-position: center;
   flex-shrink: 0;
+  /*
+   * Responsive square.
+   *   860px      — generous upper cap on large monitors
+   *   100vh-200px — leave ~200 px for auth bar, tab nav, status banner, and padding
+   *   100%       — never overflow the board column on narrow viewports
+   */
+  width: min(860px, calc(100vh - 200px), 100%);
+  aspect-ratio: 1 / 1;
 }
 
 /* Absolute overlay positioned exactly on the playable board area */
 .board-scene-grid-area {
   position: absolute;
-  left: var(--board-rect-left);
-  top: var(--board-rect-top);
-  width: var(--board-rect-size);
-  height: var(--board-rect-size);
+  left: var(--board-rect-left-pct);
+  top: var(--board-rect-top-pct);
+  width: var(--board-rect-size-pct);
+  height: var(--board-rect-size-pct);
 }
 
 /* ── Developer calibration overlay ───────────────────────────────────────── */
@@ -41,13 +52,17 @@
   z-index: 99;
 }
 
-/* Red outline + 8×8 grid lines drawn at the exact boardRect position */
+/*
+ * Red outline + 8×8 grid lines at the exact boardRect position.
+ * Uses the same %-based vars as .board-scene-grid-area for pixel-perfect alignment.
+ * Grid line interval = 12.5% = 100% / 8 of the rect element's own size.
+ */
 .board-scene-debug__rect {
   position: absolute;
-  left: var(--board-rect-left);
-  top: var(--board-rect-top);
-  width: var(--board-rect-size);
-  height: var(--board-rect-size);
+  left: var(--board-rect-left-pct);
+  top: var(--board-rect-top-pct);
+  width: var(--board-rect-size-pct);
+  height: var(--board-rect-size-pct);
   outline: 2px solid rgba(255, 70, 70, 0.95);
   box-shadow: inset 0 0 0 1px rgba(255, 70, 70, 0.3);
   background-image:
@@ -56,14 +71,14 @@
       rgba(255, 70, 70, 0.25) 0,
       rgba(255, 70, 70, 0.25) 1px,
       transparent 1px,
-      transparent calc(var(--board-rect-size) / 8)
+      transparent 12.5%
     ),
     repeating-linear-gradient(
       to bottom,
       rgba(255, 70, 70, 0.25) 0,
       rgba(255, 70, 70, 0.25) 1px,
       transparent 1px,
-      transparent calc(var(--board-rect-size) / 8)
+      transparent 12.5%
     );
 }
 

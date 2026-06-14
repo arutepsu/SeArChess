@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { GameState, PlayableGameMode } from "../../../api/types";
 import type {
   GameNotationResponse,
@@ -12,9 +13,9 @@ import type { GameSceneSkin } from "../sceneSkins";
 import ChessBoard from "../../../components/chessBoard";
 import BoardSceneView from "../components/BoardSceneView";
 import ControlPanel from "../components/ControlPanel";
+import GameMenuDrawer from "../components/GameMenuDrawer";
 import MoveList from "../components/MoveList";
 import CapturedPanel from "../components/CapturedPanel";
-import BackgroundPanel from "../components/BackgroundPanel";
 import StatusBanner from "../components/StatusBanner";
 import BotDemoGameView from "../components/BotDemoGameView";
 import type { ConnectionState, LiveConnectionState } from "../../../app/types";
@@ -97,6 +98,8 @@ export interface MainGameViewProps {
   onRunAiTurns: (maxPlies: number) => Promise<RunAiTurnsResponse>;
   onBackToMenu: () => void;
   onOpenHeatmap: () => void;
+  // NOTE: onExportNotation, onGameModeChange, onNewGame remain in the interface
+  // for the App.tsx → AppRoutes prop chain but are not used inside this component.
 }
 
 export default function MainGameView({
@@ -145,14 +148,13 @@ export default function MainGameView({
   onCancelPromotion,
   onNewGame,
   onImportNotation,
-  onExportNotation,
-  onGameModeChange,
   onSaveSession,
   onResign,
   onRunAiTurns,
   onBackToMenu,
   onOpenHeatmap,
 }: MainGameViewProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   // Shared props for both classic ChessBoard and BoardSceneView (which wraps ChessBoard).
   const chessBoardProps = displayedGame
     ? {
@@ -179,15 +181,34 @@ export default function MainGameView({
 
   return (
     <main className="layout">
+      <GameMenuDrawer
+        isOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        backgrounds={backgrounds}
+        backgroundId={backgroundId}
+        onBackgroundChange={onBackgroundChange}
+        gameScenes={gameScenes}
+        gameSceneId={gameSceneId}
+        onGameSceneChange={onGameSceneChange}
+        fen={activeTab === "bot" ? undefined : notation?.fen}
+        pgn={activeTab === "bot" ? undefined : notation?.pgn}
+        sessionId={session?.sessionId}
+        gameId={
+          activeTab === "bot"
+            ? (displayedGame?.id ?? undefined)
+            : (game?.id ?? session?.gameId)
+        }
+        game={activeTab === "bot" ? (displayedGame ?? undefined) : game}
+        busy={busy}
+        gameMode={gameMode}
+        onImportNotation={onImportNotation}
+        onSaveSession={onSaveSession}
+        onRunAiTurns={onRunAiTurns}
+        onOpenHeatmap={onOpenHeatmap}
+        onBackToMenu={onBackToMenu}
+      />
+
       <aside className="side left-side">
-        <BackgroundPanel
-          backgrounds={backgrounds}
-          backgroundId={backgroundId}
-          onChange={onBackgroundChange}
-          gameScenes={gameScenes}
-          gameSceneId={gameSceneId}
-          onGameSceneChange={onGameSceneChange}
-        />
         <MoveList moves={displayedGame?.moves ?? []} />
         <CapturedPanel captured={displayedGame?.captured ?? []} spriteCatalog={spriteCatalog} />
       </aside>
@@ -296,25 +317,10 @@ export default function MainGameView({
           blackTimeMs={blackClockMs}
           activeColor={displayedGame?.activeColor ?? game?.activeColor}
           clockRunning={clockRunning}
-          gameMode={gameMode}
           canResign={canResign}
-          sessionId={session?.sessionId}
-          gameId={
-            activeTab === "bot"
-              ? (displayedGame?.id ?? undefined)
-              : (game?.id ?? session?.gameId)
-          }
-          fen={activeTab === "bot" ? undefined : notation?.fen}
-          pgn={activeTab === "bot" ? undefined : notation?.pgn}
-          onImportNotation={onImportNotation}
-          onExportNotation={onExportNotation}
-          onGameModeChange={onGameModeChange}
-          onNewGame={onNewGame}
-          onSaveSession={onSaveSession}
           onResign={onResign}
-          onRunAiTurns={onRunAiTurns}
           onBackToMenu={onBackToMenu}
-          onOpenHeatmap={onOpenHeatmap}
+          onOpenGameMenu={() => setIsMenuOpen(true)}
         />
       </aside>
     </main>
