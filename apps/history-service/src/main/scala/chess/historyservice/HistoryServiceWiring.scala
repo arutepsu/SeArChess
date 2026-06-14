@@ -3,11 +3,13 @@ package chess.historyservice
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import chess.history.{ArchiveMaterializer, ArchiveRepository, HistoryIngestionService, RemoteGameArchiveClient}
+import chess.history.kafka.KafkaHistoryProjectionConsumer
 import chess.history.postgres.HistoryFlywaySchemaInitializer
 import chess.history.redis.RedisStreamHistoryConsumer
 import chess.history.slick.SlickPostgresArchiveRepository
 import chess.observability.StructuredLog
 import com.comcast.ip4s.{Host, Port}
+import org.apache.pekko.actor.ActorSystem
 import org.http4s.ember.server.EmberServerBuilder
 import slick.jdbc.PostgresProfile.api.Database
 
@@ -52,6 +54,19 @@ object HistoryServiceWiring:
   ): () => Unit =
     config.deliveryMode match
       case HistoryDeliveryMode.Http => () => ()
+      case HistoryDeliveryMode.Kafka =>
+        given ActorSystem = ActorSystem("history-service-kafka-projection")
+        val consumer = KafkaHistoryProjectionConsumer(
+          bootstrapServers = config.kafkaBootstrapServers.getOrElse(
+            throw RuntimeException("History Kafka ingestion enabled but KAFKA_BOOTSTRAP_SERVERS is not configured")
+          ),
+          ingest = ingestion.ingestEventJson,
+          groupId = config.kafkaGroup,
+          topic = config.kafkaGameEventsTopic
+        )
+        () =>
+          consumer.stop()
+          summon[ActorSystem].terminate()
       case HistoryDeliveryMode.RedisStream =>
         val host = config.redisHost.getOrElse(
           throw RuntimeException("History Redis ingestion enabled but HISTORY_REDIS_URL/REDIS_HOST is not configured")

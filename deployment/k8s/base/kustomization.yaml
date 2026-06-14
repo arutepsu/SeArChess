@@ -44,6 +44,10 @@ resources:
   - mongo/service.yaml
   - redis/statefulset.yaml
   - redis/service.yaml
+  - kafka/statefulset.yaml
+  - kafka/service.yaml
+  - kafka-ui/deployment.yaml
+  - kafka-ui/service.yaml
   # Auth
   - keycloak/secret.yaml
   - keycloak/deployment.yaml
