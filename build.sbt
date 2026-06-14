@@ -528,6 +528,36 @@ lazy val userService = project
   )
   .dependsOn(observability)
 
+// ── App: analytics-service ───────────────────────────────────────────────────
+
+lazy val analyticsService = project
+  .in(file("apps/analytics-service"))
+  .enablePlugins(JavaAppPackaging)
+  .settings(
+    commonSettings,
+    name := "searchess-analytics-service",
+    coverageMinimumStmtTotal := 0,
+    Compile / mainClass := Some("chess.analyticsservice.AnalyticsServiceMain"),
+    run / mainClass     := Some("chess.analyticsservice.AnalyticsServiceMain"),
+    run / fork          := true,
+    libraryDependencies ++= Seq(
+      "org.http4s"          %% "http4s-ember-server" % http4sVersion,
+      "org.http4s"          %% "http4s-dsl"          % http4sVersion,
+      "com.lihaoyi"         %% "ujson"               % "4.0.2",
+      "com.typesafe.slick"  %% "slick"               % slickVersion,
+      "com.typesafe.slick"  %% "slick-hikaricp"      % slickVersion,
+      "org.postgresql"       % "postgresql"           % postgresVersion
+    ),
+    excludeFromCoverage(
+      ".*chess.analyticsservice.AnalyticsServiceMain.*",
+      ".*chess.analyticsservice.AnalyticsServiceConfig.*",
+      ".*chess.analyticsservice.AnalyticsServiceWiring.*",
+      ".*chess.analyticsservice.AnalyticsServiceRuntime.*",
+      ".*chess.analyticsservice.slick.SlickAnalyticsRepository.*"
+    )
+  )
+  .dependsOn(observability)
+
 // App: bot-service (searchess-bot-worker)
 // Talks to game-service; polls pending bot turns and submits AI moves.
 // Lichess integration removed. No Lichess token or external-game APIs.
@@ -885,6 +915,7 @@ addCommandAlias("testArenaBotsUci",         "arenaBotsUci/test")
 addCommandAlias("testArenaBotsAi",          "arenaBotsAi/test")
 addCommandAlias("testArenaWriterKafka",     "arenaWriterKafka/test")
 addCommandAlias("testArena",                ";arenaEvents/test;arenaCore/test;arenaBotsHeuristic/test;arenaBotsUci/test")
+addCommandAlias("testAnalyticsService",     "analyticsService/test")
 addCommandAlias("testSparkAnalytics",       "sparkAnalytics/test")
 addCommandAlias("demoHeuristicTournament",  "arenaDemoHeuristic/run")
 addCommandAlias("demoKafkaHeuristicTournament", "arenaDemoKafka/run")
@@ -940,5 +971,6 @@ lazy val root = project
     botService, chessStreaming, lichessBridgeService,
     arenaEvents, arenaCore, arenaWriterJsonl, arenaWriterKafka, sparkAnalytics, arenaBotsHeuristic, arenaBotsUci,
     arenaBotsAi,
-    arenaDemoHeuristic, arenaDemoKafka, arenaDemoStockfish, arenaDemoAi, arenaDemoEvaluation
+    arenaDemoHeuristic, arenaDemoKafka, arenaDemoStockfish, arenaDemoAi, arenaDemoEvaluation,
+    analyticsService
   )

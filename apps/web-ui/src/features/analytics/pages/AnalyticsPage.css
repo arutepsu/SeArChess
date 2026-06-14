@@ -1,0 +1,255 @@
+.analytics-page {
+    display: grid;
+    place-items: start center;
+    padding: 24px;
+    min-height: 100vh;
+}
+
+.analytics-shell {
+    width: min(1400px, calc(100vw - 48px));
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+
+.analytics-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.analytics-title {
+    margin: 0 0 6px;
+    font-size: 1.8rem;
+    color: var(--ink);
+}
+
+.analytics-run-meta {
+    margin: 0;
+    font-size: 0.85rem;
+    opacity: 0.7;
+    word-break: break-all;
+}
+
+.analytics-run-meta--none {
+    opacity: 0.5;
+    font-style: italic;
+}
+
+.analytics-run-id {
+    font-family: monospace;
+    color: var(--accent);
+}
+
+.analytics-run-source {
+    font-family: monospace;
+    opacity: 0.85;
+}
+
+.analytics-back-btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* ── Run selector ─────────────────────────────────────────────────────────── */
+
+.analytics-run-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.analytics-run-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--accent, #ffce74);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.analytics-run-select {
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid #5a3a3a;
+    border-radius: 8px;
+    color: #f0e6d2;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    padding: 6px 10px;
+    cursor: pointer;
+    min-width: 220px;
+    max-width: 480px;
+    flex-shrink: 1;
+}
+
+.analytics-run-select:focus {
+    border-color: #e6b347;
+    outline: none;
+}
+
+.analytics-run-select option {
+    background: #1a0f12;
+    color: #f0e6d2;
+}
+
+.analytics-run-source {
+    font-family: 'Courier New', monospace;
+    font-size: 0.78rem;
+    color: rgba(240, 230, 210, 0.55);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 300px;
+}
+
+.analytics-run-meta--error {
+    color: #ff9090;
+}
+
+/* ── Sections ─────────────────────────────────────────────────────────────── */
+
+.analytics-sections {
+    display: grid;
+    gap: 20px;
+}
+
+/* ── Card ─────────────────────────────────────────────────────────────────── */
+
+.analytics-card {
+    padding: 20px 24px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(5, 10, 18, 0.5);
+    backdrop-filter: blur(6px);
+    overflow-x: auto;
+}
+
+.section-card__title {
+    margin: 0 0 14px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+/* ── State messages ───────────────────────────────────────────────────────── */
+
+.ui-state-loading,
+.ui-state-empty {
+    margin: 8px 0 0;
+    font-size: 0.9rem;
+    opacity: 0.75;
+    font-style: italic;
+    color: var(--ink);
+}
+
+.ui-state-error {
+    margin: 8px 0 0;
+    font-size: 0.9rem;
+    color: #ff9090;
+    font-style: normal;
+    border: 1px solid rgba(255, 120, 120, 0.35);
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: rgba(255, 80, 80, 0.08);
+}
+
+/* ── Tables ───────────────────────────────────────────────────────────────── */
+
+.analytics-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+}
+
+.analytics-table thead th {
+    text-align: left;
+    padding: 6px 10px 8px;
+    font-weight: 600;
+    color: var(--ink);
+    opacity: 0.65;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    white-space: nowrap;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.analytics-table tbody tr {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    transition: background 0.1s;
+}
+
+.analytics-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.analytics-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.analytics-table td {
+    padding: 7px 10px;
+    color: var(--ink);
+}
+
+.analytics-td-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-family: monospace;
+    font-size: 0.85rem;
+}
+
+.analytics-td-name {
+    font-weight: 500;
+    color: #d8e8ff;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── Chart extras ─────────────────────────────────────────────────────────── */
+
+.analytics-chart-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.08);
+    margin: 16px 0;
+}
+
+.analytics-chart-hint {
+    margin: 6px 0 14px;
+    font-size: 0.82rem;
+    color: rgba(248, 241, 230, 0.45);
+    font-style: italic;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+    .analytics-page {
+        padding: 16px;
+    }
+
+    .analytics-shell {
+        width: min(100vw - 32px, 1400px);
+    }
+
+    .analytics-header {
+        flex-direction: column;
+    }
+
+    .analytics-back-btn {
+        align-self: flex-start;
+        /* layout override only — visual from ui-btn--secondary */
+    }
+
+    .analytics-card {
+        padding: 14px 16px;
+    }
+}

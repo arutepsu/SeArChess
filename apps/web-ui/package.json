@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:auth": "vite --mode auth",
+    "dev:analytics": "vite --mode analytics",
     "dev:deployed": "vite --mode deployed",
     "build": "vite build",
     "preview": "vite preview"

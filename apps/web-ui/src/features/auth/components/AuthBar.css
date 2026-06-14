@@ -1,0 +1,20 @@
+.auth-bar {
+  position: fixed;
+  top: 8px;
+  right: 12px;
+  z-index: 1000;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 4px 10px;
+  border-radius: 4px;
+  color: #d0d0d0;
+  font-size: 13px;
+  font-family: sans-serif;
+}
+
+.auth-bar__disabled-label {
+  opacity: 0.45;
+  font-style: italic;
+}

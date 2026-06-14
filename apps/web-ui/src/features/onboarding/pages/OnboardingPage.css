@@ -1,0 +1,76 @@
+.onboarding-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.onboarding-card {
+  background: rgba(20, 20, 30, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 2.5rem 2rem;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.onboarding-card h1 {
+  font-size: 1.6rem;
+  color: #e0d8c8;
+  margin: 0 0 0.75rem;
+  text-align: center;
+}
+
+.onboarding-intro {
+  color: #aaa;
+  font-size: 0.95rem;
+  text-align: center;
+  margin: 0 0 1.5rem;
+  line-height: 1.5;
+}
+
+.onboarding-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.onboarding-form label {
+  color: #ccc;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.onboarding-form input {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-size: 1rem;
+  padding: 0.6rem 0.75rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.onboarding-form input:focus {
+  border-color: rgba(200, 170, 100, 0.5);
+}
+
+.onboarding-hint {
+  color: #777;
+  font-size: 0.78rem;
+  margin: 0;
+}
+
+.onboarding-error {
+  color: #e07070;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.onboarding-submit {
+  margin-top: 0.75rem;
+}

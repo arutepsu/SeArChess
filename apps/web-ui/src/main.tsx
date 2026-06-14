@@ -11,30 +11,39 @@ if (!container) {
   throw new Error("Missing #app root element");
 }
 
-keycloak
-  .init({ onLoad: "login-required", pkceMethod: "S256" })
-  .then((authenticated: boolean) => {
-    if (!authenticated) return;
+const authEnabled = import.meta.env.VITE_AUTH_ENABLED !== "false";
 
-    keycloak.onTokenExpired = () => {
-      void keycloak.updateToken(30).catch(() => void keycloak.login());
-    };
+function renderApp(el: HTMLElement) {
+  const root = createRoot(el);
+  if (window.location.pathname === "/admin/persistence") {
+    root.render(<PersistenceAdminPage onBack={() => { window.location.href = "/"; }} />);
+  } else {
+    root.render(
+      <BrowserRouter>
+        <SessionProvider>
+          <App />
+        </SessionProvider>
+      </BrowserRouter>
+    );
+  }
+}
 
-    const root = createRoot(container);
+if (!authEnabled) {
+  renderApp(container);
+} else {
+  keycloak
+    .init({ onLoad: "login-required", pkceMethod: "S256" })
+    .then((authenticated: boolean) => {
+      if (!authenticated) return;
 
-    if (window.location.pathname === "/admin/persistence") {
-      root.render(<PersistenceAdminPage onBack={() => { window.location.href = "/"; }} />);
-    } else {
-      root.render(
-        <BrowserRouter>
-          <SessionProvider>
-            <App />
-          </SessionProvider>
-        </BrowserRouter>
-      );
-    }
-  })
-  .catch(() => {
-    const keycloakUrl = import.meta.env.VITE_KEYCLOAK_URL ?? "http://localhost:8080";
-    container.textContent = `Auth initialization failed. Is Keycloak reachable at ${keycloakUrl}?`;
-  });
+      keycloak.onTokenExpired = () => {
+        void keycloak.updateToken(30).catch(() => void keycloak.login());
+      };
+
+      renderApp(container);
+    })
+    .catch(() => {
+      const keycloakUrl = import.meta.env.VITE_KEYCLOAK_URL ?? "http://localhost:8080";
+      container.textContent = `Auth initialization failed. Is Keycloak reachable at ${keycloakUrl}?`;
+    });
+}
