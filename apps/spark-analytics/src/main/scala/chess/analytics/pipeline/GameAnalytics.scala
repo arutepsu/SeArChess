@@ -1,8 +1,11 @@
-package chess.analytics
+package chess.analytics.pipeline
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
 import java.util.UUID
+import chess.analytics.ingestion.{BronzeEvents, SilverEvents}
+import chess.analytics.config.{PostgresConfig, SparkLakeConfig}
+import chess.analytics.sink.{ParquetLakeWriter, PostgresWriter}
 
 object GameAnalytics {
 

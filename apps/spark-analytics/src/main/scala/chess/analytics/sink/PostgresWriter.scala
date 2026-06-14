@@ -1,7 +1,8 @@
-package chess.analytics
+package chess.analytics.sink
 
 import org.apache.spark.sql.{DataFrame, functions => F}
 import java.time.Instant
+import chess.analytics.config.PostgresConfig
 
 final class PostgresWriter(config: PostgresConfig, runId: String, sourcePath: String) {
 

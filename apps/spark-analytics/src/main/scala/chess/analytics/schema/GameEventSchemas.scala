@@ -1,4 +1,4 @@
-package chess.analytics
+package chess.analytics.schema
 
 import org.apache.spark.sql.types._
 

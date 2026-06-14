@@ -682,7 +682,7 @@ lazy val sparkAnalytics = project
     coverageEnabled          := false,
     Compile / doc / sources  := Seq.empty,
     name                     := "spark-analytics",
-    Compile / mainClass      := Some("chess.analytics.GameAnalyticsJob"),
+    Compile / mainClass      := Some("chess.analytics.app.GameAnalyticsJob"),
     libraryDependencies ++= Seq(
       "org.apache.spark" %% "spark-sql"             % sparkVersion,
       "org.apache.spark" %% "spark-sql-kafka-0-10"  % sparkVersion,
@@ -964,9 +964,9 @@ addCommandAlias("demoEvaluationSparkAnalytics",
 addCommandAlias("stockfishSmokeCheck",
   "arenaDemoStockfish/runMain chess.arena.demo.StockfishSmokeCheck")
 addCommandAlias("demoSparkStreamingAnalytics",
-  "sparkAnalytics/runMain chess.analytics.GameAnalyticsStreamingJob")
+  "sparkAnalytics/runMain chess.analytics.app.GameAnalyticsStreamingJob")
 addCommandAlias("demoKafkaSparkStreaming",
-  "sparkAnalytics/runMain chess.analytics.GameAnalyticsStreamingJob")
+  "sparkAnalytics/runMain chess.analytics.app.GameAnalyticsStreamingJob")
 
 // ── Compile slices ────────────────────────────────────────────────────────────
 

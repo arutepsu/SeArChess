@@ -25,11 +25,12 @@
   flex-shrink: 0;
   /*
    * Responsive square.
-   *   860px      — generous upper cap on large monitors
-   *   100vh-200px — leave ~200 px for auth bar, tab nav, status banner, and padding
-   *   100%       — never overflow the board column on narrow viewports
+   *   1080px        - generous upper cap on large monitors
+   *   100vh - 120px - prioritize the scene while keeping HUD/status visible
+   *   100vw - 32px  - avoid horizontal overflow on narrow viewports
+   *   100%          - never overflow the board column
    */
-  width: min(860px, calc(100vh - 200px), 100%);
+  width: min(1080px, calc(100vh - 120px), calc(100vw - 32px), 100%);
   aspect-ratio: 1 / 1;
 }
 

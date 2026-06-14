@@ -1,4 +1,4 @@
-package chess.analytics
+package chess.analytics.config
 
 final case class StreamingAnalyticsConfig(
   bootstrapServers: String = "localhost:9092",

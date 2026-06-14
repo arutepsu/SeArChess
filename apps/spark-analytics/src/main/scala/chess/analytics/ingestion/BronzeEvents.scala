@@ -1,6 +1,7 @@
-package chess.analytics
+package chess.analytics.ingestion
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import chess.analytics.schema.GameEventSchemas
 
 object BronzeEvents {
 

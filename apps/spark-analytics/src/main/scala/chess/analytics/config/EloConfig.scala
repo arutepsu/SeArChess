@@ -1,4 +1,4 @@
-package chess.analytics
+package chess.analytics.config
 
 final case class EloConfig(
   initialRating: Double = 1000.0,

@@ -1,4 +1,4 @@
-package chess.analytics
+package chess.analytics.streaming
 
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._

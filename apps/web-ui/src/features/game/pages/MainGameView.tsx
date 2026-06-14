@@ -12,10 +12,9 @@ import type { BotWebSocketData, BotConnectionState } from "../../../hooks/useBot
 import type { GameSceneSkin } from "../sceneSkins";
 import ChessBoard from "../../../components/chessBoard";
 import BoardSceneView from "../components/BoardSceneView";
-import ControlPanel from "../components/ControlPanel";
 import GameMenuDrawer from "../components/GameMenuDrawer";
-import MoveList from "../components/MoveList";
-import CapturedPanel from "../components/CapturedPanel";
+import GameHud from "../components/GameHud";
+import MoveLogPanel from "../components/MoveLogPanel";
 import StatusBanner from "../components/StatusBanner";
 import BotDemoGameView from "../components/BotDemoGameView";
 import type { ConnectionState, LiveConnectionState } from "../../../app/types";
@@ -155,6 +154,7 @@ export default function MainGameView({
   onOpenHeatmap,
 }: MainGameViewProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMoveLogOpen, setIsMoveLogOpen] = useState(false);
   // Shared props for both classic ChessBoard and BoardSceneView (which wraps ChessBoard).
   const chessBoardProps = displayedGame
     ? {
@@ -208,30 +208,31 @@ export default function MainGameView({
         onBackToMenu={onBackToMenu}
       />
 
-      <aside className="side left-side">
-        <MoveList moves={displayedGame?.moves ?? []} />
-        <CapturedPanel captured={displayedGame?.captured ?? []} spriteCatalog={spriteCatalog} />
-      </aside>
+      <MoveLogPanel
+        isOpen={isMoveLogOpen}
+        onClose={() => setIsMoveLogOpen(false)}
+        moves={displayedGame?.moves ?? []}
+        captured={displayedGame?.captured ?? []}
+        spriteCatalog={spriteCatalog}
+      />
 
       {displayedGame || activeTab === "bot" ? (
         <section className="board-column">
-          <nav className="tab-navigation" aria-label="Game Mode Tabs">
-            <button
-              type="button"
-              className={`tab-btn ${activeTab === "local" ? "active" : ""}`}
-              onClick={() => setActiveTab("local")}
-            >
-              🎮 Lokal Spielen
-            </button>
-            <button
-              type="button"
-              className={`tab-btn ${activeTab === "bot" ? "active" : ""}`}
-              onClick={() => setActiveTab("bot")}
-            >
-              🤖 Bot-Live-Monitor
-              {hasNewBotMoveNotification && <span className="notification-dot" />}
-            </button>
-          </nav>
+          <GameHud
+            whiteTimeMs={whiteClockMs}
+            blackTimeMs={blackClockMs}
+            clockRunning={clockRunning}
+            activeColor={displayedGame?.activeColor ?? game?.activeColor}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            hasNewBotMoveNotification={hasNewBotMoveNotification}
+            busy={busy}
+            canResign={canResign}
+            onResign={onResign}
+            onBackToMenu={onBackToMenu}
+            onOpenGameMenu={() => setIsMenuOpen(true)}
+            onOpenMoveLog={() => setIsMoveLogOpen(true)}
+          />
 
           <StatusBanner
             game={displayedGame ?? undefined}
@@ -309,20 +310,6 @@ export default function MainGameView({
         </section>
       )}
 
-      <aside className="side right-side">
-        <ControlPanel
-          game={activeTab === "bot" ? (displayedGame ?? undefined) : game}
-          busy={busy}
-          whiteTimeMs={whiteClockMs}
-          blackTimeMs={blackClockMs}
-          activeColor={displayedGame?.activeColor ?? game?.activeColor}
-          clockRunning={clockRunning}
-          canResign={canResign}
-          onResign={onResign}
-          onBackToMenu={onBackToMenu}
-          onOpenGameMenu={() => setIsMenuOpen(true)}
-        />
-      </aside>
     </main>
   );
 }

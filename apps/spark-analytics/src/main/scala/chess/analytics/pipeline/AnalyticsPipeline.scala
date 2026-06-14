@@ -1,6 +1,9 @@
-package chess.analytics
+package chess.analytics.pipeline
 
 import org.apache.spark.sql.DataFrame
+import chess.analytics.ingestion.SilverEvents
+import chess.analytics.quality.DataQualityChecks
+import chess.analytics.rating.EloAnalytics
 
 final case class SilverAnalyticsViews(
   gameStarted:  DataFrame,

@@ -1,7 +1,8 @@
-package chess.analytics
+package chess.analytics.ingestion
 
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
+import chess.analytics.schema.GameEventSchemas
 
 object KafkaEventParser {
 

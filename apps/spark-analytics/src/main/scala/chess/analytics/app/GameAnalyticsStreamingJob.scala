@@ -1,8 +1,11 @@
-package chess.analytics
+package chess.analytics.app
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.streaming.StreamingQuery
 import org.apache.spark.sql.streaming.Trigger
+import chess.analytics.ingestion.{KafkaEventParser, SilverEvents}
+import chess.analytics.streaming.{StreamingGoldAnalytics, WindowedStreamingAnalytics}
+import chess.analytics.config.StreamingAnalyticsConfig
 
 object GameAnalyticsStreamingJob {
 

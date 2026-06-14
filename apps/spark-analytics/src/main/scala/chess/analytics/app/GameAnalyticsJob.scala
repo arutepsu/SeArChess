@@ -1,6 +1,8 @@
-package chess.analytics
+package chess.analytics.app
 
 import org.apache.spark.sql.SparkSession
+import chess.analytics.config.PostgresConfig
+import chess.analytics.pipeline.GameAnalytics
 
 object GameAnalyticsJob {
 

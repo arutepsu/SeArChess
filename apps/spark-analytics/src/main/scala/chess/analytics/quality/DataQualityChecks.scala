@@ -1,4 +1,4 @@
-package chess.analytics
+package chess.analytics.quality
 
 import org.apache.spark.sql.{Column, DataFrame}
 import org.apache.spark.sql.functions._

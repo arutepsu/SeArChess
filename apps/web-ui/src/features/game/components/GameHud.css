@@ -1,0 +1,135 @@
+.game-hud {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(43, 24, 28, 0.82);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(90, 58, 58, 0.55);
+  border-radius: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Tab switcher */
+.game-hud__tabs {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(197, 160, 89, 0.25);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.game-hud__tab {
+  background: transparent;
+  border: none;
+  color: #a3a3a3;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.game-hud__tab:hover {
+  color: #f4efe6;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.game-hud__tab.is-active {
+  background: rgba(197, 160, 89, 0.65);
+  color: #fff;
+  box-shadow: 0 3px 8px rgba(197, 160, 89, 0.15);
+}
+
+/* Clocks */
+.game-hud__clocks {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  justify-content: center;
+}
+
+.game-hud__clock {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.game-hud__clock.is-active {
+  border-color: rgba(255, 206, 116, 0.5);
+  box-shadow: 0 0 0 1px rgba(255, 206, 116, 0.2);
+}
+
+.game-hud__clock-label {
+  font-family: 'Courier New', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.07rem;
+  text-transform: uppercase;
+  color: #bfa8a8;
+}
+
+.game-hud__clock-time {
+  font-family: 'Courier New', monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.05rem;
+  color: #f4efe6;
+}
+
+.game-hud__clock.is-active .game-hud__clock-time {
+  color: #ffce74;
+}
+
+/* Action buttons */
+.game-hud__actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.game-hud__actions .ui-btn {
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .game-hud {
+    flex-wrap: wrap;
+  }
+
+  .game-hud__clocks {
+    flex: 1 1 220px;
+  }
+
+  .game-hud__actions {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 700px) {
+  .game-hud {
+    gap: 8px;
+  }
+
+  .game-hud__clocks {
+    order: -1;
+    width: 100%;
+    justify-content: space-around;
+  }
+}
