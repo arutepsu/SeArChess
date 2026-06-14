@@ -7,7 +7,7 @@ import java.util.UUID
 object GameAnalytics {
 
   def loadGameFinished(spark: SparkSession, path: String): DataFrame =
-    spark.read.json(path).filter(col("eventType") === "GameFinished")
+    SilverEvents.gameFinished(BronzeEvents.loadEvents(spark, path))
 
   def computeLeaderboard(gameFinished: DataFrame): DataFrame = {
     val whiteView = gameFinished.select(
@@ -262,26 +262,38 @@ object GameAnalytics {
     spark:      SparkSession,
     inputPath:  String,
     outputPath: String,
-    pgConfig:   Option[PostgresConfig] = None
+    pgConfig:   Option[PostgresConfig] = None,
+    lakeConfig: SparkLakeConfig = SparkLakeConfig.fromEnv()
   ): Unit = {
-    val gameFinished = loadGameFinished(spark, inputPath).cache()
+    val runId        = UUID.randomUUID().toString
+    val bronzeEvents = BronzeEvents.loadEvents(spark, inputPath).cache()
+    val silver       = AnalyticsPipeline.buildSilver(bronzeEvents)
+    val gameFinished = silver.gameFinished.cache()
+    val gold         = AnalyticsPipeline.buildGold(gameFinished)
     val count        = gameFinished.count()
     println(s"\n=== Arena Analytics: $count games loaded from $inputPath ===\n")
 
-    val leaderboard        = computeLeaderboard(gameFinished)
-    val headToHead         = computeHeadToHead(gameFinished)
-    val terminations       = computeTerminations(gameFinished)
-    val avgLength          = computeAvgGameLength(gameFinished)
-    val familyComparison   = computeBotFamilyComparison(gameFinished)
-    val strategyComparison = computeStrategyComparison(gameFinished)
-    val colorPerformance   = computeColorPerformance(gameFinished)
-    val fastestWins        = computeFastestWins(gameFinished)
-    val stockfishComp      = computeStockfishComparison(gameFinished)
-    val familyMatchups     = computeFamilyMatchups(gameFinished)
-    val searchessAiComp    = computeSearchessAiComparison(gameFinished)
+    val dataQuality = AnalyticsPipeline.buildDataQuality(gameFinished)
+    println("--- Data Quality: GameFinished ---")
+    dataQuality.show(truncate = false)
+
+    val leaderboard        = gold.leaderboard
+    val headToHead         = gold.headToHead
+    val terminations       = gold.terminations
+    val avgLength          = gold.avgLength
+    val familyComparison   = gold.familyComparison
+    val strategyComparison = gold.strategyComparison
+    val colorPerformance   = gold.colorPerformance
+    val fastestWins        = gold.fastestWins
+    val stockfishComp      = gold.stockfishComp
+    val familyMatchups     = gold.familyMatchups
+    val searchessAiComp    = gold.searchessAiComp
+    val eloRatings         = gold.eloRatings
 
     println("--- Leaderboard ---")
     leaderboard.show(truncate = false)
+    println("--- Elo Ratings ---")
+    eloRatings.show(truncate = false)
     println("--- Head-to-Head ---")
     headToHead.show(truncate = false)
     println("--- Termination Reasons ---")
@@ -322,6 +334,7 @@ object GameAnalytics {
     writeCsv(stockfishComp,      "stockfish-comparison")
     writeCsv(familyMatchups,     "family-matchups")
     writeCsv(searchessAiComp,    "searchess-ai-comparison")
+    writeCsv(eloRatings,         "elo-ratings")
 
     if (!csvFailed) {
       println(s"\nCSV output written to $outputPath")
@@ -331,8 +344,30 @@ object GameAnalytics {
       println(s"       See docs/architecture/bot-arena-spark-demo.md for the Windows workaround.")
     }
 
+    if (lakeConfig.writeEnabled) {
+      val lakeWriter = new ParquetLakeWriter(lakeConfig, runId, inputPath)
+      println(s"\n=== Writing Spark lake Parquet [run_id=$runId, mode=${lakeConfig.writeMode}, base=${lakeConfig.basePath}] ===")
+
+      lakeWriter.writeTable(bronzeEvents,                           "bronze", "events")
+      lakeWriter.writeTable(silver.gameStarted,                     "silver", "game-started")
+      lakeWriter.writeTable(silver.movePlayed,                      "silver", "move-played")
+      lakeWriter.writeTable(gameFinished,                           "silver", "game-finished")
+      lakeWriter.writeTable(leaderboard,                            "gold",   "leaderboard")
+      lakeWriter.writeTable(headToHead,                             "gold",   "head-to-head")
+      lakeWriter.writeTable(terminations,                           "gold",   "terminations")
+      lakeWriter.writeTable(avgLength,                              "gold",   "avg-game-length")
+      lakeWriter.writeTable(familyComparison,                       "gold",   "bot-family-comparison")
+      lakeWriter.writeTable(strategyComparison,                     "gold",   "strategy-comparison")
+      lakeWriter.writeTable(colorPerformance,                       "gold",   "color-performance")
+      lakeWriter.writeTable(fastestWins,                            "gold",   "fastest-wins")
+      lakeWriter.writeTable(stockfishComp,                          "gold",   "stockfish-comparison")
+      lakeWriter.writeTable(familyMatchups,                         "gold",   "family-matchups")
+      lakeWriter.writeTable(searchessAiComp,                        "gold",   "searchess-ai-comparison")
+      lakeWriter.writeTable(eloRatings,                             "gold",   "elo-ratings")
+      lakeWriter.writeTable(dataQuality,                            "gold",   "data-quality")
+    }
+
     pgConfig.foreach { cfg =>
-      val runId  = UUID.randomUUID().toString
       val writer = new PostgresWriter(cfg, runId, inputPath)
       println(s"\n=== Writing analytics to PostgreSQL [run_id=$runId, mode=${cfg.writeMode}] ===")
       writer.createSchemaIfNeeded()
@@ -355,6 +390,7 @@ object GameAnalytics {
       pg(stockfishComp,      "analytics_stockfish_comparison")
       pg(familyMatchups,     "analytics_family_matchups")
       pg(searchessAiComp,    "analytics_searchess_ai_comparison")
+      pg(eloRatings,         "analytics_elo_ratings")
 
       val total = pgSucceeded + pgFailed.length
       if (pgFailed.isEmpty) {
@@ -367,5 +403,6 @@ object GameAnalytics {
     }
 
     gameFinished.unpersist()
+    bronzeEvents.unpersist()
   }
 }

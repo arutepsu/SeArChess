@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import type { PlayableGameMode } from "./api/types";
 import { useSpriteCatalog } from "./app/hooks/useSpriteCatalog";
 import { useBackgroundSelection } from "./app/hooks/useBackgroundSelection";
+import { useGameSceneSelection } from "./app/hooks/useGameSceneSelection";
 import { useGameClock } from "./app/hooks/useGameClock";
 import { useReplayTimeline } from "./app/hooks/useReplayTimeline";
 import { connectWebSocket, type WsClient } from "./api/ws";
@@ -88,7 +89,8 @@ export default function App() {
     gameStatus: game?.status,
     activeColor: game?.activeColor,
   });
-  const { backgrounds, backgroundId, setBackgroundId } = useBackgroundSelection();
+  const { gameScenes, gameSceneId, setGameSceneId, gameScene } = useGameSceneSelection();
+  const { backgrounds, backgroundId, setBackgroundId } = useBackgroundSelection(Boolean(gameScene));
   const spriteCatalog = useSpriteCatalog();
   const {
     timelinePly,
@@ -317,7 +319,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <BackgroundEffectsLayer backgroundId={backgroundId} />
+      <BackgroundEffectsLayer backgroundId={backgroundId} disabled={Boolean(gameScene)} />
       <AuthBar />
 
       <AppRoutes
@@ -358,6 +360,10 @@ export default function App() {
         backgroundId={backgroundId}
         setBackgroundId={setBackgroundId}
         backgrounds={backgrounds}
+        gameSceneId={gameSceneId}
+        setGameSceneId={setGameSceneId}
+        gameScenes={gameScenes}
+        gameScene={gameScene}
         spriteCatalog={spriteCatalog}
         onContinueActiveGame={handleContinueActiveGame}
         onStartGame={handleStartGame}

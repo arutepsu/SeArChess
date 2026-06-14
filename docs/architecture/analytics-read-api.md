@@ -76,6 +76,10 @@ Use these when you want data from the most recent Spark run without knowing its 
 | `GET /api/analytics/latest/searchess-ai`   | `analytics_searchess_ai_comparison` |
 | `GET /api/analytics/latest/stockfish`      | `analytics_stockfish_comparison` |
 | `GET /api/analytics/latest/avg-game-length` | `analytics_avg_game_length` |
+| `GET /api/analytics/latest/elo-ratings`    | `analytics_elo_ratings` |
+| `GET /api/analytics/latest/terminations`   | `analytics_terminations` |
+| `GET /api/analytics/latest/color-performance` | `analytics_color_performance` |
+| `GET /api/analytics/latest/fastest-wins`   | `analytics_fastest_wins` |
 
 All return `{ "rows": [...] }`. The latest run is resolved via:
 
@@ -90,6 +94,10 @@ curl http://localhost:8084/api/analytics/latest/strategies
 curl http://localhost:8084/api/analytics/latest/searchess-ai
 curl http://localhost:8084/api/analytics/latest/stockfish
 curl http://localhost:8084/api/analytics/latest/avg-game-length
+curl http://localhost:8084/api/analytics/latest/elo-ratings
+curl http://localhost:8084/api/analytics/latest/terminations
+curl http://localhost:8084/api/analytics/latest/color-performance
+curl http://localhost:8084/api/analytics/latest/fastest-wins
 ```
 
 ---
@@ -108,6 +116,10 @@ writer and are available from `GET /api/analytics/runs`.
 | `GET /api/analytics/runs/:runId/searchess-ai`   | `analytics_searchess_ai_comparison` |
 | `GET /api/analytics/runs/:runId/stockfish`      | `analytics_stockfish_comparison` |
 | `GET /api/analytics/runs/:runId/avg-game-length` | `analytics_avg_game_length` |
+| `GET /api/analytics/runs/:runId/elo-ratings`    | `analytics_elo_ratings` |
+| `GET /api/analytics/runs/:runId/terminations`   | `analytics_terminations` |
+| `GET /api/analytics/runs/:runId/color-performance` | `analytics_color_performance` |
+| `GET /api/analytics/runs/:runId/fastest-wins`   | `analytics_fastest_wins` |
 
 All return `{ "rows": [...] }`.
 
@@ -119,6 +131,10 @@ curl "http://localhost:8084/api/analytics/runs/$RUN_ID/strategies"
 curl "http://localhost:8084/api/analytics/runs/$RUN_ID/searchess-ai"
 curl "http://localhost:8084/api/analytics/runs/$RUN_ID/stockfish"
 curl "http://localhost:8084/api/analytics/runs/$RUN_ID/avg-game-length"
+curl "http://localhost:8084/api/analytics/runs/$RUN_ID/elo-ratings"
+curl "http://localhost:8084/api/analytics/runs/$RUN_ID/terminations"
+curl "http://localhost:8084/api/analytics/runs/$RUN_ID/color-performance"
+curl "http://localhost:8084/api/analytics/runs/$RUN_ID/fastest-wins"
 ```
 
 #### runId validation
@@ -193,6 +209,10 @@ Empty result (run exists but has no data for that section):
 | `/searchess-ai` | `analytics_searchess_ai_comparison` |
 | `/stockfish` | `analytics_stockfish_comparison` |
 | `/avg-game-length` | `analytics_avg_game_length` |
+| `/elo-ratings` | `analytics_elo_ratings` |
+| `/terminations` | `analytics_terminations` |
+| `/color-performance` | `analytics_color_performance` |
+| `/fastest-wins` | `analytics_fastest_wins` |
 
 ---
 
@@ -246,6 +266,8 @@ curl http://localhost:8084/health
 curl http://localhost:8084/api/analytics/runs
 curl "http://localhost:8084/api/analytics/runs/550e8400-e29b-41d4-a716-446655440000/leaderboard"
 curl http://localhost:8084/api/analytics/latest/leaderboard
+curl http://localhost:8084/api/analytics/latest/elo-ratings
+curl http://localhost:8084/api/analytics/latest/terminations
 ```
 
 ---
@@ -264,7 +286,7 @@ Tests use `InMemoryAnalyticsRepository` — no PostgreSQL required. Coverage:
 |-------------|---------------|
 | `GET /health` | 200 ok |
 | `GET /api/analytics/runs` | empty list, single run, two runs newest-first, 503 |
-| `GET /latest/*` (6 endpoints) | 200 with data, 200 empty, 503 each |
-| `GET /runs/:runId/*` (6 endpoints) | 200 with data, 503 each |
-| Invalid runId | 400 INVALID_RUN_ID for all 6 run-specific endpoints |
+| `GET /latest/*` (10 endpoints) | 200 with data, 200 empty, 503 each |
+| `GET /runs/:runId/*` (10 endpoints) | 200 with data, 503 each |
+| Invalid runId | 400 INVALID_RUN_ID for all 10 run-specific endpoints |
 | Unknown route | 404 |

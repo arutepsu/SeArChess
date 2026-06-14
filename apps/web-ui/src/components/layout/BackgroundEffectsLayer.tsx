@@ -1,8 +1,10 @@
 type Props = {
     backgroundId: string;
+    disabled?: boolean;
 };
 
-export default function BackgroundEffectsLayer({ backgroundId }: Props) {
+export default function BackgroundEffectsLayer({ backgroundId, disabled }: Props) {
+    if (disabled) return null;
     const isRainBackground = backgroundId === "river";
     const isSakuraBackground = backgroundId === "sakura-grove";
 

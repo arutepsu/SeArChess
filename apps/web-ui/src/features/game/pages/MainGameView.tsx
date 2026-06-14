@@ -8,7 +8,9 @@ import type { BoardAnimation } from "../../../animation/animationTypes";
 import type { SpriteCatalog } from "../../../assets/spriteCatalog";
 import type { SessionContext } from "../../../session/sessionStore";
 import type { BotWebSocketData, BotConnectionState } from "../../../hooks/useBotDemoStream";
+import type { GameSceneSkin } from "../sceneSkins";
 import ChessBoard from "../../../components/chessBoard";
+import BoardSceneView from "../components/BoardSceneView";
 import ControlPanel from "../components/ControlPanel";
 import MoveList from "../components/MoveList";
 import CapturedPanel from "../components/CapturedPanel";
@@ -68,10 +70,14 @@ export interface MainGameViewProps {
   blackClockMs: number;
   clockRunning: boolean;
 
-  // Background / sprites
+  // Background / scene / sprites
   backgroundId: string;
   onBackgroundChange: (id: string) => void;
   backgrounds: Background[];
+  gameScenes: GameSceneSkin[];
+  gameSceneId: string;
+  onGameSceneChange: (id: string) => void;
+  gameScene: GameSceneSkin | null;
   spriteCatalog: SpriteCatalog | null;
 
   // Session
@@ -127,6 +133,10 @@ export default function MainGameView({
   backgroundId,
   onBackgroundChange,
   backgrounds,
+  gameScenes,
+  gameSceneId,
+  onGameSceneChange,
+  gameScene,
   spriteCatalog,
   session,
   onSelect,
@@ -143,6 +153,30 @@ export default function MainGameView({
   onBackToMenu,
   onOpenHeatmap,
 }: MainGameViewProps) {
+  // Shared props for both classic ChessBoard and BoardSceneView (which wraps ChessBoard).
+  const chessBoardProps = displayedGame
+    ? {
+        board: displayedGame.board,
+        selectedSquare: replayModeActive ? undefined : selectedSquare,
+        legalMoves: replayModeActive ? [] : legalMoves,
+        animation: replayModeActive ? null : animationPlan,
+        idleAnimation: true as const,
+        disabled: boardInteractionDisabled || replayModeActive,
+        onSelect,
+        onAnimationFinished,
+        inCheck: displayedGame.status === "check",
+        activeColor: displayedGame.activeColor,
+        gameStatus: displayedGame.status,
+        drawReason: displayedGame.drawReason,
+        winner: displayedGame.winner,
+        promotionPending,
+        onResolvePromotion,
+        onCancelPromotion,
+        onNewGame,
+        orientation: "white" as const,
+      }
+    : null;
+
   return (
     <main className="layout">
       <aside className="side left-side">
@@ -150,6 +184,9 @@ export default function MainGameView({
           backgrounds={backgrounds}
           backgroundId={backgroundId}
           onChange={onBackgroundChange}
+          gameScenes={gameScenes}
+          gameSceneId={gameSceneId}
+          onGameSceneChange={onGameSceneChange}
         />
         <MoveList moves={displayedGame?.moves ?? []} />
         <CapturedPanel captured={displayedGame?.captured ?? []} spriteCatalog={spriteCatalog} />
@@ -187,27 +224,12 @@ export default function MainGameView({
               mappedBotGame={mappedBotGame}
               orientation={botGameData?.botColor ?? "white"}
             />
-          ) : displayedGame ? (
-            <ChessBoard
-              board={displayedGame.board}
-              selectedSquare={replayModeActive ? undefined : selectedSquare}
-              legalMoves={replayModeActive ? [] : legalMoves}
-              animation={replayModeActive ? null : animationPlan}
-              idleAnimation={true}
-              disabled={boardInteractionDisabled || replayModeActive}
-              onSelect={onSelect}
-              onAnimationFinished={onAnimationFinished}
-              inCheck={displayedGame.status === "check"}
-              activeColor={displayedGame.activeColor}
-              gameStatus={displayedGame.status}
-              drawReason={displayedGame.drawReason}
-              winner={displayedGame.winner}
-              promotionPending={promotionPending}
-              onResolvePromotion={onResolvePromotion}
-              onCancelPromotion={onCancelPromotion}
-              onNewGame={onNewGame}
-              orientation="white"
-            />
+          ) : chessBoardProps ? (
+            gameScene ? (
+              <BoardSceneView gameScene={gameScene} {...chessBoardProps} />
+            ) : (
+              <ChessBoard {...chessBoardProps} />
+            )
           ) : null}
 
           {activeTab !== "bot" && (

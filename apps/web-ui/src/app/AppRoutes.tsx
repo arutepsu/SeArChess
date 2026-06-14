@@ -3,6 +3,7 @@ import type { GameState, PlayableGameMode } from "../api/types";
 import type { GameNotationResponse, MoveHistoryEntryDto, RunAiTurnsResponse } from "../api/backendTypes";
 import type { BoardAnimation } from "../animation/animationTypes";
 import type { SpriteCatalog } from "../assets/spriteCatalog";
+import type { GameSceneSkin } from "../features/game/sceneSkins";
 import type { SessionContext } from "../session/sessionStore";
 import type { BotWebSocketData, BotConnectionState } from "../hooks/useBotDemoStream";
 import type { UserProfileResponse } from "../api/userServiceTypes";
@@ -69,6 +70,10 @@ interface AppRoutesProps {
   backgroundId: string;
   setBackgroundId: (id: string) => void;
   backgrounds: Array<{ id: string; label: string; url: string }>;
+  gameSceneId: string;
+  setGameSceneId: (id: string) => void;
+  gameScenes: GameSceneSkin[];
+  gameScene: GameSceneSkin | null;
   spriteCatalog: SpriteCatalog | null;
 
   // Navigation handlers (all defined in App.tsx)
@@ -137,6 +142,10 @@ export default function AppRoutes({
   backgroundId,
   setBackgroundId,
   backgrounds,
+  gameSceneId,
+  setGameSceneId,
+  gameScenes,
+  gameScene,
   spriteCatalog,
   onContinueActiveGame,
   onStartGame,
@@ -226,6 +235,10 @@ export default function AppRoutes({
             backgroundId={backgroundId}
             onBackgroundChange={setBackgroundId}
             backgrounds={backgrounds}
+            gameScenes={gameScenes}
+            gameSceneId={gameSceneId}
+            onGameSceneChange={setGameSceneId}
+            gameScene={gameScene}
             spriteCatalog={spriteCatalog}
             session={session}
             onSelect={onSelect}

@@ -73,6 +73,34 @@ class AnalyticsRoutes(repo: AnalyticsRepository):
         case Left(msg) =>
           error(Status.ServiceUnavailable, "ANALYTICS_UNAVAILABLE", msg)
 
+    case GET -> Root / "api" / "analytics" / "latest" / "elo-ratings" =>
+      repo.getEloRatings() match
+        case Right(rows) =>
+          json(Status.Ok, ujson.Obj("rows" -> ujson.Arr(rows.map(AnalyticsRowJson.eloRatings)*)))
+        case Left(msg) =>
+          error(Status.ServiceUnavailable, "ANALYTICS_UNAVAILABLE", msg)
+
+    case GET -> Root / "api" / "analytics" / "latest" / "terminations" =>
+      repo.getTerminations() match
+        case Right(rows) =>
+          json(Status.Ok, ujson.Obj("rows" -> ujson.Arr(rows.map(AnalyticsRowJson.terminationReason)*)))
+        case Left(msg) =>
+          error(Status.ServiceUnavailable, "ANALYTICS_UNAVAILABLE", msg)
+
+    case GET -> Root / "api" / "analytics" / "latest" / "color-performance" =>
+      repo.getColorPerformance() match
+        case Right(rows) =>
+          json(Status.Ok, ujson.Obj("rows" -> ujson.Arr(rows.map(AnalyticsRowJson.colorPerformance)*)))
+        case Left(msg) =>
+          error(Status.ServiceUnavailable, "ANALYTICS_UNAVAILABLE", msg)
+
+    case GET -> Root / "api" / "analytics" / "latest" / "fastest-wins" =>
+      repo.getFastestWins() match
+        case Right(rows) =>
+          json(Status.Ok, ujson.Obj("rows" -> ujson.Arr(rows.map(AnalyticsRowJson.fastestWin)*)))
+        case Left(msg) =>
+          error(Status.ServiceUnavailable, "ANALYTICS_UNAVAILABLE", msg)
+
     // ── Run-specific endpoints ──────────────────────────────────────────────
     case GET -> Root / "api" / "analytics" / "runs" / runId / "leaderboard" =>
       validateRunId(runId) match
@@ -131,6 +159,46 @@ class AnalyticsRoutes(repo: AnalyticsRepository):
           repo.getAvgGameLength(id) match
             case Right(rows) =>
               json(Status.Ok, ujson.Obj("rows" -> ujson.Arr(rows.map(AnalyticsRowJson.avgGameLength)*)))
+            case Left(msg) =>
+              error(Status.ServiceUnavailable, "ANALYTICS_UNAVAILABLE", msg)
+
+    case GET -> Root / "api" / "analytics" / "runs" / runId / "elo-ratings" =>
+      validateRunId(runId) match
+        case Left(msg) => error(Status.BadRequest, "INVALID_RUN_ID", msg)
+        case Right(id) =>
+          repo.getEloRatings(id) match
+            case Right(rows) =>
+              json(Status.Ok, ujson.Obj("rows" -> ujson.Arr(rows.map(AnalyticsRowJson.eloRatings)*)))
+            case Left(msg) =>
+              error(Status.ServiceUnavailable, "ANALYTICS_UNAVAILABLE", msg)
+
+    case GET -> Root / "api" / "analytics" / "runs" / runId / "terminations" =>
+      validateRunId(runId) match
+        case Left(msg) => error(Status.BadRequest, "INVALID_RUN_ID", msg)
+        case Right(id) =>
+          repo.getTerminations(id) match
+            case Right(rows) =>
+              json(Status.Ok, ujson.Obj("rows" -> ujson.Arr(rows.map(AnalyticsRowJson.terminationReason)*)))
+            case Left(msg) =>
+              error(Status.ServiceUnavailable, "ANALYTICS_UNAVAILABLE", msg)
+
+    case GET -> Root / "api" / "analytics" / "runs" / runId / "color-performance" =>
+      validateRunId(runId) match
+        case Left(msg) => error(Status.BadRequest, "INVALID_RUN_ID", msg)
+        case Right(id) =>
+          repo.getColorPerformance(id) match
+            case Right(rows) =>
+              json(Status.Ok, ujson.Obj("rows" -> ujson.Arr(rows.map(AnalyticsRowJson.colorPerformance)*)))
+            case Left(msg) =>
+              error(Status.ServiceUnavailable, "ANALYTICS_UNAVAILABLE", msg)
+
+    case GET -> Root / "api" / "analytics" / "runs" / runId / "fastest-wins" =>
+      validateRunId(runId) match
+        case Left(msg) => error(Status.BadRequest, "INVALID_RUN_ID", msg)
+        case Right(id) =>
+          repo.getFastestWins(id) match
+            case Right(rows) =>
+              json(Status.Ok, ujson.Obj("rows" -> ujson.Arr(rows.map(AnalyticsRowJson.fastestWin)*)))
             case Left(msg) =>
               error(Status.ServiceUnavailable, "ANALYTICS_UNAVAILABLE", msg)
   }

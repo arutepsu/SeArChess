@@ -296,6 +296,78 @@
   border-color: rgba(255, 255, 255, 0.35);
 }
 
+/* ── Transparent overlay mode ─────────────────────────────────────────────── */
+/*
+ * Used when a GameSceneSkin is active. BoardSceneView positions this shell
+ * absolutely over the playable area; the shell fills that container.
+ * The scene image itself is rendered by BoardSceneView, not here.
+ */
+.board-shell--transparent-overlay {
+  background: transparent;
+  border: none;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.board-shell--transparent-overlay .board-grid {
+  grid-template-rows: repeat(8, 1fr);
+  gap: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.board-shell--transparent-overlay .board-row {
+  grid-template-columns: repeat(8, 1fr);
+  gap: 0;
+  width: 100%;
+}
+
+.board-shell--transparent-overlay .board-square {
+  width: 100%;
+  height: 100%;
+}
+
+/* Scene image draws its own squares — HTML squares are transparent */
+.board-shell--transparent-overlay .board-square.square-light,
+.board-shell--transparent-overlay .board-square.square-dark {
+  background: transparent;
+}
+
+/* Preserve state highlights as semi-transparent overlays */
+.board-shell--transparent-overlay .board-square.is-last-move {
+  background: rgba(255, 220, 30, 0.28);
+}
+
+.board-shell--transparent-overlay .board-square.is-selected {
+  background: rgba(255, 255, 60, 0.35);
+}
+
+.board-shell--transparent-overlay .board-square.is-legal {
+  background: transparent;
+}
+
+/* Legal-move dot: percentage-based so it scales with smaller scene squares */
+.board-shell--transparent-overlay .board-square.is-legal::after {
+  width: 36%;
+  height: 36%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+/* Legal-move ring on occupied squares: inset box-shadow scales naturally */
+.board-shell--transparent-overlay .board-square.has-piece.is-legal::after {
+  display: none;
+}
+
+.board-shell--transparent-overlay .board-square.has-piece.is-legal {
+  box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.28);
+}
+
+/* ── Animations ───────────────────────────────────────────────────────────── */
+
 /* Animations */
 .animate-fade-in {
   animation: fadeIn 0.25s ease-out forwards;

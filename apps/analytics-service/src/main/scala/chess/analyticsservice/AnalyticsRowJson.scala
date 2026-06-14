@@ -74,3 +74,42 @@ object AnalyticsRowJson:
       "avgTotalPly"   -> r.avgTotalPly,
       "avgDurationMs" -> r.avgDurationMs
     )
+
+  def eloRatings(r: EloRatingsRow): Value =
+    Obj(
+      "botId"                 -> r.botId,
+      "rating"                -> r.rating,
+      "ratingChange"          -> r.ratingChange,
+      "gamesPlayed"           -> r.gamesPlayed.toDouble,
+      "wins"                  -> r.wins.toDouble,
+      "draws"                 -> r.draws.toDouble,
+      "losses"                -> r.losses.toDouble,
+      "averageOpponentRating" -> r.averageOpponentRating,
+      "lastGameTimestamp"     -> r.lastGameTimestamp
+    )
+
+  def terminationReason(r: TerminationReasonRow): Value =
+    Obj(
+      "terminationReason" -> r.terminationReason,
+      "count"             -> r.count.toDouble
+    )
+
+  def colorPerformance(r: ColorPerformanceRow): Value =
+    Obj(
+      "botId"        -> r.botId,
+      "gamesAsWhite" -> r.gamesAsWhite.toDouble,
+      "whiteWins"    -> r.whiteWins.toDouble,
+      "whiteScore"   -> r.whiteScore,
+      "gamesAsBlack" -> r.gamesAsBlack.toDouble,
+      "blackWins"    -> r.blackWins.toDouble,
+      "blackScore"   -> r.blackScore
+    )
+
+  def fastestWin(r: FastestWinRow): Value =
+    Obj(
+      "winnerBotId"      -> r.winnerBotId,
+      "decisiveGames"    -> r.decisiveGames.toDouble,
+      "avgWinPly"        -> r.avgWinPly,
+      "minWinPly"        -> r.minWinPly.toDouble,
+      "avgWinDurationMs" -> r.avgWinDurationMs
+    )

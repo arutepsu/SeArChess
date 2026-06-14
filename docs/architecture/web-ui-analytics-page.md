@@ -120,8 +120,14 @@ Leave `VITE_ANALYTICS_API_BASE_URL` unset (empty = same origin).
 | Searchess AI vs Opponents     | `GET /api/analytics/latest/searchess-ai`       | `analytics_searchess_ai_comparison`    |
 | vs Stockfish Variants         | `GET /api/analytics/latest/stockfish`          | `analytics_stockfish_comparison`       |
 | Average Game Length by Pairing | `GET /api/analytics/latest/avg-game-length`   | `analytics_avg_game_length`            |
+| Elo Ratings                   | `GET /api/analytics/latest/elo-ratings`        | `analytics_elo_ratings`                |
+| Termination Reasons           | `GET /api/analytics/latest/terminations`       | `analytics_terminations`               |
+| Fastest Winning Bots          | `GET /api/analytics/latest/fastest-wins`       | `analytics_fastest_wins`               |
+| Color Performance             | `GET /api/analytics/latest/color-performance`  | `analytics_color_performance`          |
 
-All 7 requests are issued in parallel via `Promise.allSettled` on page mount.
+When a historical run is selected, section requests use `GET /api/analytics/runs/:runId/<section>`.
+
+All 11 requests are issued in parallel via `Promise.allSettled` on page mount or run selection change.
 Each section renders independently — a failure in one table does not block others.
 
 ---
@@ -131,8 +137,12 @@ Each section renders independently — a failure in one table does not block oth
 | File | Change |
 |------|--------|
 | `src/api/analyticsTypes.ts` | New — TypeScript types for all analytics API responses |
-| `src/api/analyticsClient.ts` | New — fetch functions for all 7 analytics endpoints |
-| `src/components/AnalyticsPage.tsx` | New — analytics page component with 6 data sections |
+| `src/api/analyticsClient.ts` | New — fetch functions for all analytics endpoints |
+| `src/features/analytics/pages/AnalyticsPage.tsx` | Analytics page component with run selector and data sections |
+| `src/features/analytics/components/charts/EloRatingsChart.tsx` | Elo ratings horizontal bar chart |
+| `src/features/analytics/components/charts/TerminationsChart.tsx` | Termination reason horizontal bar chart |
+| `src/features/analytics/components/charts/FastestWinsChart.tsx` | Fastest wins horizontal bar chart |
+| `src/features/analytics/components/charts/ColorPerformanceChart.tsx` | Color performance chart |
 | `src/components/AnalyticsPage.css` | New — dark glass-morphism styles matching project theme |
 | `src/App.tsx` | Added `<Route path="/analytics" element={<AnalyticsPage />} />` |
 | `src/components/AuthBar.tsx` | Added Analytics nav button |
@@ -150,6 +160,9 @@ Each section renders independently — a failure in one table does not block oth
 - On API error (including 503 from analytics-service): human-readable message:
   > "Analytics data unavailable. Run Spark analytics with PostgreSQL output enabled first."
 - Run metadata (run ID, timestamp, source path) is shown in the page header when available.
+- The run selector reloads every section, including Elo ratings, for the selected run.
+- The Elo Ratings section shows a rating chart and a table with rating, rating change, record, games played, and average opponent rating.
+- Termination Reasons, Fastest Winning Bots, and Color Performance expose the existing Spark Gold tables through the same chart and table pattern.
 
 ---
 
@@ -177,7 +190,5 @@ Web UI (/analytics)
 
 ## Limitations
 
-- No auto-refresh: data is fetched once on page load. Reload the page to pick up new Spark runs.
-- No run selector: only the latest Spark run is displayed (resolved by analytics-service subquery).
-- No charts: tables only. Charts can be added in a future phase.
+- No auto-refresh: data is fetched on page load and when the selected run changes. Reload the page to pick up new Spark runs.
 - No authentication on analytics-service: the API is unprotected (suitable for internal/local use).

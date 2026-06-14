@@ -187,6 +187,72 @@ class AnalyticsRoutesSpec extends AnyFlatSpec with Matchers:
     bodyJson(resp)("code").str shouldBe "ANALYTICS_UNAVAILABLE"
   }
 
+  // â”€â”€ /api/analytics/latest/elo-ratings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  "GET /api/analytics/latest/elo-ratings" should "return 200 with Elo rating rows" in {
+    val resp = get(InMemoryAnalyticsRepository.withSampleData, uri"/api/analytics/latest/elo-ratings")
+    resp.status shouldBe Status.Ok
+    val rows = bodyJson(resp)("rows").arr
+    rows should have size 1
+    rows.head("botId").str shouldBe "stockfish-fast"
+    rows.head("rating").num shouldBe 1055.4
+    rows.head("ratingChange").num shouldBe 55.4
+    rows.head("averageOpponentRating").num shouldBe 998.2
+  }
+
+  it should "return 503 when repo fails" in {
+    val resp = get(InMemoryAnalyticsRepository.withError("err"), uri"/api/analytics/latest/elo-ratings")
+    resp.status shouldBe Status.ServiceUnavailable
+    bodyJson(resp)("code").str shouldBe "ANALYTICS_UNAVAILABLE"
+  }
+
+  "GET /api/analytics/latest/terminations" should "return 200 with termination rows" in {
+    val resp = get(InMemoryAnalyticsRepository.withSampleData, uri"/api/analytics/latest/terminations")
+    resp.status shouldBe Status.Ok
+    val rows = bodyJson(resp)("rows").arr
+    rows should have size 1
+    rows.head("terminationReason").str shouldBe "checkmate"
+    rows.head("count").num.toLong shouldBe 7L
+  }
+
+  it should "return 503 when repo fails" in {
+    val resp = get(InMemoryAnalyticsRepository.withError("err"), uri"/api/analytics/latest/terminations")
+    resp.status shouldBe Status.ServiceUnavailable
+    bodyJson(resp)("code").str shouldBe "ANALYTICS_UNAVAILABLE"
+  }
+
+  "GET /api/analytics/latest/color-performance" should "return 200 with color performance rows" in {
+    val resp = get(InMemoryAnalyticsRepository.withSampleData, uri"/api/analytics/latest/color-performance")
+    resp.status shouldBe Status.Ok
+    val rows = bodyJson(resp)("rows").arr
+    rows should have size 1
+    rows.head("botId").str shouldBe "stockfish-fast"
+    rows.head("gamesAsWhite").num.toLong shouldBe 3L
+    rows.head("blackScore").num shouldBe 2.0
+  }
+
+  it should "return 503 when repo fails" in {
+    val resp = get(InMemoryAnalyticsRepository.withError("err"), uri"/api/analytics/latest/color-performance")
+    resp.status shouldBe Status.ServiceUnavailable
+    bodyJson(resp)("code").str shouldBe "ANALYTICS_UNAVAILABLE"
+  }
+
+  "GET /api/analytics/latest/fastest-wins" should "return 200 with fastest win rows" in {
+    val resp = get(InMemoryAnalyticsRepository.withSampleData, uri"/api/analytics/latest/fastest-wins")
+    resp.status shouldBe Status.Ok
+    val rows = bodyJson(resp)("rows").arr
+    rows should have size 1
+    rows.head("winnerBotId").str shouldBe "stockfish-fast"
+    rows.head("decisiveGames").num.toLong shouldBe 4L
+    rows.head("avgWinPly").num shouldBe 28.5
+  }
+
+  it should "return 503 when repo fails" in {
+    val resp = get(InMemoryAnalyticsRepository.withError("err"), uri"/api/analytics/latest/fastest-wins")
+    resp.status shouldBe Status.ServiceUnavailable
+    bodyJson(resp)("code").str shouldBe "ANALYTICS_UNAVAILABLE"
+  }
+
   // ── Run-specific: invalid runId ───────────────────────────────────────────
 
   "GET /api/analytics/runs/:runId/leaderboard with invalid runId" should "return 400 INVALID_RUN_ID" in {
@@ -199,7 +265,10 @@ class AnalyticsRoutesSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "return 400 for all run-specific endpoints" in {
-    val sections = List("leaderboard", "bot-families", "strategies", "searchess-ai", "stockfish", "avg-game-length")
+    val sections = List(
+      "leaderboard", "bot-families", "strategies", "searchess-ai", "stockfish",
+      "avg-game-length", "elo-ratings", "terminations", "color-performance", "fastest-wins"
+    )
     sections.foreach { section =>
       val resp = get(InMemoryAnalyticsRepository.empty,
         Uri.unsafeFromString(s"/api/analytics/runs/$invalidRunId/$section"))
@@ -318,6 +387,76 @@ class AnalyticsRoutesSpec extends AnyFlatSpec with Matchers:
   it should "return 503 when repo fails" in {
     val resp = get(InMemoryAnalyticsRepository.withError("db err"),
       Uri.unsafeFromString(s"/api/analytics/runs/$validRunId/avg-game-length"))
+    resp.status shouldBe Status.ServiceUnavailable
+    bodyJson(resp)("code").str shouldBe "ANALYTICS_UNAVAILABLE"
+  }
+
+  // â”€â”€ Run-specific: elo-ratings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  s"GET /api/analytics/runs/:runId/elo-ratings" should "return 200 with Elo rating rows for valid runId" in {
+    val resp = get(InMemoryAnalyticsRepository.withSampleData,
+      Uri.unsafeFromString(s"/api/analytics/runs/$validRunId/elo-ratings"))
+    resp.status shouldBe Status.Ok
+    val rows = bodyJson(resp)("rows").arr
+    rows should have size 1
+    rows.head("botId").str shouldBe "stockfish-fast"
+    rows.head("rating").num shouldBe 1055.4
+  }
+
+  it should "return 503 when repo fails" in {
+    val resp = get(InMemoryAnalyticsRepository.withError("db err"),
+      Uri.unsafeFromString(s"/api/analytics/runs/$validRunId/elo-ratings"))
+    resp.status shouldBe Status.ServiceUnavailable
+    bodyJson(resp)("code").str shouldBe "ANALYTICS_UNAVAILABLE"
+  }
+
+  s"GET /api/analytics/runs/:runId/terminations" should "return 200 with termination rows for valid runId" in {
+    val resp = get(InMemoryAnalyticsRepository.withSampleData,
+      Uri.unsafeFromString(s"/api/analytics/runs/$validRunId/terminations"))
+    resp.status shouldBe Status.Ok
+    val rows = bodyJson(resp)("rows").arr
+    rows should have size 1
+    rows.head("terminationReason").str shouldBe "checkmate"
+    rows.head("count").num.toLong shouldBe 7L
+  }
+
+  it should "return 503 when repo fails" in {
+    val resp = get(InMemoryAnalyticsRepository.withError("db err"),
+      Uri.unsafeFromString(s"/api/analytics/runs/$validRunId/terminations"))
+    resp.status shouldBe Status.ServiceUnavailable
+    bodyJson(resp)("code").str shouldBe "ANALYTICS_UNAVAILABLE"
+  }
+
+  s"GET /api/analytics/runs/:runId/color-performance" should "return 200 with color performance rows for valid runId" in {
+    val resp = get(InMemoryAnalyticsRepository.withSampleData,
+      Uri.unsafeFromString(s"/api/analytics/runs/$validRunId/color-performance"))
+    resp.status shouldBe Status.Ok
+    val rows = bodyJson(resp)("rows").arr
+    rows should have size 1
+    rows.head("botId").str shouldBe "stockfish-fast"
+    rows.head("whiteScore").num shouldBe 2.5
+  }
+
+  it should "return 503 when repo fails" in {
+    val resp = get(InMemoryAnalyticsRepository.withError("db err"),
+      Uri.unsafeFromString(s"/api/analytics/runs/$validRunId/color-performance"))
+    resp.status shouldBe Status.ServiceUnavailable
+    bodyJson(resp)("code").str shouldBe "ANALYTICS_UNAVAILABLE"
+  }
+
+  s"GET /api/analytics/runs/:runId/fastest-wins" should "return 200 with fastest win rows for valid runId" in {
+    val resp = get(InMemoryAnalyticsRepository.withSampleData,
+      Uri.unsafeFromString(s"/api/analytics/runs/$validRunId/fastest-wins"))
+    resp.status shouldBe Status.Ok
+    val rows = bodyJson(resp)("rows").arr
+    rows should have size 1
+    rows.head("winnerBotId").str shouldBe "stockfish-fast"
+    rows.head("minWinPly").num.toLong shouldBe 18L
+  }
+
+  it should "return 503 when repo fails" in {
+    val resp = get(InMemoryAnalyticsRepository.withError("db err"),
+      Uri.unsafeFromString(s"/api/analytics/runs/$validRunId/fastest-wins"))
     resp.status shouldBe Status.ServiceUnavailable
     bodyJson(resp)("code").str shouldBe "ANALYTICS_UNAVAILABLE"
   }

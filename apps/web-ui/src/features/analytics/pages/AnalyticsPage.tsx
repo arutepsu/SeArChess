@@ -3,20 +3,28 @@ import { useNavigate } from "react-router-dom";
 import {
   fetchAvgGameLength,
   fetchBotFamilies,
+  fetchColorPerformance,
+  fetchEloRatings,
+  fetchFastestWins,
   fetchLeaderboard,
   fetchSearchessAi,
   fetchStockfish,
   fetchStrategies,
+  fetchTerminations,
   listAnalyticsRuns,
 } from "../../../api/analyticsClient";
 import type {
   AnalyticsRunSummary,
   AvgGameLengthRow,
   BotFamilyRow,
+  ColorPerformanceRow,
+  EloRatingsRow,
+  FastestWinRow,
   LeaderboardRow,
   SearchessAiComparisonRow,
   StockfishComparisonRow,
   StrategyRow,
+  TerminationReasonRow,
 } from "../../../api/analyticsTypes";
 import Button from "../../../components/ui/Button";
 import EmptyState from "../../../components/ui/EmptyState";
@@ -25,10 +33,14 @@ import LoadingState from "../../../components/ui/LoadingState";
 import SectionCard from "../../../components/ui/SectionCard";
 import AvgGameLengthChart from "../components/charts/AvgGameLengthChart";
 import BotFamilyChart from "../components/charts/BotFamilyChart";
+import ColorPerformanceChart from "../components/charts/ColorPerformanceChart";
+import EloRatingsChart from "../components/charts/EloRatingsChart";
+import FastestWinsChart from "../components/charts/FastestWinsChart";
 import LeaderboardChart from "../components/charts/LeaderboardChart";
 import SearchessAiChart from "../components/charts/SearchessAiChart";
 import StockfishChart from "../components/charts/StockfishChart";
 import StrategyChart from "../components/charts/StrategyChart";
+import TerminationsChart from "../components/charts/TerminationsChart";
 import "./AnalyticsPage.css";
 
 type SectionState<T> =
@@ -260,6 +272,122 @@ function AvgGameLengthTable({ rows }: { rows: AvgGameLengthRow[] }) {
   );
 }
 
+function signed(value: number): string {
+  return value >= 0 ? `+${value.toFixed(1)}` : value.toFixed(1);
+}
+
+function EloRatingsTable({ rows }: { rows: EloRatingsRow[] }) {
+  return (
+    <table className="analytics-table">
+      <thead>
+        <tr>
+          <th>Bot</th>
+          <th>Rating</th>
+          <th>Change</th>
+          <th>Games</th>
+          <th>W</th>
+          <th>D</th>
+          <th>L</th>
+          <th>Avg opponent</th>
+        </tr>
+      </thead>
+      <tbody>
+        {[...rows].sort((a, b) => b.rating - a.rating).map((r) => (
+          <tr key={r.botId}>
+            <td className="analytics-td-name">{r.botId}</td>
+            <td className="analytics-td-num">{r.rating.toFixed(1)}</td>
+            <td className="analytics-td-num">{signed(r.ratingChange)}</td>
+            <td className="analytics-td-num">{r.gamesPlayed}</td>
+            <td className="analytics-td-num">{r.wins}</td>
+            <td className="analytics-td-num">{r.draws}</td>
+            <td className="analytics-td-num">{r.losses}</td>
+            <td className="analytics-td-num">{r.averageOpponentRating.toFixed(1)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function TerminationsTable({ rows }: { rows: TerminationReasonRow[] }) {
+  return (
+    <table className="analytics-table">
+      <thead>
+        <tr>
+          <th>Reason</th>
+          <th>Count</th>
+        </tr>
+      </thead>
+      <tbody>
+        {[...rows].sort((a, b) => b.count - a.count).map((r) => (
+          <tr key={r.terminationReason}>
+            <td className="analytics-td-name">{r.terminationReason}</td>
+            <td className="analytics-td-num">{r.count}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function FastestWinsTable({ rows }: { rows: FastestWinRow[] }) {
+  return (
+    <table className="analytics-table">
+      <thead>
+        <tr>
+          <th>Winner</th>
+          <th>Decisive games</th>
+          <th>Avg ply (lower)</th>
+          <th>Min ply</th>
+          <th>Avg duration</th>
+        </tr>
+      </thead>
+      <tbody>
+        {[...rows].sort((a, b) => a.avgWinPly - b.avgWinPly).map((r) => (
+          <tr key={r.winnerBotId}>
+            <td className="analytics-td-name">{r.winnerBotId}</td>
+            <td className="analytics-td-num">{r.decisiveGames}</td>
+            <td className="analytics-td-num">{r.avgWinPly.toFixed(1)}</td>
+            <td className="analytics-td-num">{r.minWinPly}</td>
+            <td className="analytics-td-num">{formatMs(r.avgWinDurationMs)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function ColorPerformanceTable({ rows }: { rows: ColorPerformanceRow[] }) {
+  return (
+    <table className="analytics-table">
+      <thead>
+        <tr>
+          <th>Bot</th>
+          <th>White games</th>
+          <th>White wins</th>
+          <th>White score</th>
+          <th>Black games</th>
+          <th>Black wins</th>
+          <th>Black score</th>
+        </tr>
+      </thead>
+      <tbody>
+        {[...rows].sort((a, b) => a.botId.localeCompare(b.botId)).map((r) => (
+          <tr key={r.botId}>
+            <td className="analytics-td-name">{r.botId}</td>
+            <td className="analytics-td-num">{r.gamesAsWhite}</td>
+            <td className="analytics-td-num">{r.whiteWins}</td>
+            <td className="analytics-td-num">{r.whiteScore.toFixed(1)}</td>
+            <td className="analytics-td-num">{r.gamesAsBlack}</td>
+            <td className="analytics-td-num">{r.blackWins}</td>
+            <td className="analytics-td-num">{r.blackScore.toFixed(1)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 // ── Section renderer ──────────────────────────────────────────────────────────
 
 function renderSection<T>(
@@ -295,6 +423,10 @@ export default function AnalyticsPage() {
   const [searchessAi, setSearchessAi] = useState<SectionState<SearchessAiComparisonRow>>({ status: "loading" });
   const [stockfish, setStockfish] = useState<SectionState<StockfishComparisonRow>>({ status: "loading" });
   const [avgGameLength, setAvgGameLength] = useState<SectionState<AvgGameLengthRow>>({ status: "loading" });
+  const [eloRatings, setEloRatings] = useState<SectionState<EloRatingsRow>>({ status: "loading" });
+  const [terminations, setTerminations] = useState<SectionState<TerminationReasonRow>>({ status: "loading" });
+  const [colorPerformance, setColorPerformance] = useState<SectionState<ColorPerformanceRow>>({ status: "loading" });
+  const [fastestWins, setFastestWins] = useState<SectionState<FastestWinRow>>({ status: "loading" });
 
   // Effect 1: load runs once on mount, auto-select newest
   useEffect(() => {
@@ -316,6 +448,10 @@ export default function AnalyticsPage() {
           setSearchessAi(empty);
           setStockfish(empty);
           setAvgGameLength(empty);
+          setEloRatings(empty);
+          setTerminations(empty);
+          setColorPerformance(empty);
+          setFastestWins(empty);
         }
       })
       .catch((e: unknown) => {
@@ -329,6 +465,10 @@ export default function AnalyticsPage() {
         setSearchessAi(errState(msg));
         setStockfish(errState(msg));
         setAvgGameLength(errState(msg));
+        setEloRatings(errState(msg));
+        setTerminations(errState(msg));
+        setColorPerformance(errState(msg));
+        setFastestWins(errState(msg));
       });
 
     return () => { active = false; };
@@ -345,6 +485,10 @@ export default function AnalyticsPage() {
     setSearchessAi({ status: "loading" });
     setStockfish({ status: "loading" });
     setAvgGameLength({ status: "loading" });
+    setEloRatings({ status: "loading" });
+    setTerminations({ status: "loading" });
+    setColorPerformance({ status: "loading" });
+    setFastestWins({ status: "loading" });
 
     void Promise.allSettled([
       fetchLeaderboard(selectedRunId),
@@ -353,7 +497,11 @@ export default function AnalyticsPage() {
       fetchSearchessAi(selectedRunId),
       fetchStockfish(selectedRunId),
       fetchAvgGameLength(selectedRunId),
-    ]).then(([lbRes, famRes, stratRes, aiRes, sfRes, avgRes]) => {
+      fetchEloRatings(selectedRunId),
+      fetchTerminations(selectedRunId),
+      fetchFastestWins(selectedRunId),
+      fetchColorPerformance(selectedRunId),
+    ]).then(([lbRes, famRes, stratRes, aiRes, sfRes, avgRes, eloRes, termRes, fastRes, colorRes]) => {
       if (!active) return;
       applyResult(lbRes, setLeaderboard);
       applyResult(famRes, setBotFamilies);
@@ -361,6 +509,10 @@ export default function AnalyticsPage() {
       applyResult(aiRes, setSearchessAi);
       applyResult(sfRes, setStockfish);
       applyResult(avgRes, setAvgGameLength);
+      applyResult(eloRes, setEloRatings);
+      applyResult(termRes, setTerminations);
+      applyResult(fastRes, setFastestWins);
+      applyResult(colorRes, setColorPerformance);
     });
 
     return () => { active = false; };
@@ -425,6 +577,10 @@ export default function AnalyticsPage() {
             {renderSection(leaderboard, LeaderboardTable, LeaderboardChart)}
           </SectionCard>
 
+          <SectionCard className="analytics-card" title="Elo Ratings">
+            {renderSection(eloRatings, EloRatingsTable, EloRatingsChart)}
+          </SectionCard>
+
           <SectionCard className="analytics-card" title="Bot Family Comparison">
             {renderSection(botFamilies, BotFamilyTable, BotFamilyChart)}
           </SectionCard>
@@ -439,6 +595,18 @@ export default function AnalyticsPage() {
 
           <SectionCard className="analytics-card" title="vs Stockfish Variants">
             {renderSection(stockfish, StockfishTable, StockfishChart)}
+          </SectionCard>
+
+          <SectionCard className="analytics-card" title="Termination Reasons">
+            {renderSection(terminations, TerminationsTable, TerminationsChart)}
+          </SectionCard>
+
+          <SectionCard className="analytics-card" title="Fastest Winning Bots">
+            {renderSection(fastestWins, FastestWinsTable, FastestWinsChart)}
+          </SectionCard>
+
+          <SectionCard className="analytics-card" title="Color Performance">
+            {renderSection(colorPerformance, ColorPerformanceTable, ColorPerformanceChart)}
           </SectionCard>
 
           <SectionCard className="analytics-card" title="Average Game Length by Pairing">

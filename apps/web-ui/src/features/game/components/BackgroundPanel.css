@@ -88,6 +88,30 @@
     font-weight: bold;
 }
 
+/* Board Scene sub-section header */
+.scene-header {
+    margin-top: 1.25rem;
+}
+
+.scene-header h3 {
+    font-family: 'Georgia', serif;
+    margin: 0 0 0.75rem 0;
+    font-size: 1.1rem;
+    letter-spacing: 0.5px;
+    color: #f0e6d2;
+}
+
+/* Classic swatch: 2×2 chess square pattern thumbnail */
+.scene-classic-swatch {
+    background-image:
+        linear-gradient(45deg, #b58863 25%, transparent 25%),
+        linear-gradient(-45deg, #b58863 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #b58863 75%),
+        linear-gradient(-45deg, transparent 75%, #b58863 75%);
+    background-size: 50% 50%;
+    background-color: #f0d9b5;
+}
+
 /* Text unter den Bildern */
 .background-option small {
     font-family: 'Courier New', Courier, monospace;

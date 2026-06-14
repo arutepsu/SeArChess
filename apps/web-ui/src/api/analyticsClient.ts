@@ -2,10 +2,14 @@ import type {
   AnalyticsRunSummary,
   AvgGameLengthRow,
   BotFamilyRow,
+  ColorPerformanceRow,
+  EloRatingsRow,
+  FastestWinRow,
   LeaderboardRow,
   SearchessAiComparisonRow,
   StockfishComparisonRow,
   StrategyRow,
+  TerminationReasonRow,
 } from "./analyticsTypes";
 
 const analyticsBase =
@@ -66,5 +70,25 @@ export async function fetchStockfish(runId?: string): Promise<StockfishCompariso
 
 export async function fetchAvgGameLength(runId?: string): Promise<AvgGameLengthRow[]> {
   const data = await fetchAnalytics<{ rows: AvgGameLengthRow[] }>(analyticsPath("avg-game-length", runId));
+  return data.rows;
+}
+
+export async function fetchEloRatings(runId?: string): Promise<EloRatingsRow[]> {
+  const data = await fetchAnalytics<{ rows: EloRatingsRow[] }>(analyticsPath("elo-ratings", runId));
+  return data.rows;
+}
+
+export async function fetchTerminations(runId?: string): Promise<TerminationReasonRow[]> {
+  const data = await fetchAnalytics<{ rows: TerminationReasonRow[] }>(analyticsPath("terminations", runId));
+  return data.rows;
+}
+
+export async function fetchColorPerformance(runId?: string): Promise<ColorPerformanceRow[]> {
+  const data = await fetchAnalytics<{ rows: ColorPerformanceRow[] }>(analyticsPath("color-performance", runId));
+  return data.rows;
+}
+
+export async function fetchFastestWins(runId?: string): Promise<FastestWinRow[]> {
+  const data = await fetchAnalytics<{ rows: FastestWinRow[] }>(analyticsPath("fastest-wins", runId));
   return data.rows;
 }

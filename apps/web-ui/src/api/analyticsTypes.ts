@@ -66,6 +66,41 @@ export interface AvgGameLengthRow {
   avgDurationMs: number;
 }
 
+export interface EloRatingsRow {
+  botId: string;
+  rating: number;
+  ratingChange: number;
+  gamesPlayed: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  averageOpponentRating: number;
+  lastGameTimestamp: string;
+}
+
+export interface TerminationReasonRow {
+  terminationReason: string;
+  count: number;
+}
+
+export interface ColorPerformanceRow {
+  botId: string;
+  gamesAsWhite: number;
+  whiteWins: number;
+  whiteScore: number;
+  gamesAsBlack: number;
+  blackWins: number;
+  blackScore: number;
+}
+
+export interface FastestWinRow {
+  winnerBotId: string;
+  decisiveGames: number;
+  avgWinPly: number;
+  minWinPly: number;
+  avgWinDurationMs: number;
+}
+
 export interface AnalyticsUnavailableError {
   code: "ANALYTICS_UNAVAILABLE";
   message: string;

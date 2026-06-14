@@ -59,6 +59,28 @@ final class SlickAnalyticsRepository(db: Database, schema: String) extends Analy
     AvgGameLengthRow(r.nextString(), r.nextString(), r.nextLong(), r.nextDouble(), r.nextDouble())
   }
 
+  private given GetResult[EloRatingsRow] = GetResult { r =>
+    EloRatingsRow(
+      r.nextString(), r.nextDouble(), r.nextDouble(), r.nextLong(), r.nextLong(),
+      r.nextLong(), r.nextLong(), r.nextDouble(), r.nextString()
+    )
+  }
+
+  private given GetResult[TerminationReasonRow] = GetResult { r =>
+    TerminationReasonRow(r.nextString(), r.nextLong())
+  }
+
+  private given GetResult[ColorPerformanceRow] = GetResult { r =>
+    ColorPerformanceRow(
+      r.nextString(), r.nextLong(), r.nextLong(), r.nextDouble(),
+      r.nextLong(), r.nextLong(), r.nextDouble()
+    )
+  }
+
+  private given GetResult[FastestWinRow] = GetResult { r =>
+    FastestWinRow(r.nextString(), r.nextLong(), r.nextDouble(), r.nextLong(), r.nextDouble())
+  }
+
   // ── Latest-run convenience methods ────────────────────────────────────────
 
   override def listRuns(): Either[String, List[AnalyticsRunSummary]] =
@@ -116,6 +138,38 @@ final class SlickAnalyticsRepository(db: Database, schema: String) extends Analy
             ORDER BY "whiteBotId", "blackBotId"""".as[AvgGameLengthRow]
     )
 
+  override def getEloRatings(): Either[String, List[EloRatingsRow]] =
+    run(
+      sql"""SELECT "botId", "rating", "ratingChange", "gamesPlayed", "wins", "draws", "losses", "averageOpponentRating", "lastGameTimestamp"
+            FROM #$t.analytics_elo_ratings
+            WHERE run_id = (SELECT run_id FROM #$t.analytics_leaderboard ORDER BY created_at DESC LIMIT 1)
+            ORDER BY "rating" DESC""".as[EloRatingsRow]
+    )
+
+  override def getTerminations(): Either[String, List[TerminationReasonRow]] =
+    run(
+      sql"""SELECT "terminationReason", "count"
+            FROM #$t.analytics_terminations
+            WHERE run_id = (SELECT run_id FROM #$t.analytics_leaderboard ORDER BY created_at DESC LIMIT 1)
+            ORDER BY "count" DESC""".as[TerminationReasonRow]
+    )
+
+  override def getColorPerformance(): Either[String, List[ColorPerformanceRow]] =
+    run(
+      sql"""SELECT "botId", "gamesAsWhite", "whiteWins", "whiteScore", "gamesAsBlack", "blackWins", "blackScore"
+            FROM #$t.analytics_color_performance
+            WHERE run_id = (SELECT run_id FROM #$t.analytics_leaderboard ORDER BY created_at DESC LIMIT 1)
+            ORDER BY "botId" ASC""".as[ColorPerformanceRow]
+    )
+
+  override def getFastestWins(): Either[String, List[FastestWinRow]] =
+    run(
+      sql"""SELECT "winnerBotId", "decisiveGames", "avgWinPly", "minWinPly", "avgWinDurationMs"
+            FROM #$t.analytics_fastest_wins
+            WHERE run_id = (SELECT run_id FROM #$t.analytics_leaderboard ORDER BY created_at DESC LIMIT 1)
+            ORDER BY "avgWinPly" ASC""".as[FastestWinRow]
+    )
+
   // ── Run-specific methods ───────────────────────────────────────────────────
 
   override def getLeaderboard(runId: String): Either[String, List[LeaderboardRow]] =
@@ -164,6 +218,38 @@ final class SlickAnalyticsRepository(db: Database, schema: String) extends Analy
             FROM #$t.analytics_avg_game_length
             WHERE run_id = $runId
             ORDER BY "whiteBotId", "blackBotId"""".as[AvgGameLengthRow]
+    )
+
+  override def getEloRatings(runId: String): Either[String, List[EloRatingsRow]] =
+    run(
+      sql"""SELECT "botId", "rating", "ratingChange", "gamesPlayed", "wins", "draws", "losses", "averageOpponentRating", "lastGameTimestamp"
+            FROM #$t.analytics_elo_ratings
+            WHERE run_id = $runId
+            ORDER BY "rating" DESC""".as[EloRatingsRow]
+    )
+
+  override def getTerminations(runId: String): Either[String, List[TerminationReasonRow]] =
+    run(
+      sql"""SELECT "terminationReason", "count"
+            FROM #$t.analytics_terminations
+            WHERE run_id = $runId
+            ORDER BY "count" DESC""".as[TerminationReasonRow]
+    )
+
+  override def getColorPerformance(runId: String): Either[String, List[ColorPerformanceRow]] =
+    run(
+      sql"""SELECT "botId", "gamesAsWhite", "whiteWins", "whiteScore", "gamesAsBlack", "blackWins", "blackScore"
+            FROM #$t.analytics_color_performance
+            WHERE run_id = $runId
+            ORDER BY "botId" ASC""".as[ColorPerformanceRow]
+    )
+
+  override def getFastestWins(runId: String): Either[String, List[FastestWinRow]] =
+    run(
+      sql"""SELECT "winnerBotId", "decisiveGames", "avgWinPly", "minWinPly", "avgWinDurationMs"
+            FROM #$t.analytics_fastest_wins
+            WHERE run_id = $runId
+            ORDER BY "avgWinPly" ASC""".as[FastestWinRow]
     )
 
   // ── Internal helpers ──────────────────────────────────────────────────────

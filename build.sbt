@@ -936,6 +936,8 @@ addCommandAlias("stockfishSmokeCheck",
   "arenaDemoStockfish/runMain chess.arena.demo.StockfishSmokeCheck")
 addCommandAlias("demoSparkStreamingAnalytics",
   "sparkAnalytics/runMain chess.analytics.GameAnalyticsStreamingJob")
+addCommandAlias("demoKafkaSparkStreaming",
+  "sparkAnalytics/runMain chess.analytics.GameAnalyticsStreamingJob")
 
 // ── Compile slices ────────────────────────────────────────────────────────────
 

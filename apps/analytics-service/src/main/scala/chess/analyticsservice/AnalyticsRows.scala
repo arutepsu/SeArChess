@@ -31,3 +31,21 @@ final case class AvgGameLengthRow(
   whiteBotId: String, blackBotId: String, gamesPlayed: Long,
   avgTotalPly: Double, avgDurationMs: Double
 )
+
+final case class EloRatingsRow(
+  botId: String, rating: Double, ratingChange: Double, gamesPlayed: Long,
+  wins: Long, draws: Long, losses: Long, averageOpponentRating: Double,
+  lastGameTimestamp: String
+)
+
+final case class TerminationReasonRow(terminationReason: String, count: Long)
+
+final case class ColorPerformanceRow(
+  botId: String, gamesAsWhite: Long, whiteWins: Long, whiteScore: Double,
+  gamesAsBlack: Long, blackWins: Long, blackScore: Double
+)
+
+final case class FastestWinRow(
+  winnerBotId: String, decisiveGames: Long, avgWinPly: Double,
+  minWinPly: Long, avgWinDurationMs: Double
+)

@@ -11,7 +11,11 @@ final class InMemoryAnalyticsRepository(
   strategies:    Either[String, List[StrategyRow]]                  = Right(Nil),
   searchessAi:   Either[String, List[SearchessAiComparisonRow]]     = Right(Nil),
   stockfish:     Either[String, List[StockfishComparisonRow]]       = Right(Nil),
-  avgGameLength: Either[String, List[AvgGameLengthRow]]             = Right(Nil)
+  avgGameLength: Either[String, List[AvgGameLengthRow]]             = Right(Nil),
+  eloRatings:    Either[String, List[EloRatingsRow]]                = Right(Nil),
+  terminations:  Either[String, List[TerminationReasonRow]]          = Right(Nil),
+  colorPerf:     Either[String, List[ColorPerformanceRow]]           = Right(Nil),
+  fastestWins:   Either[String, List[FastestWinRow]]                 = Right(Nil)
 ) extends AnalyticsRepository:
 
   // ── Latest-run methods ────────────────────────────────────────────────────
@@ -22,6 +26,10 @@ final class InMemoryAnalyticsRepository(
   override def getLatestSearchessAiComparison(): Either[String, List[SearchessAiComparisonRow]] = searchessAi
   override def getLatestStockfishComparison(): Either[String, List[StockfishComparisonRow]]     = stockfish
   override def getLatestAvgGameLength(): Either[String, List[AvgGameLengthRow]]                 = avgGameLength
+  override def getEloRatings(): Either[String, List[EloRatingsRow]]                             = eloRatings
+  override def getTerminations(): Either[String, List[TerminationReasonRow]]                     = terminations
+  override def getColorPerformance(): Either[String, List[ColorPerformanceRow]]                  = colorPerf
+  override def getFastestWins(): Either[String, List[FastestWinRow]]                             = fastestWins
 
   // ── Run-specific methods (ignore runId, return same data as latest) ───────
   override def getLeaderboard(runId: String): Either[String, List[LeaderboardRow]]               = leaderboard
@@ -30,6 +38,10 @@ final class InMemoryAnalyticsRepository(
   override def getSearchessAiComparison(runId: String): Either[String, List[SearchessAiComparisonRow]] = searchessAi
   override def getStockfishComparison(runId: String): Either[String, List[StockfishComparisonRow]]     = stockfish
   override def getAvgGameLength(runId: String): Either[String, List[AvgGameLengthRow]]                 = avgGameLength
+  override def getEloRatings(runId: String): Either[String, List[EloRatingsRow]]                       = eloRatings
+  override def getTerminations(runId: String): Either[String, List[TerminationReasonRow]]               = terminations
+  override def getColorPerformance(runId: String): Either[String, List[ColorPerformanceRow]]            = colorPerf
+  override def getFastestWins(runId: String): Either[String, List[FastestWinRow]]                       = fastestWins
 
 object InMemoryAnalyticsRepository:
 
@@ -42,7 +54,11 @@ object InMemoryAnalyticsRepository:
     strategies    = Left(msg),
     searchessAi   = Left(msg),
     stockfish     = Left(msg),
-    avgGameLength = Left(msg)
+    avgGameLength = Left(msg),
+    eloRatings    = Left(msg),
+    terminations  = Left(msg),
+    colorPerf     = Left(msg),
+    fastestWins   = Left(msg)
   )
 
   // ── Sample data ───────────────────────────────────────────────────────────
@@ -74,6 +90,18 @@ object InMemoryAnalyticsRepository:
   val sampleAvgGameLengthRow: AvgGameLengthRow =
     AvgGameLengthRow("stockfish-fast", "random-bot", 5, 42.0, 3200.0)
 
+  val sampleEloRatingsRow: EloRatingsRow =
+    EloRatingsRow("stockfish-fast", 1055.4, 55.4, 5, 4, 1, 0, 998.2, "2026-06-13T00:01:00Z")
+
+  val sampleTerminationReasonRow: TerminationReasonRow =
+    TerminationReasonRow("checkmate", 7)
+
+  val sampleColorPerformanceRow: ColorPerformanceRow =
+    ColorPerformanceRow("stockfish-fast", 3, 2, 2.5, 2, 2, 2.0)
+
+  val sampleFastestWinRow: FastestWinRow =
+    FastestWinRow("stockfish-fast", 4, 28.5, 18, 2100.0)
+
   def withSampleData: InMemoryAnalyticsRepository = new InMemoryAnalyticsRepository(
     runs          = Right(List(sampleRun)),
     leaderboard   = Right(List(sampleLeaderboardRow)),
@@ -81,7 +109,11 @@ object InMemoryAnalyticsRepository:
     strategies    = Right(List(sampleStrategyRow)),
     searchessAi   = Right(List(sampleSearchessAiRow)),
     stockfish     = Right(List(sampleStockfishRow)),
-    avgGameLength = Right(List(sampleAvgGameLengthRow))
+    avgGameLength = Right(List(sampleAvgGameLengthRow)),
+    eloRatings    = Right(List(sampleEloRatingsRow)),
+    terminations  = Right(List(sampleTerminationReasonRow)),
+    colorPerf     = Right(List(sampleColorPerformanceRow)),
+    fastestWins   = Right(List(sampleFastestWinRow))
   )
 
   def withTwoRuns: InMemoryAnalyticsRepository = new InMemoryAnalyticsRepository(
@@ -91,5 +123,9 @@ object InMemoryAnalyticsRepository:
     strategies    = Right(List(sampleStrategyRow)),
     searchessAi   = Right(List(sampleSearchessAiRow)),
     stockfish     = Right(List(sampleStockfishRow)),
-    avgGameLength = Right(List(sampleAvgGameLengthRow))
+    avgGameLength = Right(List(sampleAvgGameLengthRow)),
+    eloRatings    = Right(List(sampleEloRatingsRow)),
+    terminations  = Right(List(sampleTerminationReasonRow)),
+    colorPerf     = Right(List(sampleColorPerformanceRow)),
+    fastestWins   = Right(List(sampleFastestWinRow))
   )

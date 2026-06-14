@@ -2,9 +2,11 @@ package chess.analytics
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types.LongType
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import java.nio.file.{Files, Paths}
 
 class GameAnalyticsSpec extends AnyFlatSpec with Matchers with BeforeAndAfterAll {
 
@@ -78,9 +80,188 @@ class GameAnalyticsSpec extends AnyFlatSpec with Matchers with BeforeAndAfterAll
     rows.toDF("whiteBotId", "whiteBotFamily", "blackBotId", "blackBotFamily", "result", "totalPly")
   }
 
+  // (timestamp, whiteBotId, blackBotId, result, durationMillis, whiteBotFamily, blackBotFamily)
+  private def gfWindowDF(rows: Seq[(String, String, String, String, Long, String, String)]): DataFrame = {
+    val s = spark; import s.implicits._
+    rows.toDF(
+      "timestamp",
+      "whiteBotId",
+      "blackBotId",
+      "result",
+      "durationMillis",
+      "whiteBotFamily",
+      "blackBotFamily"
+    )
+  }
+
+  // (timestamp, botId)
+  private def moveWindowDF(rows: Seq[(String, String)]): DataFrame = {
+    val s = spark; import s.implicits._
+    rows.toDF("timestamp", "botId")
+  }
+
+  // (timestamp, gameId, whiteBotId, blackBotId, result)
+  private def gfEloDF(rows: Seq[(String, String, String, String, String)]): DataFrame = {
+    val s = spark; import s.implicits._
+    rows.toDF("timestamp", "gameId", "whiteBotId", "blackBotId", "result")
+  }
+
   private val sampleFixture: String = {
     val root = System.getProperty("projectRoot", System.getProperty("user.dir"))
     java.nio.file.Paths.get(root, "docs", "samples", "generated-heuristic-tournament.jsonl").toString
+  }
+
+  private def tempDir(prefix: String): String =
+    Files.createTempDirectory(prefix).toAbsolutePath.toString
+
+  // ── Bronze/Silver loading ───────────────────────────────────────────────────
+
+  "BronzeEvents.loadEvents" should "load sample JSONL with the explicit event schema" in {
+    val events = BronzeEvents.loadEvents(spark, sampleFixture)
+
+    events.count() shouldBe 10L
+    events.schema("eventType").dataType shouldBe GameEventSchemas.eventSchema("eventType").dataType
+    events.schema("totalPly").dataType shouldBe LongType
+    events.schema.fieldNames should contain("whiteStrategyType")
+    events.schema.fieldNames should contain("moveUci")
+  }
+
+  "SilverEvents.gameFinished" should "return only GameFinished rows from Bronze events" in {
+    val gameFinished = SilverEvents.gameFinished(BronzeEvents.loadEvents(spark, sampleFixture))
+
+    gameFinished.count() shouldBe 2L
+    gameFinished.filter(col("eventType") =!= "GameFinished").count() shouldBe 0L
+  }
+
+  "AnalyticsPipeline.buildBatchResult" should "build Gold leaderboard from Bronze events" in {
+    val result = AnalyticsPipeline.buildBatchResult(BronzeEvents.loadEvents(spark, sampleFixture))
+
+    result.silver.gameFinished.count() shouldBe 2L
+    result.gold.leaderboard.select("botId").collect().map(_.getAs[String]("botId")).toSet shouldBe Set("random-a", "capture-b")
+    result.dataQuality.filter(col("failedRows") =!= 0L).count() shouldBe 0L
+  }
+
+  "KafkaEventParser.parseEvents" should "parse JSON value strings into Bronze-shaped events without a Kafka broker" in {
+    val s = spark; import s.implicits._
+    val kafkaValues = Seq(
+      """{"schemaVersion":"1","eventType":"GameStarted","eventId":"evt-k1","timestamp":"2026-06-13T12:00:00Z","tournamentId":"kafka-test","gameId":"game-k1","whiteBotId":"white-a","blackBotId":"black-b","whiteBotFamily":"heuristic","blackBotFamily":"heuristic","whiteStrategyType":"random","blackStrategyType":"capture-first","whiteEngineType":"none","blackEngineType":"none","whiteModelVersion":"none","blackModelVersion":"none"}""",
+      """{"schemaVersion":"1","eventType":"GameFinished","eventId":"evt-k2","timestamp":"2026-06-13T12:00:01Z","tournamentId":"kafka-test","gameId":"game-k1","whiteBotId":"white-a","blackBotId":"black-b","winnerBotId":"white-a","loserBotId":"black-b","result":"white","whiteBotFamily":"heuristic","blackBotFamily":"heuristic","whiteStrategyType":"random","blackStrategyType":"capture-first","whiteEngineType":"none","blackEngineType":"none","whiteModelVersion":"none","blackModelVersion":"none","totalMoves":2,"totalPly":3,"durationMillis":1,"terminationReason":"checkmate"}"""
+    ).toDF("value")
+
+    val events = KafkaEventParser.parseEvents(kafkaValues)
+
+    events.count() shouldBe 2L
+    events.schema("totalPly").dataType shouldBe LongType
+    events.filter(col("eventType") === "GameStarted").count() shouldBe 1L
+    events.filter(col("eventType") === "GameFinished").count() shouldBe 1L
+  }
+
+  "SilverEvents.gameFinished" should "work on parsed Kafka-style events" in {
+    val s = spark; import s.implicits._
+    val kafkaValues = Seq(
+      """{"schemaVersion":"1","eventType":"GameFinished","eventId":"evt-k3","timestamp":"2026-06-13T12:00:01Z","tournamentId":"kafka-test","gameId":"game-k2","whiteBotId":"white-a","blackBotId":"black-b","winnerBotId":"white-a","loserBotId":"black-b","result":"white","whiteBotFamily":"heuristic","blackBotFamily":"heuristic","whiteStrategyType":"random","blackStrategyType":"capture-first","whiteEngineType":"none","blackEngineType":"none","whiteModelVersion":"none","blackModelVersion":"none","totalMoves":2,"totalPly":3,"durationMillis":1,"terminationReason":"checkmate"}"""
+    ).toDF("value")
+
+    val gameFinished = SilverEvents.gameFinished(KafkaEventParser.parseEvents(kafkaValues))
+
+    gameFinished.count() shouldBe 1L
+    gameFinished.head().getAs[String]("gameId") shouldBe "game-k2"
+  }
+
+  "StreamingGoldAnalytics" should "compute streaming-compatible aggregations on static DataFrames" in {
+    val gf = GameAnalytics.loadGameFinished(spark, sampleFixture)
+
+    StreamingGoldAnalytics.liveLeaderboard(gf).count() shouldBe 2L
+    StreamingGoldAnalytics.terminations(gf).filter(col("terminationReason") === "max-ply").count() shouldBe 1L
+    StreamingGoldAnalytics.botFamilyComparison(gf).filter(col("family") === "heuristic").count() shouldBe 1L
+  }
+
+  // ── Windowed streaming analytics ─────────────────────────────────────────────
+
+  "StreamingAnalyticsConfig.fromEnvMap" should "use valid defaults" in {
+    val config = StreamingAnalyticsConfig.fromEnvMap(Map.empty)
+
+    config.bootstrapServers shouldBe "localhost:9092"
+    config.topic shouldBe "game-events"
+    config.checkpointDir shouldBe "target/spark-checkpoints/game-analytics"
+    config.startingOffsets shouldBe "latest"
+    config.triggerSeconds shouldBe 5
+    config.query shouldBe "leaderboard"
+  }
+
+  it should "reject invalid starting offsets" in {
+    intercept[IllegalArgumentException] {
+      StreamingAnalyticsConfig.fromEnvMap(Map("SPARK_STREAMING_STARTING_OFFSETS" -> "middle"))
+    }
+  }
+
+  it should "reject invalid trigger seconds" in {
+    intercept[IllegalArgumentException] {
+      StreamingAnalyticsConfig.fromEnvMap(Map("SPARK_STREAMING_TRIGGER_SECONDS" -> "0"))
+    }
+  }
+
+  "WindowedStreamingAnalytics.gamesFinishedPerMinute" should "count finished games per one-minute window" in {
+    val gf = gfWindowDF(Seq(
+      ("2026-06-13 12:00:05", "A", "B", "white", 100L, "heuristic", "heuristic"),
+      ("2026-06-13 12:00:45", "B", "A", "draw",  200L, "heuristic", "heuristic"),
+      ("2026-06-13 12:01:05", "A", "B", "black", 300L, "heuristic", "heuristic")
+    ))
+
+    val result = WindowedStreamingAnalytics.gamesFinishedPerMinute(gf)
+    result.columns.toSet shouldBe Set("windowStart", "windowEnd", "gamesFinished")
+    result.agg(sum("gamesFinished")).head().getAs[Long](0) shouldBe 3L
+  }
+
+  "WindowedStreamingAnalytics.avgGameDurationPerWindow" should "compute average duration per five-minute window" in {
+    val gf = gfWindowDF(Seq(
+      ("2026-06-13 12:00:05", "A", "B", "white", 100L, "heuristic", "heuristic"),
+      ("2026-06-13 12:01:45", "B", "A", "draw",  300L, "heuristic", "heuristic")
+    ))
+
+    val result = WindowedStreamingAnalytics.avgGameDurationPerWindow(gf)
+    result.columns.toSet shouldBe Set("windowStart", "windowEnd", "games", "avgDurationMillis")
+
+    val row = result.head()
+    row.getAs[Long]("games") shouldBe 2L
+    row.getAs[Double]("avgDurationMillis") shouldBe 200.0
+  }
+
+  "WindowedStreamingAnalytics.botWinRatePerWindow" should "compute wins and games per bot per window" in {
+    val gf = gfWindowDF(Seq(
+      ("2026-06-13 12:00:05", "A", "B", "white", 100L, "heuristic", "heuristic"),
+      ("2026-06-13 12:01:45", "A", "B", "draw",  300L, "heuristic", "heuristic")
+    ))
+
+    val result = WindowedStreamingAnalytics.botWinRatePerWindow(gf)
+    result.columns.toSet shouldBe Set(
+      "windowStart",
+      "windowEnd",
+      "botId",
+      "gamesPlayed",
+      "wins",
+      "draws",
+      "losses",
+      "winRate"
+    )
+
+    val rows = result.collect().map(row => row.getAs[String]("botId") -> row).toMap
+    rows("A").getAs[Long]("gamesPlayed") shouldBe 2L
+    rows("A").getAs[Long]("wins") shouldBe 1L
+    rows("A").getAs[Double]("winRate") shouldBe 0.5
+    rows("B").getAs[Long]("losses") shouldBe 1L
+  }
+
+  "WindowedStreamingAnalytics.moveThroughputPerMinute" should "count moves per one-minute window" in {
+    val moves = moveWindowDF(Seq(
+      ("2026-06-13 12:00:05", "A"),
+      ("2026-06-13 12:00:10", "B"),
+      ("2026-06-13 12:01:05", "A")
+    ))
+
+    val result = WindowedStreamingAnalytics.moveThroughputPerMinute(moves)
+    result.columns.toSet shouldBe Set("windowStart", "windowEnd", "movesPlayed")
+    result.agg(sum("movesPlayed")).head().getAs[Long](0) shouldBe 3L
   }
 
   // ── loadGameFinished ─────────────────────────────────────────────────────────
@@ -93,6 +274,163 @@ class GameAnalyticsSpec extends AnyFlatSpec with Matchers with BeforeAndAfterAll
   it should "exclude GameStarted and MovePlayed rows" in {
     val df = GameAnalytics.loadGameFinished(spark, sampleFixture)
     df.filter(col("eventType") =!= "GameFinished").count() shouldBe 0L
+  }
+
+  // ── Data quality ─────────────────────────────────────────────────────────────
+
+  "DataQualityChecks.gameFinishedChecks" should "return zero failures for the valid sample fixture" in {
+    val checks = DataQualityChecks.gameFinishedChecks(GameAnalytics.loadGameFinished(spark, sampleFixture))
+
+    checks.filter(col("failedRows") =!= 0L).count() shouldBe 0L
+  }
+
+  it should "detect invalid GameFinished result values" in {
+    val s = spark; import s.implicits._
+    val invalid = Seq(
+      ("game-1", "tournament-1", "timeout", 3L, 1L, "white-a", "black-b", "white-a")
+    ).toDF(
+      "gameId",
+      "tournamentId",
+      "result",
+      "totalPly",
+      "durationMillis",
+      "whiteBotId",
+      "blackBotId",
+      "winnerBotId"
+    )
+
+    val failures = DataQualityChecks.gameFinishedChecks(invalid).collect()
+      .map(row => row.getAs[String]("checkName") -> row.getAs[Long]("failedRows"))
+      .toMap
+
+    failures("game_finished_invalid_result") shouldBe 1L
+  }
+
+  // ── Spark lake Parquet output ────────────────────────────────────────────────
+
+  "SparkLakeConfig.fromEnvMap" should "default to disabled local overwrite lake output" in {
+    val config = SparkLakeConfig.fromEnvMap(Map.empty)
+
+    config.writeEnabled shouldBe false
+    config.basePath shouldBe "target/spark-lake"
+    config.writeMode shouldBe "overwrite"
+    config.partitionByRunId shouldBe true
+  }
+
+  "ParquetLakeWriter" should "write Parquet with lake metadata columns" in {
+    val s = spark; import s.implicits._
+    val basePath = tempDir("spark-lake-writer-")
+    val config = SparkLakeConfig(
+      writeEnabled     = true,
+      basePath         = basePath,
+      writeMode        = "overwrite",
+      partitionByRunId = false
+    )
+    val writer = new ParquetLakeWriter(config, runId = "run-123", sourcePath = "input.jsonl")
+
+    writer.writeTable(Seq(("A", 1L)).toDF("name", "value"), "gold", "sample") shouldBe true
+
+    val rows = spark.read.parquet(writer.path("gold", "sample")).collect()
+    rows should have length 1
+    rows.head.getAs[String]("run_id") shouldBe "run-123"
+    rows.head.getAs[String]("source_path") shouldBe "input.jsonl"
+    rows.head.getAs[String]("layer") shouldBe "gold"
+    rows.head.getAs[String]("created_at").nonEmpty shouldBe true
+  }
+
+  "GameAnalytics.run" should "write Bronze, Silver, Gold, and data quality Parquet when lake is enabled" in {
+    val lakeBase = tempDir("spark-lake-run-")
+    val csvBase = tempDir("spark-analytics-csv-")
+    val lakeConfig = SparkLakeConfig(
+      writeEnabled     = true,
+      basePath         = lakeBase,
+      writeMode        = "overwrite",
+      partitionByRunId = false
+    )
+
+    GameAnalytics.run(spark, sampleFixture, csvBase, pgConfig = None, lakeConfig = lakeConfig)
+
+    Files.exists(Paths.get(lakeBase, "bronze", "events")) shouldBe true
+    Files.exists(Paths.get(lakeBase, "silver", "game-finished")) shouldBe true
+    Files.exists(Paths.get(lakeBase, "gold", "leaderboard")) shouldBe true
+    Files.exists(Paths.get(lakeBase, "gold", "elo-ratings")) shouldBe true
+    Files.exists(Paths.get(lakeBase, "gold", "data-quality")) shouldBe true
+  }
+
+  // ── Elo ratings ──────────────────────────────────────────────────────────────
+
+  "EloConfig.fromEnvMap" should "use default initial rating and K factor" in {
+    val config = EloConfig.fromEnvMap(Map.empty)
+
+    config.initialRating shouldBe 1000.0
+    config.kFactor shouldBe 32.0
+  }
+
+  it should "reject non-positive values" in {
+    intercept[IllegalArgumentException] {
+      EloConfig.fromEnvMap(Map("ELO_INITIAL_RATING" -> "0"))
+    }
+    intercept[IllegalArgumentException] {
+      EloConfig.fromEnvMap(Map("ELO_K_FACTOR" -> "-1"))
+    }
+  }
+
+  "EloAnalytics.computeRatings" should "increase winner rating and decrease loser rating for one decisive game" in {
+    val ratings = EloAnalytics.computeRatings(gfEloDF(Seq(
+      ("2026-06-13T12:00:00Z", "game-1", "A", "B", "white")
+    )), EloConfig()).collect().map(row => row.getAs[String]("botId") -> row).toMap
+
+    ratings("A").getAs[Double]("rating") shouldBe 1016.0 +- 0.001
+    ratings("A").getAs[Double]("ratingChange") shouldBe 16.0 +- 0.001
+    ratings("A").getAs[Long]("wins") shouldBe 1L
+    ratings("B").getAs[Double]("rating") shouldBe 984.0 +- 0.001
+    ratings("B").getAs[Double]("ratingChange") shouldBe -16.0 +- 0.001
+    ratings("B").getAs[Long]("losses") shouldBe 1L
+  }
+
+  it should "leave equal ratings unchanged after a draw" in {
+    val ratings = EloAnalytics.computeRatings(gfEloDF(Seq(
+      ("2026-06-13T12:00:00Z", "game-1", "A", "B", "draw")
+    )), EloConfig()).collect().map(row => row.getAs[String]("botId") -> row.getAs[Double]("rating")).toMap
+
+    ratings("A") shouldBe 1000.0 +- 0.001
+    ratings("B") shouldBe 1000.0 +- 0.001
+  }
+
+  it should "process games deterministically by timestamp and gameId" in {
+    val ordered = Seq(
+      ("2026-06-13T12:00:00Z", "game-1", "A", "B", "white"),
+      ("2026-06-13T12:00:00Z", "game-2", "B", "C", "white")
+    )
+    val reversed = ordered.reverse
+
+    val first = EloAnalytics.computeRatings(gfEloDF(ordered), EloConfig()).collect()
+      .map(row => row.getAs[String]("botId") -> row.getAs[Double]("rating")).toMap
+    val second = EloAnalytics.computeRatings(gfEloDF(reversed), EloConfig()).collect()
+      .map(row => row.getAs[String]("botId") -> row.getAs[Double]("rating")).toMap
+
+    first shouldBe second
+    first("A") shouldBe 1016.0 +- 0.001
+    first("B") shouldBe 1000.736 +- 0.001
+    first("C") shouldBe 983.264 +- 0.001
+  }
+
+  it should "return the expected output columns" in {
+    val ratings = EloAnalytics.computeRatings(gfEloDF(Seq(
+      ("2026-06-13T12:00:00Z", "game-1", "A", "B", "white")
+    )), EloConfig())
+
+    ratings.columns.toSet shouldBe Set(
+      "botId",
+      "rating",
+      "ratingChange",
+      "gamesPlayed",
+      "wins",
+      "draws",
+      "losses",
+      "averageOpponentRating",
+      "lastGameTimestamp"
+    )
   }
 
   // ── computeLeaderboard ───────────────────────────────────────────────────────

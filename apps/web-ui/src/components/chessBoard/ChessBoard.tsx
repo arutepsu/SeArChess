@@ -50,6 +50,7 @@ export type ChessBoardProps = {
   onNewGame?: () => void;
   orientation?: PlayerColor;
   lastMove?: { from: string; to: string };
+  transparentOverlay?: boolean;
 };
 
 const indices = Array.from({ length: 8 }, (_, i) => i);
@@ -74,6 +75,7 @@ export default function ChessBoard({
   onNewGame,
   orientation = "white",
   lastMove,
+  transparentOverlay = false,
 }: ChessBoardProps) {
   const [spriteCatalog, setSpriteCatalog] = useState<SpriteCatalog | null>(null);
   const boardRef = useRef<HTMLDivElement | null>(null);
@@ -480,7 +482,10 @@ export default function ChessBoard({
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
-    <section className="board-shell" aria-label="Chess board">
+    <section
+      className={`board-shell${transparentOverlay ? " board-shell--transparent-overlay" : ""}`}
+      aria-label="Chess board"
+    >
       <div className="board-grid" role="grid" ref={boardRef}>
         {indices.map((rowIndex) => (
           <div key={`row-${rowIndex}`} className="board-row" role="row">
@@ -551,6 +556,7 @@ export default function ChessBoard({
           />
         )}
       </div>
+
     </section>
   );
 }

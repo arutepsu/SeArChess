@@ -1,29 +1,13 @@
 package chess.analytics
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.StreamingQuery
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.streaming.Trigger
 
 object GameAnalyticsStreamingJob {
 
-  final case class Config(
-      bootstrapServers: String = "localhost:9092",
-      topic: String = "game-events",
-      checkpointLocation: String = "target/spark-streaming-checkpoints/game-events"
-  )
-
   def main(args: Array[String]): Unit = {
-    val config = Config(
-      bootstrapServers = argOrEnv(args, 0, "KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"),
-      topic = argOrEnv(args, 1, "KAFKA_GAME_EVENTS_TOPIC", "game-events"),
-      checkpointLocation = argOrEnv(
-        args,
-        2,
-        "SPARK_STREAMING_CHECKPOINT",
-        "target/spark-streaming-checkpoints/game-events"
-      )
-    )
+    val config = configFromArgsOrEnv(args)
 
     val spark = SparkSession.builder()
       .appName("Arena Game Analytics Streaming")
@@ -36,64 +20,71 @@ object GameAnalyticsStreamingJob {
 
     try {
       val events = readKafkaEvents(spark, config)
-      val gameFinished = parseGameFinished(events)
+      val parsedEvents = KafkaEventParser.parseEvents(events)
+      val gameFinished = SilverEvents.gameFinished(parsedEvents)
+      val movePlayed = SilverEvents.movePlayed(parsedEvents)
 
       println("=== Arena Streaming Analytics ===")
       println(s"Bootstrap : ${config.bootstrapServers}")
       println(s"Topic     : ${config.topic}")
-      println(s"Checkpoint: ${config.checkpointLocation}")
+      println(s"Offsets   : ${config.startingOffsets}")
+      println(s"Query     : ${config.query}")
+      println(s"Trigger   : ${config.triggerSeconds}s")
+      println(s"Checkpoint: ${config.checkpointLocation(config.query)}")
       println()
 
-      val queries = Seq(
-        consoleQuery(
-          gameFinished
-            .groupBy(coalesce(col("winnerBotId"), lit("draw")).as("winnerBotId"))
-            .agg(count("*").as("finishedGames"))
-            .orderBy(desc("finishedGames")),
-          "finished-games-by-winner",
-          s"${config.checkpointLocation}/winner"
-        ),
-        consoleQuery(
-          gameFinished
-            .groupBy(col("result"))
-            .agg(count("*").as("finishedGames"))
-            .orderBy(desc("finishedGames")),
-          "finished-games-by-result",
-          s"${config.checkpointLocation}/result"
-        ),
-        consoleQuery(
-          gameFinished
-            .groupBy(col("terminationReason"))
-            .agg(count("*").as("finishedGames"))
-            .orderBy(desc("finishedGames")),
-          "finished-games-by-termination",
-          s"${config.checkpointLocation}/termination"
-        )
+      val query = consoleQuery(
+        streamingOutput(config.query, gameFinished, movePlayed),
+        config.query,
+        config.checkpointLocation(config.query),
+        config.triggerSeconds
       )
 
       spark.streams.awaitAnyTermination()
-      queries.foreach(_.stop())
+      query.stop()
     } finally {
       spark.stop()
     }
   }
 
   private[analytics] def parseGameFinished(events: DataFrame): DataFrame =
-    events
-      .select(from_json(col("value"), eventSchema).as("event"))
-      .select("event.*")
-      .filter(col("eventType") === "GameFinished")
+    SilverEvents.gameFinished(KafkaEventParser.parseEvents(events))
 
-  private def readKafkaEvents(spark: SparkSession, config: Config): DataFrame =
+  private[analytics] def streamingOutput(query: String, gameFinished: DataFrame, movePlayed: DataFrame): DataFrame =
+    query match {
+      case "leaderboard" =>
+        StreamingGoldAnalytics.liveLeaderboard(gameFinished)
+      case "terminations" =>
+        StreamingGoldAnalytics.terminations(gameFinished)
+      case "bot-families" =>
+        StreamingGoldAnalytics.botFamilyComparison(gameFinished)
+      case "games-per-minute" =>
+        WindowedStreamingAnalytics.gamesFinishedPerMinute(gameFinished)
+      case "avg-duration-window" =>
+        WindowedStreamingAnalytics.avgGameDurationPerWindow(gameFinished)
+      case "win-rate-window" =>
+        WindowedStreamingAnalytics.botWinRatePerWindow(gameFinished)
+      case "move-throughput" =>
+        WindowedStreamingAnalytics.moveThroughputPerMinute(movePlayed)
+      case other =>
+        throw new IllegalArgumentException(s"Unsupported streaming query: $other")
+    }
+
+  private def readKafkaEvents(spark: SparkSession, config: StreamingAnalyticsConfig): DataFrame =
     spark.readStream
       .format("kafka")
       .option("kafka.bootstrap.servers", config.bootstrapServers)
       .option("subscribe", config.topic)
-      .option("startingOffsets", "latest")
+      .option("startingOffsets", config.startingOffsets)
       .load()
       .selectExpr("CAST(value AS STRING) AS value")
 
-  private def consoleQuery(df: DataFrame, queryName: String, checkpointLocation: String): StreamingQuery =
+  private def consoleQuery(
+    df:                 DataFrame,
+    queryName:          String,
+    checkpointLocation: String,
+    triggerSeconds:     Int
+  ): StreamingQuery =
     df.writeStream
       .queryName(queryName)
       .format("console")
@@ -101,25 +92,20 @@ object GameAnalyticsStreamingJob {
       .option("truncate", "false")
       .option("numRows", "50")
       .option("checkpointLocation", checkpointLocation)
+      .trigger(Trigger.ProcessingTime(s"$triggerSeconds seconds"))
       .start()
 
-  private def argOrEnv(args: Array[String], index: Int, envName: String, defaultValue: String): String =
-    args.lift(index).filter(_.nonEmpty)
-      .orElse(sys.env.get(envName).filter(_.nonEmpty))
-      .getOrElse(defaultValue)
+  private def configFromArgsOrEnv(args: Array[String]): StreamingAnalyticsConfig = {
+    val argEnv = Map(
+      "KAFKA_BOOTSTRAP_SERVERS" -> args.lift(0),
+      "KAFKA_TOPIC" -> args.lift(1),
+      "SPARK_CHECKPOINT_DIR" -> args.lift(2),
+      "SPARK_STREAMING_QUERY" -> args.lift(3)
+    ).collect {
+      case (name, Some(value)) if value.nonEmpty => name -> value
+    }
 
-  private val eventSchema: StructType = StructType(Seq(
-    StructField("schemaVersion", StringType, nullable = true),
-    StructField("eventType", StringType, nullable = true),
-    StructField("eventId", StringType, nullable = true),
-    StructField("timestamp", StringType, nullable = true),
-    StructField("tournamentId", StringType, nullable = true),
-    StructField("gameId", StringType, nullable = true),
-    StructField("whiteBotId", StringType, nullable = true),
-    StructField("blackBotId", StringType, nullable = true),
-    StructField("winnerBotId", StringType, nullable = true),
-    StructField("loserBotId", StringType, nullable = true),
-    StructField("result", StringType, nullable = true),
-    StructField("terminationReason", StringType, nullable = true)
-  ))
+    StreamingAnalyticsConfig.fromEnvMap(sys.env ++ argEnv)
+  }
+
 }
