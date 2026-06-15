@@ -531,6 +531,77 @@ export default function ChessBoard({
     startAnimation(animation);
   }, [animation, startAnimation, updateSquareSize]);
 
+  // ── Debug DOM audit (active only with ?debugAnimation) ──────────────────────
+  useEffect(() => {
+    if (!debugAnimation || !boardRef.current) return;
+    const run = () => {
+      const board = boardRef.current;
+      if (!board) return;
+
+      const idleSquare = board.querySelector<HTMLElement>(".board-square");
+      const idlePiece  = board.querySelector<HTMLElement>(".board-square .piece");
+      const clipWrap   = board.querySelector<HTMLElement>(".animation-layer > div");
+      const animPiece  = board.querySelector<HTMLElement>(".animation-piece");
+
+      const cs = (el: HTMLElement | null) => el ? getComputedStyle(el) : null;
+      const rect = (el: HTMLElement | null) => el?.getBoundingClientRect() ?? null;
+
+      const squareRect = rect(idleSquare);
+      const pieceRect  = rect(idlePiece);
+      const wrapRect   = rect(clipWrap);
+      const animRect   = rect(animPiece);
+      const squareCs   = cs(idleSquare);
+      const pieceCs    = cs(idlePiece);
+      const clipCs     = cs(clipWrap);
+      const animCs     = cs(animPiece);
+
+      console.group("[debugAnimation] DOM style audit");
+      console.table([
+        {
+          who: "board-square",
+          "rect.w": squareRect?.width,
+          "rect.h": squareRect?.height,
+          padding: squareCs?.padding,
+          overflow: squareCs?.overflow,
+          boxSizing: squareCs?.boxSizing,
+          display: squareCs?.display,
+        },
+        {
+          who: ".piece (idle)",
+          "rect.w": pieceRect?.width,
+          "rect.h": pieceRect?.height,
+          transform: pieceCs?.transform,
+          transformOrigin: pieceCs?.transformOrigin,
+          backgroundSize: pieceCs?.backgroundSize,
+          backgroundPosition: pieceCs?.backgroundPosition,
+          width: pieceCs?.width,
+          height: pieceCs?.height,
+        },
+        {
+          who: "AnimPiece wrapper",
+          "rect.w": wrapRect?.width,
+          "rect.h": wrapRect?.height,
+          overflow: clipCs?.overflow,
+          position: clipCs?.position,
+        },
+        {
+          who: ".animation-piece",
+          "rect.w": animRect?.width,
+          "rect.h": animRect?.height,
+          transform: animCs?.transform,
+          transformOrigin: animCs?.transformOrigin,
+          backgroundSize: animCs?.backgroundSize,
+          backgroundPosition: animCs?.backgroundPosition,
+          width: animCs?.width,
+          height: animCs?.height,
+        },
+      ]);
+      console.groupEnd();
+    };
+    const id = setTimeout(run, 800);
+    return () => clearTimeout(id);
+  }, [debugAnimation, animationActive]);
+
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (

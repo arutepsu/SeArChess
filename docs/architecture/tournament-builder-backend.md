@@ -1,12 +1,18 @@
 # Tournament Builder Backend
 
-Phase 10A adds `tournament-service`, a small HTTP service that owns Bot Evaluation Arena tournament job lifecycle.
+Phase 10A adds `tournament-service`. Phase 11A adds PostgreSQL persistence for tournament and
+analysis job state. See [tournament-job-persistence.md](tournament-job-persistence.md) for the
+full schema, status lifecycle, and Kafka outbox plan.
 
 ## Purpose
 
-The service provides the backend foundation for a future Web UI tournament builder. A client can list tournament-capable bots, create a tournament job, inspect job progress, and cancel queued or running jobs.
+The service provides the backend foundation for the Web UI tournament builder. A client can list
+tournament-capable bots, create a tournament job, inspect job progress, cancel queued or running
+jobs, and trigger Spark analytics.
 
-It starts arena jobs and writes game events as JSONL. Completed jobs can now be queued for Spark analytics through an explicit analyze endpoint. It still does not call analytics-service, update the Web UI dashboard, use Kafka, or persist jobs outside service memory.
+It starts arena jobs, writes game events as JSONL, and optionally triggers Spark analytics. With
+`TOURNAMENT_JOB_STORE=postgres`, job state survives restarts. It does not call analytics-service
+directly, does not update the Web UI dashboard directly, and does not use Kafka yet (Phase 11B).
 
 ## Service
 
@@ -25,11 +31,18 @@ Configuration:
 | `TOURNAMENT_ANALYTICS_ENABLED` | `true` | Enables explicit analytics execution requests |
 | `TOURNAMENT_ANALYTICS_OUTPUT_BASE_PATH` | `target/spark-analytics/tournament-jobs` | Default Spark analytics output base |
 | `TOURNAMENT_MAX_PARALLEL_ANALYTICS_JOBS` | `1` | Positive value; defaults to one analytics worker |
-| `TOURNAMENT_ANALYTICS_SBT_COMMAND` | `cmd.exe /c sbt` on Windows, `sbt` elsewhere | Command prefix used by the process-backed Spark runner |
+| `TOURNAMENT_ANALYTICS_SBT_COMMAND` | `cmd.exe /c sbt --client=false` on Windows, `sbt --client=false` elsewhere | Command prefix used by the process-backed Spark runner |
 | `STOCKFISH_PATH` | unset | Enables Stockfish bot entries when it points to a file |
 | `SEARCHESS_AI_BASE_URL` | unset | Enables `searchess-ai-v1` |
+| `TOURNAMENT_JOB_STORE` | `memory` | `memory` (default) or `postgres` |
+| `TOURNAMENT_POSTGRES_URL` | unset | Required when `TOURNAMENT_JOB_STORE=postgres` |
+| `TOURNAMENT_POSTGRES_USER` | unset | Required when `TOURNAMENT_JOB_STORE=postgres` |
+| `TOURNAMENT_POSTGRES_PASSWORD` | unset | Required when `TOURNAMENT_JOB_STORE=postgres` |
+| `TOURNAMENT_POSTGRES_SCHEMA` | `public` | PostgreSQL schema for tournament tables |
 
 Spark/PostgreSQL behavior is configured by the existing Spark environment variables, including `POSTGRES_WRITE_ENABLED`, `POSTGRES_URL`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_SCHEMA`, `POSTGRES_WRITE_MODE`, `POSTGRES_STRICT_WRITE`, `SPARK_LAKE_WRITE_ENABLED`, `SPARK_LAKE_BASE_PATH`, and `SPARK_LAKE_WRITE_MODE`.
+
+The default analytics SBT command disables the SBT client/server with `--client=false`. This avoids nested SBT server and named-pipe lock conflicts when `tournament-service` is launched from SBT and then starts a child Spark analytics SBT process, especially on Windows. If you override `TOURNAMENT_ANALYTICS_SBT_COMMAND`, include `--client=false` unless you have a specific reason not to.
 
 ## API
 
@@ -110,7 +123,10 @@ running -> cancelled
 running -> failed
 ```
 
-Phase 10A uses an in-memory `Ref[IO, Map[String, TournamentJob]]` and a single `Queue[IO, String]` worker. This avoids concurrent Stockfish process pressure and is enough for local demo use.
+Phase 10A used an in-memory `Ref[IO, Map[String, TournamentJob]]`. Phase 11A extracted this into
+`TournamentJobRepository` with two implementations: `InMemoryTournamentJobRepository` (default)
+and `SlickTournamentJobRepository` (when `TOURNAMENT_JOB_STORE=postgres`). The in-memory queue
+workers remain unchanged.
 
 Analysis has its own lifecycle:
 
@@ -140,9 +156,8 @@ The file contains the same arena JSONL event stream used by existing Spark analy
 
 ## Future Extensions
 
+- Phase 11B: Kafka outbox events on job state transitions.
 - Optional automatic analytics trigger after job completion.
-- Persisted job store instead of in-memory state.
-- Kafka event output when the shared Kafka runtime is ready.
 - More scheduling modes and larger-scale worker orchestration.
 
 ## Manual Run

@@ -24,16 +24,20 @@ This keeps the Spark dependency isolated from tournament job logic and leaves ro
 
 The runner launches Spark through SBT with an OS-aware command prefix:
 
-- Windows default: `cmd.exe /c sbt`
-- Non-Windows default: `sbt`
+- Windows default: `cmd.exe /c sbt --client=false`
+- Non-Windows default: `sbt --client=false`
 
 On Windows, `cmd.exe /c sbt` lets the shell resolve `sbt.bat`, which Java `ProcessBuilder` does not reliably find when invoked as plain `sbt`.
+
+The child analytics process disables the SBT client/server by default with `--client=false`. This avoids nested SBT server and named-pipe lock conflicts when `tournament-service` itself is already running under SBT, especially on Windows.
 
 If SBT is not on `PATH`, set `TOURNAMENT_ANALYTICS_SBT_COMMAND` to an explicit command prefix. Quote paths that contain spaces:
 
 ```powershell
-$env:TOURNAMENT_ANALYTICS_SBT_COMMAND='"C:\Program Files\sbt\bin\sbt.bat"'
+$env:TOURNAMENT_ANALYTICS_SBT_COMMAND='"C:\Program Files\sbt\bin\sbt.bat" --client=false'
 ```
+
+If you override `TOURNAMENT_ANALYTICS_SBT_COMMAND`, include `--client=false` unless you have a specific reason to use the SBT server/client.
 
 Manual Windows checks:
 

@@ -185,6 +185,12 @@ export default function AppRoutes({
             busy={busy}
             onboardingRequired={onboardingRequired}
             profile={profile}
+            backgrounds={backgrounds}
+            backgroundId={backgroundId}
+            setBackgroundId={setBackgroundId}
+            gameScenes={gameScenes}
+            gameSceneId={gameSceneId}
+            setGameSceneId={setGameSceneId}
             onStart={onStartGame}
             onContinueActiveGame={onContinueActiveGame}
             onResumeSession={onResumeSession}
@@ -258,7 +264,6 @@ export default function AppRoutes({
             onRunAiTurns={onRunAiTurns}
             onBackToMenu={onBackToMenu}
             onOpenHeatmap={onOpenHeatmap}
-            onOpenBotDemo={onOpenBotDemo}
           />
         }
       />

@@ -125,10 +125,6 @@
 
 .analytics-card {
     padding: 20px 24px;
-    border-radius: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    background: rgba(5, 10, 18, 0.5);
-    backdrop-filter: blur(6px);
     overflow-x: hidden;
     min-width: 0;
     box-sizing: border-box;

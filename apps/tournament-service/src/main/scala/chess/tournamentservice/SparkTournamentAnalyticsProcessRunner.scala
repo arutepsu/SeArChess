@@ -20,7 +20,7 @@ final class SparkTournamentAnalyticsProcessRunner(
       val exitCode = process.waitFor()
 
       if exitCode != 0 then
-        throw RuntimeException(s"Spark analytics process failed with exit code $exitCode: ${lastLine(output)}")
+        throw RuntimeException(s"Spark analytics process failed with exit code $exitCode:\n${tailLines(output, 40)}")
 
       val runId = output.lines().iterator().asScala
         .find(_.startsWith("ANALYTICS_RUN_RESULT "))
@@ -39,14 +39,22 @@ final class SparkTournamentAnalyticsProcessRunner(
       .map(_.stripPrefix("runId="))
       .filter(_.nonEmpty)
 
-  private def lastLine(output: String): String =
-    output.lines().iterator().asScala.toList.lastOption.getOrElse("no process output")
+  private def tailLines(output: String, maxLines: Int): String =
+    val lines = output.lines().iterator().asScala.toList
+    if lines.isEmpty then "no process output"
+    else lines.takeRight(maxLines).mkString("\n")
 
 object SparkTournamentAnalyticsProcessRunner:
   def command(sbtCommandPrefix: List[String], request: TournamentAnalyticsRunRequest): List[String] =
-    sbtCommandPrefix ++ List(
+    val sbtRunCommand = List(
       "sparkAnalytics/runMain",
       "chess.analytics.app.GameAnalyticsJob",
-      request.inputPath,
-      request.outputPath
-    )
+      quoteSbtArg(request.inputPath),
+      quoteSbtArg(request.outputPath)
+    ).mkString(" ")
+    sbtCommandPrefix ++ List(sbtRunCommand)
+
+  private[tournamentservice] def quoteSbtArg(value: String): String =
+    if value.contains("\"") then
+      throw IllegalArgumentException("Spark analytics input/output paths must not contain double quotes")
+    s""""$value""""

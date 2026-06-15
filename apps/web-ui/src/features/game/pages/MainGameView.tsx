@@ -94,7 +94,6 @@ export interface MainGameViewProps {
   onRunAiTurns: (maxPlies: number) => Promise<RunAiTurnsResponse>;
   onBackToMenu: () => void;
   onOpenHeatmap: () => void;
-  onOpenBotDemo: () => void;
   // NOTE: onExportNotation, onGameModeChange, onNewGame remain in the interface
   // for the App.tsx → AppRoutes prop chain but are not used inside this component.
 }
@@ -151,7 +150,6 @@ export default function MainGameView({
   onRunAiTurns,
   onBackToMenu,
   onOpenHeatmap,
-  onOpenBotDemo,
 }: MainGameViewProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMoveLogOpen, setIsMoveLogOpen] = useState(false);
@@ -190,8 +188,6 @@ export default function MainGameView({
     activeTab,
     setActiveTab,
     hasNewBotMoveNotification,
-    onBackToMenu,
-    onDemo: onOpenBotDemo,
     onOpenGameMenu: () => setIsMenuOpen(true),
     onOpenMoveLog: () => setIsMoveLogOpen(true),
   };
@@ -299,22 +295,25 @@ export default function MainGameView({
             // ── Scene mode: BoardSceneView is the full visual stage; ───────
             // ── HUD / status / timeline are overlaid on top of it.    ───────
             <div className="game-stage">
-              {/* Base layer: scene image + transparent chess board */}
-              <BoardSceneView gameScene={gameScene} {...chessBoardProps} />
+              {/* Inner content area — scene image + overlays, clipped and rounded */}
+              <div className="game-stage__content">
+                {/* Base layer: scene image + transparent chess board */}
+                <BoardSceneView gameScene={gameScene} {...chessBoardProps} />
 
-              {/* Overlay: HUD at the top of the scene */}
-              <div className="game-stage__hud-overlay">
-                <GameHud {...hudProps} />
-              </div>
+                {/* Overlay: HUD at the top of the scene */}
+                <div className="game-stage__hud-overlay">
+                  <GameHud {...hudProps} />
+                </div>
 
-              {/* Overlay: status banner below HUD */}
-              <div className="game-stage__status-overlay">
-                <StatusBanner {...statusProps} />
-              </div>
+                {/* Overlay: status banner below HUD */}
+                <div className="game-stage__status-overlay">
+                  <StatusBanner {...statusProps} />
+                </div>
 
-              {/* Overlay: compact timeline at the bottom of the scene */}
-              <div className="game-stage__timeline-overlay">
-                {replayTimeline(true)}
+                {/* Overlay: compact timeline at the bottom of the scene */}
+                <div className="game-stage__timeline-overlay">
+                  {replayTimeline(true)}
+                </div>
               </div>
             </div>
           ) : (

@@ -2,6 +2,7 @@ package chess.tournamentservice
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
+import chess.tournamentservice.db.InMemoryTournamentJobRepository
 import org.http4s.*
 import org.http4s.implicits.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -23,7 +24,12 @@ class TournamentServiceSpec extends AnyFlatSpec with Matchers:
       maxParallelAnalyticsJobs = 1,
       analyticsSbtCommand = List("sbt"),
       stockfishPath      = None,
-      searchessAiBaseUrl = None
+      searchessAiBaseUrl = None,
+      jobStore           = "memory",
+      postgresUrl        = None,
+      postgresUser       = None,
+      postgresPassword   = None,
+      postgresSchema     = "public"
     )
 
   private final class FakeAnalyticsRunner(var nextFailure: Option[String] = None) extends TournamentAnalyticsRunner:
@@ -62,12 +68,13 @@ class TournamentServiceSpec extends AnyFlatSpec with Matchers:
     ujson.read(resp.bodyText.compile.string.unsafeRunSync())
 
   private def freshService(): (TournamentJobService, List[cats.effect.FiberIO[Nothing]], Path, FakeAnalyticsRunner) =
-    val output = Files.createTempDirectory("searchess-tournament-service-test")
-    val runner = FakeAnalyticsRunner()
-    val service = TournamentJobService
-      .create(DefaultBotRegistry(config(output)), config(output), runner)
+    val output     = Files.createTempDirectory("searchess-tournament-service-test")
+    val runner     = FakeAnalyticsRunner()
+    val repository = InMemoryTournamentJobRepository.create().unsafeRunSync()
+    val service    = TournamentJobService
+      .create(DefaultBotRegistry(config(output)), config(output), runner, repository)
       .unsafeRunSync()
-    val worker = service.startWorker().unsafeRunSync()
+    val worker           = service.startWorker().unsafeRunSync()
     val analyticsWorkers = service.startAnalyticsWorkers().unsafeRunSync()
     (service, worker :: analyticsWorkers, output, runner)
 
@@ -108,14 +115,14 @@ class TournamentServiceSpec extends AnyFlatSpec with Matchers:
     waitForTerminal(service, jobId).status shouldBe TournamentJobStatus.Succeeded
     jobId
 
-  "TournamentServiceConfig" should "default analytics sbt command to cmd.exe /c sbt on Windows" in {
+  "TournamentServiceConfig" should "default analytics sbt command to cmd.exe /c sbt --client=false on Windows" in {
     val loaded = TournamentServiceConfig.load(_ => None, osName = "Windows 11").getOrElse(fail("expected config"))
-    loaded.analyticsSbtCommand shouldBe List("cmd.exe", "/c", "sbt")
+    loaded.analyticsSbtCommand shouldBe List("cmd.exe", "/c", "sbt", "--client=false")
   }
 
-  it should "default analytics sbt command to sbt on non-Windows" in {
+  it should "default analytics sbt command to sbt --client=false on non-Windows" in {
     val loaded = TournamentServiceConfig.load(_ => None, osName = "Linux").getOrElse(fail("expected config"))
-    loaded.analyticsSbtCommand shouldBe List("sbt")
+    loaded.analyticsSbtCommand shouldBe List("sbt", "--client=false")
   }
 
   it should "parse a configured analytics sbt command prefix" in {
@@ -125,22 +132,166 @@ class TournamentServiceSpec extends AnyFlatSpec with Matchers:
     loaded.analyticsSbtCommand shouldBe List("C:\\Program Files\\sbt\\bin\\sbt.bat")
   }
 
+  it should "default to memory job store" in {
+    val loaded = TournamentServiceConfig.load(_ => None).getOrElse(fail("expected config"))
+    loaded.jobStore shouldBe "memory"
+  }
+
+  it should "accept postgres job store with required fields" in {
+    val env: String => Option[String] = {
+      case "TOURNAMENT_JOB_STORE"       => Some("postgres")
+      case "TOURNAMENT_POSTGRES_URL"    => Some("jdbc:postgresql://localhost:5432/searchess")
+      case "TOURNAMENT_POSTGRES_USER"   => Some("searchess")
+      case "TOURNAMENT_POSTGRES_PASSWORD" => Some("searchess")
+      case _                            => None
+    }
+    val loaded = TournamentServiceConfig.load(env).getOrElse(fail("expected config"))
+    loaded.jobStore shouldBe "postgres"
+    loaded.postgresUrl shouldBe Some("jdbc:postgresql://localhost:5432/searchess")
+    loaded.postgresSchema shouldBe "public"
+  }
+
+  it should "reject postgres job store without URL" in {
+    val env: String => Option[String] = {
+      case "TOURNAMENT_JOB_STORE" => Some("postgres")
+      case _                      => None
+    }
+    TournamentServiceConfig.load(env).isLeft shouldBe true
+  }
+
+  it should "reject invalid job store value" in {
+    val env: String => Option[String] = {
+      case "TOURNAMENT_JOB_STORE" => Some("redis")
+      case _                      => None
+    }
+    TournamentServiceConfig.load(env).isLeft shouldBe true
+  }
+
+  it should "reject invalid schema name" in {
+    val env: String => Option[String] = {
+      case "TOURNAMENT_POSTGRES_SCHEMA" => Some("bad schema!")
+      case _                            => None
+    }
+    TournamentServiceConfig.load(env).isLeft shouldBe true
+  }
+
+  it should "default outbox publisher to disabled with logging type and sensible poll settings" in {
+    val loaded = TournamentServiceConfig.load(_ => None).getOrElse(fail("expected config"))
+    loaded.outboxPublisherEnabled    shouldBe false
+    loaded.outboxPollIntervalSeconds shouldBe 5
+    loaded.outboxBatchSize           shouldBe 50
+    loaded.outboxMaxAttempts         shouldBe 10
+    loaded.outboxPublisherType       shouldBe "logging"
+  }
+
+  it should "parse explicit outbox config when vars are set" in {
+    val env: String => Option[String] = {
+      case "TOURNAMENT_OUTBOX_PUBLISHER_ENABLED"     => Some("true")
+      case "TOURNAMENT_OUTBOX_POLL_INTERVAL_SECONDS" => Some("10")
+      case "TOURNAMENT_OUTBOX_BATCH_SIZE"            => Some("25")
+      case "TOURNAMENT_OUTBOX_MAX_ATTEMPTS"          => Some("5")
+      case "TOURNAMENT_OUTBOX_PUBLISHER_TYPE"        => Some("noop")
+      case _                                         => None
+    }
+    val loaded = TournamentServiceConfig.load(env).getOrElse(fail("expected config"))
+    loaded.outboxPublisherEnabled    shouldBe true
+    loaded.outboxPollIntervalSeconds shouldBe 10
+    loaded.outboxBatchSize           shouldBe 25
+    loaded.outboxMaxAttempts         shouldBe 5
+    loaded.outboxPublisherType       shouldBe "noop"
+  }
+
+  it should "reject invalid outbox poll interval" in {
+    val env: String => Option[String] = {
+      case "TOURNAMENT_OUTBOX_POLL_INTERVAL_SECONDS" => Some("0")
+      case _                                         => None
+    }
+    TournamentServiceConfig.load(env).isLeft shouldBe true
+  }
+
+  it should "reject invalid outbox batch size" in {
+    val env: String => Option[String] = {
+      case "TOURNAMENT_OUTBOX_BATCH_SIZE" => Some("-1")
+      case _                              => None
+    }
+    TournamentServiceConfig.load(env).isLeft shouldBe true
+  }
+
+  it should "reject invalid outbox publisher type" in {
+    val env: String => Option[String] = {
+      case "TOURNAMENT_OUTBOX_PUBLISHER_TYPE" => Some("rabbitmq")
+      case _                                  => None
+    }
+    TournamentServiceConfig.load(env).isLeft shouldBe true
+  }
+
+  it should "reject kafka publisher type when TOURNAMENT_KAFKA_BOOTSTRAP_SERVERS is missing" in {
+    val env: String => Option[String] = {
+      case "TOURNAMENT_OUTBOX_PUBLISHER_TYPE" => Some("kafka")
+      case _                                  => None
+    }
+    TournamentServiceConfig.load(env).isLeft shouldBe true
+  }
+
+  it should "accept kafka publisher type when TOURNAMENT_KAFKA_BOOTSTRAP_SERVERS is provided" in {
+    val env: String => Option[String] = {
+      case "TOURNAMENT_OUTBOX_PUBLISHER_TYPE"        => Some("kafka")
+      case "TOURNAMENT_KAFKA_BOOTSTRAP_SERVERS"      => Some("localhost:9092")
+      case _                                         => None
+    }
+    val loaded = TournamentServiceConfig.load(env).getOrElse(fail("expected config"))
+    loaded.outboxPublisherType    shouldBe "kafka"
+    loaded.kafkaBootstrapServers  shouldBe Some("localhost:9092")
+    loaded.kafkaTopic             shouldBe "searchess.tournament.lifecycle.v1"
+    loaded.kafkaClientId          shouldBe "searchess-tournament-service"
+    loaded.kafkaAcks              shouldBe "all"
+  }
+
+  it should "parse explicit kafka topic and client-id overrides" in {
+    val env: String => Option[String] = {
+      case "TOURNAMENT_OUTBOX_PUBLISHER_TYPE"   => Some("kafka")
+      case "TOURNAMENT_KAFKA_BOOTSTRAP_SERVERS" => Some("broker1:9092,broker2:9092")
+      case "TOURNAMENT_KAFKA_TOPIC"             => Some("my.custom.topic.v1")
+      case "TOURNAMENT_KAFKA_CLIENT_ID"         => Some("my-client")
+      case "TOURNAMENT_KAFKA_ACKS"              => Some("1")
+      case _                                    => None
+    }
+    val loaded = TournamentServiceConfig.load(env).getOrElse(fail("expected config"))
+    loaded.kafkaTopic    shouldBe "my.custom.topic.v1"
+    loaded.kafkaClientId shouldBe "my-client"
+    loaded.kafkaAcks     shouldBe "1"
+  }
+
   "SparkTournamentAnalyticsProcessRunner" should "build commands from the configured prefix" in {
     val request = TournamentAnalyticsRunRequest(
       tournamentJobId = "job-1",
-      inputPath       = "target/arena/tournament-jobs/job-1/game-events.jsonl",
-      outputPath      = "target/spark-analytics/tournament-jobs/job-1"
+      inputPath       = "C:\\searchess data\\arena\\job-1\\game-events.jsonl",
+      outputPath      = "C:\\searchess data\\spark-analytics\\job-1"
     )
 
-    SparkTournamentAnalyticsProcessRunner.command(List("cmd.exe", "/c", "sbt"), request) shouldBe List(
-      "cmd.exe",
-      "/c",
-      "sbt",
-      "sparkAnalytics/runMain",
-      "chess.analytics.app.GameAnalyticsJob",
-      "target/arena/tournament-jobs/job-1/game-events.jsonl",
-      "target/spark-analytics/tournament-jobs/job-1"
+    val command = SparkTournamentAnalyticsProcessRunner.command(List("cmd.exe", "/c", "sbt"), request)
+
+    command.take(3) shouldBe List("cmd.exe", "/c", "sbt")
+    command should have size 4
+
+    val sbtRunCommand = command.last
+    sbtRunCommand should include("sparkAnalytics/runMain")
+    sbtRunCommand should include("chess.analytics.app.GameAnalyticsJob")
+    sbtRunCommand should include("\"C:\\searchess data\\arena\\job-1\\game-events.jsonl\"")
+    sbtRunCommand should include("\"C:\\searchess data\\spark-analytics\\job-1\"")
+  }
+
+  it should "reject analytics paths containing double quotes" in {
+    val request = TournamentAnalyticsRunRequest(
+      tournamentJobId = "job-1",
+      inputPath       = "target/arena/job-\"1\"/game-events.jsonl",
+      outputPath      = "target/spark-analytics/job-1"
     )
+
+    val error = intercept[IllegalArgumentException] {
+      SparkTournamentAnalyticsProcessRunner.command(List("sbt"), request)
+    }
+    error.getMessage should include("must not contain double quotes")
   }
 
   "DefaultBotRegistry" should "list heuristic bots as available" in {

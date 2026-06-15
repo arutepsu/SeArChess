@@ -1,17 +1,11 @@
-import HorizontalBarChart from "../../../../components/ui/HorizontalBarChart";
 import type { LeaderboardRow } from "../../../../api/analyticsTypes";
+import EChart from "../EChart";
+import { leaderboardOption } from "../../model/chartOptions";
 
 interface Props {
   rows: LeaderboardRow[];
 }
 
 export default function LeaderboardChart({ rows }: Props) {
-  const items = [...rows]
-    .sort((a, b) => b.totalScore - a.totalScore)
-    .map((r) => ({
-      label: r.botId,
-      value: r.totalScore,
-      subLabel: `${(r.winRate * 100).toFixed(1)}%`,
-    }));
-  return <HorizontalBarChart items={items} formatValue={(v) => v.toFixed(1)} />;
+  return <EChart option={leaderboardOption(rows)} height={Math.max(260, rows.length * 34 + 90)} empty={rows.length === 0} />;
 }

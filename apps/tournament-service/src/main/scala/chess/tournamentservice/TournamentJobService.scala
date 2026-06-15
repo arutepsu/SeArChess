@@ -1,10 +1,11 @@
 package chess.tournamentservice
 
-import cats.effect.{FiberIO, IO, Ref}
+import cats.effect.{FiberIO, IO}
 import cats.effect.std.Queue
 import cats.syntax.all.*
 import chess.arena.core.{BotPlayer, GameRunner, RoundRobinScheduler}
 import chess.arena.writer.jsonl.JsonlFileWriter
+import chess.tournamentservice.db.TournamentJobRepository
 
 import java.nio.file.{Files, Path, Paths}
 import java.time.Instant
@@ -14,7 +15,7 @@ final class TournamentJobService private (
     registry: BotRegistry,
     config: TournamentServiceConfig,
     analyticsRunner: TournamentAnalyticsRunner,
-    jobs: Ref[IO, Map[String, TournamentJob]],
+    repository: TournamentJobRepository,
     queue: Queue[IO, String],
     analyticsQueue: Queue[IO, String]
 ):
@@ -55,33 +56,19 @@ final class TournamentJobService private (
             eventsUrl      = Some(s"/api/tournaments/$jobId/events"),
             resultSummary  = None
           )
-          _ <- jobs.update(_ + (jobId -> job))
+          _ <- repository.createJob(job)
           _ <- queue.offer(jobId)
         yield Right(job)
     }
 
   def listJobs(): IO[List[TournamentJob]] =
-    jobs.get.map(_.values.toList.sortBy(j => -j.createdAt.toEpochMilli))
+    repository.listJobs()
 
   def getJob(jobId: String): IO[Option[TournamentJob]] =
-    jobs.get.map(_.get(jobId))
+    repository.getJob(jobId)
 
   def cancel(jobId: String): IO[Option[TournamentJob]] =
-    jobs.modify { current =>
-      current.get(jobId) match
-        case None =>
-          current -> None
-        case Some(job) if TournamentJobStatus.terminal(job.status) =>
-          current -> Some(job)
-        case Some(job) =>
-          val updated = job.copy(
-            status        = TournamentJobStatus.Cancelled,
-            finishedAt    = if job.status == TournamentJobStatus.Queued then Some(Instant.now()) else job.finishedAt,
-            errorMessage  = None,
-            resultSummary = Some("cancelled")
-          )
-          current.updated(jobId, updated) -> Some(updated)
-    }
+    repository.cancelJob(jobId)
 
   def startWorker(): IO[FiberIO[Nothing]] =
     queue.take.flatMap(processJob).foreverM.start
@@ -95,27 +82,26 @@ final class TournamentJobService private (
       IO.pure(AnalyzeTournamentResult.Rejected(409, "ANALYTICS_DISABLED", "Tournament analytics execution is disabled"))
     else
       val requestedOutput = request.outputPath.map(_.trim).filter(_.nonEmpty)
-      val action = jobs.modify { current =>
-        current.get(jobId) match
-          case None =>
-            current -> AnalyzeTournamentResult.Rejected(404, "JOB_NOT_FOUND", s"Tournament job not found: $jobId")
-          case Some(job) if job.status != TournamentJobStatus.Succeeded =>
-            current -> AnalyzeTournamentResult.Rejected(409, "JOB_NOT_SUCCEEDED", "Tournament job must have succeeded before analytics can run")
-          case Some(job) if job.outputPath.forall(path => !Files.exists(Paths.get(path))) =>
-            current -> AnalyzeTournamentResult.Rejected(409, "TOURNAMENT_OUTPUT_NOT_FOUND", "Tournament JSONL output does not exist")
-          case Some(job) if job.analysisStatus == TournamentAnalysisStatus.Queued || job.analysisStatus == TournamentAnalysisStatus.Running =>
-            current -> AnalyzeTournamentResult.Rejected(409, "ANALYSIS_ALREADY_RUNNING", "Tournament analytics is already queued or running")
-          case Some(job) if job.analysisStatus == TournamentAnalysisStatus.Succeeded =>
-            current -> AnalyzeTournamentResult.Current(job)
-          case Some(job) =>
-            val output = requestedOutput.getOrElse(analyticsOutputPath(jobId).toString)
-            val updated = job.copy(
-              analysisStatus        = TournamentAnalysisStatus.Queued,
-              analyticsRunId        = None,
-              analyticsOutputPath   = Some(output),
-              analyticsErrorMessage = None
-            )
-            current.updated(jobId, updated) -> AnalyzeTournamentResult.Queued(updated)
+      val action = repository.getJob(jobId).flatMap {
+        case None =>
+          IO.pure(AnalyzeTournamentResult.Rejected(404, "JOB_NOT_FOUND", s"Tournament job not found: $jobId"))
+        case Some(job) if job.status != TournamentJobStatus.Succeeded =>
+          IO.pure(AnalyzeTournamentResult.Rejected(409, "JOB_NOT_SUCCEEDED", "Tournament job must have succeeded before analytics can run"))
+        case Some(job) if job.outputPath.forall(path => !Files.exists(Paths.get(path))) =>
+          IO.pure(AnalyzeTournamentResult.Rejected(409, "TOURNAMENT_OUTPUT_NOT_FOUND", "Tournament JSONL output does not exist"))
+        case Some(job) if job.analysisStatus == TournamentAnalysisStatus.Queued || job.analysisStatus == TournamentAnalysisStatus.Running =>
+          IO.pure(AnalyzeTournamentResult.Rejected(409, "ANALYSIS_ALREADY_RUNNING", "Tournament analytics is already queued or running"))
+        case Some(job) if job.analysisStatus == TournamentAnalysisStatus.Succeeded =>
+          IO.pure(AnalyzeTournamentResult.Current(job))
+        case Some(job) =>
+          val output    = requestedOutput.getOrElse(analyticsOutputPath(jobId).toString)
+          val inputPath = job.outputPath.getOrElse("")
+          repository.queueAnalysis(jobId, inputPath, output).flatMap { _ =>
+            repository.getJob(jobId).map {
+              case Some(updated) => AnalyzeTournamentResult.Queued(updated)
+              case None          => AnalyzeTournamentResult.Rejected(500, "INTERNAL_ERROR", s"Job $jobId disappeared after queueing analysis")
+            }
+          }
       }
       action.flatTap {
         case AnalyzeTournamentResult.Queued(_) => analyticsQueue.offer(jobId)
@@ -143,22 +129,12 @@ final class TournamentJobService private (
 
   private def processJob(jobId: String): IO[Unit] =
     for
-      shouldRun <- markRunning(jobId)
-      _ <- if shouldRun then runJob(jobId) else IO.unit
+      shouldRun <- repository.markRunning(jobId)
+      _         <- if shouldRun then runJob(jobId) else IO.unit
     yield ()
 
-  private def markRunning(jobId: String): IO[Boolean] =
-    jobs.modify { current =>
-      current.get(jobId) match
-        case Some(job) if job.status == TournamentJobStatus.Queued =>
-          val updated = job.copy(status = TournamentJobStatus.Running, startedAt = Some(Instant.now()))
-          current.updated(jobId, updated) -> true
-        case _ =>
-          current -> false
-    }
-
   private def runJob(jobId: String): IO[Unit] =
-    getJob(jobId).flatMap {
+    repository.getJob(jobId).flatMap {
       case None =>
         IO.unit
       case Some(job) =>
@@ -167,7 +143,7 @@ final class TournamentJobService private (
           botsOrError <- createParticipants(job)
           _ <- botsOrError match
             case Left(error) =>
-              markFailed(jobId, error)
+              repository.markFailed(jobId, error)
             case Right(bots) =>
               val matchups = RoundRobinScheduler.schedule(jobId, bots, job.repetitions)
               for
@@ -196,17 +172,17 @@ final class TournamentJobService private (
     def loop(remaining: List[chess.arena.core.Matchup]): IO[Unit] =
       remaining match
         case Nil =>
-          markSucceeded(jobId)
+          repository.markSucceeded(jobId)
         case matchup :: tail =>
-          getJob(jobId).flatMap {
+          repository.getJob(jobId).flatMap {
             case Some(job) if job.status == TournamentJobStatus.Cancelled =>
-              markCancelled(jobId)
+              repository.finalizeCancelled(jobId)
             case Some(job) if job.status == TournamentJobStatus.Running =>
               IO.blocking(GameRunner(matchup.white, matchup.black, writer, jobId, maxPly).run(matchup.gameId)).attempt.flatMap {
                 case Right(_) =>
-                  incrementCompleted(jobId) >> loop(tail)
+                  repository.incrementCompletedGames(jobId) >> loop(tail)
                 case Left(e) =>
-                  markFailed(jobId, Option(e.getMessage).getOrElse(e.getClass.getSimpleName))
+                  repository.markFailed(jobId, Option(e.getMessage).getOrElse(e.getClass.getSimpleName))
               }
             case _ =>
               IO.unit
@@ -214,105 +190,18 @@ final class TournamentJobService private (
 
     loop(matchups)
 
-  private def incrementCompleted(jobId: String): IO[Unit] =
-    jobs.update { current =>
-      current.get(jobId) match
-        case Some(job) =>
-          current.updated(jobId, job.copy(completedGames = job.completedGames + 1))
-        case None =>
-          current
-    }
-
-  private def markSucceeded(jobId: String): IO[Unit] =
-    jobs.update { current =>
-      current.get(jobId) match
-        case Some(job) if job.status == TournamentJobStatus.Running =>
-          current.updated(
-            jobId,
-            job.copy(
-              status        = TournamentJobStatus.Succeeded,
-              finishedAt    = Some(Instant.now()),
-              resultSummary = Some(s"${job.completedGames}/${job.plannedGames} games completed")
-            )
-          )
-        case _ => current
-    }
-
-  private def markCancelled(jobId: String): IO[Unit] =
-    jobs.update { current =>
-      current.get(jobId) match
-        case Some(job) =>
-          current.updated(jobId, job.copy(finishedAt = Some(Instant.now()), resultSummary = Some("cancelled")))
-        case None => current
-    }
-
-  private def markFailed(jobId: String, message: String): IO[Unit] =
-    jobs.update { current =>
-      current.get(jobId) match
-        case Some(job) =>
-          current.updated(
-            jobId,
-            job.copy(status = TournamentJobStatus.Failed, finishedAt = Some(Instant.now()), errorMessage = Some(message))
-          )
-        case None => current
-    }
-
   private def processAnalysisJob(jobId: String): IO[Unit] =
     for
-      request <- markAnalysisRunning(jobId)
-      _ <- request match
+      request <- repository.markAnalysisRunning(jobId)
+      _       <- request match
         case Some(runRequest) => runAnalysis(jobId, runRequest)
         case None             => IO.unit
     yield ()
 
-  private def markAnalysisRunning(jobId: String): IO[Option[TournamentAnalyticsRunRequest]] =
-    jobs.modify { current =>
-      current.get(jobId) match
-        case Some(job) if job.analysisStatus == TournamentAnalysisStatus.Queued =>
-          val updated = job.copy(analysisStatus = TournamentAnalysisStatus.Running)
-          val request = for
-            input  <- updated.outputPath
-            output <- updated.analyticsOutputPath
-          yield TournamentAnalyticsRunRequest(jobId, input, output)
-          current.updated(jobId, updated) -> request
-        case _ =>
-          current -> None
-    }
-
   private def runAnalysis(jobId: String, request: TournamentAnalyticsRunRequest): IO[Unit] =
     analyticsRunner.runAnalytics(request).attempt.flatMap {
-      case Right(result) => markAnalysisSucceeded(jobId, result)
-      case Left(e)      => markAnalysisFailed(jobId, Option(e.getMessage).getOrElse(e.getClass.getSimpleName))
-    }
-
-  private def markAnalysisSucceeded(jobId: String, result: TournamentAnalyticsRunResult): IO[Unit] =
-    jobs.update { current =>
-      current.get(jobId) match
-        case Some(job) =>
-          current.updated(
-            jobId,
-            job.copy(
-              analysisStatus        = TournamentAnalysisStatus.Succeeded,
-              analyticsRunId        = Some(result.analyticsRunId),
-              analyticsOutputPath   = Some(result.outputPath),
-              analyticsErrorMessage = None
-            )
-          )
-        case None => current
-    }
-
-  private def markAnalysisFailed(jobId: String, message: String): IO[Unit] =
-    jobs.update { current =>
-      current.get(jobId) match
-        case Some(job) =>
-          current.updated(
-            jobId,
-            job.copy(
-              analysisStatus        = TournamentAnalysisStatus.Failed,
-              analyticsErrorMessage = Some(message)
-            )
-          )
-        case None => current
+      case Right(result) => repository.markAnalysisSucceeded(jobId, result)
+      case Left(e)       => repository.markAnalysisFailed(jobId, Option(e.getMessage).getOrElse(e.getClass.getSimpleName))
     }
 
   private def plannedGames(botIds: List[String], repetitions: Int): Int =
@@ -328,10 +217,10 @@ object TournamentJobService:
   def create(
       registry: BotRegistry,
       config: TournamentServiceConfig,
-      analyticsRunner: TournamentAnalyticsRunner
+      analyticsRunner: TournamentAnalyticsRunner,
+      repository: TournamentJobRepository
   ): IO[TournamentJobService] =
     for
-      jobs           <- Ref.of[IO, Map[String, TournamentJob]](Map.empty)
       queue          <- Queue.unbounded[IO, String]
       analyticsQueue <- Queue.unbounded[IO, String]
-    yield TournamentJobService(registry, config, analyticsRunner, jobs, queue, analyticsQueue)
+    yield TournamentJobService(registry, config, analyticsRunner, repository, queue, analyticsQueue)

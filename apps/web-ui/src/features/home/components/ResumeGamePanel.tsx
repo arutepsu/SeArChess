@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { SessionResponse } from "../../../api/backendTypes";
 import { listSessions } from "../../../api/client";
 import Button from "../../../components/ui/Button";
+import GlassPanel from "../../../components/ui/GlassPanel";
 import "./ResumeGamePanel.css";
 
 type Props = {
@@ -80,7 +81,7 @@ export default function ResumeGamePanel({ busy, onResume }: Props) {
   }, [onResume]);
 
   return (
-    <section className="panel resume-panel" aria-label="Saved Sessions">
+    <GlassPanel as="section" className="resume-panel" variant="subtle" aria-label="Saved Sessions">
       <div className="resume-header">
         <div>
           <h2>Saved Sessions</h2>
@@ -153,6 +154,6 @@ export default function ResumeGamePanel({ busy, onResume }: Props) {
           )}
         </div>
       )}
-    </section>
+    </GlassPanel>
   );
 }

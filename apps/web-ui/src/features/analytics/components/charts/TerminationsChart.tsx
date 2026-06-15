@@ -1,17 +1,11 @@
-import HorizontalBarChart from "../../../../components/ui/HorizontalBarChart";
 import type { TerminationReasonRow } from "../../../../api/analyticsTypes";
+import EChart from "../EChart";
+import { terminationsOption } from "../../model/chartOptions";
 
 interface Props {
   rows: TerminationReasonRow[];
 }
 
 export default function TerminationsChart({ rows }: Props) {
-  const items = [...rows]
-    .sort((a, b) => b.count - a.count)
-    .map((r) => ({
-      label: r.terminationReason,
-      value: r.count,
-    }));
-
-  return <HorizontalBarChart items={items} formatValue={(v) => Math.round(v).toString()} />;
+  return <EChart option={terminationsOption(rows)} height={Math.max(260, rows.length * 34 + 90)} empty={rows.length === 0} />;
 }

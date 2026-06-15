@@ -15,6 +15,7 @@ import type {
   TournamentJobStatus,
   TournamentJobSummary,
 } from "../../../api/tournamentTypes";
+import ActionTile from "../../../components/ui/ActionTile";
 import Button from "../../../components/ui/Button";
 import EmptyState from "../../../components/ui/EmptyState";
 import ErrorState from "../../../components/ui/ErrorState";
@@ -81,28 +82,18 @@ function BotSelector({ bots, selectedBotIds, onToggle }: BotSelectorProps) {
             {familyBots.map((bot) => {
               const isSelected = selected.has(bot.botId);
               return (
-                <button
-                  type="button"
+                <ActionTile
                   key={bot.botId}
-                  className={[
-                    "tournament-bot-card",
-                    isSelected ? "tournament-bot-card--selected" : "",
-                    bot.available ? "" : "tournament-bot-card--disabled",
-                  ].filter(Boolean).join(" ")}
+                  className="tournament-bot-tile"
+                  label={bot.displayName}
+                  description={`${bot.strategyType} / ${bot.botId}`}
+                  badge={bot.engineType}
+                  selected={isSelected}
                   disabled={!bot.available}
+                  disabledReason={bot.unavailableReason ?? "Unavailable"}
+                  ariaLabel={`${isSelected ? "Deselect" : "Select"} ${bot.displayName}`}
                   onClick={() => onToggle(bot.botId)}
-                >
-                  <span className="tournament-bot-card__name">{bot.displayName}</span>
-                  <span className="tournament-bot-card__meta">
-                    {bot.strategyType} / {bot.engineType}
-                  </span>
-                  <span className="tournament-bot-card__id">{bot.botId}</span>
-                  {!bot.available && (
-                    <span className="tournament-bot-card__reason">
-                      {bot.unavailableReason ?? "Unavailable"}
-                    </span>
-                  )}
-                </button>
+                />
               );
             })}
           </div>

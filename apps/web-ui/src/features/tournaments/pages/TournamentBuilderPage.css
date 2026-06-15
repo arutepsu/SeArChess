@@ -39,10 +39,6 @@
 
 .tournament-card {
   padding: 20px 24px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(5, 10, 18, 0.55);
-  backdrop-filter: blur(6px);
   overflow: hidden;
 }
 
@@ -125,48 +121,9 @@
   gap: 10px;
 }
 
-.tournament-bot-card {
-  display: grid;
-  gap: 4px;
+.tournament-bot-tile {
   min-height: 106px;
-  padding: 12px;
-  text-align: left;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.045);
-  color: var(--ink);
-  cursor: pointer;
-}
-
-.tournament-bot-card:hover:not(:disabled),
-.tournament-bot-card--selected {
-  border-color: rgba(255, 206, 116, 0.75);
-  background: rgba(255, 206, 116, 0.12);
-}
-
-.tournament-bot-card--disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-.tournament-bot-card__name {
-  font-weight: 700;
-}
-
-.tournament-bot-card__meta,
-.tournament-bot-card__id,
-.tournament-bot-card__reason {
-  font-size: 0.78rem;
-  color: rgba(248, 241, 230, 0.62);
-  overflow-wrap: anywhere;
-}
-
-.tournament-bot-card__id {
-  font-family: "Courier New", monospace;
-}
-
-.tournament-bot-card__reason {
-  color: #ffb0b0;
+  align-content: start;
 }
 
 .tournament-job-list {

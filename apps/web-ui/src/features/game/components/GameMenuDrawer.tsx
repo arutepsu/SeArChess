@@ -166,7 +166,7 @@ export default function GameMenuDrawer({
                 Return to Main Menu
               </Button>
               <Button
-                variant="primary"
+                variant="secondary"
                 disabled={busy}
                 onClick={() => { onNewGame(); onClose(); }}
               >
@@ -220,14 +220,14 @@ export default function GameMenuDrawer({
 
             <div className="gmd-row">
               <Button
-                variant="ghost"
+                variant="secondary"
                 disabled={!currentNotation || !navigator.clipboard?.writeText}
                 onClick={() => void copyNotation()}
               >
                 Copy
               </Button>
               <Button
-                variant="ghost"
+                variant="secondary"
                 disabled={!currentNotation || !game}
                 onClick={downloadNotation}
               >
@@ -254,7 +254,7 @@ export default function GameMenuDrawer({
                 onChange={e => void readNotationFile(e.currentTarget.files?.[0], setCurrentDraft)}
               />
               <Button
-                variant="primary"
+                variant="secondary"
                 disabled={busy || !currentDraft.trim()}
                 onClick={() => onImportNotation(notationFormat, currentDraft)}
               >
@@ -279,7 +279,7 @@ export default function GameMenuDrawer({
             </dl>
 
             <Button
-              variant="primary"
+              variant="secondary"
               disabled={busy || !sessionId || !game}
               onClick={() => void saveSession()}
             >

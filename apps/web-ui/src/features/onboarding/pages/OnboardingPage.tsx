@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { patchProfile } from "../../../api/userServiceClient";
 import Button from "../../../components/ui/Button";
+import GlassPanel from "../../../components/ui/GlassPanel";
 import "./OnboardingPage.css";
 
 interface OnboardingPageProps {
@@ -29,7 +30,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
 
   return (
     <div className="onboarding-page">
-      <div className="onboarding-card">
+      <GlassPanel as="section" className="onboarding-card" variant="strong">
         <h1>Welcome to SeArChess</h1>
         <p className="onboarding-intro">
           Choose your Searchess nickname to get started. This is how other players will see you.
@@ -60,7 +61,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
             {saving ? "Saving…" : "Create nickname"}
           </Button>
         </div>
-      </div>
+      </GlassPanel>
     </div>
   );
 }

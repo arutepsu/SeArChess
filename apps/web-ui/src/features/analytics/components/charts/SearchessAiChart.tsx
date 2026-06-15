@@ -1,17 +1,11 @@
-import HorizontalBarChart from "../../../../components/ui/HorizontalBarChart";
 import type { SearchessAiComparisonRow } from "../../../../api/analyticsTypes";
+import EChart from "../EChart";
+import { searchessAiOption } from "../../model/chartOptions";
 
 interface Props {
   rows: SearchessAiComparisonRow[];
 }
 
 export default function SearchessAiChart({ rows }: Props) {
-  const items = [...rows]
-    .sort((a, b) => b.score - a.score)
-    .map((r) => ({
-      label: r.opponentBotId,
-      value: r.score,
-      subLabel: `${r.opponentFamily} · ${(r.winRate * 100).toFixed(1)}%`,
-    }));
-  return <HorizontalBarChart items={items} formatValue={(v) => v.toFixed(1)} />;
+  return <EChart option={searchessAiOption(rows)} height={Math.max(260, rows.length * 34 + 90)} empty={rows.length === 0} />;
 }

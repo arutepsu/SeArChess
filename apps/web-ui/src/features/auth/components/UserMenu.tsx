@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import keycloak from "../../../auth/keycloak";
 import "./UserMenu.css";
@@ -6,12 +6,10 @@ import "./UserMenu.css";
 const authEnabled = import.meta.env.VITE_AUTH_ENABLED !== "false";
 
 interface UserMenuProps {
-  onDemo?: () => void;
-  onBackToMenu?: () => void;
   dropdownAlign?: "left" | "right";
 }
 
-export default function UserMenu({ onDemo, onBackToMenu, dropdownAlign = "left" }: UserMenuProps) {
+export default function UserMenu({ dropdownAlign = "left" }: UserMenuProps) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -28,11 +26,14 @@ export default function UserMenu({ onDemo, onBackToMenu, dropdownAlign = "left" 
   }, [open]);
 
   const username = authEnabled
-    ? ((keycloak.tokenParsed?.["preferred_username"] as string | undefined) ?? "—")
+    ? ((keycloak.tokenParsed?.["preferred_username"] as string | undefined) ?? "-")
     : "Guest";
 
   const close = () => setOpen(false);
-  const go = (path: string) => { close(); navigate(path); };
+  const go = (path: string) => {
+    close();
+    navigate(path);
+  };
 
   return (
     <div className="user-menu" ref={containerRef}>
@@ -47,7 +48,7 @@ export default function UserMenu({ onDemo, onBackToMenu, dropdownAlign = "left" 
           {username.charAt(0).toUpperCase()}
         </span>
         <span className="user-menu__name">{username}</span>
-        <span className="user-menu__caret" aria-hidden="true">▾</span>
+        <span className="user-menu__caret" aria-hidden="true">v</span>
       </button>
 
       {open && (
@@ -55,34 +56,19 @@ export default function UserMenu({ onDemo, onBackToMenu, dropdownAlign = "left" 
           className={`user-menu__dropdown${dropdownAlign === "right" ? " user-menu__dropdown--right" : ""}`}
           role="menu"
         >
-          {onBackToMenu && (
-            <button
-              type="button"
-              role="menuitem"
-              className="user-menu__item"
-              onClick={() => { close(); onBackToMenu(); }}
-            >
-              ← Back to Menu
-            </button>
-          )}
-          {onDemo && (
-            <button
-              type="button"
-              role="menuitem"
-              className="user-menu__item"
-              onClick={() => { close(); onDemo(); }}
-            >
-              Demo
-            </button>
-          )}
-          <button type="button" role="menuitem" className="user-menu__item" onClick={() => go("/analytics")}>
-            Analytics
-          </button>
-          <button type="button" role="menuitem" className="user-menu__item" onClick={() => go("/tournaments")}>
-            Tournaments
+          <button type="button" role="menuitem" className="user-menu__item" onClick={() => go("/settings")}>
+            Profile &amp; Settings
           </button>
           <button type="button" role="menuitem" className="user-menu__item" onClick={() => go("/settings")}>
-            Profile
+            Linked Accounts
+          </button>
+          <button type="button" role="menuitem" className="user-menu__item user-menu__item--disabled" disabled>
+            <span>Keyboard Shortcuts</span>
+            <span className="user-menu__badge">Coming soon</span>
+          </button>
+          <button type="button" role="menuitem" className="user-menu__item user-menu__item--disabled" disabled>
+            <span>About Searchess</span>
+            <span className="user-menu__badge">Coming soon</span>
           </button>
           {authEnabled && (
             <>

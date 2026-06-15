@@ -56,7 +56,7 @@ export const GAME_SCENE_SKINS: GameSceneSkin[] = [
     label: "Sakura",
     imageUrl: board2Url,   // board2.jpg is the Sakura scene
     sceneSize: 720,
-    boardRect: { left: 0.230, top: 0.255, width: 0.540, height: 0.530 },
+    boardRect: { left: 0.230, top: 0.260, width: 0.540, height: 0.525 },
     // Piece calibration — tune with ?debugBoardScene:
     pieceScale: 1.3,
     pieceOffsetX: 0.0,
@@ -67,7 +67,7 @@ export const GAME_SCENE_SKINS: GameSceneSkin[] = [
     label: "Ocean",
     imageUrl: board3Url,   // board3.jpg is the Ocean scene
     sceneSize: 720,
-    boardRect: { left: 0.195, top: 0.173, width: 0.614, height: 0.596 },
+    boardRect: { left: 0.195, top: 0.177, width: 0.610, height: 0.596 },
     // Piece calibration — tune with ?debugBoardScene:
     pieceScale: 1.3,
     pieceOffsetX: 0.0,
@@ -78,9 +78,9 @@ export const GAME_SCENE_SKINS: GameSceneSkin[] = [
     label: "Shrine",
     imageUrl: board4Url,   // board4.jpg is the Shrine scene
     sceneSize: 720,
-    boardRect: { left: 0.260, top: 0.233, width: 0.485, height: 0.482 },
+    boardRect: { left: 0.260, top: 0.237, width: 0.483, height: 0.482 },
     // Piece calibration — tune with ?debugBoardScene:
-    pieceScale: 1.4,
+    pieceScale: 1.3,
     pieceOffsetX: 0.0,
     pieceOffsetY: 0.0,
   },
@@ -89,7 +89,7 @@ export const GAME_SCENE_SKINS: GameSceneSkin[] = [
     label: "Lantern",
     imageUrl: board5Url,   // board5.jpg is the Lantern scene
     sceneSize: 720,
-    boardRect: { left: 0.240, top: 0.240, width: 0.520, height: 0.500 },
+    boardRect: { left: 0.245, top: 0.240, width: 0.513, height: 0.500 },
     // Piece calibration — tune with ?debugBoardScene:
     pieceScale: 1.3,
     pieceOffsetX: 0.0,
@@ -100,7 +100,7 @@ export const GAME_SCENE_SKINS: GameSceneSkin[] = [
     label: "Heaven",
     imageUrl: board6Url,   // board6.jpg is the Heaven scene
     sceneSize: 720,
-    boardRect: { left: 0.200, top: 0.200, width: 0.595, height: 0.600 },
+    boardRect: { left: 0.200, top: 0.200, width: 0.600, height: 0.600 },
     // Piece calibration — tune with ?debugBoardScene:
     pieceScale: 1.3,
     pieceOffsetX: 0.0,

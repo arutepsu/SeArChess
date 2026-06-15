@@ -1,17 +1,11 @@
-import HorizontalBarChart from "../../../../components/ui/HorizontalBarChart";
 import type { StrategyRow } from "../../../../api/analyticsTypes";
+import EChart from "../EChart";
+import { strategyOption } from "../../model/chartOptions";
 
 interface Props {
   rows: StrategyRow[];
 }
 
 export default function StrategyChart({ rows }: Props) {
-  const items = [...rows]
-    .sort((a, b) => b.totalScore - a.totalScore)
-    .map((r) => ({
-      label: r.strategyType,
-      value: r.totalScore,
-      subLabel: `${(r.winRate * 100).toFixed(1)}%`,
-    }));
-  return <HorizontalBarChart items={items} formatValue={(v) => v.toFixed(1)} />;
+  return <EChart option={strategyOption(rows)} height={Math.max(260, rows.length * 38 + 96)} empty={rows.length === 0} />;
 }

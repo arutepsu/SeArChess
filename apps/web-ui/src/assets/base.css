@@ -9,6 +9,60 @@
   --bg-2: #2c1b14;
   --bg-3: #0f1c22;
   --app-background: none;
+
+  --searchess-text-primary: #f8f1e6;
+  --searchess-text-warm: #f6efe4;
+  --searchess-text-bright: #fff8ea;
+  --searchess-text-muted: rgba(248, 241, 230, 0.68);
+  --searchess-text-subtle: rgba(248, 241, 230, 0.52);
+
+  --searchess-accent-gold: #ffce74;
+  --searchess-accent-gold-bright: #ffe0a1;
+  --searchess-accent-gold-soft: rgba(255, 206, 116, 0.12);
+  --searchess-accent-gold-muted: rgba(255, 206, 116, 0.28);
+  --searchess-accent-gold-strong: rgba(255, 206, 116, 0.64);
+
+  --searchess-bg-glass: rgba(17, 13, 18, 0.78);
+  --searchess-bg-glass-subtle: rgba(17, 13, 18, 0.58);
+  --searchess-bg-glass-strong: rgba(12, 10, 16, 0.88);
+  --searchess-bg-control: rgba(0, 0, 0, 0.35);
+  --searchess-bg-hover: rgba(255, 206, 116, 0.1);
+
+  --searchess-border-glass: rgba(129, 77, 54, 0.66);
+  --searchess-border-glass-subtle: rgba(129, 77, 54, 0.42);
+  --searchess-border-gold: rgba(255, 206, 116, 0.32);
+  --searchess-border-gold-strong: rgba(255, 206, 116, 0.58);
+  --searchess-border-muted: rgba(255, 255, 255, 0.14);
+
+  --searchess-danger: #ff9d9d;
+  --searchess-danger-bright: #ffb1b1;
+  --searchess-danger-border: rgba(255, 120, 120, 0.35);
+  --searchess-danger-bg: rgba(255, 80, 80, 0.08);
+
+  --searchess-success: #adf0c0;
+  --searchess-success-border: rgba(120, 230, 150, 0.28);
+  --searchess-success-bg: rgba(80, 210, 120, 0.09);
+
+  --searchess-radius-control: 8px;
+  --searchess-radius-panel: 10px;
+  --searchess-radius-large: 12px;
+  --searchess-radius-pill: 999px;
+
+  --searchess-shadow-panel: 0 18px 42px rgba(0, 0, 0, 0.34);
+  --searchess-shadow-panel-strong: 0 22px 52px rgba(0, 0, 0, 0.42);
+  --searchess-shadow-control: 0 8px 20px rgba(0, 0, 0, 0.18);
+  --searchess-glow-gold: 0 0 22px rgba(255, 206, 116, 0.16);
+
+  --searchess-focus-outline: 3px solid rgba(255, 206, 116, 0.74);
+  --searchess-focus-offset: 3px;
+  --searchess-focus-shadow: 0 0 0 4px rgba(255, 206, 116, 0.14);
+
+  --searchess-disabled-opacity: 0.52;
+  --searchess-disabled-filter: saturate(0.75);
+
+  --searchess-transition-fast: 0.16s ease;
+  --searchess-transition-base: 0.18s ease;
+  --searchess-transition-slow: 0.2s ease;
 }
 
 html {

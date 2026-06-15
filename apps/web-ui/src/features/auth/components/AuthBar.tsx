@@ -1,14 +1,10 @@
 import UserMenu from "./UserMenu";
 import "./AuthBar.css";
 
-interface AuthBarProps {
-  onDemo?: () => void;
-}
-
-export default function AuthBar({ onDemo }: AuthBarProps) {
+export default function AuthBar() {
   return (
     <div className="auth-bar">
-      <UserMenu onDemo={onDemo} dropdownAlign="left" />
+      <UserMenu dropdownAlign="left" />
     </div>
   );
 }

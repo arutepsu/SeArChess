@@ -12,8 +12,6 @@ interface GameHudProps {
   activeTab: "local" | "bot";
   setActiveTab: (tab: "local" | "bot") => void;
   hasNewBotMoveNotification: boolean;
-  onBackToMenu: () => void;
-  onDemo?: () => void;
   onOpenGameMenu: () => void;
   onOpenMoveLog: () => void;
 }
@@ -26,8 +24,6 @@ export default function GameHud({
   activeTab,
   setActiveTab,
   hasNewBotMoveNotification,
-  onBackToMenu,
-  onDemo,
   onOpenGameMenu,
   onOpenMoveLog,
 }: GameHudProps) {
@@ -74,7 +70,7 @@ export default function GameHud({
         <Button variant="ghost" onClick={onOpenGameMenu} aria-label="Open game menu">
           ☰ Menu
         </Button>
-        <UserMenu onBackToMenu={onBackToMenu} onDemo={onDemo} dropdownAlign="right" />
+        <UserMenu dropdownAlign="right" />
       </div>
     </div>
   );

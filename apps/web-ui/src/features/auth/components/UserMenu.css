@@ -61,7 +61,7 @@
   top: calc(100% + 6px);
   left: 0;
   right: auto;
-  min-width: 160px;
+  min-width: 220px;
   background: rgba(14, 7, 10, 0.96);
   border: 1px solid rgba(90, 58, 58, 0.65);
   border-radius: 12px;
@@ -80,6 +80,10 @@
 }
 
 .user-menu__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   width: 100%;
   text-align: left;
   background: transparent;
@@ -92,6 +96,33 @@
   border-radius: 8px;
   cursor: pointer;
   transition: background 0.12s ease, color 0.12s ease;
+}
+
+.user-menu__item:disabled,
+.user-menu__item--disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.user-menu__item:disabled:hover,
+.user-menu__item--disabled:hover,
+.user-menu__item:disabled:focus-visible,
+.user-menu__item--disabled:focus-visible {
+  background: transparent;
+  color: #f0e6d2;
+}
+
+.user-menu__badge {
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 206, 116, 0.24);
+  border-radius: 999px;
+  padding: 2px 6px;
+  background: rgba(255, 206, 116, 0.08);
+  color: #ffce74;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04rem;
+  text-transform: uppercase;
 }
 
 .user-menu__item:hover,

@@ -429,9 +429,8 @@ body:has(.layout--scene) #app {
 /* ── Scene-mode: full-image stage with overlaid UI ──────────────────────── */
 
 /*
- * .game-stage is the single sizing context for scene mode.
- * The scene image fills it; HUD / status / timeline are absolutely
- * positioned overlays so they always match the image width exactly.
+ * .game-stage   — outer frame / backplate around the board scene.
+ * .game-stage__content — inner area that holds the scene image + overlays.
  *
  * Width formula (now that #app padding is cleared):
  *   calc(100dvh - 8px)   fills the viewport height with only a tiny safety
@@ -439,6 +438,9 @@ body:has(.layout--scene) #app {
  *   calc(100vw - 16px)   8 px margin on each side, avoids horizontal overflow.
  *   1280px               generous cap for large monitors.
  *   max-width: 100%      never overflow the board-column (≤ 1080 px wide).
+ *
+ * With box-sizing: border-box and padding: 10px the outer frame stays square
+ * (outer = inner + 20 px each axis) and no new scroll is introduced.
  */
 .game-stage {
   width: min(calc(100dvh - 8px), calc(100vw - 16px), 1280px);
@@ -446,9 +448,30 @@ body:has(.layout--scene) #app {
   margin: 0 auto;
   position: relative;
   isolation: isolate;
+
+  /* Frame / backplate */
+  padding: 10px;
+  box-sizing: border-box;
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(20, 12, 14, 0.88), rgba(56, 34, 28, 0.72));
+  border: 2px solid rgba(230, 179, 71, 0.45);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.65),
+    inset 0 0 24px rgba(255, 210, 120, 0.08);
 }
 
-/* BoardSceneView fills the stage; overrides BoardSceneView.css default sizing */
+/*
+ * Inner content area — the scene image fills this; overlays position
+ * relative to it.  overflow:hidden + border-radius clips the scene image
+ * corners so the rounded frame reads cleanly.
+ */
+.game-stage__content {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+/* BoardSceneView fills the content area; overrides BoardSceneView.css default sizing */
 .game-stage .board-scene-container {
   width: 100%;
 }
@@ -457,6 +480,8 @@ body:has(.layout--scene) #app {
 /*
  * All overlay wrappers: pointer-events:none so board clicks pass through
  * transparent gaps. Interactive content inside restores pointer-events.
+ * They are children of .game-stage__content (position:relative), so
+ * left/right/top/bottom are relative to the scene image area — not the frame.
  */
 .game-stage__hud-overlay,
 .game-stage__status-overlay,

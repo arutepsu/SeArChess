@@ -1,23 +1,12 @@
-import HorizontalBarChart from "../../../../components/ui/HorizontalBarChart";
 import type { AvgGameLengthRow } from "../../../../api/analyticsTypes";
+import EChart from "../EChart";
+import { avgGameLengthOption } from "../../model/chartOptions";
 
 interface Props {
   rows: AvgGameLengthRow[];
 }
 
-function formatMs(ms: number): string {
-  if (ms < 1000) return `${Math.round(ms)} ms`;
-  return `${(ms / 1000).toFixed(1)} s`;
-}
-
 export default function AvgGameLengthChart({ rows }: Props) {
-  const items = [...rows]
-    .sort((a, b) => b.avgTotalPly - a.avgTotalPly)
-    .slice(0, 10)
-    .map((r) => ({
-      label: `${r.whiteBotId} vs ${r.blackBotId}`,
-      value: r.avgTotalPly,
-      subLabel: formatMs(r.avgDurationMs),
-    }));
-  return <HorizontalBarChart items={items} formatValue={(v) => v.toFixed(1)} />;
+  const shownRows = Math.min(rows.length, 10);
+  return <EChart option={avgGameLengthOption(rows)} height={Math.max(280, shownRows * 38 + 96)} empty={rows.length === 0} />;
 }

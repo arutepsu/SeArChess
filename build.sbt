@@ -572,15 +572,22 @@ lazy val tournamentService = project
     run / fork          := true,
     run / baseDirectory := (ThisBuild / baseDirectory).value,
     libraryDependencies ++= Seq(
-      "org.http4s"  %% "http4s-ember-server" % http4sVersion,
-      "org.http4s"  %% "http4s-dsl"          % http4sVersion,
-      "com.lihaoyi" %% "ujson"               % "4.0.2"
+      "org.http4s"          %% "http4s-ember-server" % http4sVersion,
+      "org.http4s"          %% "http4s-dsl"          % http4sVersion,
+      "com.lihaoyi"         %% "ujson"               % "4.0.2",
+      "com.typesafe.slick"  %% "slick"               % slickVersion,
+      "com.typesafe.slick"  %% "slick-hikaricp"      % slickVersion,
+      "org.postgresql"       % "postgresql"           % postgresVersion,
+      "org.apache.kafka"     % "kafka-clients"        % "3.7.1",
+      "org.testcontainers"   % "testcontainers"       % testcontainersVersion % Test,
+      "org.testcontainers"   % "postgresql"           % testcontainersVersion % Test
     ),
     excludeFromCoverage(
       ".*chess.tournamentservice.TournamentServiceMain.*",
       ".*chess.tournamentservice.TournamentServiceWiring.*",
       ".*chess.tournamentservice.TournamentServiceRuntime.*",
-      ".*chess.tournamentservice.TournamentServiceConfig.*"
+      ".*chess.tournamentservice.TournamentServiceConfig.*",
+      ".*chess.tournamentservice.db.SlickTournamentJobRepository.*"
     )
   )
   .dependsOn(arenaCore, arenaEvents, arenaWriterJsonl, arenaBotsHeuristic, arenaBotsUci, arenaBotsAi, observability)

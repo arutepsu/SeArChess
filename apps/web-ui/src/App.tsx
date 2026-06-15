@@ -70,6 +70,7 @@ export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const isGameRoute = location.pathname === "/game";
+  const isHomeRoute = location.pathname === "/";
 
   const { profile, onboardingRequired, setOnboardingRequired } = useProfileOnboarding();
 
@@ -320,7 +321,7 @@ export default function App() {
 
   return (
     <div className="app">
-      {!isGameRoute && <AuthBar onDemo={handleOpenBotDemo} />}
+      {!isGameRoute && !isHomeRoute && <AuthBar />}
 
       <AppRoutes
         game={game}
