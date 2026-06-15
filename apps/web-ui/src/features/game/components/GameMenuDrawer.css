@@ -247,9 +247,9 @@
   opacity: 0.6;
 }
 
-/* Navigation / bottom actions row */
-.gmd-section--nav {
-  flex-direction: row;
-  flex-wrap: wrap;
+/* Game actions section — stacked column of full-width buttons */
+.gmd-action-row {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }

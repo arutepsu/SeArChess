@@ -21,6 +21,7 @@ class TournamentServiceSpec extends AnyFlatSpec with Matchers:
       analyticsEnabled   = true,
       analyticsOutputBasePath = output.resolve("analytics").toString,
       maxParallelAnalyticsJobs = 1,
+      analyticsSbtCommand = List("sbt"),
       stockfishPath      = None,
       searchessAiBaseUrl = None
     )
@@ -106,6 +107,41 @@ class TournamentServiceSpec extends AnyFlatSpec with Matchers:
     val jobId = bodyJson(resp)("jobId").str
     waitForTerminal(service, jobId).status shouldBe TournamentJobStatus.Succeeded
     jobId
+
+  "TournamentServiceConfig" should "default analytics sbt command to cmd.exe /c sbt on Windows" in {
+    val loaded = TournamentServiceConfig.load(_ => None, osName = "Windows 11").getOrElse(fail("expected config"))
+    loaded.analyticsSbtCommand shouldBe List("cmd.exe", "/c", "sbt")
+  }
+
+  it should "default analytics sbt command to sbt on non-Windows" in {
+    val loaded = TournamentServiceConfig.load(_ => None, osName = "Linux").getOrElse(fail("expected config"))
+    loaded.analyticsSbtCommand shouldBe List("sbt")
+  }
+
+  it should "parse a configured analytics sbt command prefix" in {
+    val loaded = TournamentServiceConfig
+      .load(key => if key == "TOURNAMENT_ANALYTICS_SBT_COMMAND" then Some("\"C:\\Program Files\\sbt\\bin\\sbt.bat\"") else None)
+      .getOrElse(fail("expected config"))
+    loaded.analyticsSbtCommand shouldBe List("C:\\Program Files\\sbt\\bin\\sbt.bat")
+  }
+
+  "SparkTournamentAnalyticsProcessRunner" should "build commands from the configured prefix" in {
+    val request = TournamentAnalyticsRunRequest(
+      tournamentJobId = "job-1",
+      inputPath       = "target/arena/tournament-jobs/job-1/game-events.jsonl",
+      outputPath      = "target/spark-analytics/tournament-jobs/job-1"
+    )
+
+    SparkTournamentAnalyticsProcessRunner.command(List("cmd.exe", "/c", "sbt"), request) shouldBe List(
+      "cmd.exe",
+      "/c",
+      "sbt",
+      "sparkAnalytics/runMain",
+      "chess.analytics.app.GameAnalyticsJob",
+      "target/arena/tournament-jobs/job-1/game-events.jsonl",
+      "target/spark-analytics/tournament-jobs/job-1"
+    )
+  }
 
   "DefaultBotRegistry" should "list heuristic bots as available" in {
     val bots = DefaultBotRegistry(config(Files.createTempDirectory("registry-test"))).listBots()

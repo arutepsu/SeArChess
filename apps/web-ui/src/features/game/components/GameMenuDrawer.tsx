@@ -34,6 +34,7 @@ interface GameMenuDrawerProps {
   onRunAiTurns: (maxPlies: number) => Promise<RunAiTurnsResponse>;
   onOpenHeatmap: () => void;
   onBackToMenu: () => void;
+  onNewGame: () => void;
 }
 
 export default function GameMenuDrawer({
@@ -57,6 +58,7 @@ export default function GameMenuDrawer({
   onRunAiTurns,
   onOpenHeatmap,
   onBackToMenu,
+  onNewGame,
 }: GameMenuDrawerProps) {
   const [notationFormat, setNotationFormat] = useState<"FEN" | "PGN">("FEN");
   const [fenDraft, setFenDraft] = useState("");
@@ -152,6 +154,32 @@ export default function GameMenuDrawer({
         </header>
 
         <div className="gmd-body">
+
+          {/* ── Game Actions ───────────────────────────────────────────── */}
+          <section className="gmd-section gmd-section--actions">
+            <h3 className="gmd-section-label">Game</h3>
+            <div className="gmd-action-row">
+              <Button
+                variant="ghost"
+                onClick={() => { onBackToMenu(); onClose(); }}
+              >
+                Return to Main Menu
+              </Button>
+              <Button
+                variant="primary"
+                disabled={busy}
+                onClick={() => { onNewGame(); onClose(); }}
+              >
+                Restart Game
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => { onOpenHeatmap(); onClose(); }}
+              >
+                View Analytics
+              </Button>
+            </div>
+          </section>
 
           {/* ── Appearance ─────────────────────────────────────────────── */}
           <section className="gmd-section">
@@ -303,20 +331,6 @@ export default function GameMenuDrawer({
               {aiRunError && <p className="gmd-error">{aiRunError}</p>}
             </section>
           )}
-
-          {/* ── Navigation ─────────────────────────────────────────────── */}
-          <section className="gmd-section gmd-section--nav">
-            <Button variant="ghost" disabled={!gameId || busy} onClick={onOpenHeatmap}>
-              Heatmap
-            </Button>
-            <Button
-              variant="ghost"
-              disabled={busy}
-              onClick={() => { onBackToMenu(); onClose(); }}
-            >
-              Back to Menu
-            </Button>
-          </section>
 
         </div>
       </div>

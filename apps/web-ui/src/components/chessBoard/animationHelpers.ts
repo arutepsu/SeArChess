@@ -32,26 +32,27 @@ export function selectFrameIndex(state: VisualState, frameCount: number, progres
   return clamp(Math.floor(clamped * frameCount), 0, frameCount - 1);
 }
 
-export function resolveCapturePhase(progress: number) {
+export function resolveCapturePhase(progress: number, hitMsOverride?: number) {
+  const hitMs = hitMsOverride ?? captureTimings.hitMs;
   const total =
     captureTimings.approachMs +
     captureTimings.attackMs +
-    captureTimings.attack1Ms +
+    hitMs +
     captureTimings.deadMs +
     captureTimings.fadeMs;
   const elapsed = clamp(progress, 0, 1) * total;
   const endApproach = captureTimings.approachMs;
-  const endAttack = endApproach + captureTimings.attackMs;
-  const endAttack1 = endAttack + captureTimings.attack1Ms;
-  const endDead = endAttack1 + captureTimings.deadMs;
+  const endAttack  = endApproach + captureTimings.attackMs;
+  const endHit     = endAttack  + hitMs;
+  const endDead    = endHit     + captureTimings.deadMs;
 
   const local = (start: number, end: number) =>
     end <= start ? 1 : clamp((elapsed - start) / (end - start), 0, 1);
 
   if (elapsed < endApproach) return { phase: "approach", local: local(0, endApproach) };
-  if (elapsed < endAttack) return { phase: "attack", local: local(endApproach, endAttack) };
-  if (elapsed < endAttack1) return { phase: "attack1", local: local(endAttack, endAttack1) };
-  if (elapsed < endDead) return { phase: "dead", local: local(endAttack1, endDead) };
+  if (elapsed < endAttack)   return { phase: "attack",   local: local(endApproach, endAttack) };
+  if (elapsed < endHit)      return { phase: "hit",      local: local(endAttack, endHit) };
+  if (elapsed < endDead)     return { phase: "dead",     local: local(endHit, endDead) };
   return { phase: "fade", local: local(endDead, total) };
 }
 
@@ -121,12 +122,12 @@ export function backgroundPositionFor(frameIndex: number, frameCount: number): s
   return `${(frameIndex / Math.max(1, frameCount - 1)) * 100}% 50%`;
 }
 
-export function animationDurationMs(plan: BoardAnimation): number {
+export function animationDurationMs(plan: BoardAnimation, hitMsOverride?: number): number {
   if (!plan.isCapture) return moveDurationMs;
   return (
     captureTimings.approachMs +
     captureTimings.attackMs +
-    captureTimings.attack1Ms +
+    (hitMsOverride ?? captureTimings.hitMs) +
     captureTimings.deadMs +
     captureTimings.fadeMs
   );

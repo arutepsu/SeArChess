@@ -25,6 +25,7 @@ Configuration:
 | `TOURNAMENT_ANALYTICS_ENABLED` | `true` | Enables explicit analytics execution requests |
 | `TOURNAMENT_ANALYTICS_OUTPUT_BASE_PATH` | `target/spark-analytics/tournament-jobs` | Default Spark analytics output base |
 | `TOURNAMENT_MAX_PARALLEL_ANALYTICS_JOBS` | `1` | Positive value; defaults to one analytics worker |
+| `TOURNAMENT_ANALYTICS_SBT_COMMAND` | `cmd.exe /c sbt` on Windows, `sbt` elsewhere | Command prefix used by the process-backed Spark runner |
 | `STOCKFISH_PATH` | unset | Enables Stockfish bot entries when it points to a file |
 | `SEARCHESS_AI_BASE_URL` | unset | Enables `searchess-ai-v1` |
 

@@ -110,7 +110,7 @@ export default function MainGameView({
   busy,
   gameMode,
   boardInteractionDisabled,
-  canResign,
+  canResign: _canResign,
   notation,
   activeTab,
   setActiveTab,
@@ -147,7 +147,7 @@ export default function MainGameView({
   onNewGame,
   onImportNotation,
   onSaveSession,
-  onResign,
+  onResign: _onResign,
   onRunAiTurns,
   onBackToMenu,
   onOpenHeatmap,
@@ -190,8 +190,6 @@ export default function MainGameView({
     activeTab,
     setActiveTab,
     hasNewBotMoveNotification,
-    canResign,
-    onResign,
     onBackToMenu,
     onDemo: onOpenBotDemo,
     onOpenGameMenu: () => setIsMenuOpen(true),
@@ -284,6 +282,7 @@ export default function MainGameView({
         onRunAiTurns={onRunAiTurns}
         onOpenHeatmap={onOpenHeatmap}
         onBackToMenu={onBackToMenu}
+        onNewGame={() => onNewGame()}
       />
 
       <MoveLogPanel

@@ -3,10 +3,14 @@
     place-items: start center;
     padding: 24px;
     min-height: 100vh;
+    overflow-x: hidden;
+    box-sizing: border-box;
 }
 
 .analytics-shell {
     width: min(1400px, calc(100vw - 48px));
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 /* ── Header ───────────────────────────────────────────────────────────────── */
@@ -125,7 +129,14 @@
     border: 1px solid rgba(255, 255, 255, 0.12);
     background: rgba(5, 10, 18, 0.5);
     backdrop-filter: blur(6px);
+    overflow-x: hidden;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.analytics-table-wrapper {
     overflow-x: auto;
+    max-width: 100%;
 }
 
 .section-card__title {

@@ -12,8 +12,6 @@ interface GameHudProps {
   activeTab: "local" | "bot";
   setActiveTab: (tab: "local" | "bot") => void;
   hasNewBotMoveNotification: boolean;
-  canResign: boolean;
-  onResign: () => void;
   onBackToMenu: () => void;
   onDemo?: () => void;
   onOpenGameMenu: () => void;
@@ -28,8 +26,6 @@ export default function GameHud({
   activeTab,
   setActiveTab,
   hasNewBotMoveNotification,
-  canResign,
-  onResign,
   onBackToMenu,
   onDemo,
   onOpenGameMenu,
@@ -77,9 +73,6 @@ export default function GameHud({
         </Button>
         <Button variant="ghost" onClick={onOpenGameMenu} aria-label="Open game menu">
           ☰ Menu
-        </Button>
-        <Button variant="danger" disabled={!canResign} onClick={onResign}>
-          Resign
         </Button>
         <UserMenu onBackToMenu={onBackToMenu} onDemo={onDemo} dropdownAlign="right" />
       </div>

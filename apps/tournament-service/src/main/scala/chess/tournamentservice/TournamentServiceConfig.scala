@@ -10,6 +10,7 @@ final case class TournamentServiceConfig(
     analyticsEnabled: Boolean,
     analyticsOutputBasePath: String,
     maxParallelAnalyticsJobs: Int,
+    analyticsSbtCommand: List[String],
     stockfishPath: Option[String],
     searchessAiBaseUrl: Option[String]
 )
@@ -26,7 +27,8 @@ object TournamentServiceConfig:
     )
 
   def load(
-      env: String => Option[String] = key => Option(System.getenv(key)).filter(_.nonEmpty)
+      env: String => Option[String] = key => Option(System.getenv(key)).filter(_.nonEmpty),
+      osName: String = System.getProperty("os.name", "")
   ): Either[String, TournamentServiceConfig] =
     for
       port            <- parsePort("TOURNAMENT_HTTP_PORT", env("TOURNAMENT_HTTP_PORT").getOrElse("8085"))
@@ -41,6 +43,10 @@ object TournamentServiceConfig:
         "TOURNAMENT_MAX_PARALLEL_ANALYTICS_JOBS",
         env("TOURNAMENT_MAX_PARALLEL_ANALYTICS_JOBS").getOrElse("1")
       )
+      analyticsSbtCommand <- parseCommand(
+        "TOURNAMENT_ANALYTICS_SBT_COMMAND",
+        env("TOURNAMENT_ANALYTICS_SBT_COMMAND").getOrElse(defaultSbtCommand(osName).mkString(" "))
+      )
     yield TournamentServiceConfig(
       host               = env("TOURNAMENT_HTTP_HOST").getOrElse("0.0.0.0"),
       port               = port,
@@ -49,6 +55,7 @@ object TournamentServiceConfig:
       analyticsEnabled   = analyticsEnabled,
       analyticsOutputBasePath = analyticsOutputBasePath,
       maxParallelAnalyticsJobs = maxParallelAnalyticsJobs,
+      analyticsSbtCommand = analyticsSbtCommand,
       stockfishPath      = env("STOCKFISH_PATH"),
       searchessAiBaseUrl = env("SEARCHESS_AI_BASE_URL")
     )
@@ -75,3 +82,38 @@ object TournamentServiceConfig:
       case "true"  => Right(true)
       case "false" => Right(false)
       case other   => Left(s"$name must be true or false, got: '$other'")
+
+  private[tournamentservice] def defaultSbtCommand(osName: String): List[String] =
+    if osName.toLowerCase.contains("windows") then List("cmd.exe", "/c", "sbt")
+    else List("sbt")
+
+  private[tournamentservice] def parseCommand(name: String, value: String): Either[String, List[String]] =
+    val trimmed = value.trim
+    if trimmed.isEmpty then Left(s"$name must be non-empty")
+    else
+      val tokens = splitCommand(trimmed)
+      if tokens.nonEmpty then Right(tokens)
+      else Left(s"$name must contain at least one command token")
+
+  private def splitCommand(value: String): List[String] =
+    val tokens = scala.collection.mutable.ListBuffer.empty[String]
+    val current = StringBuilder()
+    var quoted = false
+    var quoteChar = ' '
+
+    value.foreach { ch =>
+      if quoted then
+        if ch == quoteChar then quoted = false
+        else current.append(ch)
+      else if ch == '"' || ch == '\'' then
+        quoted = true
+        quoteChar = ch
+      else if ch.isWhitespace then
+        if current.nonEmpty then
+          tokens += current.toString
+          current.clear()
+      else current.append(ch)
+    }
+
+    if current.nonEmpty then tokens += current.toString
+    tokens.toList

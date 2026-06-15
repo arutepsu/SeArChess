@@ -20,6 +20,28 @@ Routes and job state depend on the `TournamentAnalyticsRunner` interface. The de
 
 This keeps the Spark dependency isolated from tournament job logic and leaves room to replace the runner with an external process, Kubernetes job, or dedicated analytics-executor service.
 
+## SBT Process Command
+
+The runner launches Spark through SBT with an OS-aware command prefix:
+
+- Windows default: `cmd.exe /c sbt`
+- Non-Windows default: `sbt`
+
+On Windows, `cmd.exe /c sbt` lets the shell resolve `sbt.bat`, which Java `ProcessBuilder` does not reliably find when invoked as plain `sbt`.
+
+If SBT is not on `PATH`, set `TOURNAMENT_ANALYTICS_SBT_COMMAND` to an explicit command prefix. Quote paths that contain spaces:
+
+```powershell
+$env:TOURNAMENT_ANALYTICS_SBT_COMMAND='"C:\Program Files\sbt\bin\sbt.bat"'
+```
+
+Manual Windows checks:
+
+```powershell
+where sbt
+where sbt.bat
+```
+
 ## PostgreSQL And /analytics
 
 The `/analytics` page reads PostgreSQL through `analytics-service`. For a tournament analysis to appear there, run Spark with:

@@ -5,15 +5,15 @@ import cats.effect.IO
 import java.io.File
 import scala.jdk.CollectionConverters.*
 
-final class SparkTournamentAnalyticsProcessRunner extends TournamentAnalyticsRunner:
+final class SparkTournamentAnalyticsProcessRunner(
+    sbtCommandPrefix: List[String],
+    projectRoot: File = File(System.getProperty("user.dir"))
+) extends TournamentAnalyticsRunner:
   override def runAnalytics(request: TournamentAnalyticsRunRequest): IO[TournamentAnalyticsRunResult] =
     IO.blocking {
-      val command = List(
-        "sbt",
-        s"sparkAnalytics/run ${request.inputPath} ${request.outputPath}"
-      )
+      val command = SparkTournamentAnalyticsProcessRunner.command(sbtCommandPrefix, request)
       val builder = ProcessBuilder(command.asJava)
-        .directory(File(System.getProperty("user.dir")))
+        .directory(projectRoot)
         .redirectErrorStream(true)
       val process = builder.start()
       val output = new String(process.getInputStream.readAllBytes(), "UTF-8")
@@ -41,3 +41,12 @@ final class SparkTournamentAnalyticsProcessRunner extends TournamentAnalyticsRun
 
   private def lastLine(output: String): String =
     output.lines().iterator().asScala.toList.lastOption.getOrElse("no process output")
+
+object SparkTournamentAnalyticsProcessRunner:
+  def command(sbtCommandPrefix: List[String], request: TournamentAnalyticsRunRequest): List[String] =
+    sbtCommandPrefix ++ List(
+      "sparkAnalytics/runMain",
+      "chess.analytics.app.GameAnalyticsJob",
+      request.inputPath,
+      request.outputPath
+    )

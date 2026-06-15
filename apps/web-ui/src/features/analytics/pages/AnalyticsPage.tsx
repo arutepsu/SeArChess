@@ -402,7 +402,9 @@ function renderSection<T>(
     <>
       <Chart rows={state.rows} />
       <div className="analytics-chart-divider" />
-      <Table rows={state.rows} />
+      <div className="analytics-table-wrapper">
+        <Table rows={state.rows} />
+      </div>
     </>
   );
 }

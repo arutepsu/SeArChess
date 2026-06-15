@@ -4,6 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "sync:chess-assets": "powershell -ExecutionPolicy Bypass -File ../../tools/sync-chess-assets.ps1",
+    "predev": "npm run sync:chess-assets",
+    "predev:auth": "npm run sync:chess-assets",
+    "prebuild": "npm run sync:chess-assets",
     "dev": "vite",
     "dev:auth": "vite --mode auth",
     "dev:analytics": "vite --mode analytics",

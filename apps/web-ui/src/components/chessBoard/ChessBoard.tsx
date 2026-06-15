@@ -8,6 +8,7 @@ import { idleFps } from "../../animation/animationConfig";
 import type { PromotionPiece } from "../../api/backendTypes";
 import {
   PIECE_SCALE,
+  PIECE_VISUAL_OFFSET_Y,
   clamp,
   assetKeyFor,
   pieceDescriptor,
@@ -96,6 +97,13 @@ export default function ChessBoard({
   const [currentFrameTick, setCurrentFrameTick] = useState(0);
   const idleTimerFrame = useRef<number | null>(null);
   const [dismissedGameOver, setDismissedGameOver] = useState(false);
+
+  // Debug: activate with ?debugAnimation in the URL (dev-only, no production effect).
+  const debugAnimation = useMemo(
+    () => typeof window !== "undefined" && new URLSearchParams(window.location.search).has("debugAnimation"),
+    []
+  );
+  const debugHitMs = debugAnimation ? 1200 : undefined;
 
   useEffect(() => { setDismissedGameOver(false); }, [board]);
 
@@ -286,7 +294,8 @@ export default function ChessBoard({
       const isBlack = piece?.startsWith("b") ?? false;
       const visualScale = PIECE_SCALE * (pieceScale ?? 1);
       const ox = pieceOffsetX ?? 0;
-      const oy = pieceOffsetY ?? 0;
+      const descriptor = pieceDescriptor(piece);
+      const oy = (pieceOffsetY ?? 0) + (descriptor ? (PIECE_VISUAL_OFFSET_Y[descriptor.name] ?? 0) : 0);
       const baseTransform = pieceTransform(isBlack, visualScale);
       // Translate in screen-space (% of element CSS size = % of square) before scale/flip.
       const transform =
@@ -381,7 +390,7 @@ export default function ChessBoard({
       };
     }
 
-    const phase = resolveCapturePhase(t);
+    const phase = resolveCapturePhase(t, debugHitMs);
     const moveStyle = motionStyleFor(plan.movingPiece, false);
 
     const resolveMoving = () => {
@@ -392,8 +401,9 @@ export default function ChessBoard({
         const sp = resolveSegmentedSprite(plan.movingPiece, "move", phase.local);
         return { x: pos.x, y: pos.y, visualState: "move" as VisualState, frameIndex: sp.frameIndex, sheet: sp.sheet };
       }
-      const isAttack1 = ["attack1", "dead", "fade"].includes(phase.phase);
-      const progress = ["dead", "fade"].includes(phase.phase) ? 1 : phase.local;
+      // During hit/dead/fade the attacker holds its attack1 follow-through pose.
+      const isAttack1 = ["hit", "dead", "fade"].includes(phase.phase);
+      const progress = ["hit", "dead", "fade"].includes(phase.phase) ? 1 : phase.local;
       const sp = resolveAttackSegment(plan.movingPiece, isAttack1 ? 1 : 0, progress);
       return {
         x: toPixel.x, y: toPixel.y,
@@ -410,12 +420,33 @@ export default function ChessBoard({
 
     if (plan.capturedPiece && capturedPixel) {
       const cp = plan.capturedPiece;
-      if (["approach", "attack", "attack1"].includes(phase.phase)) {
+      if (["approach", "attack"].includes(phase.phase)) {
         const sp = resolveSegmentedSprite(cp, "idle", 0);
+        const idleFrameIndex = sp.sheet ? currentFrameTick % sp.sheet.frameCount : 0;
         captured = {
           piece: cp, x: capturedPixel.x, y: capturedPixel.y,
           opacity: 1, scale: 1, flipX: cp.startsWith("b"),
-          visualState: "idle", frameIndex: sp.frameIndex, sheet: sp.sheet,
+          visualState: "idle", frameIndex: idleFrameIndex, sheet: sp.sheet,
+        };
+      } else if (phase.phase === "hit") {
+        const sp = resolveSegmentedSprite(cp, "hit", phase.local);
+        if (debugAnimation) {
+          const hitKey = assetKeyFor(cp, "hit");
+          console.table([{
+            phase: "hit",
+            local: phase.local.toFixed(3),
+            capturedPiece: cp,
+            spriteKey: hitKey,
+            sheetUrl: sp.sheet?.url ?? "(null — fallback active)",
+            frameCount: sp.sheet?.frameCount ?? 0,
+            frameIndex: sp.frameIndex,
+            opacity: 1,
+          }]);
+        }
+        captured = {
+          piece: cp, x: capturedPixel.x, y: capturedPixel.y,
+          opacity: 1, scale: 1, flipX: cp.startsWith("b"),
+          visualState: "hit", frameIndex: sp.frameIndex, sheet: sp.sheet,
         };
       } else {
         const deadProgress = phase.phase === "fade" ? 1 : phase.local;
@@ -438,7 +469,7 @@ export default function ChessBoard({
       captured,
       castlingRook,
     };
-  }, [animationActive, animationPlan, animationProgress, resolveAttackSegment, resolveSegmentedSprite, squareToPixel]);
+  }, [animationActive, animationPlan, animationProgress, currentFrameTick, debugAnimation, debugHitMs, resolveAttackSegment, resolveSegmentedSprite, squareToPixel]);
 
   // ── Animation ticker ─────────────────────────────────────────────────────────
 
@@ -448,7 +479,7 @@ export default function ChessBoard({
       setAnimationPlan(plan);
       setAnimationActive(true);
       setAnimationProgress(0);
-      const duration = animationDurationMs(plan);
+      const duration = animationDurationMs(plan, debugHitMs);
       const start = performance.now();
       const tick = () => {
         const progress = duration > 0 ? (performance.now() - start) / duration : 1;
@@ -463,7 +494,7 @@ export default function ChessBoard({
       };
       animationFrame.current = requestAnimationFrame(tick);
     },
-    [onAnimationFinished]
+    [onAnimationFinished, debugHitMs]
   );
 
   useEffect(() => {
@@ -552,7 +583,7 @@ export default function ChessBoard({
         ))}
 
         {animationRenderModel && (
-          <AnimationLayer model={animationRenderModel} cellWidth={squareWidth} cellHeight={squareHeight} />
+          <AnimationLayer model={animationRenderModel} cellWidth={squareWidth} cellHeight={squareHeight} debugHit={debugAnimation} />
         )}
 
         {promotionPending && (

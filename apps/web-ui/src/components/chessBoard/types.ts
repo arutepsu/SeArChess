@@ -2,6 +2,14 @@ import type { BoardSquare, PieceCode } from "../../api/types";
 
 export const PIECE_SCALE = 2;
 
+// Per-piece-type vertical offset (fraction of square height, negative = up).
+// Compensates for asymmetric transparent padding in sprite art.
+// Bishop art has ~47% top padding vs ~32% for other pieces, so its visual
+// content sits at 62.6% of frame height; this offset recenters it.
+export const PIECE_VISUAL_OFFSET_Y: Partial<Record<string, number>> = {
+  bishop: -0.32,
+};
+
 export type SpriteState = "idle" | "move";
 
 export type SpriteInfo = {
