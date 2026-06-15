@@ -4,9 +4,9 @@ Phase 10B adds a Web UI page at `/tournaments` for creating and monitoring tourn
 
 ## Purpose
 
-The page lets a user select available bots, configure a double round-robin tournament, submit the job to tournament-service, and monitor progress until the job succeeds, fails, or is cancelled.
+The page lets a user select available bots, configure a double round-robin tournament, submit the job to tournament-service, monitor progress until the job succeeds, fails, or is cancelled, and explicitly run Spark analytics for succeeded jobs.
 
-It does not run Spark, read JSONL in the browser, call analytics-service, or update the analytics dashboard automatically.
+It does not read JSONL in the browser, call analytics-service directly, or update the analytics dashboard sections. Spark execution is requested through tournament-service and runs in that service's background analytics worker.
 
 ## Required Backend
 
@@ -55,18 +55,22 @@ The Vite proxy registers `/api/tournaments` before the generic `/api` proxy, mat
 6. Inspect recent jobs and selected job details.
 7. Queued/running jobs poll `GET /api/tournaments/:jobId` every 2 seconds.
 8. Cancel queued/running jobs with `POST /api/tournaments/:jobId/cancel`.
+9. When a job succeeds, click **Run analytics** to call `POST /api/tournaments/:jobId/analyze`.
+10. While analysis is queued/running, job details poll every 2 seconds.
+11. When analysis succeeds, the page shows the analytics run ID, analytics output path, and a link to `/analytics`.
 
 ## UI Sections
 
 - Create Tournament: grouped bot cards and config form.
 - Recent Jobs: status, selected bots, created/finished times, progress.
-- Job Details: status, progress, output path, error message, analytics state, cancel action.
+- Job Details: status, progress, output path, error message, analysis status badge, analytics run ID, analytics output path, analytics error message, run analytics action, and cancel action.
 
-The page states clearly that it creates a tournament event file and Spark analytics must be run separately for now. For succeeded jobs, it shows the JSONL output path returned by tournament-service.
+For succeeded jobs, the page shows the JSONL output path returned by tournament-service. For succeeded analysis, it tells the user: "Analytics written. Open /analytics and select the new run."
 
 ## Limitations
 
 - Spark analytics are not triggered automatically yet.
+- `/analytics` only shows the new run when Spark was configured to write PostgreSQL tables with `POSTGRES_WRITE_ENABLED=true` and the required `POSTGRES_*` values.
 - Jobs remain in tournament-service memory.
 - The browser does not read JSONL or access the filesystem directly.
 - Kafka is not required.

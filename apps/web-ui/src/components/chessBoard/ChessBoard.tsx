@@ -7,6 +7,7 @@ import type { BoardAnimation } from "../../animation/animationTypes";
 import { idleFps } from "../../animation/animationConfig";
 import type { PromotionPiece } from "../../api/backendTypes";
 import {
+  PIECE_SCALE,
   clamp,
   assetKeyFor,
   pieceDescriptor,
@@ -51,6 +52,10 @@ export type ChessBoardProps = {
   orientation?: PlayerColor;
   lastMove?: { from: string; to: string };
   transparentOverlay?: boolean;
+  /** Per-scene piece calibration (only meaningful when transparentOverlay=true). */
+  pieceScale?: number;
+  pieceOffsetX?: number;
+  pieceOffsetY?: number;
 };
 
 const indices = Array.from({ length: 8 }, (_, i) => i);
@@ -76,10 +81,14 @@ export default function ChessBoard({
   orientation = "white",
   lastMove,
   transparentOverlay = false,
+  pieceScale,
+  pieceOffsetX,
+  pieceOffsetY,
 }: ChessBoardProps) {
   const [spriteCatalog, setSpriteCatalog] = useState<SpriteCatalog | null>(null);
   const boardRef = useRef<HTMLDivElement | null>(null);
-  const [squareSize, setSquareSize] = useState(68);
+  const [squareWidth, setSquareWidth] = useState(68);
+  const [squareHeight, setSquareHeight] = useState(68);
   const [animationProgress, setAnimationProgress] = useState(0);
   const [animationActive, setAnimationActive] = useState(false);
   const [animationPlan, setAnimationPlan] = useState<BoardAnimation | null>(null);
@@ -275,7 +284,15 @@ export default function ChessBoard({
   const spriteStyle = useCallback(
     (piece: BoardSquare): React.CSSProperties => {
       const isBlack = piece?.startsWith("b") ?? false;
-      const transform = pieceTransform(isBlack);
+      const visualScale = PIECE_SCALE * (pieceScale ?? 1);
+      const ox = pieceOffsetX ?? 0;
+      const oy = pieceOffsetY ?? 0;
+      const baseTransform = pieceTransform(isBlack, visualScale);
+      // Translate in screen-space (% of element CSS size = % of square) before scale/flip.
+      const transform =
+        ox !== 0 || oy !== 0
+          ? `translate(${(ox * 100).toFixed(2)}%, ${(oy * 100).toFixed(2)}%) ${baseTransform}`
+          : baseTransform;
       const info = resolveSpriteInfo(piece);
       if (!info) return { transform };
       const frameIndex =
@@ -287,7 +304,7 @@ export default function ChessBoard({
         backgroundPosition: backgroundPositionFor(frameIndex, info.frameCount),
       };
     },
-    [resolveSpriteInfo, currentFrameTick]
+    [resolveSpriteInfo, currentFrameTick, pieceScale, pieceOffsetX, pieceOffsetY]
   );
 
   const spriteClasses = useCallback(
@@ -299,7 +316,11 @@ export default function ChessBoard({
 
   const updateSquareSize = useCallback(() => {
     const square = boardRef.current?.querySelector<HTMLElement>(".board-square");
-    if (square) setSquareSize(square.getBoundingClientRect().width);
+    if (square) {
+      const rect = square.getBoundingClientRect();
+      setSquareWidth(rect.width);
+      setSquareHeight(rect.height);
+    }
   }, []);
 
   const squareToPixel = useCallback(
@@ -308,9 +329,9 @@ export default function ChessBoard({
       if (!coords) return null;
       const displayCol = orientation === "black" ? 7 - coords.displayCol : coords.displayCol;
       const displayRow = orientation === "black" ? 7 - coords.displayRow : coords.displayRow;
-      return { x: displayCol * squareSize, y: displayRow * squareSize };
+      return { x: displayCol * squareWidth, y: displayRow * squareHeight };
     },
-    [squareSize, orientation]
+    [squareWidth, squareHeight, orientation]
   );
 
   // ── Animation render model ───────────────────────────────────────────────────
@@ -531,7 +552,7 @@ export default function ChessBoard({
         ))}
 
         {animationRenderModel && (
-          <AnimationLayer model={animationRenderModel} squareSize={squareSize} />
+          <AnimationLayer model={animationRenderModel} cellWidth={squareWidth} cellHeight={squareHeight} />
         )}
 
         {promotionPending && (

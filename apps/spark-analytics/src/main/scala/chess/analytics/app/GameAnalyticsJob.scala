@@ -22,7 +22,8 @@ object GameAnalyticsJob {
     val pgConfig = PostgresConfig.fromEnv()
 
     try {
-      GameAnalytics.run(spark, inputPath, outputPath, pgConfig)
+      val result = GameAnalytics.runWithResult(spark, inputPath, outputPath, pgConfig)
+      println(s"ANALYTICS_RUN_RESULT runId=${result.runId} sourcePath=${result.sourcePath} outputPath=${result.outputPath}")
     } finally {
       spark.stop()
     }

@@ -18,9 +18,30 @@ class TournamentServiceSpec extends AnyFlatSpec with Matchers:
       port               = 8085,
       outputBasePath     = output.toString,
       maxParallelJobs    = 1,
+      analyticsEnabled   = true,
+      analyticsOutputBasePath = output.resolve("analytics").toString,
+      maxParallelAnalyticsJobs = 1,
       stockfishPath      = None,
       searchessAiBaseUrl = None
     )
+
+  private final class FakeAnalyticsRunner(var nextFailure: Option[String] = None) extends TournamentAnalyticsRunner:
+    var requests: List[TournamentAnalyticsRunRequest] = Nil
+
+    override def runAnalytics(request: TournamentAnalyticsRunRequest): IO[TournamentAnalyticsRunResult] =
+      IO {
+        requests = requests :+ request
+        nextFailure match
+          case Some(message) =>
+            nextFailure = None
+            throw RuntimeException(message)
+          case None =>
+            TournamentAnalyticsRunResult(
+              analyticsRunId = s"fake-run-${requests.length}",
+              inputPath      = request.inputPath,
+              outputPath     = request.outputPath
+            )
+      }
 
   private def app(service: TournamentJobService): HttpApp[IO] =
     TournamentRoutes(service).routes.orNotFound
@@ -39,13 +60,18 @@ class TournamentServiceSpec extends AnyFlatSpec with Matchers:
   private def bodyJson(resp: Response[IO]): ujson.Value =
     ujson.read(resp.bodyText.compile.string.unsafeRunSync())
 
-  private def freshService(): (TournamentJobService, cats.effect.FiberIO[Nothing], Path) =
+  private def freshService(): (TournamentJobService, List[cats.effect.FiberIO[Nothing]], Path, FakeAnalyticsRunner) =
     val output = Files.createTempDirectory("searchess-tournament-service-test")
+    val runner = FakeAnalyticsRunner()
     val service = TournamentJobService
-      .create(DefaultBotRegistry(config(output)), config(output))
+      .create(DefaultBotRegistry(config(output)), config(output), runner)
       .unsafeRunSync()
     val worker = service.startWorker().unsafeRunSync()
-    (service, worker, output)
+    val analyticsWorkers = service.startAnalyticsWorkers().unsafeRunSync()
+    (service, worker :: analyticsWorkers, output, runner)
+
+  private def cancelWorkers(workers: List[cats.effect.FiberIO[Nothing]]): Unit =
+    workers.foreach(_.cancel.unsafeRunSync())
 
   private def waitForTerminal(service: TournamentJobService, jobId: String): TournamentJob =
     val deadline = System.nanoTime() + 10.seconds.toNanos
@@ -57,6 +83,29 @@ class TournamentServiceSpec extends AnyFlatSpec with Matchers:
         Thread.sleep(50)
         loop()
     loop()
+
+  private def waitForAnalysisStatus(
+      service: TournamentJobService,
+      jobId: String,
+      status: TournamentAnalysisStatus
+  ): TournamentJob =
+    val deadline = System.nanoTime() + 10.seconds.toNanos
+    def loop(): TournamentJob =
+      val job = service.getJob(jobId).unsafeRunSync().getOrElse(fail(s"job not found: $jobId"))
+      if job.analysisStatus == status then job
+      else if System.nanoTime() > deadline then job
+      else
+        Thread.sleep(50)
+        loop()
+    loop()
+
+  private def createSucceededTournament(service: TournamentJobService): String =
+    val resp = post(service, uri"/api/tournaments",
+      """{"botIds":["random-bot","capture-first"],"mode":"double-round-robin","repetitions":1,"maxPly":8,"seed":11}""")
+    resp.status shouldBe Status.Accepted
+    val jobId = bodyJson(resp)("jobId").str
+    waitForTerminal(service, jobId).status shouldBe TournamentJobStatus.Succeeded
+    jobId
 
   "DefaultBotRegistry" should "list heuristic bots as available" in {
     val bots = DefaultBotRegistry(config(Files.createTempDirectory("registry-test"))).listBots()
@@ -73,47 +122,47 @@ class TournamentServiceSpec extends AnyFlatSpec with Matchers:
   }
 
   "POST /api/tournaments" should "reject fewer than 2 bots" in {
-    val (service, worker, _) = freshService()
+    val (service, workers, _, _) = freshService()
     try
       val resp = post(service, uri"/api/tournaments",
         """{"botIds":["random-bot"],"mode":"double-round-robin","repetitions":1,"maxPly":20}""")
       resp.status shouldBe Status.BadRequest
       bodyJson(resp)("message").str should include("at least 2")
-    finally worker.cancel.unsafeRunSync()
+    finally cancelWorkers(workers)
   }
 
   it should "reject duplicate bot IDs" in {
-    val (service, worker, _) = freshService()
+    val (service, workers, _, _) = freshService()
     try
       val resp = post(service, uri"/api/tournaments",
         """{"botIds":["random-bot","random-bot"],"mode":"double-round-robin","repetitions":1,"maxPly":20}""")
       resp.status shouldBe Status.BadRequest
       bodyJson(resp)("message").str should include("unique")
-    finally worker.cancel.unsafeRunSync()
+    finally cancelWorkers(workers)
   }
 
   it should "reject unknown bot IDs" in {
-    val (service, worker, _) = freshService()
+    val (service, workers, _, _) = freshService()
     try
       val resp = post(service, uri"/api/tournaments",
         """{"botIds":["random-bot","missing-bot"],"mode":"double-round-robin","repetitions":1,"maxPly":20}""")
       resp.status shouldBe Status.BadRequest
       bodyJson(resp)("message").str should include("Unknown botId")
-    finally worker.cancel.unsafeRunSync()
+    finally cancelWorkers(workers)
   }
 
   it should "reject unavailable bots" in {
-    val (service, worker, _) = freshService()
+    val (service, workers, _, _) = freshService()
     try
       val resp = post(service, uri"/api/tournaments",
         """{"botIds":["random-bot","stockfish-depth-1"],"mode":"double-round-robin","repetitions":1,"maxPly":20}""")
       resp.status shouldBe Status.BadRequest
       bodyJson(resp)("message").str should include("STOCKFISH_PATH")
-    finally worker.cancel.unsafeRunSync()
+    finally cancelWorkers(workers)
   }
 
   it should "accept a valid heuristic tournament and expose status" in {
-    val (service, worker, _) = freshService()
+    val (service, workers, _, _) = freshService()
     try
       val resp = post(service, uri"/api/tournaments",
         """{"name":"Heuristic smoke","botIds":["random-bot","capture-first"],"mode":"double-round-robin","repetitions":1,"maxPly":12,"seed":42}""")
@@ -131,28 +180,28 @@ class TournamentServiceSpec extends AnyFlatSpec with Matchers:
       statusJson("jobId").str shouldBe jobId
       statusJson("selectedBotIds").arr.map(_.str).toList shouldBe List("random-bot", "capture-first")
       statusJson("plannedGames").num.toInt shouldBe 2
-    finally worker.cancel.unsafeRunSync()
+    finally cancelWorkers(workers)
   }
 
   "GET /api/tournaments/:jobId" should "return 404 for an unknown job" in {
-    val (service, worker, _) = freshService()
+    val (service, workers, _, _) = freshService()
     try
       val resp = get(service, uri"/api/tournaments/550e8400-e29b-41d4-a716-446655440099")
       resp.status shouldBe Status.NotFound
-    finally worker.cancel.unsafeRunSync()
+    finally cancelWorkers(workers)
   }
 
   it should "return 400 for an invalid jobId" in {
-    val (service, worker, _) = freshService()
+    val (service, workers, _, _) = freshService()
     try
       val resp = get(service, uri"/api/tournaments/not-a-uuid")
       resp.status shouldBe Status.BadRequest
       bodyJson(resp)("code").str shouldBe "INVALID_JOB_ID"
-    finally worker.cancel.unsafeRunSync()
+    finally cancelWorkers(workers)
   }
 
   "Tournament worker" should "write JSONL output for a small heuristic tournament" in {
-    val (service, worker, _) = freshService()
+    val (service, workers, _, _) = freshService()
     try
       val resp = post(service, uri"/api/tournaments",
         """{"botIds":["random-bot","capture-first"],"mode":"double-round-robin","repetitions":1,"maxPly":8,"seed":7}""")
@@ -165,5 +214,75 @@ class TournamentServiceSpec extends AnyFlatSpec with Matchers:
       val lines = Files.readAllLines(output)
       lines.isEmpty shouldBe false
       lines.toString should include("GameFinished")
-    finally worker.cancel.unsafeRunSync()
+    finally cancelWorkers(workers)
+  }
+
+  "POST /api/tournaments/:jobId/analyze" should "return 404 for an unknown job" in {
+    val (service, workers, _, _) = freshService()
+    try
+      val resp = post(service, uri"/api/tournaments/550e8400-e29b-41d4-a716-446655440099/analyze", "{}")
+      resp.status shouldBe Status.NotFound
+    finally cancelWorkers(workers)
+  }
+
+  it should "reject a non-succeeded job" in {
+    val (service, workers, _, _) = freshService()
+    try
+      val resp = post(service, uri"/api/tournaments",
+        """{"botIds":["random-bot","capture-first"],"mode":"double-round-robin","repetitions":1,"maxPly":80}""")
+      val jobId = bodyJson(resp)("jobId").str
+      val analyzeResp = post(service, Uri.unsafeFromString(s"/api/tournaments/$jobId/analyze"), "{}")
+      analyzeResp.status shouldBe Status.Conflict
+      bodyJson(analyzeResp)("code").str shouldBe "JOB_NOT_SUCCEEDED"
+    finally cancelWorkers(workers)
+  }
+
+  it should "queue analytics for a succeeded job" in {
+    val (service, workers, _, _) = freshService()
+    try
+      val jobId = createSucceededTournament(service)
+      val resp = post(service, Uri.unsafeFromString(s"/api/tournaments/$jobId/analyze"), "{}")
+      resp.status shouldBe Status.Accepted
+      val json = bodyJson(resp)
+      json("jobId").str shouldBe jobId
+      json("analysisStatus").str shouldBe "queued"
+      json("analyticsOutputPath").str should include(jobId)
+    finally cancelWorkers(workers)
+  }
+
+  it should "update analysis status and run ID on success" in {
+    val (service, workers, _, _) = freshService()
+    try
+      val jobId = createSucceededTournament(service)
+      post(service, Uri.unsafeFromString(s"/api/tournaments/$jobId/analyze"), "{}").status shouldBe Status.Accepted
+      val done = waitForAnalysisStatus(service, jobId, TournamentAnalysisStatus.Succeeded)
+      done.analyticsRunId shouldBe Some("fake-run-1")
+      done.analyticsOutputPath.getOrElse(fail("expected analyticsOutputPath")) should include(jobId)
+    finally cancelWorkers(workers)
+  }
+
+  it should "update analysis status and error message on failure" in {
+    val (service, workers, _, runner) = freshService()
+    try
+      val jobId = createSucceededTournament(service)
+      runner.nextFailure = Some("spark failed")
+      post(service, Uri.unsafeFromString(s"/api/tournaments/$jobId/analyze"), "{}").status shouldBe Status.Accepted
+      val failed = waitForAnalysisStatus(service, jobId, TournamentAnalysisStatus.Failed)
+      failed.analyticsErrorMessage shouldBe Some("spark failed")
+    finally cancelWorkers(workers)
+  }
+
+  it should "allow retrying failed analysis" in {
+    val (service, workers, _, runner) = freshService()
+    try
+      val jobId = createSucceededTournament(service)
+      runner.nextFailure = Some("first attempt failed")
+      post(service, Uri.unsafeFromString(s"/api/tournaments/$jobId/analyze"), "{}").status shouldBe Status.Accepted
+      waitForAnalysisStatus(service, jobId, TournamentAnalysisStatus.Failed).analysisStatus shouldBe TournamentAnalysisStatus.Failed
+
+      post(service, Uri.unsafeFromString(s"/api/tournaments/$jobId/analyze"), "{}").status shouldBe Status.Accepted
+      val succeeded = waitForAnalysisStatus(service, jobId, TournamentAnalysisStatus.Succeeded)
+      succeeded.analyticsRunId shouldBe Some("fake-run-2")
+      succeeded.analyticsErrorMessage shouldBe None
+    finally cancelWorkers(workers)
   }

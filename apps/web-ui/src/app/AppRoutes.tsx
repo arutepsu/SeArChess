@@ -4,6 +4,7 @@ import type { GameNotationResponse, MoveHistoryEntryDto, RunAiTurnsResponse } fr
 import type { BoardAnimation } from "../animation/animationTypes";
 import type { SpriteCatalog } from "../assets/spriteCatalog";
 import type { GameSceneSkin } from "../features/game/sceneSkins";
+import type { GameBackground } from "../features/game/backgroundSkins";
 import type { SessionContext } from "../session/sessionStore";
 import type { BotWebSocketData, BotConnectionState } from "../hooks/useBotDemoStream";
 import type { UserProfileResponse } from "../api/userServiceTypes";
@@ -67,15 +68,17 @@ interface AppRoutesProps {
   displayedBlackTimeMs: number;
   displayedClockRunning: boolean;
 
-  // Background / sprites
-  backgroundId: string;
-  setBackgroundId: (id: string) => void;
-  backgrounds: Array<{ id: string; label: string; url: string }>;
+  // Scene / sprites
   gameSceneId: string;
   setGameSceneId: (id: string) => void;
   gameScenes: GameSceneSkin[];
   gameScene: GameSceneSkin | null;
   spriteCatalog: SpriteCatalog | null;
+
+  // Full-screen background
+  backgroundId: string;
+  setBackgroundId: (id: string) => void;
+  backgrounds: GameBackground[];
 
   // Navigation handlers (all defined in App.tsx)
   onContinueActiveGame: () => void;
@@ -140,14 +143,14 @@ export default function AppRoutes({
   displayedWhiteTimeMs,
   displayedBlackTimeMs,
   displayedClockRunning,
-  backgroundId,
-  setBackgroundId,
-  backgrounds,
   gameSceneId,
   setGameSceneId,
   gameScenes,
   gameScene,
   spriteCatalog,
+  backgroundId,
+  setBackgroundId,
+  backgrounds,
   onContinueActiveGame,
   onStartGame,
   onResumeSession,
@@ -233,14 +236,14 @@ export default function AppRoutes({
             whiteClockMs={displayedWhiteTimeMs}
             blackClockMs={displayedBlackTimeMs}
             clockRunning={displayedClockRunning}
-            backgroundId={backgroundId}
-            onBackgroundChange={setBackgroundId}
-            backgrounds={backgrounds}
             gameScenes={gameScenes}
             gameSceneId={gameSceneId}
             onGameSceneChange={setGameSceneId}
             gameScene={gameScene}
             spriteCatalog={spriteCatalog}
+            backgrounds={backgrounds}
+            backgroundId={backgroundId}
+            onBackgroundChange={setBackgroundId}
             session={session}
             onSelect={onSelect}
             onAnimationFinished={onAnimationFinished}
@@ -255,6 +258,7 @@ export default function AppRoutes({
             onRunAiTurns={onRunAiTurns}
             onBackToMenu={onBackToMenu}
             onOpenHeatmap={onOpenHeatmap}
+            onOpenBotDemo={onOpenBotDemo}
           />
         }
       />

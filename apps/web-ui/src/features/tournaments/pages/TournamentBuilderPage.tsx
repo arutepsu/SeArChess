@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  analyzeTournament,
   cancelTournamentJob,
   createTournamentJob,
   fetchTournamentBots,
@@ -57,6 +58,10 @@ function groupBots(bots: BotSummary[]): Array<[string, BotSummary[]]> {
 
 function StatusBadge({ status }: { status: TournamentJobStatus }) {
   return <span className={`tournament-status tournament-status--${status}`}>{status}</span>;
+}
+
+function AnalysisBadge({ status }: { status: TournamentJobDetails["analysisStatus"] }) {
+  return <span className={`tournament-status tournament-analysis-status--${status}`}>{status.replace("_", " ")}</span>;
 }
 
 interface BotSelectorProps {
@@ -153,15 +158,18 @@ interface JobDetailsProps {
   loading: boolean;
   error: string | null;
   cancelling: boolean;
+  analyzing: boolean;
   onCancel: () => void;
+  onAnalyze: () => void;
 }
 
-function JobDetails({ job, loading, error, cancelling, onCancel }: JobDetailsProps) {
+function JobDetails({ job, loading, error, cancelling, analyzing, onCancel, onAnalyze }: JobDetailsProps) {
   if (loading) return <LoadingState message="Loading job..." />;
   if (error) return <ErrorState message={tournamentErrorMessage(error)} />;
   if (!job) return <EmptyState message="Select a job to inspect its status." />;
 
   const canCancel = job.status === "queued" || job.status === "running";
+  const canAnalyze = job.status === "succeeded" && job.analysisStatus !== "queued" && job.analysisStatus !== "running";
 
   return (
     <div className="tournament-detail">
@@ -184,7 +192,9 @@ function JobDetails({ job, loading, error, cancelling, onCancel }: JobDetailsPro
         <div><dt>Max ply</dt><dd>{job.maxPly}</dd></div>
         <div><dt>Created</dt><dd>{formatDate(job.createdAt)}</dd></div>
         <div><dt>Finished</dt><dd>{formatDate(job.finishedAt)}</dd></div>
+        <div><dt>Analysis status</dt><dd><AnalysisBadge status={job.analysisStatus} /></dd></div>
         <div><dt>Analytics run</dt><dd>{job.analyticsRunId ?? "not analyzed yet"}</dd></div>
+        <div><dt>Analytics output</dt><dd>{job.analyticsOutputPath ?? "not written yet"}</dd></div>
         <div><dt>Output</dt><dd>{job.outputPath ?? "not written yet"}</dd></div>
       </dl>
 
@@ -192,13 +202,26 @@ function JobDetails({ job, loading, error, cancelling, onCancel }: JobDetailsPro
         <p className="tournament-success">JSONL output is ready at {job.outputPath}.</p>
       )}
       {job.errorMessage && <ErrorState message={job.errorMessage} />}
+      {job.analyticsErrorMessage && <ErrorState message={job.analyticsErrorMessage} />}
       {job.resultSummary && <p className="tournament-note">{job.resultSummary}</p>}
-
-      {canCancel && (
-        <Button variant="danger" size="sm" onClick={onCancel} disabled={cancelling}>
-          {cancelling ? "Cancelling..." : "Cancel job"}
-        </Button>
+      {job.analysisStatus === "succeeded" && (
+        <p className="tournament-success">
+          Analytics written. <a href="/analytics">Open /analytics</a> and select the new run.
+        </p>
       )}
+
+      <div className="tournament-detail-actions">
+        {canAnalyze && (
+          <Button variant="primary" size="sm" onClick={onAnalyze} disabled={analyzing}>
+            {analyzing ? "Queueing..." : "Run analytics"}
+          </Button>
+        )}
+        {canCancel && (
+          <Button variant="danger" size="sm" onClick={onCancel} disabled={cancelling}>
+            {cancelling ? "Cancelling..." : "Cancel job"}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
@@ -218,6 +241,7 @@ export default function TournamentBuilderPage() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
 
   const [name, setName] = useState("");
   const [mode, setMode] = useState<CreateTournamentRequest["mode"]>("double-round-robin");
@@ -228,6 +252,7 @@ export default function TournamentBuilderPage() {
   const selectedCount = selectedBotIds.length;
   const canStart = selectedCount >= 2 && repetitions >= 1 && maxPly >= 1 && maxPly <= 1000 && !creating;
   const terminal = selectedJob ? TERMINAL_STATUSES.includes(selectedJob.status) : true;
+  const analysisActive = selectedJob?.analysisStatus === "queued" || selectedJob?.analysisStatus === "running";
 
   const refreshJobs = useCallback(async () => {
     setJobsLoading(true);
@@ -277,12 +302,12 @@ export default function TournamentBuilderPage() {
   }, []);
 
   useEffect(() => {
-    if (!selectedJobId || terminal) return;
+    if (!selectedJobId || (terminal && !analysisActive)) return;
     const id = window.setInterval(() => {
       void loadJob(selectedJobId, true).then(refreshJobs);
     }, 2000);
     return () => window.clearInterval(id);
-  }, [loadJob, refreshJobs, selectedJobId, terminal]);
+  }, [analysisActive, loadJob, refreshJobs, selectedJobId, terminal]);
 
   const toggleBot = (botId: string) => {
     setSelectedBotIds((current) =>
@@ -327,6 +352,21 @@ export default function TournamentBuilderPage() {
     }
   };
 
+  const handleAnalyze = async () => {
+    if (!selectedJobId) return;
+    setAnalyzing(true);
+    setJobError(null);
+    try {
+      await analyzeTournament(selectedJobId);
+      await loadJob(selectedJobId, true);
+      await refreshJobs();
+    } catch (e) {
+      setJobError(e instanceof Error ? e.message : "Failed to queue analytics");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
   const availableCount = useMemo(() => bots.filter((bot) => bot.available).length, [bots]);
 
   return (
@@ -336,7 +376,7 @@ export default function TournamentBuilderPage() {
           <div>
             <h1 className="tournament-title">Tournament Builder</h1>
             <p className="tournament-subtitle">
-              This creates a tournament event file. Spark analytics must be run separately for now.
+              Create tournament event files, then run Spark analytics when a job succeeds.
             </p>
           </div>
           <Button variant="secondary" size="lg" onClick={() => navigate("/")}>
@@ -424,7 +464,9 @@ export default function TournamentBuilderPage() {
               loading={jobLoading}
               error={jobError}
               cancelling={cancelling}
+              analyzing={analyzing}
               onCancel={handleCancel}
+              onAnalyze={handleAnalyze}
             />
           </SectionCard>
         </div>

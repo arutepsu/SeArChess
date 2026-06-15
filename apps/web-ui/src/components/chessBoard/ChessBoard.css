@@ -347,23 +347,37 @@
   background: transparent;
 }
 
-/* Legal-move dot: percentage-based so it scales with smaller scene squares */
+/* Legal-move dot on empty squares — bright green glow visible over any scene */
 .board-shell--transparent-overlay .board-square.is-legal::after {
+  content: "";
+  position: absolute;
   width: 36%;
   height: 36%;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: rgba(0, 0, 0, 0.22);
+  border-radius: 999px;
+  background: rgba(60, 255, 120, 0.75);
+  box-shadow:
+    0 0 8px  rgba(60, 255, 120, 0.9),
+    0 0 20px rgba(60, 255, 120, 0.45);
+  pointer-events: none;
+  z-index: 2;
 }
 
-/* Legal-move ring on occupied squares: inset box-shadow scales naturally */
+/* Legal-move ring on occupied squares */
 .board-shell--transparent-overlay .board-square.has-piece.is-legal::after {
-  display: none;
+  width: 88%;
+  height: 88%;
+  background: transparent;
+  border: 3px solid rgba(60, 255, 120, 0.85);
+  box-shadow:
+    inset 0 0 8px  rgba(60, 255, 120, 0.5),
+          0 0 10px rgba(60, 255, 120, 0.4);
 }
 
 .board-shell--transparent-overlay .board-square.has-piece.is-legal {
-  box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.28);
+  box-shadow: none;
 }
 
 /* ── Animations ───────────────────────────────────────────────────────────── */

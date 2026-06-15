@@ -1,0 +1,118 @@
+.user-menu {
+  position: relative;
+}
+
+.user-menu__trigger {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px 5px 5px;
+  background: rgba(14, 7, 10, 0.82);
+  border: 1px solid rgba(90, 58, 58, 0.6);
+  border-radius: 999px;
+  color: #f0e6d2;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: "Space Grotesk", sans-serif;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  transition: border-color 0.15s ease, background 0.15s ease;
+  white-space: nowrap;
+}
+
+.user-menu__trigger:hover {
+  border-color: rgba(197, 160, 89, 0.7);
+  background: rgba(30, 14, 20, 0.88);
+}
+
+.user-menu__trigger:focus-visible {
+  outline: none;
+  border-color: rgba(197, 160, 89, 0.7);
+  box-shadow: 0 0 0 2px rgba(197, 160, 89, 0.4);
+}
+
+.user-menu__avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(197, 160, 89, 0.2);
+  border: 1px solid rgba(197, 160, 89, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #e6b347;
+  flex-shrink: 0;
+}
+
+.user-menu__name {
+  color: #f0e6d2;
+}
+
+.user-menu__caret {
+  font-size: 0.65rem;
+  opacity: 0.65;
+  color: #bfa8a8;
+}
+
+.user-menu__dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: auto;
+  min-width: 160px;
+  background: rgba(14, 7, 10, 0.96);
+  border: 1px solid rgba(90, 58, 58, 0.65);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(16px);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 100;
+}
+
+.user-menu__dropdown--right {
+  left: auto;
+  right: 0;
+}
+
+.user-menu__item {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: #f0e6d2;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.user-menu__item:hover,
+.user-menu__item:focus-visible {
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+  outline: none;
+}
+
+.user-menu__item--danger {
+  color: #ff9d9d;
+}
+
+.user-menu__item--danger:hover,
+.user-menu__item--danger:focus-visible {
+  background: rgba(255, 100, 100, 0.1);
+  color: #ff7070;
+}
+
+.user-menu__divider {
+  height: 1px;
+  background: rgba(90, 58, 58, 0.45);
+  margin: 4px 6px;
+}

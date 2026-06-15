@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import type { PlayableGameMode } from "./api/types";
 import { useSpriteCatalog } from "./app/hooks/useSpriteCatalog";
-import { useBackgroundSelection } from "./app/hooks/useBackgroundSelection";
 import { useGameSceneSelection } from "./app/hooks/useGameSceneSelection";
+import { useBackgroundSelection } from "./app/hooks/useBackgroundSelection";
 import { useGameClock } from "./app/hooks/useGameClock";
 import { useReplayTimeline } from "./app/hooks/useReplayTimeline";
 import { connectWebSocket, type WsClient } from "./api/ws";
@@ -12,7 +12,6 @@ import { useGameState } from "./game/useGameState";
 import { useSession } from "./session/SessionProvider";
 import { useProfileOnboarding } from "./hooks/useProfileOnboarding";
 import { useBotDemoStream } from "./hooks/useBotDemoStream";
-import BackgroundEffectsLayer from "./components/layout/BackgroundEffectsLayer";
 import { AuthBar } from "./features/auth";
 import AppRoutes from "./app/AppRoutes";
 import type { ConnectionState, LiveConnectionState } from "./app/types";
@@ -69,6 +68,8 @@ export default function App() {
   } = useGameState();
   const { session, setSession, getSessionId } = useSession();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isGameRoute = location.pathname === "/game";
 
   const { profile, onboardingRequired, setOnboardingRequired } = useProfileOnboarding();
 
@@ -90,7 +91,7 @@ export default function App() {
     activeColor: game?.activeColor,
   });
   const { gameScenes, gameSceneId, setGameSceneId, gameScene } = useGameSceneSelection();
-  const { backgrounds, backgroundId, setBackgroundId } = useBackgroundSelection(Boolean(gameScene));
+  const { backgroundId, setBackgroundId, backgrounds } = useBackgroundSelection();
   const spriteCatalog = useSpriteCatalog();
   const {
     timelinePly,
@@ -319,8 +320,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <BackgroundEffectsLayer backgroundId={backgroundId} disabled={Boolean(gameScene)} />
-      <AuthBar />
+      {!isGameRoute && <AuthBar onDemo={handleOpenBotDemo} />}
 
       <AppRoutes
         game={game}
@@ -357,14 +357,14 @@ export default function App() {
         displayedWhiteTimeMs={displayedWhiteTimeMs}
         displayedBlackTimeMs={displayedBlackTimeMs}
         displayedClockRunning={displayedClockRunning}
-        backgroundId={backgroundId}
-        setBackgroundId={setBackgroundId}
-        backgrounds={backgrounds}
         gameSceneId={gameSceneId}
         setGameSceneId={setGameSceneId}
         gameScenes={gameScenes}
         gameScene={gameScene}
         spriteCatalog={spriteCatalog}
+        backgroundId={backgroundId}
+        setBackgroundId={setBackgroundId}
+        backgrounds={backgrounds}
         onContinueActiveGame={handleContinueActiveGame}
         onStartGame={handleStartGame}
         onResumeSession={handleResumeAndNavigate}

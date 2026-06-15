@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import type { GameState, PlayableGameMode } from "../../../api/types";
 import type { RunAiTurnsResponse } from "../../../api/backendTypes";
 import type { GameSceneSkin } from "../sceneSkins";
+import type { GameBackground } from "../backgroundSkins";
 import BackgroundPanel from "./BackgroundPanel";
+import AppBackgroundPanel from "./AppBackgroundPanel";
 import Button from "../../../components/ui/Button";
 import "./GameMenuDrawer.css";
 
@@ -10,12 +12,13 @@ interface GameMenuDrawerProps {
   isOpen: boolean;
   onClose: () => void;
 
-  backgrounds: Array<{ id: string; label: string; url: string }>;
-  backgroundId: string;
-  onBackgroundChange: (id: string) => void;
   gameScenes: GameSceneSkin[];
   gameSceneId: string;
   onGameSceneChange: (id: string) => void;
+
+  backgrounds: GameBackground[];
+  backgroundId: string;
+  onBackgroundChange: (id: string) => void;
 
   fen?: string;
   pgn?: string;
@@ -36,12 +39,12 @@ interface GameMenuDrawerProps {
 export default function GameMenuDrawer({
   isOpen,
   onClose,
-  backgrounds,
-  backgroundId,
-  onBackgroundChange,
   gameScenes,
   gameSceneId,
   onGameSceneChange,
+  backgrounds,
+  backgroundId,
+  onBackgroundChange,
   fen,
   pgn,
   onImportNotation,
@@ -152,10 +155,15 @@ export default function GameMenuDrawer({
 
           {/* ── Appearance ─────────────────────────────────────────────── */}
           <section className="gmd-section">
-            <BackgroundPanel
+            <AppBackgroundPanel
               backgrounds={backgrounds}
               backgroundId={backgroundId}
-              onChange={onBackgroundChange}
+              onBackgroundChange={onBackgroundChange}
+            />
+          </section>
+
+          <section className="gmd-section">
+            <BackgroundPanel
               gameScenes={gameScenes}
               gameSceneId={gameSceneId}
               onGameSceneChange={onGameSceneChange}

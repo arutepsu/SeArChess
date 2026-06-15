@@ -1,26 +1,20 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
+import { GAME_BACKGROUNDS, getBackgroundById } from "../../features/game/backgroundSkins";
+import type { GameBackground } from "../../features/game/backgroundSkins";
 
-const backgrounds = [
-  { id: "river", label: "River", url: "/assets/backgrounds/river.png" },
-  { id: "sakura-grove", label: "Grove", url: "/assets/backgrounds/sakuratrees.jpg" },
-  { id: "forest", label: "Forest", url: "/assets/backgrounds/new.jpg" },
-];
+export type { GameBackground };
 
-export function useBackgroundSelection(suppressed = false) {
-  const [backgroundId, setBackgroundId] = useState(backgrounds[0].id);
+export function useBackgroundSelection() {
+  const [backgroundId, setBackgroundId] = useState("bg1");
+  const background = getBackgroundById(backgroundId);
 
   useEffect(() => {
-    if (suppressed) {
-      document.documentElement.style.setProperty("--app-background", "none");
-      return;
-    }
-    const match = backgrounds.find((item) => item.id === backgroundId);
-    const nextUrl = match?.url ?? backgrounds[0].url;
-    document.documentElement.style.setProperty(
-      "--app-background",
-      `url("${nextUrl}")`
-    );
-  }, [backgroundId, suppressed]);
+    const value = background ? `url("${background.imageUrl}")` : "none";
+    document.documentElement.style.setProperty("--app-background", value);
+    return () => {
+      document.documentElement.style.removeProperty("--app-background");
+    };
+  }, [background]);
 
-  return { backgrounds, backgroundId, setBackgroundId };
+  return { backgroundId, setBackgroundId, background, backgrounds: GAME_BACKGROUNDS };
 }

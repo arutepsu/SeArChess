@@ -8,7 +8,7 @@
   --bg-1: #12131a;
   --bg-2: #2c1b14;
   --bg-3: #0f1c22;
-  --app-background: url("/assets/backgrounds/river.png");
+  --app-background: none;
 }
 
 html {

@@ -7,6 +7,9 @@ final case class TournamentServiceConfig(
     port: Int,
     outputBasePath: String,
     maxParallelJobs: Int,
+    analyticsEnabled: Boolean,
+    analyticsOutputBasePath: String,
+    maxParallelAnalyticsJobs: Int,
     stockfishPath: Option[String],
     searchessAiBaseUrl: Option[String]
 )
@@ -29,11 +32,23 @@ object TournamentServiceConfig:
       port            <- parsePort("TOURNAMENT_HTTP_PORT", env("TOURNAMENT_HTTP_PORT").getOrElse("8085"))
       outputBasePath  <- nonEmpty("TOURNAMENT_OUTPUT_BASE_PATH", env("TOURNAMENT_OUTPUT_BASE_PATH").getOrElse("target/arena/tournament-jobs"))
       maxParallelJobs <- parsePositiveInt("TOURNAMENT_MAX_PARALLEL_JOBS", env("TOURNAMENT_MAX_PARALLEL_JOBS").getOrElse("1"))
+      analyticsEnabled <- parseBoolean("TOURNAMENT_ANALYTICS_ENABLED", env("TOURNAMENT_ANALYTICS_ENABLED").getOrElse("true"))
+      analyticsOutputBasePath <- nonEmpty(
+        "TOURNAMENT_ANALYTICS_OUTPUT_BASE_PATH",
+        env("TOURNAMENT_ANALYTICS_OUTPUT_BASE_PATH").getOrElse("target/spark-analytics/tournament-jobs")
+      )
+      maxParallelAnalyticsJobs <- parsePositiveInt(
+        "TOURNAMENT_MAX_PARALLEL_ANALYTICS_JOBS",
+        env("TOURNAMENT_MAX_PARALLEL_ANALYTICS_JOBS").getOrElse("1")
+      )
     yield TournamentServiceConfig(
       host               = env("TOURNAMENT_HTTP_HOST").getOrElse("0.0.0.0"),
       port               = port,
       outputBasePath     = outputBasePath,
       maxParallelJobs    = maxParallelJobs,
+      analyticsEnabled   = analyticsEnabled,
+      analyticsOutputBasePath = analyticsOutputBasePath,
+      maxParallelAnalyticsJobs = maxParallelAnalyticsJobs,
       stockfishPath      = env("STOCKFISH_PATH"),
       searchessAiBaseUrl = env("SEARCHESS_AI_BASE_URL")
     )
@@ -54,3 +69,9 @@ object TournamentServiceConfig:
       case Some(p) if p > 0 => Right(p)
       case Some(p)          => Left(s"$name must be positive, got: $p")
       case None             => Left(s"$name must be an integer, got: '$value'")
+
+  private def parseBoolean(name: String, value: String): Either[String, Boolean] =
+    value.trim.toLowerCase match
+      case "true"  => Right(true)
+      case "false" => Right(false)
+      case other   => Left(s"$name must be true or false, got: '$other'")

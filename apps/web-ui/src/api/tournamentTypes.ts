@@ -1,4 +1,5 @@
 export type TournamentJobStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";
+export type TournamentAnalysisStatus = "not_requested" | "queued" | "running" | "succeeded" | "failed";
 
 export interface BotSummary {
   botId: string;
@@ -45,9 +46,20 @@ export interface TournamentJobDetails extends TournamentJobSummary {
   maxPly: number;
   outputPath: string | null;
   errorMessage: string | null;
+  analysisStatus: TournamentAnalysisStatus;
   analyticsRunId: string | null;
+  analyticsOutputPath: string | null;
+  analyticsErrorMessage: string | null;
+  analyzeUrl: string | null;
   eventsUrl: string | null;
   resultSummary: string | null;
+}
+
+export interface AnalyzeTournamentResponse {
+  jobId: string;
+  analysisStatus: TournamentAnalysisStatus;
+  analyticsOutputPath: string | null;
+  statusUrl: string;
 }
 
 export interface TournamentApiError {

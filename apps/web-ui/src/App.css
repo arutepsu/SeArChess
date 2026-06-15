@@ -14,7 +14,7 @@
   grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   align-items: start;
-  padding-top: 20px;
+  padding-top: 4px;
   justify-items: center;
 }
 
@@ -23,7 +23,7 @@
   gap: 14px;
   justify-items: center;
   position: sticky;
-  top: 25px;
+  top: 8px;
   height: fit-content;
   width: min(100%, 1080px);
 }
@@ -404,4 +404,133 @@ pre {
   .pekko-room-panel {
     grid-template-columns: 1fr;
   }
+}
+
+/* ── Scene-mode: ancestor overhead reset ─────────────────────────────────── */
+
+/*
+ * In scene mode (.layout--scene is present) the #app shell's generous
+ * padding (32px top + 48px bottom = 80 px) and the .layout padding-top (4 px)
+ * push the stage below the viewport fold.  Clear both so the scene can fill
+ * the full viewport height with no page scroll.
+ *
+ * body:has() gives us a CSS-only ancestor hook — no JS body-class needed.
+ * Specificity: (0,1,1) + (1,0,0) = (1,1,1) > #app's (1,0,0). ✓
+ */
+body:has(.layout--scene) #app {
+  padding: 0;
+}
+
+.layout--scene {
+  padding-top: 0;
+  gap: 0;
+}
+
+/* ── Scene-mode: full-image stage with overlaid UI ──────────────────────── */
+
+/*
+ * .game-stage is the single sizing context for scene mode.
+ * The scene image fills it; HUD / status / timeline are absolutely
+ * positioned overlays so they always match the image width exactly.
+ *
+ * Width formula (now that #app padding is cleared):
+ *   calc(100dvh - 8px)   fills the viewport height with only a tiny safety
+ *                        margin (4 px top + 4 px bottom).
+ *   calc(100vw - 16px)   8 px margin on each side, avoids horizontal overflow.
+ *   1280px               generous cap for large monitors.
+ *   max-width: 100%      never overflow the board-column (≤ 1080 px wide).
+ */
+.game-stage {
+  width: min(calc(100dvh - 8px), calc(100vw - 16px), 1280px);
+  max-width: 100%;
+  margin: 0 auto;
+  position: relative;
+  isolation: isolate;
+}
+
+/* BoardSceneView fills the stage; overrides BoardSceneView.css default sizing */
+.game-stage .board-scene-container {
+  width: 100%;
+}
+
+/* ── Overlay base ────────────────────────────────────────────────────────── */
+/*
+ * All overlay wrappers: pointer-events:none so board clicks pass through
+ * transparent gaps. Interactive content inside restores pointer-events.
+ */
+.game-stage__hud-overlay,
+.game-stage__status-overlay,
+.game-stage__timeline-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  z-index: 20;
+}
+
+/* HUD at the very top of the scene image */
+.game-stage__hud-overlay {
+  top: 0;
+  z-index: 30;  /* above status/timeline so user-menu dropdown is never clipped */
+}
+
+.game-stage__hud-overlay .game-hud {
+  pointer-events: auto;
+}
+
+/* Status banner: floats just below the HUD (~56 px = HUD height estimate) */
+.game-stage__status-overlay {
+  top: 56px;
+  display: flex;
+  justify-content: center;
+}
+
+.game-stage__status-overlay .banner {
+  pointer-events: auto;
+  width: min(90%, 560px);
+}
+
+/* Timeline: pinned to the bottom of the scene image */
+.game-stage__timeline-overlay {
+  bottom: 0;
+}
+
+.game-stage__timeline-overlay .replay-timeline {
+  pointer-events: auto;
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  margin: 0;
+}
+
+/* Compact, translucent overlay variant for the replay timeline in scene mode */
+.replay-timeline--overlay {
+  background: rgba(14, 7, 10, 0.82);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(90, 58, 58, 0.45);
+  border-radius: 0;
+  padding: 8px 16px;
+  gap: 6px;
+}
+
+.replay-timeline--overlay .replay-timeline-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.replay-timeline--overlay .replay-timeline-header h2 {
+  margin: 0;
+  font-size: 0.72rem;
+  font-family: 'Courier New', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.08rem;
+  opacity: 0.7;
+}
+
+.replay-timeline--overlay .replay-timeline-header p {
+  margin: 0;
+  font-size: 0.72rem;
+  opacity: 0.7;
 }

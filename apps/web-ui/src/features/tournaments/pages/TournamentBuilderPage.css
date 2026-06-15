@@ -246,6 +246,31 @@
   background: rgba(255, 90, 90, 0.12);
 }
 
+.tournament-analysis-status--not_requested {
+  color: #c7c4bc;
+  background: rgba(210, 205, 195, 0.1);
+}
+
+.tournament-analysis-status--queued {
+  color: #f6d99a;
+  background: rgba(246, 217, 154, 0.1);
+}
+
+.tournament-analysis-status--running {
+  color: #94d8ff;
+  background: rgba(70, 160, 230, 0.12);
+}
+
+.tournament-analysis-status--succeeded {
+  color: #99e9b2;
+  background: rgba(80, 210, 120, 0.12);
+}
+
+.tournament-analysis-status--failed {
+  color: #ffaaaa;
+  background: rgba(255, 90, 90, 0.12);
+}
+
 .tournament-progress {
   height: 7px;
   overflow: hidden;
@@ -324,6 +349,17 @@
   background: rgba(80, 210, 120, 0.09);
   color: #adf0c0;
   overflow-wrap: anywhere;
+}
+
+.tournament-success a {
+  color: #d8ecff;
+  font-weight: 700;
+}
+
+.tournament-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 @media (max-width: 1100px) {

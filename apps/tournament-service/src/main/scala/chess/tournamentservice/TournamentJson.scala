@@ -46,7 +46,11 @@ object TournamentJson:
       "completedGames" -> job.completedGames.toDouble,
       "outputPath"     -> job.outputPath.map(Str(_)).getOrElse(Null),
       "errorMessage"   -> job.errorMessage.map(Str(_)).getOrElse(Null),
+      "analysisStatus" -> job.analysisStatus.json,
       "analyticsRunId" -> job.analyticsRunId.map(Str(_)).getOrElse(Null),
+      "analyticsOutputPath" -> job.analyticsOutputPath.map(Str(_)).getOrElse(Null),
+      "analyticsErrorMessage" -> job.analyticsErrorMessage.map(Str(_)).getOrElse(Null),
+      "analyzeUrl"     -> job.analyzeUrl.map(Str(_)).getOrElse(Null),
       "eventsUrl"      -> job.eventsUrl.map(Str(_)).getOrElse(Null),
       "resultSummary"  -> job.resultSummary.map(Str(_)).getOrElse(Null)
     )
@@ -57,6 +61,24 @@ object TournamentJson:
       "status"    -> job.status.json,
       "createdAt" -> job.createdAt.toString,
       "statusUrl" -> s"/api/tournaments/${job.jobId}"
+    )
+
+  def analysisAccepted(job: TournamentJob): Value =
+    Obj(
+      "jobId" -> job.jobId,
+      "analysisStatus" -> job.analysisStatus.json,
+      "analyticsOutputPath" -> job.analyticsOutputPath.map(Str(_)).getOrElse(Null),
+      "statusUrl" -> s"/api/tournaments/${job.jobId}"
+    )
+
+  def analysisFields(job: TournamentJob): Value =
+    Obj(
+      "jobId" -> job.jobId,
+      "analysisStatus" -> job.analysisStatus.json,
+      "analyticsRunId" -> job.analyticsRunId.map(Str(_)).getOrElse(Null),
+      "analyticsOutputPath" -> job.analyticsOutputPath.map(Str(_)).getOrElse(Null),
+      "analyticsErrorMessage" -> job.analyticsErrorMessage.map(Str(_)).getOrElse(Null),
+      "analyzeUrl" -> job.analyzeUrl.map(Str(_)).getOrElse(Null)
     )
 
   def parseCreateRequest(body: String): Either[String, CreateTournamentRequest] =
@@ -78,3 +100,17 @@ object TournamentJson:
       botIds.map(ids => CreateTournamentRequest(name, ids, mode, repetitions, maxPly, seed))
     catch case e: Exception =>
       Left(s"Invalid JSON request: ${Option(e.getMessage).getOrElse(e.getClass.getSimpleName)}")
+
+  def parseAnalyzeRequest(body: String): Either[String, AnalyzeTournamentRequest] =
+    if body.trim.isEmpty then Right(AnalyzeTournamentRequest(None))
+    else
+      try
+        val json = ujson.read(body)
+        val obj  = json.obj
+        val outputPath = obj.get("outputPath").flatMap {
+          case Null => None
+          case v    => Some(v.str)
+        }
+        Right(AnalyzeTournamentRequest(outputPath))
+      catch case e: Exception =>
+        Left(s"Invalid JSON request: ${Option(e.getMessage).getOrElse(e.getClass.getSimpleName)}")

@@ -7,6 +7,8 @@ import chess.analytics.ingestion.{BronzeEvents, SilverEvents}
 import chess.analytics.config.{PostgresConfig, SparkLakeConfig}
 import chess.analytics.sink.{ParquetLakeWriter, PostgresWriter}
 
+case class AnalyticsRunResult(runId: String, sourcePath: String, outputPath: String)
+
 object GameAnalytics {
 
   def loadGameFinished(spark: SparkSession, path: String): DataFrame =
@@ -268,6 +270,17 @@ object GameAnalytics {
     pgConfig:   Option[PostgresConfig] = None,
     lakeConfig: SparkLakeConfig = SparkLakeConfig.fromEnv()
   ): Unit = {
+    runWithResult(spark, inputPath, outputPath, pgConfig, lakeConfig)
+    ()
+  }
+
+  def runWithResult(
+    spark:      SparkSession,
+    inputPath:  String,
+    outputPath: String,
+    pgConfig:   Option[PostgresConfig] = None,
+    lakeConfig: SparkLakeConfig = SparkLakeConfig.fromEnv()
+  ): AnalyticsRunResult = {
     val runId        = UUID.randomUUID().toString
     val bronzeEvents = BronzeEvents.loadEvents(spark, inputPath).cache()
     val silver       = AnalyticsPipeline.buildSilver(bronzeEvents)
@@ -407,5 +420,6 @@ object GameAnalytics {
 
     gameFinished.unpersist()
     bronzeEvents.unpersist()
+    AnalyticsRunResult(runId, inputPath, outputPath)
   }
 }

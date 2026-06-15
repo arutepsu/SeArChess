@@ -4,7 +4,8 @@ import { backgroundPositionFor } from "../animationHelpers";
 
 interface AnimationLayerProps {
   model: AnimationRenderModel;
-  squareSize: number;
+  cellWidth: number;
+  cellHeight: number;
 }
 
 function pieceStyle(
@@ -12,13 +13,14 @@ function pieceStyle(
     AnimationRenderModel["moving"],
     "x" | "y" | "opacity" | "flipX" | "sheet" | "frameIndex"
   > & { scale?: number },
-  squareSize: number
+  cellWidth: number,
+  cellHeight: number
 ): React.CSSProperties {
   return {
     left: `${model.x}px`,
     top: `${model.y}px`,
-    width: `${squareSize}px`,
-    height: `${squareSize}px`,
+    width: `${cellWidth}px`,
+    height: `${cellHeight}px`,
     opacity: model.opacity.toString(),
     transform: pieceTransform(model.flipX, (model.scale ?? 1) * PIECE_SCALE),
     backgroundImage: model.sheet ? `url(${model.sheet.url})` : "",
@@ -29,15 +31,15 @@ function pieceStyle(
   };
 }
 
-export default function AnimationLayer({ model, squareSize }: AnimationLayerProps) {
+export default function AnimationLayer({ model, cellWidth, cellHeight }: AnimationLayerProps) {
   return (
     <div className="animation-layer" aria-hidden="true">
-      <div className="animation-piece" style={pieceStyle(model.moving, squareSize)} />
+      <div className="animation-piece" style={pieceStyle(model.moving, cellWidth, cellHeight)} />
       {model.captured && (
-        <div className="animation-piece" style={pieceStyle(model.captured, squareSize)} />
+        <div className="animation-piece" style={pieceStyle(model.captured, cellWidth, cellHeight)} />
       )}
       {model.castlingRook && (
-        <div className="animation-piece" style={pieceStyle(model.castlingRook, squareSize)} />
+        <div className="animation-piece" style={pieceStyle(model.castlingRook, cellWidth, cellHeight)} />
       )}
     </div>
   );

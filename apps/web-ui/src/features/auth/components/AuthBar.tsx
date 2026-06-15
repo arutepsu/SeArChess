@@ -1,44 +1,14 @@
-import { useNavigate } from "react-router-dom";
-import keycloak from "../../../auth/keycloak";
-import Button from "../../../components/ui/Button";
+import UserMenu from "./UserMenu";
 import "./AuthBar.css";
 
-const authEnabled = import.meta.env.VITE_AUTH_ENABLED !== "false";
+interface AuthBarProps {
+  onDemo?: () => void;
+}
 
-export default function AuthBar() {
-  const navigate = useNavigate();
-
-  if (!authEnabled) {
-    return (
-      <div className="auth-bar">
-        <span className="auth-bar__disabled-label">Auth disabled</span>
-        <Button size="sm" variant="ghost" onClick={() => navigate("/analytics")}>
-          Analytics
-        </Button>
-        <Button size="sm" variant="ghost" onClick={() => navigate("/tournaments")}>
-          Tournaments
-        </Button>
-      </div>
-    );
-  }
-
-  const username = keycloak.tokenParsed?.["preferred_username"] as string | undefined;
-
+export default function AuthBar({ onDemo }: AuthBarProps) {
   return (
     <div className="auth-bar">
-      <span>{username ?? "—"}</span>
-      <Button size="sm" variant="ghost" onClick={() => navigate("/analytics")}>
-        Analytics
-      </Button>
-      <Button size="sm" variant="ghost" onClick={() => navigate("/tournaments")}>
-        Tournaments
-      </Button>
-      <Button size="sm" variant="ghost" onClick={() => navigate("/settings")}>
-        Profile
-      </Button>
-      <Button size="sm" variant="ghost" onClick={() => void keycloak.logout()}>
-        Logout
-      </Button>
+      <UserMenu onDemo={onDemo} dropdownAlign="left" />
     </div>
   );
 }

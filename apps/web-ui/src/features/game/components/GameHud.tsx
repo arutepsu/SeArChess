@@ -1,6 +1,7 @@
 import type { PlayerColor } from "../../../api/types";
 import { formatClockMs } from "../../../utils/timeFormat";
 import Button from "../../../components/ui/Button";
+import UserMenu from "../../auth/components/UserMenu";
 import "./GameHud.css";
 
 interface GameHudProps {
@@ -11,10 +12,10 @@ interface GameHudProps {
   activeTab: "local" | "bot";
   setActiveTab: (tab: "local" | "bot") => void;
   hasNewBotMoveNotification: boolean;
-  busy: boolean;
   canResign: boolean;
   onResign: () => void;
   onBackToMenu: () => void;
+  onDemo?: () => void;
   onOpenGameMenu: () => void;
   onOpenMoveLog: () => void;
 }
@@ -27,10 +28,10 @@ export default function GameHud({
   activeTab,
   setActiveTab,
   hasNewBotMoveNotification,
-  busy,
   canResign,
   onResign,
   onBackToMenu,
+  onDemo,
   onOpenGameMenu,
   onOpenMoveLog,
 }: GameHudProps) {
@@ -80,9 +81,7 @@ export default function GameHud({
         <Button variant="danger" disabled={!canResign} onClick={onResign}>
           Resign
         </Button>
-        <Button variant="ghost" disabled={busy} onClick={onBackToMenu}>
-          Back
-        </Button>
+        <UserMenu onBackToMenu={onBackToMenu} onDemo={onDemo} dropdownAlign="right" />
       </div>
     </div>
   );

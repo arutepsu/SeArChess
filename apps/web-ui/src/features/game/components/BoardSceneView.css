@@ -9,12 +9,12 @@
  *
  * Geometry custom properties (inline style set by BoardSceneView.tsx):
  *   --board-scene-image       url() of the full scene image
- *   --board-rect-left-pct     grid left edge as % of scene width   (e.g. "22.400%")
- *   --board-rect-top-pct      grid top edge as % of scene height   (e.g. "25.500%")
- *   --board-rect-size-pct     square grid size as % of scene size  (e.g. "52.000%")
+ *   --board-rect-left-pct     grid left edge as % of scene width    (e.g. "19.000%")
+ *   --board-rect-top-pct      grid top edge as % of scene height    (e.g. "19.000%")
+ *   --board-rect-width-pct    grid width as % of scene width        (e.g. "61.000%")
+ *   --board-rect-height-pct   grid height as % of scene height      (e.g. "66.000%")
  *
- * Because the container keeps aspect-ratio 1/1, %-based left/top/width/height are
- * equivalent in absolute px, so a single --board-rect-size-pct drives both dimensions.
+ * Width and height are kept independent so non-square board regions calibrate correctly.
  */
 
 .board-scene-container {
@@ -39,8 +39,8 @@
   position: absolute;
   left: var(--board-rect-left-pct);
   top: var(--board-rect-top-pct);
-  width: var(--board-rect-size-pct);
-  height: var(--board-rect-size-pct);
+  width: var(--board-rect-width-pct);
+  height: var(--board-rect-height-pct);
 }
 
 /* ── Developer calibration overlay ───────────────────────────────────────── */
@@ -62,8 +62,8 @@
   position: absolute;
   left: var(--board-rect-left-pct);
   top: var(--board-rect-top-pct);
-  width: var(--board-rect-size-pct);
-  height: var(--board-rect-size-pct);
+  width: var(--board-rect-width-pct);
+  height: var(--board-rect-height-pct);
   outline: 2px solid rgba(255, 70, 70, 0.95);
   box-shadow: inset 0 0 0 1px rgba(255, 70, 70, 0.3);
   background-image:

@@ -9,8 +9,9 @@ object TournamentServiceWiring:
 
   def start(config: TournamentServiceConfig): TournamentServiceRuntime =
     val registry = DefaultBotRegistry(config)
-    val service  = TournamentJobService.create(registry, config).unsafeRunSync()
+    val service  = TournamentJobService.create(registry, config, SparkTournamentAnalyticsProcessRunner()).unsafeRunSync()
     val worker   = service.startWorker().unsafeRunSync()
+    val analyticsWorkers = service.startAnalyticsWorkers().unsafeRunSync()
     val httpApp  = TournamentRoutes(service).routes.orNotFound
 
     val host = Host
@@ -30,4 +31,4 @@ object TournamentServiceWiring:
         .allocated
         .unsafeRunSync()
 
-    TournamentServiceRuntime(shutdownHttp, worker)
+    TournamentServiceRuntime(shutdownHttp, worker, analyticsWorkers)

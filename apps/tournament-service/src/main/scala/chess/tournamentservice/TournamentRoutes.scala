@@ -60,6 +60,34 @@ final class TournamentRoutes(service: TournamentJobService):
             case Some(job) => json(Status.Ok, TournamentJson.job(job))
             case None      => error(Status.NotFound, "JOB_NOT_FOUND", s"Tournament job not found: $id")
           }
+
+    case req @ POST -> Root / "api" / "tournaments" / jobId / "analyze" =>
+      validateJobId(jobId) match
+        case Left(msg) => error(Status.BadRequest, "INVALID_JOB_ID", msg)
+        case Right(id) =>
+          req.bodyText.compile.string.flatMap { body =>
+            TournamentJson.parseAnalyzeRequest(body) match
+              case Left(msg) =>
+                error(Status.BadRequest, "INVALID_ANALYZE_REQUEST", msg)
+              case Right(analyze) =>
+                service.analyze(id, analyze).flatMap {
+                  case AnalyzeTournamentResult.Queued(job) =>
+                    json(Status.Accepted, TournamentJson.analysisAccepted(job))
+                  case AnalyzeTournamentResult.Current(job) =>
+                    json(Status.Ok, TournamentJson.job(job))
+                  case AnalyzeTournamentResult.Rejected(statusCode, code, message) =>
+                    error(Status.fromInt(statusCode).getOrElse(Status.InternalServerError), code, message)
+                }
+            }
+
+    case GET -> Root / "api" / "tournaments" / jobId / "analysis" =>
+      validateJobId(jobId) match
+        case Left(msg) => error(Status.BadRequest, "INVALID_JOB_ID", msg)
+        case Right(id) =>
+          service.getJob(id).flatMap {
+            case Some(job) => json(Status.Ok, TournamentJson.analysisFields(job))
+            case None      => error(Status.NotFound, "JOB_NOT_FOUND", s"Tournament job not found: $id")
+          }
   }
 
   val routes: HttpRoutes[IO] = operationalRoutes <+> tournamentRoutes

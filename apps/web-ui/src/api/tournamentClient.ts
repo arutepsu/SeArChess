@@ -1,5 +1,6 @@
 import type {
   BotSummary,
+  AnalyzeTournamentResponse,
   CreateTournamentRequest,
   CreateTournamentResponse,
   TournamentJobDetails,
@@ -52,5 +53,13 @@ export async function fetchTournamentJob(jobId: string): Promise<TournamentJobDe
 export async function cancelTournamentJob(jobId: string): Promise<TournamentJobDetails> {
   return fetchTournament<TournamentJobDetails>(`/api/tournaments/${encodeURIComponent(jobId)}/cancel`, {
     method: "POST",
+  });
+}
+
+export async function analyzeTournament(jobId: string, outputPath?: string): Promise<AnalyzeTournamentResponse> {
+  return fetchTournament<AnalyzeTournamentResponse>(`/api/tournaments/${encodeURIComponent(jobId)}/analyze`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(outputPath ? { outputPath } : {}),
   });
 }
