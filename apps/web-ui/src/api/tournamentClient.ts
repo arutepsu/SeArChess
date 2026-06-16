@@ -40,6 +40,7 @@ async function fetchTournament<T>(path: string, init?: RequestInit): Promise<T> 
 
   return (await response.json()) as T;
 }
+const TOURNAMENT_ROUTE = "/api/tournaments/tournament";
 
 export async function fetchTournamentBots(): Promise<BotSummary[]> {
   const data = await fetchTournament<{ bots: BotSummary[] }>("/api/tournaments/bots");
@@ -47,12 +48,12 @@ export async function fetchTournamentBots(): Promise<BotSummary[]> {
 }
 
 export async function listTournamentJobs(): Promise<TournamentJobSummary[]> {
-  const data = await fetchTournament<{ jobs: TournamentJobSummary[] }>("/api/tournaments");
+  const data = await fetchTournament<{ jobs: TournamentJobSummary[] }>(TOURNAMENT_ROUTE);
   return data.jobs;
 }
 
 export async function createTournamentJob(request: CreateTournamentRequest): Promise<CreateTournamentResponse> {
-  return fetchTournament<CreateTournamentResponse>("/api/tournaments", {
+  return fetchTournament<CreateTournamentResponse>(TOURNAMENT_ROUTE, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
@@ -60,19 +61,30 @@ export async function createTournamentJob(request: CreateTournamentRequest): Pro
 }
 
 export async function fetchTournamentJob(jobId: string): Promise<TournamentJobDetails> {
-  return fetchTournament<TournamentJobDetails>(`/api/tournaments/${encodeURIComponent(jobId)}`);
+  return fetchTournament<TournamentJobDetails>(
+    `${TOURNAMENT_ROUTE}/${encodeURIComponent(jobId)}`
+  );
 }
 
 export async function cancelTournamentJob(jobId: string): Promise<TournamentJobDetails> {
-  return fetchTournament<TournamentJobDetails>(`/api/tournaments/${encodeURIComponent(jobId)}/cancel`, {
-    method: "POST",
-  });
+  return fetchTournament<TournamentJobDetails>(
+    `${TOURNAMENT_ROUTE}/${encodeURIComponent(jobId)}/cancel`,
+    {
+      method: "POST",
+    }
+  );
 }
 
-export async function analyzeTournament(jobId: string, outputPath?: string): Promise<AnalyzeTournamentResponse> {
-  return fetchTournament<AnalyzeTournamentResponse>(`/api/tournaments/${encodeURIComponent(jobId)}/analyze`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(outputPath ? { outputPath } : {}),
-  });
+export async function analyzeTournament(
+  jobId: string,
+  outputPath?: string
+): Promise<AnalyzeTournamentResponse> {
+  return fetchTournament<AnalyzeTournamentResponse>(
+    `${TOURNAMENT_ROUTE}/${encodeURIComponent(jobId)}/analyze`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(outputPath ? { outputPath } : {}),
+    }
+  );
 }
