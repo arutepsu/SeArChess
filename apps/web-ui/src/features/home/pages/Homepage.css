@@ -31,51 +31,9 @@ body:has(.main-menu-page) #app {
   z-index: 20;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 18px;
   min-height: 48px;
-}
-
-.main-menu-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.main-menu-brand__mark {
-  display: inline-grid;
-  width: 42px;
-  height: 42px;
-  place-items: center;
-  border: 1px solid var(--searchess-border-gold, rgba(255, 206, 116, 0.32));
-  border-radius: var(--searchess-radius-control, 8px);
-  background: var(--searchess-accent-gold-soft, rgba(255, 206, 116, 0.12));
-  color: var(--searchess-accent-gold, #ffce74);
-  font-family: Georgia, serif;
-  font-size: 1.45rem;
-  font-weight: 700;
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.28);
-}
-
-.main-menu-brand__name,
-.main-menu-brand__meta {
-  display: block;
-}
-
-.main-menu-brand__name {
-  color: var(--searchess-text-bright, #fff8ea);
-  font-size: 1rem;
-  font-weight: 900;
-  line-height: 1.1;
-}
-
-.main-menu-brand__meta {
-  margin-top: 3px;
-  color: var(--searchess-text-subtle, rgba(248, 241, 230, 0.52));
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.08rem;
 }
 
 .main-menu-notice {
@@ -123,12 +81,20 @@ body:has(.main-menu-page) #app {
 
 .main-menu-title-block {
   display: grid;
+  justify-items: center;
   gap: 4px;
   text-align: center;
 }
 
-.main-menu-title-block h1,
-.main-menu-title-block p {
+.homepage-logo {
+  width: clamp(96px, 14vw, 168px);
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(var(--searchess-glow-gold, 0 0 22px rgba(255, 206, 116, 0.16)))
+    drop-shadow(var(--searchess-shadow-panel, 0 18px 42px rgba(0, 0, 0, 0.34)));
+}
+
+.main-menu-title-block h1 {
   margin: 0;
 }
 
@@ -140,13 +106,6 @@ body:has(.main-menu-page) #app {
   letter-spacing: 0;
   line-height: 0.9;
   text-shadow: 0 16px 44px rgba(0, 0, 0, 0.48);
-}
-
-.main-menu-title-block p {
-  color: var(--searchess-accent-gold, #ffce74);
-  font-size: clamp(0.82rem, 2vw, 1rem);
-  font-weight: 900;
-  letter-spacing: 0.2rem;
 }
 
 .main-menu-resume-panel {
@@ -175,20 +134,15 @@ body:has(.main-menu-page) #app {
     padding: 16px 14px 28px;
   }
 
-  .main-menu-topbar,
   .main-menu-notice {
     align-items: stretch;
     flex-direction: column;
   }
-
-  .main-menu-topbar {
-    gap: 14px;
-  }
 }
 
 @media (max-width: 520px) {
-  .main-menu-brand__meta {
-    font-size: 0.66rem;
+  .homepage-logo {
+    width: clamp(90px, 28vw, 130px);
   }
 
   .main-menu-title-block h1 {

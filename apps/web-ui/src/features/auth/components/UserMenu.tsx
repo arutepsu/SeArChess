@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import keycloak from "../../../auth/keycloak";
+import Button from "../../../components/ui/Button";
+import GlassPanel from "../../../components/ui/GlassPanel";
 import "./UserMenu.css";
 
 const authEnabled = import.meta.env.VITE_AUTH_ENABLED !== "false";
@@ -37,8 +39,10 @@ export default function UserMenu({ dropdownAlign = "left" }: UserMenuProps) {
 
   return (
     <div className="user-menu" ref={containerRef}>
-      <button
+      <Button
         type="button"
+        variant="utility"
+        size="sm"
         className="user-menu__trigger"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
@@ -49,11 +53,12 @@ export default function UserMenu({ dropdownAlign = "left" }: UserMenuProps) {
         </span>
         <span className="user-menu__name">{username}</span>
         <span className="user-menu__caret" aria-hidden="true">v</span>
-      </button>
+      </Button>
 
       {open && (
-        <div
+        <GlassPanel
           className={`user-menu__dropdown${dropdownAlign === "right" ? " user-menu__dropdown--right" : ""}`}
+          variant="strong"
           role="menu"
         >
           <button type="button" role="menuitem" className="user-menu__item" onClick={() => go("/settings")}>
@@ -83,7 +88,7 @@ export default function UserMenu({ dropdownAlign = "left" }: UserMenuProps) {
               </button>
             </>
           )}
-        </div>
+        </GlassPanel>
       )}
     </div>
   );

@@ -83,8 +83,14 @@ final class SlickAnalyticsRepository(db: Database, schema: String) extends Analy
 
   // ── Latest-run convenience methods ────────────────────────────────────────
 
+  // Spark has not run yet against this database on a fresh deployment, so
+  // analytics_leaderboard (and every other analytics_* table) may not exist.
+  // The run listing is the first thing a client checks to decide whether
+  // there's anything to show, so treat "no table yet" the same as "no runs
+  // yet" here. Other endpoints keep returning 503 on any query failure,
+  // including missing tables — see AnalyticsRoutes.
   override def listRuns(): Either[String, List[AnalyticsRunSummary]] =
-    run(
+    runAllowingMissingTable(
       sql"""SELECT DISTINCT run_id, source_path, created_at
             FROM #$t.analytics_leaderboard
             ORDER BY created_at DESC""".as[AnalyticsRunSummary]
@@ -259,3 +265,12 @@ final class SlickAnalyticsRepository(db: Database, schema: String) extends Analy
     catch case NonFatal(e) =>
       val msg = Option(e.getMessage).map(_.trim).filter(_.nonEmpty).getOrElse(e.getClass.getSimpleName)
       Left(s"Analytics query failed: $msg")
+
+  // PostgreSQL SQLSTATE 42P01 = undefined_table.
+  private def runAllowingMissingTable[T](action: DBIOAction[Vector[T], NoStream, Effect.Read]): Either[String, List[T]] =
+    try Right(Await.result(db.run(action), 30.seconds).toList)
+    catch
+      case e: org.postgresql.util.PSQLException if e.getSQLState == "42P01" => Right(Nil)
+      case NonFatal(e) =>
+        val msg = Option(e.getMessage).map(_.trim).filter(_.nonEmpty).getOrElse(e.getClass.getSimpleName)
+        Left(s"Analytics query failed: $msg")

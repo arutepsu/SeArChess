@@ -57,6 +57,17 @@ static_resources:
                             cluster: lichess_bridge
                             prefix_rewrite: /internal/lichess/games/
                             timeout: 0s
+                        # analytics-service / tournament-service: must be listed before the
+                        # catch-all /api/ rule. No prefix_rewrite — both services already
+                        # serve their routes under /api/analytics and /api/tournaments.
+                        - match:
+                            prefix: /api/analytics/
+                          route:
+                            cluster: analytics_service_http
+                        - match:
+                            prefix: /api/tournaments/
+                          route:
+                            cluster: tournament_service_http
                         - match:
                             prefix: /api/
                           route:
@@ -193,6 +204,30 @@ static_resources:
                     socket_address:
                       address: lichess-bridge-service
                       port_value: 8090
+    - name: analytics_service_http
+      type: STRICT_DNS
+      connect_timeout: 1s
+      load_assignment:
+        cluster_name: analytics_service_http
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: analytics-service
+                      port_value: 8084
+    - name: tournament_service_http
+      type: STRICT_DNS
+      connect_timeout: 1s
+      load_assignment:
+        cluster_name: tournament_service_http
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: tournament-service
+                      port_value: 8085
 
 # Admin bound to 0.0.0.0 (not 127.0.0.1) so Kubernetes httpGet readiness probes
 # can reach /ready from the kubelet outside the container's loopback.

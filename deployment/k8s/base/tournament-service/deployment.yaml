@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tournament-service
+  namespace: searchess
+  labels:
+    app: tournament-service
+spec:
+  # Replicas: 1 — TOURNAMENT_OUTPUT_BASE_PATH is an emptyDir (pod-local), and
+  # TOURNAMENT_JOB_STORE=postgres serializes job execution per-process today.
+  # Do not scale beyond 1 replica until job output storage is shared/queued.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tournament-service
+  template:
+    metadata:
+      labels:
+        app: tournament-service
+    spec:
+      containers:
+        - name: tournament-service
+          image: searchess/tournament-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8085
+          envFrom:
+            - configMapRef:
+                name: tournament-service-env
+          env:
+            - name: TOURNAMENT_POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: searchess-secrets
+                  key: postgres-password
+            # Read by the spark-analytics subprocess (PostgresConfig.fromEnv),
+            # not by tournament-service itself. Same secret key as above.
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: searchess-secrets
+                  key: postgres-password
+          volumeMounts:
+            - name: tournament-jobs
+              mountPath: /data/tournament-jobs
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            # Limit raised from 1Gi: POST /analyze spawns a local-mode Spark JVM
+            # as a child process inside this same pod (TOURNAMENT_ANALYTICS_COMMAND),
+            # alongside the tournament-service JVM itself. Spark's default local
+            # driver memory needs headroom beyond the base service's own footprint.
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+      volumes:
+        # emptyDir: tournament JSONL output does not survive pod restart/reschedule.
+        # Acceptable for this phase — see docs/deployment/uni-analytics-tournament.md.
+        # Promote to a PersistentVolumeClaim once job output needs to outlive the pod.
+        - name: tournament-jobs
+          emptyDir: {}

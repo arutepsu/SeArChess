@@ -8,6 +8,7 @@ export const PIECE_SCALE = 2;
 // content sits at 62.6% of frame height; this offset recenters it.
 export const PIECE_VISUAL_OFFSET_Y: Partial<Record<string, number>> = {
   bishop: -0.32,
+  king: 0.12,
 };
 
 export type SpriteState = "idle" | "move";

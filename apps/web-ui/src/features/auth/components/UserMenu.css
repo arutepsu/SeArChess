@@ -1,5 +1,6 @@
 .user-menu {
   position: relative;
+  font-family: inherit;
 }
 
 .user-menu__trigger {
@@ -7,53 +8,36 @@
   align-items: center;
   gap: 7px;
   padding: 5px 10px 5px 5px;
-  background: rgba(14, 7, 10, 0.82);
-  border: 1px solid rgba(90, 58, 58, 0.6);
-  border-radius: 999px;
-  color: #f0e6d2;
+  border-radius: var(--searchess-radius-pill, 999px);
+  color: var(--searchess-text-primary, #f8f1e6);
   font-size: 0.82rem;
-  font-weight: 600;
-  font-family: "Space Grotesk", sans-serif;
-  cursor: pointer;
-  backdrop-filter: blur(10px);
-  transition: border-color 0.15s ease, background 0.15s ease;
+  font-weight: 800;
   white-space: nowrap;
-}
-
-.user-menu__trigger:hover {
-  border-color: rgba(197, 160, 89, 0.7);
-  background: rgba(30, 14, 20, 0.88);
-}
-
-.user-menu__trigger:focus-visible {
-  outline: none;
-  border-color: rgba(197, 160, 89, 0.7);
-  box-shadow: 0 0 0 2px rgba(197, 160, 89, 0.4);
 }
 
 .user-menu__avatar {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: rgba(197, 160, 89, 0.2);
-  border: 1px solid rgba(197, 160, 89, 0.5);
+  background: var(--searchess-accent-gold-soft, rgba(255, 206, 116, 0.12));
+  border: 1px solid var(--searchess-accent-gold-muted, rgba(255, 206, 116, 0.28));
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 0.7rem;
   font-weight: 800;
-  color: #e6b347;
+  color: var(--searchess-accent-gold, #ffce74);
   flex-shrink: 0;
 }
 
 .user-menu__name {
-  color: #f0e6d2;
+  color: var(--searchess-text-primary, #f8f1e6);
 }
 
 .user-menu__caret {
   font-size: 0.65rem;
   opacity: 0.65;
-  color: #bfa8a8;
+  color: var(--searchess-text-muted, rgba(248, 241, 230, 0.68));
 }
 
 .user-menu__dropdown {
@@ -62,16 +46,12 @@
   left: 0;
   right: auto;
   min-width: 220px;
-  background: rgba(14, 7, 10, 0.96);
-  border: 1px solid rgba(90, 58, 58, 0.65);
-  border-radius: 12px;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(16px);
+  border-radius: var(--searchess-radius-panel, 10px);
   padding: 6px;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  z-index: 100;
+  z-index: 1200;
 }
 
 .user-menu__dropdown--right {
@@ -88,14 +68,17 @@
   text-align: left;
   background: transparent;
   border: none;
-  color: #f0e6d2;
-  font-family: "Space Grotesk", sans-serif;
+  color: var(--searchess-text-primary, #f8f1e6);
+  font-family: inherit;
   font-size: 0.85rem;
-  font-weight: 500;
+  font-weight: 700;
   padding: 8px 12px;
-  border-radius: 8px;
+  border-radius: var(--searchess-radius-control, 8px);
   cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease;
+  transition:
+    background var(--searchess-transition-fast, 0.16s ease),
+    color var(--searchess-transition-fast, 0.16s ease),
+    opacity var(--searchess-transition-fast, 0.16s ease);
 }
 
 .user-menu__item:disabled,
@@ -109,16 +92,16 @@
 .user-menu__item:disabled:focus-visible,
 .user-menu__item--disabled:focus-visible {
   background: transparent;
-  color: #f0e6d2;
+  color: var(--searchess-text-primary, #f8f1e6);
 }
 
 .user-menu__badge {
   flex: 0 0 auto;
-  border: 1px solid rgba(255, 206, 116, 0.24);
-  border-radius: 999px;
-  padding: 2px 6px;
-  background: rgba(255, 206, 116, 0.08);
-  color: #ffce74;
+  border: 1px solid var(--searchess-accent-gold-muted, rgba(255, 206, 116, 0.28));
+  border-radius: var(--searchess-radius-pill, 999px);
+  padding: 3px 7px;
+  background: var(--searchess-accent-gold-soft, rgba(255, 206, 116, 0.12));
+  color: var(--searchess-accent-gold, #ffce74);
   font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.04rem;
@@ -127,23 +110,27 @@
 
 .user-menu__item:hover,
 .user-menu__item:focus-visible {
-  background: rgba(255, 255, 255, 0.07);
-  color: #fff;
+  background: var(--searchess-bg-hover, rgba(255, 206, 116, 0.1));
+  color: var(--searchess-text-bright, #fff8ea);
   outline: none;
 }
 
+.user-menu__item:focus-visible {
+  box-shadow: var(--searchess-focus-shadow, 0 0 0 4px rgba(255, 206, 116, 0.14));
+}
+
 .user-menu__item--danger {
-  color: #ff9d9d;
+  color: var(--searchess-danger, #ff9d9d);
 }
 
 .user-menu__item--danger:hover,
 .user-menu__item--danger:focus-visible {
   background: rgba(255, 100, 100, 0.1);
-  color: #ff7070;
+  color: #ffc0c0;
 }
 
 .user-menu__divider {
   height: 1px;
-  background: rgba(90, 58, 58, 0.45);
+  background: var(--searchess-border-muted, rgba(255, 255, 255, 0.14));
   margin: 4px 6px;
 }

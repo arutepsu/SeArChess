@@ -3,7 +3,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.6);
+  background:
+    linear-gradient(140deg, rgba(9, 11, 18, 0.82), rgba(31, 18, 24, 0.72)),
+    var(--app-background);
+  color: var(--searchess-text-primary, #f8f1e6);
 }
 
 .onboarding-card {
@@ -14,13 +17,13 @@
 
 .onboarding-card h1 {
   font-size: 1.6rem;
-  color: #e0d8c8;
+  color: var(--searchess-text-bright, #fff8ea);
   margin: 0 0 0.75rem;
   text-align: center;
 }
 
 .onboarding-intro {
-  color: #aaa;
+  color: var(--searchess-text-muted, rgba(248, 241, 230, 0.68));
   font-size: 0.95rem;
   text-align: center;
   margin: 0 0 1.5rem;
@@ -34,35 +37,38 @@
 }
 
 .onboarding-form label {
-  color: #ccc;
+  color: var(--searchess-text-primary, #f8f1e6);
   font-size: 0.85rem;
   font-weight: 600;
   letter-spacing: 0.04em;
 }
 
 .onboarding-form input {
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 6px;
-  color: #e0e0e0;
+  background: var(--searchess-bg-control, rgba(0, 0, 0, 0.35));
+  border: 1px solid var(--searchess-border-muted, rgba(255, 255, 255, 0.14));
+  border-radius: var(--searchess-radius-control, 8px);
+  color: var(--searchess-text-primary, #f8f1e6);
   font-size: 1rem;
   padding: 0.6rem 0.75rem;
   outline: none;
-  transition: border-color 0.2s;
+  transition:
+    border-color var(--searchess-transition-fast, 0.16s ease),
+    box-shadow var(--searchess-transition-fast, 0.16s ease);
 }
 
 .onboarding-form input:focus {
-  border-color: rgba(200, 170, 100, 0.5);
+  border-color: var(--searchess-border-gold, rgba(255, 206, 116, 0.32));
+  box-shadow: var(--searchess-focus-shadow, 0 0 0 4px rgba(255, 206, 116, 0.14));
 }
 
 .onboarding-hint {
-  color: #777;
+  color: var(--searchess-text-subtle, rgba(248, 241, 230, 0.52));
   font-size: 0.78rem;
   margin: 0;
 }
 
 .onboarding-error {
-  color: #e07070;
+  color: var(--searchess-danger, #ff9d9d);
   font-size: 0.85rem;
   margin: 0;
 }

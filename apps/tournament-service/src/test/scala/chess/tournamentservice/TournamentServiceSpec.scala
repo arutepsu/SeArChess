@@ -294,6 +294,80 @@ class TournamentServiceSpec extends AnyFlatSpec with Matchers:
     error.getMessage should include("must not contain double quotes")
   }
 
+  "PackagedSparkAnalyticsProcessRunner" should "append input and output paths as plain positional arguments" in {
+    val request = TournamentAnalyticsRunRequest(
+      tournamentJobId = "job-1",
+      inputPath       = "/data/tournament-jobs/job-1/game-events.jsonl",
+      outputPath      = "/data/spark-analytics/job-1"
+    )
+
+    val command = PackagedSparkAnalyticsProcessRunner.command(List("/app/spark-analytics/bin/run-analytics.sh"), request)
+
+    command shouldBe List(
+      "/app/spark-analytics/bin/run-analytics.sh",
+      "/data/tournament-jobs/job-1/game-events.jsonl",
+      "/data/spark-analytics/job-1"
+    )
+  }
+
+  it should "not quote or wrap paths the way the sbt runner does" in {
+    val request = TournamentAnalyticsRunRequest(
+      tournamentJobId = "job-1",
+      inputPath       = "input with spaces.jsonl",
+      outputPath      = "output with spaces"
+    )
+
+    val command = PackagedSparkAnalyticsProcessRunner.command(List("run-analytics.sh"), request)
+
+    command shouldBe List("run-analytics.sh", "input with spaces.jsonl", "output with spaces")
+  }
+
+  "TournamentServiceConfig" should "default analyticsCommand and analyticsWorkingDir to None when unset" in {
+    val loaded = TournamentServiceConfig.load(_ => None).getOrElse(fail("expected config"))
+    loaded.analyticsCommand     shouldBe None
+    loaded.analyticsWorkingDir  shouldBe None
+  }
+
+  it should "parse TOURNAMENT_ANALYTICS_COMMAND into a token list when set" in {
+    val loaded = TournamentServiceConfig
+      .load(key => if key == "TOURNAMENT_ANALYTICS_COMMAND" then Some("/app/spark-analytics/bin/run-analytics.sh") else None)
+      .getOrElse(fail("expected config"))
+    loaded.analyticsCommand shouldBe Some(List("/app/spark-analytics/bin/run-analytics.sh"))
+  }
+
+  it should "reject an empty TOURNAMENT_ANALYTICS_COMMAND" in {
+    val result = TournamentServiceConfig.load(key => if key == "TOURNAMENT_ANALYTICS_COMMAND" then Some("   ") else None)
+    result.isLeft shouldBe true
+    result.left.foreach(_ should include("TOURNAMENT_ANALYTICS_COMMAND"))
+  }
+
+  it should "parse TOURNAMENT_ANALYTICS_WORKING_DIR when set" in {
+    val loaded = TournamentServiceConfig
+      .load(key => if key == "TOURNAMENT_ANALYTICS_WORKING_DIR" then Some("/app/spark-analytics") else None)
+      .getOrElse(fail("expected config"))
+    loaded.analyticsWorkingDir shouldBe Some("/app/spark-analytics")
+  }
+
+  it should "still default the legacy analyticsSbtCommand even when analyticsCommand is configured" in {
+    val loaded = TournamentServiceConfig
+      .load(key => if key == "TOURNAMENT_ANALYTICS_COMMAND" then Some("/app/spark-analytics/bin/run-analytics.sh") else None, osName = "Linux")
+      .getOrElse(fail("expected config"))
+    loaded.analyticsSbtCommand shouldBe List("sbt", "--client=false")
+    loaded.analyticsCommand    shouldBe Some(List("/app/spark-analytics/bin/run-analytics.sh"))
+  }
+
+  "TournamentServiceWiring.buildAnalyticsRunner" should "select SparkTournamentAnalyticsProcessRunner when analyticsCommand is unset" in {
+    val runner = TournamentServiceWiring.buildAnalyticsRunner(config(Files.createTempDirectory("wiring-test")))
+    runner shouldBe a[SparkTournamentAnalyticsProcessRunner]
+  }
+
+  it should "select PackagedSparkAnalyticsProcessRunner when analyticsCommand is configured" in {
+    val withPackagedCommand = config(Files.createTempDirectory("wiring-test"))
+      .copy(analyticsCommand = Some(List("/app/spark-analytics/bin/run-analytics.sh")))
+    val runner = TournamentServiceWiring.buildAnalyticsRunner(withPackagedCommand)
+    runner shouldBe a[PackagedSparkAnalyticsProcessRunner]
+  }
+
   "DefaultBotRegistry" should "list heuristic bots as available" in {
     val bots = DefaultBotRegistry(config(Files.createTempDirectory("registry-test"))).listBots()
     bots.find(_.botId == "random-bot").map(_.available) shouldBe Some(true)

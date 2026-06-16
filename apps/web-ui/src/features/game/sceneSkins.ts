@@ -47,7 +47,7 @@ export const GAME_SCENE_SKINS: GameSceneSkin[] = [
     sceneSize: 720,
     boardRect: { left: 0.180, top: 0.190, width: 0.640, height: 0.610 },
     // Piece calibration — tune with ?debugBoardScene:
-    pieceScale: 1.3,
+    pieceScale: 1.0,
     pieceOffsetX: 0.0,
     pieceOffsetY: 0.0,
   },
@@ -58,7 +58,7 @@ export const GAME_SCENE_SKINS: GameSceneSkin[] = [
     sceneSize: 720,
     boardRect: { left: 0.230, top: 0.260, width: 0.540, height: 0.525 },
     // Piece calibration — tune with ?debugBoardScene:
-    pieceScale: 1.3,
+    pieceScale: 1.0,
     pieceOffsetX: 0.0,
     pieceOffsetY: 0.0,
   },
@@ -69,7 +69,7 @@ export const GAME_SCENE_SKINS: GameSceneSkin[] = [
     sceneSize: 720,
     boardRect: { left: 0.195, top: 0.177, width: 0.610, height: 0.596 },
     // Piece calibration — tune with ?debugBoardScene:
-    pieceScale: 1.3,
+    pieceScale: 1.0,
     pieceOffsetX: 0.0,
     pieceOffsetY: 0.0,
   },
@@ -80,7 +80,7 @@ export const GAME_SCENE_SKINS: GameSceneSkin[] = [
     sceneSize: 720,
     boardRect: { left: 0.260, top: 0.237, width: 0.483, height: 0.482 },
     // Piece calibration — tune with ?debugBoardScene:
-    pieceScale: 1.3,
+    pieceScale: 1.0,
     pieceOffsetX: 0.0,
     pieceOffsetY: 0.0,
   },
@@ -91,7 +91,7 @@ export const GAME_SCENE_SKINS: GameSceneSkin[] = [
     sceneSize: 720,
     boardRect: { left: 0.245, top: 0.240, width: 0.513, height: 0.500 },
     // Piece calibration — tune with ?debugBoardScene:
-    pieceScale: 1.3,
+    pieceScale: 1.0,
     pieceOffsetX: 0.0,
     pieceOffsetY: 0.0,
   },
@@ -102,7 +102,7 @@ export const GAME_SCENE_SKINS: GameSceneSkin[] = [
     sceneSize: 720,
     boardRect: { left: 0.200, top: 0.200, width: 0.600, height: 0.600 },
     // Piece calibration — tune with ?debugBoardScene:
-    pieceScale: 1.3,
+    pieceScale: 1.0,
     pieceOffsetX: 0.0,
     pieceOffsetY: 0.0,
   },

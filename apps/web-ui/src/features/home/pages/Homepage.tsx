@@ -71,21 +71,18 @@ export default function Homepage({
     : undefined;
 
   const boardSceneItems = useMemo(() => {
-    const preferredSceneIds = ["oni", "sakura"];
-    const preferredScenes = preferredSceneIds
-      .map((id) => gameScenes.find((scene) => scene.id === id))
-      .filter((scene): scene is GameSceneSkin => Boolean(scene));
-
     return [
-      ...preferredScenes.map<MenuCarouselItem>((scene) => ({
+      ...gameScenes.map<MenuCarouselItem>((scene) => ({
         id: scene.id,
         label: scene.label,
+        previewImageUrl: scene.imageUrl,
         badge: gameSceneId === scene.id ? "ACTIVE" : undefined,
         onSelect: () => setGameSceneId(scene.id),
       })),
       {
         id: "classic",
         label: "Classic",
+        previewClassName: "menu-carousel__preview--classic",
         badge: gameSceneId === "" ? "ACTIVE" : undefined,
         onSelect: () => setGameSceneId(""),
       },
@@ -98,8 +95,8 @@ export default function Homepage({
   }, [gameSceneId, gameScenes, setGameSceneId]);
 
   const menuConfig = useMemo<{
-    title: string;
-    subtitle: string;
+    title?: string;
+    subtitle?: string;
     initialSelectedId?: string;
     items: MenuCarouselItem[];
     onBack?: () => void;
@@ -222,6 +219,7 @@ export default function Homepage({
             ...backgrounds.map<MenuCarouselItem>((background) => ({
               id: background.id,
               label: background.label,
+              previewImageUrl: background.imageUrl,
               badge: backgroundId === background.id ? "ACTIVE" : undefined,
               onSelect: () => setBackgroundId(background.id),
             })),
@@ -244,8 +242,6 @@ export default function Homepage({
       case "main":
       default:
         return {
-          title: "Main Menu",
-          subtitle: "Choose your next match.",
           initialSelectedId: "human-vs-bot",
           items: [
             ...(hasActiveGame
@@ -326,13 +322,6 @@ export default function Homepage({
     <div className="main-menu-page">
       <div className="main-menu-shell">
         <header className="main-menu-topbar">
-          <div className="main-menu-brand" aria-label="SeArChess home">
-            <span className="main-menu-brand__mark" aria-hidden="true">S</span>
-            <span>
-              <span className="main-menu-brand__name">SEARCHESS</span>
-              <span className="main-menu-brand__meta">AI CHESS ARENA</span>
-            </span>
-          </div>
           <UserMenu dropdownAlign="right" />
         </header>
 
@@ -351,7 +340,11 @@ export default function Homepage({
 
         <main className="main-menu-stage">
           <section className="main-menu-title-block" aria-label="Searchess title">
-            <p>AI CHESS ARENA</p>
+            <img
+              className="homepage-logo"
+              src="/assets/logo/logo512.png"
+              alt="Searchess"
+            />
             <h1>SEARCHESS</h1>
           </section>
 

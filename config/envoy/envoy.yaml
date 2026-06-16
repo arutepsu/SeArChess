@@ -29,6 +29,14 @@ static_resources:
                           route:
                             cluster: game_service_http
                         - match:
+                            prefix: /api/analytics/
+                          route:
+                            cluster: analytics_service_http
+                        - match:
+                            prefix: /api/tournaments/
+                          route:
+                            cluster: tournament_service_http
+                        - match:
                             prefix: /api/
                           route:
                             cluster: game_service_http
@@ -125,6 +133,30 @@ static_resources:
                     socket_address:
                       address: keycloak
                       port_value: 8080
+    - name: analytics_service_http
+      type: STRICT_DNS
+      connect_timeout: 1s
+      load_assignment:
+        cluster_name: analytics_service_http
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: analytics-service
+                      port_value: 8084
+    - name: tournament_service_http
+      type: STRICT_DNS
+      connect_timeout: 1s
+      load_assignment:
+        cluster_name: tournament_service_http
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: tournament-service
+                      port_value: 8085
 
 admin:
   address:

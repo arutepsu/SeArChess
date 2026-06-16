@@ -11,6 +11,8 @@ final case class TournamentServiceConfig(
     analyticsOutputBasePath: String,
     maxParallelAnalyticsJobs: Int,
     analyticsSbtCommand: List[String],
+    analyticsCommand: Option[List[String]] = None,
+    analyticsWorkingDir: Option[String]    = None,
     stockfishPath: Option[String],
     searchessAiBaseUrl: Option[String],
     jobStore: String,
@@ -61,6 +63,7 @@ object TournamentServiceConfig:
         "TOURNAMENT_ANALYTICS_SBT_COMMAND",
         env("TOURNAMENT_ANALYTICS_SBT_COMMAND").getOrElse(defaultSbtCommand(osName).mkString(" "))
       )
+      analyticsCommand <- parseOptionalCommand("TOURNAMENT_ANALYTICS_COMMAND", env("TOURNAMENT_ANALYTICS_COMMAND"))
       jobStore         <- parseJobStore("TOURNAMENT_JOB_STORE", env("TOURNAMENT_JOB_STORE").getOrElse("memory"))
       postgresUrl      <- requireIfPostgres("TOURNAMENT_POSTGRES_URL", jobStore, env("TOURNAMENT_POSTGRES_URL"))
       postgresUser     <- requireIfPostgres("TOURNAMENT_POSTGRES_USER", jobStore, env("TOURNAMENT_POSTGRES_USER"))
@@ -103,6 +106,8 @@ object TournamentServiceConfig:
       analyticsOutputBasePath  = analyticsOutputBasePath,
       maxParallelAnalyticsJobs = maxParallelAnalyticsJobs,
       analyticsSbtCommand      = analyticsSbtCommand,
+      analyticsCommand         = analyticsCommand,
+      analyticsWorkingDir      = env("TOURNAMENT_ANALYTICS_WORKING_DIR"),
       stockfishPath            = env("STOCKFISH_PATH"),
       searchessAiBaseUrl       = env("SEARCHESS_AI_BASE_URL"),
       jobStore                 = jobStore,
@@ -185,6 +190,11 @@ object TournamentServiceConfig:
       val tokens = splitCommand(trimmed)
       if tokens.nonEmpty then Right(tokens)
       else Left(s"$name must contain at least one command token")
+
+  private[tournamentservice] def parseOptionalCommand(name: String, value: Option[String]): Either[String, Option[List[String]]] =
+    value match
+      case None        => Right(None)
+      case Some(value) => parseCommand(name, value).map(Some(_))
 
   private def splitCommand(value: String): List[String] =
     val tokens = scala.collection.mutable.ListBuffer.empty[String]

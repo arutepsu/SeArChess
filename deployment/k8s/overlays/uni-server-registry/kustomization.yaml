@@ -31,6 +31,11 @@ resources:
 #                          patches/web-ui-deploy-sha.yaml (updated by CI per build).
 #   main-latest           floating convenience tag — never used for deployment
 #
+# analytics-service and tournament-service start at newTag: sha-placeholder —
+# no image has been pushed to GHCR for them yet. build-images.yml forces a
+# rebuild of any service still carrying sha-placeholder regardless of which
+# files changed, the same safety net already used for user-service's bootstrap.
+#
 # Do not manually set Scala service tags to floating tags.
 # web-ui intentionally uses 'main'; the deploy-sha patch triggers Argo CD rollouts.
 # mongo is intentionally pinned to 4.4 and is not managed by the image workflow.
@@ -43,6 +48,9 @@ images:
 - name: searchess/ai-service
   newName: ghcr.io/arutepsu/searchess-ai-service
   newTag: sha-1bfb049
+- name: searchess/analytics-service
+  newName: ghcr.io/arutepsu/searchess-analytics-service
+  newTag: sha-placeholder
 - name: searchess/bot-service
   newName: ghcr.io/arutepsu/searchess-bot-service
   newTag: sha-1bfb049
@@ -58,6 +66,9 @@ images:
 - name: searchess/python-ai-service
   newName: ghcr.io/arutepsu/searchess-python-ai-service
   newTag: sha-2247329
+- name: searchess/tournament-service
+  newName: ghcr.io/arutepsu/searchess-tournament-service
+  newTag: sha-placeholder
 - name: searchess/user-service
   newName: ghcr.io/arutepsu/searchess-user-service
   newTag: sha-1bfb049

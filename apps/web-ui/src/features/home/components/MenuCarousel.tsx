@@ -13,6 +13,8 @@ export type MenuCarouselItem = {
   label: string;
   description?: string;
   badge?: string;
+  previewImageUrl?: string;
+  previewClassName?: string;
   disabled?: boolean;
   disabledReason?: string;
   onSelect?: () => void;
@@ -135,6 +137,7 @@ export default function MenuCarousel({
           const descriptionText = item.disabled && item.disabledReason
             ? item.disabledReason
             : item.description;
+          const hasPreview = Boolean(item.previewImageUrl || item.previewClassName);
           const showDescription =
             Boolean(descriptionText) &&
             (descriptionMode === "all" || selected);
@@ -151,6 +154,7 @@ export default function MenuCarousel({
                 selected ? "menu-carousel__item--selected" : "",
                 item.disabled ? "menu-carousel__item--disabled" : "",
                 item.id === "back" ? "menu-carousel__item--utility" : "",
+                hasPreview ? "menu-carousel__item--with-preview" : "",
               ].filter(Boolean).join(" ")}
               style={{ "--menu-carousel-distance": distance } as CSSProperties}
               tabIndex={selected ? 0 : -1}
@@ -167,6 +171,20 @@ export default function MenuCarousel({
                 <span className="menu-carousel__selector" aria-hidden="true">
                   {selected ? ">" : ""}
                 </span>
+                {hasPreview && (
+                  <span
+                    className={[
+                      "menu-carousel__preview",
+                      item.previewClassName,
+                    ].filter(Boolean).join(" ")}
+                    style={
+                      item.previewImageUrl
+                        ? { backgroundImage: `url("${item.previewImageUrl}")` }
+                        : undefined
+                    }
+                    aria-hidden="true"
+                  />
+                )}
                 <span className="menu-carousel__label">{item.label}</span>
                 {item.badge && <span className="menu-carousel__badge">{item.badge}</span>}
               </span>

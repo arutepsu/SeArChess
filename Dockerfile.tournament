@@ -1,0 +1,63 @@
+# syntax=docker/dockerfile:1
+#
+# This image packages tournament-service AND a staged spark-analytics
+# distribution (sbt-native-packager, built in the same sbt invocation below).
+# No sbt and no monorepo source tree end up in the runtime image — only the
+# two staged `target/universal/stage/` directories are copied in. The
+# container sets TOURNAMENT_ANALYTICS_COMMAND to the staged spark-analytics
+# wrapper script, so POST /api/tournaments/{jobId}/analyze runs the packaged
+# Spark job directly instead of shelling out to sbt.
+#
+# This makes the image noticeably larger (Spark's dependency set is sizeable)
+# than a tournament-service-only image would be. Accepted for now; see
+# docs/deployment/local-analytics-tournament.md for the longer-term plan
+# (a separate analytics-executor service or a Kubernetes Job per analysis
+# request, so tournament-service itself stays Spark-free).
+
+FROM sbtscala/scala-sbt:eclipse-temurin-21.0.8_9_1.12.6_3.8.2 AS build
+
+WORKDIR /build
+
+COPY project/ project/
+COPY build.sbt ./
+COPY apps/ apps/
+COPY modules/ modules/
+
+RUN sbt "tournamentService / stage" "sparkAnalytics / stage"
+
+FROM eclipse-temurin:21-jre AS otel-agent
+ARG OTEL_AGENT_VERSION=2.10.0
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -fsSL -o /opentelemetry-javaagent.jar \
+       "https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v${OTEL_AGENT_VERSION}/opentelemetry-javaagent.jar"
+
+FROM eclipse-temurin:21-jre
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /data/tournament-jobs
+
+COPY --from=build /build/apps/tournament-service/target/universal/stage/ ./
+COPY --from=build /build/apps/spark-analytics/target/universal/stage/ ./spark-analytics/
+COPY --from=otel-agent /opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
+COPY apps/spark-analytics/docker/run-analytics.sh ./spark-analytics/bin/run-analytics.sh
+
+RUN chmod +x ./spark-analytics/bin/run-analytics.sh ./spark-analytics/bin/spark-analytics
+
+EXPOSE 8085
+
+ENV TOURNAMENT_HTTP_HOST=0.0.0.0 \
+    TOURNAMENT_HTTP_PORT=8085 \
+    TOURNAMENT_OUTPUT_BASE_PATH=/data/tournament-jobs \
+    TOURNAMENT_POSTGRES_SCHEMA=public \
+    TOURNAMENT_OUTBOX_PUBLISHER_TYPE=logging \
+    TOURNAMENT_ANALYTICS_COMMAND=/app/spark-analytics/bin/run-analytics.sh \
+    TOURNAMENT_ANALYTICS_WORKING_DIR=/app \
+    TOURNAMENT_ANALYTICS_OUTPUT_BASE_PATH=/data/tournament-jobs/analytics-output
+
+CMD ["bin/searchess-tournament-service"]

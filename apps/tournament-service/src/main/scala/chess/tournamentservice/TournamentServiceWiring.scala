@@ -8,6 +8,7 @@ import com.comcast.ip4s.{Host, Port}
 import org.http4s.ember.server.EmberServerBuilder
 import slick.jdbc.PostgresProfile.api.*
 
+import java.io.File
 import scala.concurrent.duration.*
 
 object TournamentServiceWiring:
@@ -15,7 +16,8 @@ object TournamentServiceWiring:
   def start(config: TournamentServiceConfig): TournamentServiceRuntime =
     val registry   = DefaultBotRegistry(config)
     val (repository, outboxRepoOpt) = buildRepositories(config)
-    val service    = TournamentJobService.create(registry, config, SparkTournamentAnalyticsProcessRunner(config.analyticsSbtCommand), repository).unsafeRunSync()
+    val analyticsRunner = buildAnalyticsRunner(config)
+    val service    = TournamentJobService.create(registry, config, analyticsRunner, repository).unsafeRunSync()
     val worker     = service.startWorker().unsafeRunSync()
     val analyticsWorkers = service.startAnalyticsWorkers().unsafeRunSync()
     val httpApp    = TournamentRoutes(service).routes.orNotFound
@@ -40,6 +42,14 @@ object TournamentServiceWiring:
     val (outboxPollerFiber, closeResources) = buildOutboxPoller(config, outboxRepoOpt)
 
     TournamentServiceRuntime(shutdownHttp, worker, analyticsWorkers, outboxPollerFiber, closeResources)
+
+  private[tournamentservice] def buildAnalyticsRunner(config: TournamentServiceConfig): TournamentAnalyticsRunner =
+    config.analyticsCommand match
+      case Some(command) =>
+        val workingDir = config.analyticsWorkingDir.map(File(_)).getOrElse(File(System.getProperty("user.dir")))
+        PackagedSparkAnalyticsProcessRunner(command, workingDir)
+      case None =>
+        SparkTournamentAnalyticsProcessRunner(config.analyticsSbtCommand)
 
   private def buildRepositories(config: TournamentServiceConfig) =
     config.jobStore match

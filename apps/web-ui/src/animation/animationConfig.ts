@@ -3,9 +3,9 @@ export const idleFps = 6;
 export const moveDurationMs = 280;
 
 export const captureTimings = {
-  approachMs: 180,
-  attackMs: 160,
-  hitMs: 180,
-  deadMs: 260,
-  fadeMs: 120,
+  approachMs: 280,
+  attackMs: 360,
+  hitMs: 280,
+  deadMs: 460,
+  fadeMs: 420,
 } as const;

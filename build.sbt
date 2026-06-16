@@ -683,6 +683,7 @@ lazy val arenaWriterKafka = project
 
 lazy val sparkAnalytics = project
   .in(file("apps/spark-analytics"))
+  .enablePlugins(JavaAppPackaging)
   .disablePlugins(wartremover.WartRemover)
   .settings(
     scalaVersion             := "2.13.14",
@@ -702,6 +703,10 @@ lazy val sparkAnalytics = project
     run  / javaOptions       ++= sparkJvmOpens,
     Test / javaOptions       ++= sparkJvmOpens :+
       s"-DprojectRoot=${(ThisBuild / baseDirectory).value.getAbsolutePath}"
+    // Packaged distribution: sbt sparkAnalytics/stage -> target/universal/stage/bin/spark-analytics.
+    // The generated script does not bake in --add-opens by default; deployments that need them
+    // (Java 17+) invoke it through apps/spark-analytics/docker/run-analytics.sh, which sets
+    // JAVA_OPTS before exec'ing the staged binary. See that script for the flag list.
   )
 
 // Module: arena-bots-heuristic (RandomBot, CaptureFirstBot, MaterialGreedyBot)

@@ -1,6 +1,7 @@
 {
   "realm": "searchess",
   "displayName": "SeArChess",
+  "loginTheme": "searchess",
   "enabled": true,
   "sslRequired": "none",
   "registrationAllowed": true,
