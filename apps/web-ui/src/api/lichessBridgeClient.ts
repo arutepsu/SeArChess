@@ -1,4 +1,5 @@
 import keycloak from "../auth/keycloak";
+import { apiUrl } from "./client";
 
 export const LICHESS_BOT_USERNAME = "arutepsu2";
 export const LICHESS_BOT_PROFILE_URL = `https://lichess.org/@/${LICHESS_BOT_USERNAME}`;
@@ -86,7 +87,7 @@ export function subscribeToLichessGameEvents(
 
   void (async () => {
     try {
-      const resp = await fetch(`/api/lichess/games/${gameId}/events`, {
+      const resp = await fetch(apiUrl(`/lichess/games/${gameId}/events`), {
         headers: { Accept: "text/event-stream", ...authHeaders() },
         signal: controller.signal,
       });
@@ -139,7 +140,7 @@ function authHeaders(): Record<string, string> {
 }
 
 async function fetchBridgeJson<T>(path: string): Promise<T> {
-  const response = await fetch(path, {
+  const response = await fetch(apiUrl(path), {
     headers: {
       "Content-Type": "application/json",
       ...authHeaders(),
@@ -153,9 +154,9 @@ async function fetchBridgeJson<T>(path: string): Promise<T> {
 }
 
 export async function getLichessBridgeStatus(): Promise<LichessBridgeStatusResponse> {
-  return fetchBridgeJson<LichessBridgeStatusResponse>("/api/lichess/bridge/status");
+  return fetchBridgeJson<LichessBridgeStatusResponse>("/lichess/bridge/status");
 }
 
 export async function getLichessBridgePolicy(): Promise<LichessBridgePolicyResponse> {
-  return fetchBridgeJson<LichessBridgePolicyResponse>("/api/lichess/bridge/policy");
+  return fetchBridgeJson<LichessBridgePolicyResponse>("/lichess/bridge/policy");
 }

@@ -3,7 +3,7 @@ package chess.historyservice
 import chess.observability.StructuredLog
 
 enum HistoryDeliveryMode:
-  case Http, RedisStream
+  case Http, RedisStream, Kafka
 
 final case class HistoryServiceConfig(
     host: String,
@@ -21,7 +21,10 @@ final case class HistoryServiceConfig(
     redisPort: Int = 6379,
     redisStream: String = "searchess.history.archives",
     redisGroup: String = "history-service",
-    redisConsumerName: String = defaultConsumerName()
+    redisConsumerName: String = defaultConsumerName(),
+    kafkaBootstrapServers: Option[String] = None,
+    kafkaGameEventsTopic: String = "searchess.game.events.v1",
+    kafkaGroup: String = "history-service-game-projector"
 )
 
 object HistoryServiceConfig:
@@ -60,7 +63,11 @@ object HistoryServiceConfig:
       redisStream = env("HISTORY_REDIS_STREAM").getOrElse("searchess.history.archives").trim
       redisGroup = env("HISTORY_REDIS_GROUP").getOrElse("history-service").trim
       redisConsumer = env("HISTORY_REDIS_CONSUMER_NAME").getOrElse(defaultConsumerName()).trim
+      kafkaBootstrapServers = env("KAFKA_BOOTSTRAP_SERVERS").map(_.trim).filter(_.nonEmpty)
+      kafkaGameEventsTopic = env("KAFKA_GAME_EVENTS_TOPIC").getOrElse("searchess.game.events.v1").trim
+      kafkaGroup = env("HISTORY_KAFKA_GROUP").getOrElse("history-service-game-projector").trim
       _ <- validateRedisConfig(deliveryMode, redisEndpoint, redisStream, redisGroup, redisConsumer)
+      _ <- validateKafkaConfig(deliveryMode, kafkaBootstrapServers, kafkaGameEventsTopic, kafkaGroup)
       postgresUrl <- env("HISTORY_POSTGRES_URL").toRight("HISTORY_POSTGRES_URL is required")
       baseUrl = env("GAME_SERVICE_BASE_URL").getOrElse("http://127.0.0.1:8080")
     yield HistoryServiceConfig(
@@ -79,7 +86,10 @@ object HistoryServiceConfig:
       redisPort                 = redisEndpoint.map(_.port).getOrElse(6379),
       redisStream               = redisStream,
       redisGroup                = redisGroup,
-      redisConsumerName         = redisConsumer
+      redisConsumerName         = redisConsumer,
+      kafkaBootstrapServers     = kafkaBootstrapServers,
+      kafkaGameEventsTopic      = kafkaGameEventsTopic,
+      kafkaGroup                = kafkaGroup
     )
 
   private def parseDeliveryMode(raw: (String, String)): Either[String, HistoryDeliveryMode] =
@@ -87,7 +97,8 @@ object HistoryServiceConfig:
     value.trim.toLowerCase match
       case "http"                         => Right(HistoryDeliveryMode.Http)
       case "redis-stream" | "redisstream" => Right(HistoryDeliveryMode.RedisStream)
-      case other                          => Left(s"$name must be 'http' or 'redis-stream', got: '$other'")
+      case "kafka"                        => Right(HistoryDeliveryMode.Kafka)
+      case other                          => Left(s"$name must be 'http', 'redis-stream', or 'kafka', got: '$other'")
 
   private final case class RedisEndpoint(url: String, host: String, port: Int)
 
@@ -119,11 +130,26 @@ object HistoryServiceConfig:
   ): Either[String, Unit] =
     mode match
       case HistoryDeliveryMode.Http => Right(())
+      case HistoryDeliveryMode.Kafka => Right(())
       case HistoryDeliveryMode.RedisStream =>
         if endpoint.isEmpty then Left("HISTORY_REDIS_URL or REDIS_HOST is required when HISTORY_INGESTION_MODE=redis-stream")
         else if stream.isEmpty then Left("HISTORY_REDIS_STREAM is required when HISTORY_INGESTION_MODE=redis-stream")
         else if group.isEmpty then Left("HISTORY_REDIS_GROUP is required when HISTORY_INGESTION_MODE=redis-stream")
         else if consumer.isEmpty then Left("HISTORY_REDIS_CONSUMER_NAME must not be blank when HISTORY_INGESTION_MODE=redis-stream")
+        else Right(())
+
+  private def validateKafkaConfig(
+      mode: HistoryDeliveryMode,
+      bootstrapServers: Option[String],
+      topic: String,
+      group: String
+  ): Either[String, Unit] =
+    mode match
+      case HistoryDeliveryMode.Http | HistoryDeliveryMode.RedisStream => Right(())
+      case HistoryDeliveryMode.Kafka =>
+        if bootstrapServers.isEmpty then Left("KAFKA_BOOTSTRAP_SERVERS is required when HISTORY_INGESTION_MODE=kafka")
+        else if topic.isEmpty then Left("KAFKA_GAME_EVENTS_TOPIC is required when HISTORY_INGESTION_MODE=kafka")
+        else if group.isEmpty then Left("HISTORY_KAFKA_GROUP is required when HISTORY_INGESTION_MODE=kafka")
         else Right(())
 
   private def defaultConsumerName(): String =

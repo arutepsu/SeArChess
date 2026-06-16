@@ -20,6 +20,23 @@ static_resources:
                     - name: searchess_game_service
                       domains:
                         - "*"
+                      response_headers_to_add:
+                        - header:
+                            key: access-control-allow-origin
+                            value: "http://localhost:5173"
+                          append_action: OVERWRITE_IF_EXISTS_OR_ADD
+                        - header:
+                            key: access-control-allow-methods
+                            value: "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+                          append_action: OVERWRITE_IF_EXISTS_OR_ADD
+                        - header:
+                            key: access-control-allow-headers
+                            value: "authorization,content-type"
+                          append_action: OVERWRITE_IF_EXISTS_OR_ADD
+                        - header:
+                            key: vary
+                            value: "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+                          append_action: OVERWRITE_IF_EXISTS_OR_ADD
                       routes:
                         # Public edge: expose Game Service health, gameplay API, and WebSocket only.
                         # Do not route AI /v1/move-suggestions, History /internal/events/game,
@@ -28,6 +45,11 @@ static_resources:
                             path: /health
                           route:
                             cluster: game_service_http
+                        - match:
+                            prefix: /api/users
+                          route:
+                            cluster: user_service
+                            prefix_rewrite: /users
                         - match:
                             prefix: /api/analytics/
                           route:

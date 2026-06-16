@@ -144,6 +144,10 @@ lazy val history = project
       // Redis Streams consumer
       "redis.clients" % "jedis" % jedisVersion,
 
+      // Kafka history projection consumer
+      "org.apache.pekko" %% "pekko-stream" % pekkoVersion,
+      "org.apache.pekko" %% "pekko-connectors-kafka" % pekkoKafkaVersion,
+
       // Testcontainers for SlickPostgresArchiveRepositorySpec and RedisStreamHistoryConsumerSpec
       "org.testcontainers" % "testcontainers" % testcontainersVersion % Test,
       "org.testcontainers" % "postgresql"     % testcontainersVersion % Test
@@ -164,6 +168,8 @@ val flywayVersion          = "12.5.0"
 val postgresVersion        = "42.7.11"
 val jedisVersion           = "5.1.0"
 val testcontainersVersion  = "1.21.4"
+val pekkoVersion           = "1.1.2"
+val pekkoKafkaVersion      = "1.1.0"
 
 lazy val adapterPersistence = project
   .in(file("apps/game-service/modules/persistence"))
@@ -249,6 +255,8 @@ lazy val gameHistoryDelivery = project
       "com.lihaoyi"        %% "ujson"       % "4.0.2",
       "org.xerial"          % "sqlite-jdbc" % "3.46.1.3",
       "redis.clients"       % "jedis"       % jedisVersion,
+      "org.apache.pekko"   %% "pekko-stream" % pekkoVersion,
+      "org.apache.pekko"   %% "pekko-connectors-kafka" % pekkoKafkaVersion,
       "org.testcontainers"  % "testcontainers" % testcontainersVersion % Test
     )
   )

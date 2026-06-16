@@ -12,6 +12,7 @@ import type {
   UserProfileResponse,
 } from "./userServiceTypes";
 import keycloak from "../auth/keycloak";
+import { apiUrl } from "./client";
 
 async function authHeaders(): Promise<Record<string, string>> {
   if (!keycloak.authenticated) return {};
@@ -27,7 +28,7 @@ async function authHeaders(): Promise<Record<string, string>> {
 }
 
 async function fetchUserJson<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
+  const response = await fetch(apiUrl(path), {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -45,31 +46,31 @@ async function fetchUserJson<T>(path: string, options?: RequestInit): Promise<T>
 }
 
 export async function getMyProfile(): Promise<UserProfileResponse> {
-  return fetchUserJson<UserProfileResponse>("/api/users/me");
+  return fetchUserJson<UserProfileResponse>("/users/me");
 }
 
 export async function setManualLichessLink(
   request: SetManualLichessLinkRequest
 ): Promise<ExternalAccountLinkDto> {
-  return fetchUserJson<ExternalAccountLinkDto>("/api/users/me/links/lichess/manual", {
+  return fetchUserJson<ExternalAccountLinkDto>("/users/me/links/lichess/manual", {
     method: "PUT",
     body: JSON.stringify(request),
   });
 }
 
 export async function startLichessLink(): Promise<LichessLinkStartResponse> {
-  return fetchUserJson<LichessLinkStartResponse>("/api/users/me/links/lichess/start");
+  return fetchUserJson<LichessLinkStartResponse>("/users/me/links/lichess/start");
 }
 
 export async function patchProfile(request: PatchProfileRequest): Promise<UserProfileResponse> {
-  return fetchUserJson<UserProfileResponse>("/api/users/me/profile", {
+  return fetchUserJson<UserProfileResponse>("/users/me/profile", {
     method: "PATCH",
     body: JSON.stringify(request),
   });
 }
 
 export async function upgradeLichessLink(targetCapability: "challenge_ready"): Promise<LichessUpgradeResponse> {
-  return fetchUserJson<LichessUpgradeResponse>("/api/users/me/links/lichess/upgrade", {
+  return fetchUserJson<LichessUpgradeResponse>("/users/me/links/lichess/upgrade", {
     method: "POST",
     body: JSON.stringify({ targetCapability }),
   });
@@ -78,7 +79,7 @@ export async function upgradeLichessLink(targetCapability: "challenge_ready"): P
 export async function createSearchessBotChallenge(
   request: CreateSearchessBotChallengeRequest = {}
 ): Promise<CreateSearchessBotChallengeResponse> {
-  return fetchUserJson<CreateSearchessBotChallengeResponse>("/api/users/me/lichess/challenges/searchess-bot", {
+  return fetchUserJson<CreateSearchessBotChallengeResponse>("/users/me/lichess/challenges/searchess-bot", {
     method: "POST",
     body: JSON.stringify({
       clockSeconds: 300,
@@ -92,22 +93,22 @@ export async function createSearchessBotChallenge(
 }
 
 export async function getLichessGameState(gameId: string): Promise<LichessGameStateResponse> {
-  return fetchUserJson<LichessGameStateResponse>(`/api/users/me/lichess/games/${encodeURIComponent(gameId)}`);
+  return fetchUserJson<LichessGameStateResponse>(`/users/me/lichess/games/${encodeURIComponent(gameId)}`);
 }
 
 export async function submitLichessMove(gameId: string, move: string): Promise<SubmitLichessMoveResponse> {
-  return fetchUserJson<SubmitLichessMoveResponse>(`/api/users/me/lichess/games/${encodeURIComponent(gameId)}/move`, {
+  return fetchUserJson<SubmitLichessMoveResponse>(`/users/me/lichess/games/${encodeURIComponent(gameId)}/move`, {
     method: "POST",
     body: JSON.stringify({ move }),
   });
 }
 
 export async function getActiveLichessGames(): Promise<LichessActiveGamesResponse> {
-  return fetchUserJson<LichessActiveGamesResponse>("/api/users/me/lichess/games/active");
+  return fetchUserJson<LichessActiveGamesResponse>("/users/me/lichess/games/active");
 }
 
 export async function deleteLichessLink(): Promise<void> {
-  const response = await fetch("/api/users/me/links/lichess", {
+  const response = await fetch(apiUrl("/users/me/links/lichess"), {
     method: "DELETE",
     headers: await authHeaders(),
   });

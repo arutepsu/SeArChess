@@ -19,6 +19,7 @@ object ConfigLoader:
   private val DefaultHistoryDeliveryMode: String = "http"
   private val DefaultRedisPort: String           = "6379"
   private val DefaultHistoryRedisStream: String  = "searchess.history.archives"
+  private val DefaultKafkaGameEventsTopic: String = "searchess.game.events.v1"
   private val DefaultAiMode: String = "remote"
   private val DefaultAiRemoteBaseUrl: String = "http://ai-service:8765"
   private val DefaultAiTimeoutMillis: String = "15000"
@@ -67,13 +68,17 @@ object ConfigLoader:
         env("REDIS_PORT").getOrElse(DefaultRedisPort)
       )
       redisStream = env("HISTORY_REDIS_STREAM").getOrElse(DefaultHistoryRedisStream)
+      kafkaBootstrapServers = env("KAFKA_BOOTSTRAP_SERVERS").map(_.trim).filter(_.nonEmpty)
+      kafkaGameEventsTopic = env("KAFKA_GAME_EVENTS_TOPIC").getOrElse(DefaultKafkaGameEventsTopic).trim
       history <- parseHistoryForwardingConfig(
         histEnabled,
         env("HISTORY_SERVICE_BASE_URL"),
         histTimeout,
         histDeliveryMode,
         redisEndpoint,
-        redisStream
+        redisStream,
+        kafkaBootstrapServers,
+        kafkaGameEventsTopic
       )
       aiMode <- parseAiProviderMode(env("AI_PROVIDER_MODE").getOrElse(DefaultAiMode))
       aiTimeout <- parsePositiveInt(
@@ -295,10 +300,13 @@ object ConfigLoader:
       timeoutMillis: Int,
       deliveryMode: HistoryDeliveryMode,
       redisEndpoint: Option[RedisEndpoint],
-      redisStream: String
+      redisStream: String,
+      kafkaBootstrapServers: Option[String],
+      kafkaGameEventsTopic: String
   ): Either[String, HistoryForwardingConfig] =
     val cleanUrl = baseUrl.map(_.trim).filter(_.nonEmpty)
     val cleanStream = redisStream.trim
+    val cleanKafkaTopic = kafkaGameEventsTopic.trim
     if !enabled then
       Right(
         HistoryForwardingConfig(
@@ -309,11 +317,34 @@ object ConfigLoader:
           redisUrl     = redisEndpoint.map(_.url),
           redisHost    = redisEndpoint.map(_.host),
           redisPort    = redisEndpoint.map(_.port).getOrElse(DefaultRedisPort.toInt),
-          redisStream  = cleanStream
+          redisStream  = cleanStream,
+          kafkaBootstrapServers = kafkaBootstrapServers,
+          kafkaGameEventsTopic = cleanKafkaTopic
         )
       )
     else
       deliveryMode match
+        case HistoryDeliveryMode.Kafka =>
+          kafkaBootstrapServers match
+            case Some(servers) if cleanKafkaTopic.nonEmpty =>
+              Right(
+                HistoryForwardingConfig(
+                  enabled      = true,
+                  baseUrl      = cleanUrl,
+                  timeoutMillis = timeoutMillis,
+                  deliveryMode = HistoryDeliveryMode.Kafka,
+                  redisUrl     = redisEndpoint.map(_.url),
+                  redisHost    = redisEndpoint.map(_.host),
+                  redisPort    = redisEndpoint.map(_.port).getOrElse(DefaultRedisPort.toInt),
+                  redisStream  = cleanStream,
+                  kafkaBootstrapServers = Some(servers),
+                  kafkaGameEventsTopic = cleanKafkaTopic
+                )
+              )
+            case Some(_) =>
+              Left("KAFKA_GAME_EVENTS_TOPIC is required when HISTORY_DELIVERY_MODE=kafka")
+            case None =>
+              Left("KAFKA_BOOTSTRAP_SERVERS is required when HISTORY_FORWARDING_ENABLED=true and HISTORY_DELIVERY_MODE=kafka")
         case HistoryDeliveryMode.RedisStream =>
           redisEndpoint match
             case Some(endpoint) if cleanStream.nonEmpty =>
@@ -326,7 +357,9 @@ object ConfigLoader:
                   redisUrl     = Some(endpoint.url),
                   redisHost    = Some(endpoint.host),
                   redisPort    = endpoint.port,
-                  redisStream  = cleanStream
+                  redisStream  = cleanStream,
+                  kafkaBootstrapServers = kafkaBootstrapServers,
+                  kafkaGameEventsTopic = cleanKafkaTopic
                 )
               )
             case Some(_) =>
@@ -347,7 +380,9 @@ object ConfigLoader:
                   redisUrl     = redisEndpoint.map(_.url),
                   redisHost    = redisEndpoint.map(_.host),
                   redisPort    = redisEndpoint.map(_.port).getOrElse(DefaultRedisPort.toInt),
-                  redisStream  = cleanStream
+                  redisStream  = cleanStream,
+                  kafkaBootstrapServers = kafkaBootstrapServers,
+                  kafkaGameEventsTopic = cleanKafkaTopic
                 )
               )
             case None =>
@@ -359,8 +394,9 @@ object ConfigLoader:
     value.trim.toLowerCase match
       case "http"                        => Right(HistoryDeliveryMode.Http)
       case "redis-stream" | "redisstream" => Right(HistoryDeliveryMode.RedisStream)
+      case "kafka"                       => Right(HistoryDeliveryMode.Kafka)
       case _ =>
-        Left(s"HISTORY_DELIVERY_MODE must be 'http' or 'redis-stream', got: '$value'")
+        Left(s"HISTORY_DELIVERY_MODE must be 'http', 'redis-stream', or 'kafka', got: '$value'")
 
   private final case class RedisEndpoint(url: String, host: String, port: Int)
 
