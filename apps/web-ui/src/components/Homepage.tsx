@@ -4,11 +4,13 @@ import type { UserProfileResponse } from "../api/userServiceTypes";
 import { gameModes, isPlayableGameMode, type GameModeId } from "../gameModes";
 import ResumeGamePanel from "./ResumeGamePanel.tsx";
 import keycloak from "../auth/keycloak";
+import { apiUrl } from "../api/client";
 import "./Homepage.css";
 
 interface HomepageProps {
   hasActiveGame: boolean;
   busy: boolean;
+  message?: string;
   onboardingRequired: boolean;
   profile: UserProfileResponse | null;
   onStart: (mode: PlayableGameMode) => void;
@@ -22,6 +24,7 @@ interface HomepageProps {
 export default function Homepage({
   hasActiveGame,
   busy,
+  message,
   onboardingRequired,
   profile,
   onStart,
@@ -51,7 +54,7 @@ export default function Homepage({
         if (keycloak.token) {
           headers["Authorization"] = `Bearer ${keycloak.token}`;
         }
-        const res = await fetch("/api/bot/status", { headers });
+        const res = await fetch(apiUrl("/bot/status"), { headers });
         if (!active) return;
         const contentType = res.headers.get("content-type") ?? "";
         if (res.ok && contentType.includes("application/json")) {
@@ -89,7 +92,7 @@ export default function Homepage({
       if (keycloak.token) {
         headers["Authorization"] = `Bearer ${keycloak.token}`;
       }
-      const res = await fetch("/api/bot/start", { method: "POST", headers });
+      const res = await fetch(apiUrl("/bot/start"), { method: "POST", headers });
       const contentType = res.headers.get("content-type") ?? "";
       if (res.ok && contentType.includes("application/json")) {
         const data = await res.json();
@@ -113,7 +116,7 @@ export default function Homepage({
       if (keycloak.token) {
         headers["Authorization"] = `Bearer ${keycloak.token}`;
       }
-      const res = await fetch("/api/bot/stop", { method: "POST", headers });
+      const res = await fetch(apiUrl("/bot/stop"), { method: "POST", headers });
       const contentType = res.headers.get("content-type") ?? "";
       if (res.ok && contentType.includes("application/json")) {
         const data = await res.json();
@@ -181,7 +184,7 @@ export default function Homepage({
                   disabled={startDisabled}
                   onClick={() => {
                     startMode(item.id);
-                    if (playable && !onboardingRequired && !lichessBlocked) {
+                    if (isPlayableGameMode(item.id) && !onboardingRequired && !lichessBlocked) {
                       onStart(item.id);
                     }
                   }}
@@ -232,8 +235,14 @@ export default function Homepage({
             disabled={busy || onboardingRequired}
             onClick={() => onStart(mode)}
           >
-            Start Game
+            {busy ? "Starting..." : "Start Game"}
           </button>
+        ) : null}
+
+        {message ? (
+          <p className="homepage-status" role="status">
+            {message}
+          </p>
         ) : null}
 
         {hasActiveGame && (

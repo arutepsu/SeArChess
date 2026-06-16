@@ -48,12 +48,16 @@ function apiPath(path: string): string {
   return `${apiPathPrefix}${normalizedPath}`;
 }
 
+export function apiUrl(path: string): string {
+  return `${apiBaseUrl}${apiPath(path)}`;
+}
+
 async function fetchJson<T>(path: string, options?: RequestInit): Promise<T> {
   const authHeaders: Record<string, string> = keycloak.token
     ? { Authorization: `Bearer ${keycloak.token}` }
     : {};
 
-  const response = await fetch(`${apiBaseUrl}${apiPath(path)}`, {
+  const response = await fetch(apiUrl(path), {
     ...options,
     headers: {
       "Content-Type": "application/json",

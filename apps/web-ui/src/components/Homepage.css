@@ -125,6 +125,17 @@
   color: #f4efe6;
 }
 
+.homepage-status {
+  margin: -12px 0 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 206, 116, 0.28);
+  background: rgba(10, 11, 15, 0.48);
+  color: rgba(244, 239, 230, 0.88);
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
 /* Lichess Bot Control Panel */
 .bot-control-panel {
   display: flex;

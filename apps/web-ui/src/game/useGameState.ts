@@ -88,7 +88,7 @@ export type UseGameStateReturn = {
   refreshFromServer: () => Promise<void>;
   handleSelect: (square: string) => Promise<void>;
   setGameMode: (mode: PlayableGameMode) => void;
-  handleNewGame: (overrideMode?: PlayableGameMode) => Promise<void>;
+  handleNewGame: (overrideMode?: PlayableGameMode) => Promise<boolean>;
   handleImportNotation: (
     format: "FEN" | "PGN",
     notation: string
@@ -592,7 +592,7 @@ export function useGameState(): UseGameStateReturn {
     setMessageState("Promotion cancelled.");
   }, []);
 
-  const handleNewGame = useCallback(async (overrideMode?: PlayableGameMode): Promise<void> => {
+  const handleNewGame = useCallback(async (overrideMode?: PlayableGameMode): Promise<boolean> => {
     const thisGen = ++generation.current;
     const request: CreateGameRequest = { mode: overrideMode ?? gameMode };
 
@@ -602,18 +602,20 @@ export function useGameState(): UseGameStateReturn {
     try {
       const response = await createGame(request);
 
-      if (thisGen !== generation.current) return;
+      if (thisGen !== generation.current) return false;
 
       setSession(response.session);
       commitGameSnapshot(response.game);
       void refreshNotation(response.game.gameId, thisGen);
       setMessageState(undefined);
+      return true;
     } catch (error) {
-      if (thisGen !== generation.current) return;
+      if (thisGen !== generation.current) return false;
 
       setMessageState(
         error instanceof Error ? error.message : "Failed to start game."
       );
+      return false;
     } finally {
       setBusyState(false);
     }

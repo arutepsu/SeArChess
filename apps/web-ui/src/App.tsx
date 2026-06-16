@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chess } from "chess.js";
 import { Routes, Route, useNavigate } from "react-router-dom";
-import type { PlayableGameMode, GameState } from "./api/types";
+import type { PlayableGameMode, GameState, PieceCode, BoardMatrix } from "./api/types";
 import type { MoveHistoryEntryDto } from "./api/backendTypes";
 import { getReplayFrame } from "./api/client";
-import keycloak from "./auth/keycloak";
 import { getMyProfile } from "./api/userServiceClient";
 import type { UserProfileResponse } from "./api/userServiceTypes";
-import { mapGameSnapshotToGameState } from "./api/mapper";
+import { mapGameSnapshotToGameState, computeCapturedPieces } from "./api/mapper";
 import type { SpriteCatalog } from "./assets/spriteCatalog";
 import { loadSpriteCatalog } from "./assets/spriteCatalog";
 import { connectWebSocket, type WsClient } from "./api/ws";
@@ -20,7 +19,6 @@ import GameAnalysisView from "./components/GameAnalysisView.tsx";
 import EventTimeline, { type LiveTimelineEvent } from "./components/EventTimeline.tsx";
 import MoveList from "./components/MoveList.tsx";
 //import ResumeGamePanel from "./components/ResumeGamePanel.tsx";
-import SessionTransferPanel from "./components/SessionTransferPanel.tsx";
 import StatusBanner from "./components/StatusBanner.tsx";
 import Homepage from "./components/Homepage.tsx";
 import OnboardingPage from "./components/OnboardingPage.tsx";
@@ -98,6 +96,14 @@ function playMoveSound() {
   }
 }
 
+interface BotWebSocketData {
+  gameId: string;
+  moves: string;
+  botColor?: "white" | "black";
+  wtime?: number | null;
+  btime?: number | null;
+}
+
 function mapBotDataToGameState(
   data: BotWebSocketData
 ): GameState {
@@ -108,7 +114,7 @@ function mapBotDataToGameState(
       const from = moveStr.substring(0, 2);
       const to = moveStr.substring(2, 4);
       const promotion = moveStr.length > 4 ? moveStr.substring(4, 5).toLowerCase() : undefined;
-      chess.move({ from, to, promotion });
+      chess.move({ from: from as any, to: to as any, promotion: promotion as any });
     }
   }
 
@@ -246,6 +252,7 @@ export default function App() {
 
   const boardInteractionDisabled = activeTab === "bot" || busy || sessionClosed || !clockRunning;
   const replayModeActive = timelinePly < timelineTotalPlies;
+  const boundedTimelinePly = Math.min(Math.max(0, timelinePly), timelineTotalPlies);
 
   const mappedBotGame = useMemo(() => {
     if (!botGameData) return null;
@@ -669,7 +676,7 @@ export default function App() {
             const from = moveStr.substring(0, 2);
             const to = moveStr.substring(2, 4);
             const promotion = moveStr.length > 4 ? moveStr.substring(4, 5).toLowerCase() : undefined;
-            chess.move({ from, to, promotion });
+            chess.move({ from: from as any, to: to as any, promotion: promotion as any });
           }
         }
 
@@ -778,7 +785,7 @@ export default function App() {
               <MoveList moves={displayedGame?.moves ?? []} />
 
               <EventTimeline
-                game={activeTab === "bot" ? mappedBotGame : game}
+                game={activeTab === "bot" ? (mappedBotGame ?? undefined) : game}
                 liveEvents={activeTab === "bot" ? [] : liveTimelineEvents}
               />
 
@@ -806,7 +813,7 @@ export default function App() {
                 </nav>
 
                 <StatusBanner
-                  game={displayedGame}
+                  game={displayedGame ?? undefined}
                   connection={displayedConnection}
                   liveConnection={displayedLiveConnection}
                   message={displayedMessage}
@@ -897,10 +904,10 @@ export default function App() {
               <ControlPanel
                 game={activeTab === "bot" ? (displayedGame ?? undefined) : game}
                 busy={busy}
-                whiteTimeMs={whiteClockMs}
-                blackTimeMs={blackClockMs}
-                activeColor={game?.activeColor}
-                clockRunning={clockRunning}
+                whiteTimeMs={displayedWhiteTimeMs}
+                blackTimeMs={displayedBlackTimeMs}
+                activeColor={displayedActiveColor}
+                clockRunning={displayedClockRunning}
                 gameMode={gameMode}
                 canResign={canResign}
                 sessionId={session?.sessionId}

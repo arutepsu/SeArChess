@@ -307,9 +307,9 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list >/dev/null 2>&1"]
       interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 30s
+      timeout: 15s
+      retries: 18
+      start_period: 90s
     restart: unless-stopped
 
   kafka-ui:
