@@ -194,7 +194,7 @@ jobs:
           AI=$(echo                "$CHANGED" | grep -E "^apps/ai-service/|^Dockerfile\.ai$"               || true)
           BOT_SERVICE=$(echo       "$CHANGED" | grep -E "^apps/bot-service/|^Dockerfile\.bot-service$|^deployment/" || true)
           USER_SERVICE=$(echo      "$CHANGED" | grep -E "^apps/user-service/|^Dockerfile\.user-service$|^deployment/k8s/base/user-service/" || true)
-          WEB_UI=$(echo            "$CHANGED" | grep -E "^apps/web-ui/|^deployment/k8s/base/web-ui/"     || true)
+          WEB_UI=$(echo            "$CHANGED" | grep -E "^apps/web-ui/|^deployment/k8s/base/web-ui/|^tools/sync-chess-assets\.|^shared/"     || true)
           LICHESS_BRIDGE=$(echo    "$CHANGED" | grep -E "^apps/lichess-bridge-service/|^Dockerfile\.lichess-bridge-service$" || true)
           ANALYTICS=$(echo         "$CHANGED" | grep -E "^apps/analytics-service/|^Dockerfile\.analytics$|^deployment/k8s/base/analytics-service/" || true)
           TOURNAMENT=$(echo        "$CHANGED" | grep -E "^apps/tournament-service/|^Dockerfile\.tournament$|^deployment/k8s/base/tournament-service/" || true)
@@ -710,11 +710,16 @@ jobs:
       - name: Build and push web-ui
         uses: docker/build-push-action@v6
         with:
-          # Context is apps/web-ui so only web-ui files are sent to the daemon.
+          # Context is the repo root: the build's prebuild step
+          # (npm run sync:chess-assets) reaches outside apps/web-ui to
+          # tools/sync-chess-assets.mjs and shared/chess-assets/, so both must
+          # be in the build context. apps/web-ui/Dockerfile COPYs only those
+          # specific paths plus apps/web-ui/ itself — see Dockerfile and
+          # .dockerignore for what's excluded from the upload.
           # VITE_* build args are baked into the static bundle at build time.
           # Values target deployed Envoy serving the SPA and API on one origin:
           #   Keycloak/API/WS: same-origin relative URLs through Envoy
-          context: apps/web-ui
+          context: .
           file: apps/web-ui/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
