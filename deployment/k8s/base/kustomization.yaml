@@ -76,14 +76,6 @@ configMapGenerator:
     files:
       - realm-searchess.json=keycloak/realm-searchess.json
 
-  - name: keycloak-theme-searchess
-    files:
-      - theme.properties=keycloak/themes/searchess/login/theme.properties
-      - login.css=keycloak/themes/searchess/login/resources/css/login.css
-      - logo256.png=keycloak/themes/searchess/login/resources/img/logo256.png
-      - favicon.ico=keycloak/themes/searchess/login/resources/img/favicon.ico
-      - background2.jpg=keycloak/themes/searchess/login/resources/img/background2.jpg
-
   - name: prometheus-config
     files:
       - prometheus/prometheus.yml

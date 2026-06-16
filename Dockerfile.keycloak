@@ -1,0 +1,8 @@
+# syntax=docker/dockerfile:1
+
+# Bakes the searchess login theme into the Keycloak image so it no longer
+# needs to be delivered via a generated ConfigMap (which exceeded the
+# Kubernetes 3 MiB object size limit once background2.jpg was included).
+FROM quay.io/keycloak/keycloak:26.6.2
+
+COPY deployment/k8s/base/keycloak/themes/searchess /opt/keycloak/themes/searchess

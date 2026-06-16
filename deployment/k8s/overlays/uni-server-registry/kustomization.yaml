@@ -45,6 +45,12 @@ resources:
 images:
 - name: mongo
   newTag: "4.4"
+# Custom image bakes the searchess login theme into
+# /opt/keycloak/themes/searchess (see Dockerfile.keycloak), replacing the
+# oversized generated ConfigMap that exceeded the 3 MiB object size limit.
+- name: quay.io/keycloak/keycloak
+  newName: ghcr.io/arutepsu/searchess-keycloak
+  newTag: sha-placeholder
 - name: searchess/ai-service
   newName: ghcr.io/arutepsu/searchess-ai-service
   newTag: sha-1bfb049
