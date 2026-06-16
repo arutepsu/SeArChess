@@ -922,6 +922,14 @@ jobs:
           if [ "${{ needs.build-keycloak-image.result }}" = "success" ]; then
             kustomize edit set image \
               quay.io/keycloak/keycloak=ghcr.io/${{ env.ORG }}/searchess-keycloak:sha-${SHORT_SHA}
+            # Fail fast, before the render/commit/push steps, if the edit did not
+            # take (e.g. a name mismatch) and sha-placeholder is still sitting next
+            # to the keycloak image entry — this is the exact failure mode that left
+            # ImagePullBackOff in the cluster after the theme-image migration.
+            if grep -A1 "name: quay.io/keycloak/keycloak" kustomization.yaml | grep -q "sha-placeholder"; then
+              echo "ERROR: keycloak build succeeded but kustomization.yaml still has sha-placeholder."
+              exit 1
+            fi
             IMAGES_UPDATED="${IMAGES_UPDATED} keycloak"
           fi
 

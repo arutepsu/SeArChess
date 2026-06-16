@@ -50,7 +50,7 @@ images:
 # oversized generated ConfigMap that exceeded the 3 MiB object size limit.
 - name: quay.io/keycloak/keycloak
   newName: ghcr.io/arutepsu/searchess-keycloak
-  newTag: sha-placeholder
+  newTag: sha-f0ac855
 - name: searchess/ai-service
   newName: ghcr.io/arutepsu/searchess-ai-service
   newTag: sha-e813387
