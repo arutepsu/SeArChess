@@ -17,6 +17,7 @@ import { useSession } from "./session/SessionProvider";
 import ChessBoard from "./components/ChessBoard.tsx";
 import ControlPanel from "./components/ControlPanel.tsx";
 import GameAnalysisView from "./components/GameAnalysisView.tsx";
+import EventTimeline, { type LiveTimelineEvent } from "./components/EventTimeline.tsx";
 import MoveList from "./components/MoveList.tsx";
 //import ResumeGamePanel from "./components/ResumeGamePanel.tsx";
 import SessionTransferPanel from "./components/SessionTransferPanel.tsx";
@@ -214,6 +215,9 @@ export default function App() {
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [timelineError, setTimelineError] = useState<string | null>(null);
   const [replayGame, setReplayGame] = useState<GameState | null>(null);
+  const [liveTimelineEvents, setLiveTimelineEvents] = useState<LiveTimelineEvent[]>([]);
+  const [profile, setProfile] = useState<UserProfileResponse | null>(null);
+  const [onboardingRequired, setOnboardingRequired] = useState(false);
 
   // Bot mode state
   const [activeTab, setActiveTab] = useState<"local" | "bot">("local");
@@ -290,8 +294,29 @@ export default function App() {
   }, [loadGame]);
 
   useEffect(() => {
+    let active = true;
+
+    getMyProfile()
+      .then((loadedProfile) => {
+        if (!active) return;
+        setProfile(loadedProfile);
+        setOnboardingRequired(!loadedProfile.nickname);
+      })
+      .catch(() => {
+        if (!active) return;
+        setProfile(null);
+        setOnboardingRequired(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (game?.id) {
       resetClocks();
+      setLiveTimelineEvents([]);
     }
   }, [game?.id, resetClocks]);
 
@@ -436,6 +461,15 @@ export default function App() {
       },
       onMessage: (event) => {
         if (!active) return;
+
+        setLiveTimelineEvents((events) => [
+          ...events,
+          {
+            id: `${event.gameId}:${event.eventType}:${Date.now()}:${events.length}`,
+            receivedAt: new Date().toISOString(),
+            event
+          }
+        ].slice(-30));
 
         if (isGameStateRefreshHint(event)) {
           void refreshGameSnapshotAfterHint(event);
@@ -742,6 +776,11 @@ export default function App() {
               />
 
               <MoveList moves={displayedGame?.moves ?? []} />
+
+              <EventTimeline
+                game={activeTab === "bot" ? mappedBotGame : game}
+                liveEvents={activeTab === "bot" ? [] : liveTimelineEvents}
+              />
 
               <CapturedPanel captured={displayedGame?.captured ?? []} spriteCatalog={spriteCatalog} />
             </aside>

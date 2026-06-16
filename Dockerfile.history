@@ -9,7 +9,12 @@ COPY build.sbt ./
 COPY apps/ apps/
 COPY modules/ modules/
 
-RUN sbt "historyService / stage"
+RUN for attempt in 1 2 3; do \
+      sbt "historyService / stage" && break; \
+      if [ "$attempt" = "3" ]; then exit 1; fi; \
+      echo "sbt stage failed, retrying in 10s (attempt $attempt/3)"; \
+      sleep 10; \
+    done
 
 FROM eclipse-temurin:21-jre AS otel-agent
 ARG OTEL_AGENT_VERSION=2.10.0

@@ -33,6 +33,7 @@ export default function Homepage({
   const [mode, setMode] = useState<GameModeId>("HumanVsHuman");
   const [botStatus, setBotStatus] = useState<string>("stopped");
   const [botLogs, setBotLogs] = useState<string[]>([]);
+  const [botControlAvailable, setBotControlAvailable] = useState<boolean>(true);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const logContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -52,12 +53,17 @@ export default function Homepage({
         }
         const res = await fetch("/api/bot/status", { headers });
         if (!active) return;
-        if (res.ok) {
+        const contentType = res.headers.get("content-type") ?? "";
+        if (res.ok && contentType.includes("application/json")) {
           const data = await res.json();
           setBotStatus(data.status);
           setBotLogs(data.logs || []);
+          setBotControlAvailable(true);
+        } else {
+          setBotControlAvailable(false);
         }
       } catch (err) {
+        setBotControlAvailable(false);
         console.error("Failed to fetch bot status:", err);
       }
     };
@@ -84,11 +90,16 @@ export default function Homepage({
         headers["Authorization"] = `Bearer ${keycloak.token}`;
       }
       const res = await fetch("/api/bot/start", { method: "POST", headers });
-      if (res.ok) {
+      const contentType = res.headers.get("content-type") ?? "";
+      if (res.ok && contentType.includes("application/json")) {
         const data = await res.json();
         setBotStatus(data.status);
+        setBotControlAvailable(true);
+      } else {
+        setBotControlAvailable(false);
       }
     } catch (err) {
+      setBotControlAvailable(false);
       console.error("Failed to start bot:", err);
     } finally {
       setActionLoading(false);
@@ -103,11 +114,16 @@ export default function Homepage({
         headers["Authorization"] = `Bearer ${keycloak.token}`;
       }
       const res = await fetch("/api/bot/stop", { method: "POST", headers });
-      if (res.ok) {
+      const contentType = res.headers.get("content-type") ?? "";
+      if (res.ok && contentType.includes("application/json")) {
         const data = await res.json();
         setBotStatus(data.status);
+        setBotControlAvailable(true);
+      } else {
+        setBotControlAvailable(false);
       }
     } catch (err) {
+      setBotControlAvailable(false);
       console.error("Failed to stop bot:", err);
     } finally {
       setActionLoading(false);
@@ -139,6 +155,11 @@ export default function Homepage({
         <div className="mode-selection" aria-label="Game modes">
           {gameModes.map((item) => {
             const selected = item.id === mode;
+            const playable = isPlayableGameMode(item.id);
+            const lichessBlocked =
+              item.id === "HumanVsDeployedBot" && !hasVerifiedLichessLink;
+            const startDisabled =
+              busy || !item.active || !playable || onboardingRequired || lichessBlocked;
             const startMode = (id: GameModeId) => {
               if (gameModes.find((entry) => entry.id === id)?.active) {
                 setMode(id);
@@ -157,8 +178,13 @@ export default function Homepage({
                 <p>{item.summary}</p>
                 <button
                   type="button"
-                  disabled={busy || !item.active}
-                  onClick={() => startMode(item.id)}
+                  disabled={startDisabled}
+                  onClick={() => {
+                    startMode(item.id);
+                    if (playable && !onboardingRequired && !lichessBlocked) {
+                      onStart(item.id);
+                    }
+                  }}
                 >
                   {item.startLabel}
                 </button>
@@ -231,8 +257,9 @@ export default function Homepage({
         </header>
 
         <p className="bot-panel-desc">
-          Steuere die lokale Lichess Bot API. Der Bot akzeptiert Herausforderungen und spielt
-          automatisch.
+          {botControlAvailable
+            ? "Steuere die lokale Lichess Bot API. Der Bot akzeptiert Herausforderungen und spielt automatisch."
+            : "Bot-Control API ist in diesem lokalen Stack nicht verbunden. Der Live-Monitor funktioniert separat."}
         </p>
 
         <div className="bot-actions">
@@ -241,7 +268,7 @@ export default function Homepage({
               className="bot-action-btn start"
               type="button"
               onClick={handleStartBot}
-              disabled={actionLoading}
+              disabled={actionLoading || !botControlAvailable}
             >
               {actionLoading ? "Startet..." : "Bot Starten"}
             </button>
@@ -250,7 +277,7 @@ export default function Homepage({
               className="bot-action-btn stop"
               type="button"
               onClick={handleStopBot}
-              disabled={actionLoading}
+              disabled={actionLoading || !botControlAvailable}
             >
               {actionLoading ? "Stoppt..." : "Bot Stoppen"}
             </button>
