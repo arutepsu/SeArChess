@@ -232,6 +232,88 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  analytics-service:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.analytics
+    networks:
+      - edge
+      - internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "8084"
+    environment:
+      ANALYTICS_HTTP_HOST: 0.0.0.0
+      ANALYTICS_HTTP_PORT: 8084
+      ANALYTICS_POSTGRES_URL: jdbc:postgresql://postgres:5432/searchess
+      ANALYTICS_POSTGRES_USER: ${SEARCHESS_POSTGRES_USER:-searchess}
+      ANALYTICS_POSTGRES_PASSWORD: ${SEARCHESS_POSTGRES_PASSWORD:-searchess}
+      ANALYTICS_POSTGRES_SCHEMA: ${ANALYTICS_POSTGRES_SCHEMA:-public}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8084/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
+  tournament-service:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.tournament
+    networks:
+      - edge
+      - internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "8085"
+    environment:
+      TOURNAMENT_HTTP_HOST: 0.0.0.0
+      TOURNAMENT_HTTP_PORT: 8085
+      TOURNAMENT_JOB_STORE: postgres
+      TOURNAMENT_POSTGRES_URL: jdbc:postgresql://postgres:5432/searchess
+      TOURNAMENT_POSTGRES_USER: ${SEARCHESS_POSTGRES_USER:-searchess}
+      TOURNAMENT_POSTGRES_PASSWORD: ${SEARCHESS_POSTGRES_PASSWORD:-searchess}
+      TOURNAMENT_POSTGRES_SCHEMA: ${TOURNAMENT_POSTGRES_SCHEMA:-public}
+      TOURNAMENT_OUTBOX_PUBLISHER_ENABLED: "true"
+      TOURNAMENT_OUTBOX_PUBLISHER_TYPE: logging
+      TOURNAMENT_OUTPUT_BASE_PATH: /data/tournament-jobs
+      # Packaged Spark analytics distribution baked into Dockerfile.tournament —
+      # no sbt/source tree needed at runtime. These three already match the
+      # image's own ENV defaults; listed explicitly here for visibility.
+      TOURNAMENT_ANALYTICS_COMMAND: /app/spark-analytics/bin/run-analytics.sh
+      TOURNAMENT_ANALYTICS_WORKING_DIR: /app
+      TOURNAMENT_ANALYTICS_OUTPUT_BASE_PATH: /data/tournament-jobs/analytics-output
+      # Bot runtime: SearchessAI and Stockfish.
+      # Stockfish is installed inside the image (apt stockfish); path is /usr/games/stockfish.
+      # For local host dev (sbt tournamentService/run), override STOCKFISH_PATH in .env.
+      STOCKFISH_PATH: /usr/games/stockfish
+      SEARCHESS_AI_BASE_URL: http://ai-service:8765
+      # Read by the spark-analytics subprocess (inherited from this container's
+      # environment), not by tournament-service itself. Schema must match
+      # analytics-service's ANALYTICS_POSTGRES_SCHEMA so analytics-service can
+      # read what Spark writes.
+      POSTGRES_WRITE_ENABLED: "true"
+      POSTGRES_URL: jdbc:postgresql://postgres:5432/searchess
+      POSTGRES_USER: ${SEARCHESS_POSTGRES_USER:-searchess}
+      POSTGRES_PASSWORD: ${SEARCHESS_POSTGRES_PASSWORD:-searchess}
+      POSTGRES_SCHEMA: ${ANALYTICS_POSTGRES_SCHEMA:-public}
+      POSTGRES_WRITE_MODE: append
+      POSTGRES_STRICT_WRITE: "true"
+    volumes:
+      - tournament_jobs:/data/tournament-jobs
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8085/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
   # --- Data stores (internal only, no host ports) ---------------------------
 
   postgres:
@@ -404,6 +486,7 @@ services:
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
     volumes:
       - ../keycloak/realm-searchess.json:/opt/keycloak/data/import/realm-searchess.json:ro
+      - ../keycloak/themes:/opt/keycloak/themes:ro
     command: ["start-dev", "--import-realm"]
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/realms/master || exit 1"]
@@ -428,3 +511,5 @@ volumes:
     name: searchess_kafka_data
   prometheus_data:
   grafana_data:
+  tournament_jobs:
+    name: searchess_tournament_jobs

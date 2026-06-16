@@ -1,47 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Chess } from "chess.js";
-import { Routes, Route, useNavigate } from "react-router-dom";
-import type { PlayableGameMode, GameState, PieceCode, BoardMatrix } from "./api/types";
-import type { MoveHistoryEntryDto } from "./api/backendTypes";
-import { getReplayFrame } from "./api/client";
-import { getMyProfile } from "./api/userServiceClient";
-import type { UserProfileResponse } from "./api/userServiceTypes";
-import { mapGameSnapshotToGameState, computeCapturedPieces } from "./api/mapper";
-import type { SpriteCatalog } from "./assets/spriteCatalog";
-import { loadSpriteCatalog } from "./assets/spriteCatalog";
+import { useNavigate, useLocation } from "react-router-dom";
+import type { PlayableGameMode } from "./api/types";
+import { useSpriteCatalog } from "./app/hooks/useSpriteCatalog";
+import { useGameSceneSelection } from "./app/hooks/useGameSceneSelection";
+import { useBackgroundSelection } from "./app/hooks/useBackgroundSelection";
+import { useGameClock } from "./app/hooks/useGameClock";
+import { useReplayTimeline } from "./app/hooks/useReplayTimeline";
 import { connectWebSocket, type WsClient } from "./api/ws";
 import type { WsEvent } from "./api/wsTypes";
 import { useGameState } from "./game/useGameState";
 import { useSession } from "./session/SessionProvider";
-import ChessBoard from "./components/ChessBoard.tsx";
-import ControlPanel from "./components/ControlPanel.tsx";
-import GameAnalysisView from "./components/GameAnalysisView.tsx";
-import EventTimeline, { type LiveTimelineEvent } from "./components/EventTimeline.tsx";
-import MoveList from "./components/MoveList.tsx";
-//import ResumeGamePanel from "./components/ResumeGamePanel.tsx";
-import StatusBanner from "./components/StatusBanner.tsx";
-import Homepage from "./components/Homepage.tsx";
-import OnboardingPage from "./components/OnboardingPage.tsx";
-import BackgroundEffectsLayer from "./components/BackgroundEffectsLayer.tsx";
-import BackgroundPanel from "./components/BackgroundPanel.tsx";
-import CapturedPanel from "./components/CapturedPanel.tsx";
-import AuthBar from "./components/AuthBar.tsx";
-import ProfilePanel from "./components/ProfilePanel.tsx";
-import LichessHubPage from "./components/LichessHubPage.tsx";
-import LichessGamePage from "./components/LichessGamePage.tsx";
+import { useProfileOnboarding } from "./hooks/useProfileOnboarding";
+import { useBotDemoStream } from "./hooks/useBotDemoStream";
+import { AuthBar } from "./features/auth";
+import AppRoutes from "./app/AppRoutes";
+import type { ConnectionState, LiveConnectionState } from "./app/types";
+import { useMoveSound } from "./app/hooks/useMoveSound";
 import "./App.css";
-
-type ConnectionState = "connected" | "offline" | "loading";
-type LiveConnectionState = "idle" | "connecting" | "live" | "disconnected";
-
-const baseClockMs = 10 * 60 * 1000;
-
-const backgrounds = [
-  { id: "river", label: "River", url: "/assets/backgrounds/river.png" },
-  { id: "sakura-grove", label: "Grove", url: "/assets/backgrounds/sakuratrees.jpg" },
-  { id: "forest", label: "Forest", url: "/assets/backgrounds/new.jpg" }
-];
-
 
 function isGameStateRefreshHint(event: WsEvent): boolean {
   switch (event.eventType) {
@@ -207,8 +182,46 @@ export default function App() {
   } = useGameState();
   const { session, setSession, getSessionId } = useSession();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isGameRoute = location.pathname === "/game";
+  const isHomeRoute = location.pathname === "/";
+  const isTournamentsRoute = location.pathname.startsWith("/tournaments");
+  const isAnalyticsRoute = location.pathname === "/analytics";
+  const isAnalysisRoute = location.pathname === "/analysis";
+  const isSettingsRoute = location.pathname === "/settings";
+
+  const { profile, onboardingRequired, setOnboardingRequired } = useProfileOnboarding();
+
+  const [activeTab, setActiveTab] = useState<"local" | "bot">("local");
+  const {
+    botGameData,
+    mappedBotGame,
+    botWhiteClockMs,
+    botBlackClockMs,
+    hasNewBotMoveNotification,
+    botConnectionState,
+  } = useBotDemoStream(activeTab);
 
   const [connection, setConnection] = useState<ConnectionState>("loading");
+  const [liveConnection, setLiveConnection] = useState<LiveConnectionState>("idle");
+  const { whiteClockMs, blackClockMs, clockRunning } = useGameClock({
+    gameId: game?.id,
+    gameStatus: game?.status,
+    activeColor: game?.activeColor,
+  });
+  const { gameScenes, gameSceneId, setGameSceneId, gameScene } = useGameSceneSelection();
+  const { backgroundId, setBackgroundId, backgrounds } = useBackgroundSelection();
+  const spriteCatalog = useSpriteCatalog();
+  const {
+    timelinePly,
+    setTimelinePly,
+    timelineTotalPlies,
+    timelineRawMoves,
+    timelineLoading,
+    timelineError,
+    replayGame,
+  } = useReplayTimeline(game);
+
   const [liveConnection, setLiveConnection] =
     useState<LiveConnectionState>("idle");
   const [whiteClockMs, setWhiteClockMs] = useState(baseClockMs);
@@ -235,12 +248,6 @@ export default function App() {
 
   const lastTickMs = useRef<number | null>(null);
   const wsClientRef = useRef<WsClient | null>(null);
-  const previousTimelineTotalRef = useRef(0);
-
-  const clockRunning = useMemo(() => {
-    const status = game?.status;
-    return status === "active" || status === "check";
-  }, [game?.status]);
 
   const sessionClosed =
     sessionLifecycle === "Finished" || sessionLifecycle === "Cancelled";
@@ -252,12 +259,7 @@ export default function App() {
 
   const boardInteractionDisabled = activeTab === "bot" || busy || sessionClosed || !clockRunning;
   const replayModeActive = timelinePly < timelineTotalPlies;
-  const boundedTimelinePly = Math.min(Math.max(0, timelinePly), timelineTotalPlies);
-
-  const mappedBotGame = useMemo(() => {
-    if (!botGameData) return null;
-    return mapBotDataToGameState(botGameData);
-  }, [botGameData]);
+  const boundedTimelinePly = Math.min(timelinePly, timelineTotalPlies);
 
   const displayedGame = useMemo(() => {
     if (activeTab === "bot") {
@@ -270,12 +272,16 @@ export default function App() {
     timelinePly <= 0 ? null : timelineRawMoves[timelinePly - 1] ?? null;
 
   const botClockRunning = useMemo(() => {
-    return Boolean(mappedBotGame && mappedBotGame.status !== "checkmate" && mappedBotGame.status !== "draw" && mappedBotGame.status !== "resigned");
+    return Boolean(
+      mappedBotGame &&
+      mappedBotGame.status !== "checkmate" &&
+      mappedBotGame.status !== "draw" &&
+      mappedBotGame.status !== "resigned"
+    );
   }, [mappedBotGame]);
 
   const displayedWhiteTimeMs = activeTab === "bot" ? (botWhiteClockMs ?? 0) : whiteClockMs;
   const displayedBlackTimeMs = activeTab === "bot" ? (botBlackClockMs ?? 0) : blackClockMs;
-  const displayedActiveColor = activeTab === "bot" ? displayedGame?.activeColor : game?.activeColor;
   const displayedClockRunning = activeTab === "bot" ? botClockRunning : clockRunning;
 
   const canResign =
@@ -286,15 +292,8 @@ export default function App() {
     clockRunning &&
     activeController !== "AI";
 
-  const resetClocks = useCallback(() => {
-    setWhiteClockMs(baseClockMs);
-    setBlackClockMs(baseClockMs);
-    lastTickMs.current = performance.now();
-  }, []);
-
   useEffect(() => {
     setConnection("loading");
-
     loadGame()
       .then(() => setConnection("connected"))
       .catch(() => setConnection("offline"));
@@ -409,6 +408,27 @@ export default function App() {
     navigate("/");
   }, [navigate]);
 
+  const handleOpenBotDemo = useCallback(() => {
+    setActiveTab("bot");
+    navigate("/game");
+  }, [navigate]);
+
+  const handleContinueActiveGame = useCallback(() => navigate("/game"), [navigate]);
+  const handleOpenSettings = useCallback(() => navigate("/settings"), [navigate]);
+  const handleOpenOnboarding = useCallback(() => navigate("/onboarding"), [navigate]);
+  const handleOpenLichessHub = useCallback(() => navigate("/lichess"), [navigate]);
+  const handleCompleteOnboarding = useCallback(() => {
+    setOnboardingRequired(false);
+    navigate("/");
+  }, [navigate, setOnboardingRequired]);
+  const handleOpenHeatmap = useCallback(() => navigate("/analysis"), [navigate]);
+  const handleOpenLichessGame = useCallback((gameId: string) => navigate(`/lichess/games/${gameId}`), [navigate]);
+  const handleBackToLichess = useCallback(() => navigate("/lichess"), [navigate]);
+  const handleResumeAndNavigate = useCallback(async (sessionId: string) => {
+    await handleResumeSession(sessionId);
+    navigate("/game");
+  }, [handleResumeSession, navigate]);
+
   useEffect(() => {
     wsClientRef.current?.close();
     wsClientRef.current = null;
@@ -421,9 +441,7 @@ export default function App() {
     let active = true;
     setLiveConnection("connecting");
 
-    const refreshGameSnapshotAfterHint = async (
-      event: WsEvent
-    ): Promise<void> => {
+    const refreshGameSnapshotAfterHint = async (event: WsEvent): Promise<void> => {
       try {
         await refreshFromServer();
         setBusy(false);
@@ -439,12 +457,10 @@ export default function App() {
           if (session?.sessionId === event.sessionId) {
             setSession({ ...session, lifecycle: "Cancelled" });
           }
-
           setMessage("This session was cancelled.");
         }
       } catch (error) {
         if (!active) return;
-
         setLiveConnection("disconnected");
         setMessage(
           error instanceof Error
@@ -488,21 +504,18 @@ export default function App() {
             setBusy(true);
             setMessage(`AI is thinking for ${event.currentPlayer}...`);
             return;
-
           case "AITurnFailed":
             setBusy(false);
             setMessage(`AI move failed. ${event.reason}`);
             return;
-
           case "MoveRejected":
             setBusy(false);
             setMessage(`Move rejected. ${event.reason}`);
             return;
-
           case "SessionCreated":
             return;
         }
-      }
+      },
     });
 
     wsClientRef.current = client;
@@ -510,7 +523,6 @@ export default function App() {
     return () => {
       active = false;
       client.close();
-
       if (wsClientRef.current === client) {
         wsClientRef.current = null;
       }
@@ -522,7 +534,20 @@ export default function App() {
     session,
     setBusy,
     setMessage,
-    setSession
+    setSession,
+  ]);
+
+  useMoveSound(game);
+
+  const displayedConnection: ConnectionState =
+    activeTab === "bot"
+      ? botConnectionState === "disconnected"
+        ? "offline"
+        : botConnectionState === "connecting"
+          ? "loading"
+          : "connected"
+      : connection;
+  setSession
   ]);
 
   const clockStateRef = useRef({
@@ -736,222 +761,95 @@ export default function App() {
     ? (botConnectionState === "disconnected" ? "offline" as const : botConnectionState === "connecting" ? "loading" as const : "connected" as const)
     : connection;
 
-  const displayedLiveConnection = activeTab === "bot"
-    ? (botConnectionState === "live" ? "live" as const : botConnectionState === "connecting" ? "connecting" as const : "disconnected" as const)
-    : liveConnection;
+  const displayedLiveConnection: LiveConnectionState =
+    activeTab === "bot"
+      ? botConnectionState === "live"
+        ? "live"
+        : botConnectionState === "connecting"
+          ? "connecting"
+          : "disconnected"
+      : liveConnection;
 
-  const displayedMessage = activeTab === "bot"
-    ? (botConnectionState === "disconnected" ? "Verbindung zum Bot-Server getrennt. Reconnect in 3s... / Disconnected from bot server. Reconnecting..." : (!botGameData ? "Warte auf Bot-Spiele... / Waiting for bot games..." : undefined))
-    : message;
+  const displayedMessage =
+    activeTab === "bot"
+      ? botConnectionState === "disconnected"
+        ? "Disconnected from bot server. Reconnecting..."
+        : !botGameData
+          ? "Waiting for bot games..."
+          : undefined
+      : message;
 
   return (
     <div className="app">
-      <BackgroundEffectsLayer backgroundId={backgroundId} />
-      <AuthBar />
+      {!isGameRoute && !isHomeRoute && !isTournamentsRoute && !isAnalyticsRoute && !isAnalysisRoute && !isSettingsRoute && <AuthBar />}
 
-      <Routes>
-        <Route path="/" element={
-          <Homepage
-            hasActiveGame={Boolean(game)}
-            busy={busy}
-            onboardingRequired={onboardingRequired}
-            profile={profile}
-            onStart={handleStartGame}
-            onContinueActiveGame={() => navigate("/game")}
-            onResumeSession={async (sessionId) => {
-              await handleResumeSession(sessionId);
-              navigate("/game");
-            }}
-            onOpenSettings={() => navigate("/settings")}
-            onOpenOnboarding={() => navigate("/onboarding")}
-            onOpenLichessHub={() => navigate("/lichess")}
-          />
-        } />
-        <Route path="/onboarding" element={
-          <OnboardingPage onComplete={() => {
-            setOnboardingRequired(false);
-            navigate("/");
-          }} />
-        } />
-        <Route path="/game" element={
-          <main className="layout">
-            <aside className="side left-side">
-              <BackgroundPanel
-                backgrounds={backgrounds}
-                backgroundId={backgroundId}
-                onChange={setBackgroundId}
-              />
-
-              <MoveList moves={displayedGame?.moves ?? []} />
-
-              <EventTimeline
-                game={activeTab === "bot" ? (mappedBotGame ?? undefined) : game}
-                liveEvents={activeTab === "bot" ? [] : liveTimelineEvents}
-              />
-
-              <CapturedPanel captured={displayedGame?.captured ?? []} spriteCatalog={spriteCatalog} />
-            </aside>
-
-            {displayedGame || activeTab === "bot" ? (
-              <section className="board-column">
-                <nav className="tab-navigation" aria-label="Game Mode Tabs">
-                  <button
-                    type="button"
-                    className={`tab-btn ${activeTab === "local" ? "active" : ""}`}
-                    onClick={() => setActiveTab("local")}
-                  >
-                    🎮 Lokal Spielen
-                  </button>
-                  <button
-                    type="button"
-                    className={`tab-btn ${activeTab === "bot" ? "active" : ""}`}
-                    onClick={() => setActiveTab("bot")}
-                  >
-                    🤖 Bot-Live-Monitor
-                    {hasNewBotMoveNotification && <span className="notification-dot" />}
-                  </button>
-                </nav>
-
-                <StatusBanner
-                  game={displayedGame ?? undefined}
-                  connection={displayedConnection}
-                  liveConnection={displayedLiveConnection}
-                  message={displayedMessage}
-                />
-
-                {displayedGame ? (
-                  <ChessBoard
-                    board={displayedGame.board}
-                    selectedSquare={replayModeActive ? undefined : selectedSquare}
-                    legalMoves={replayModeActive ? [] : legalMoves}
-                    animation={replayModeActive ? null : animationPlan}
-                    idleAnimation={true}
-                    disabled={boardInteractionDisabled || replayModeActive}
-                    onSelect={handleSelect}
-                    onAnimationFinished={handleAnimationFinished}
-                    inCheck={displayedGame.status === "check"}
-                    activeColor={displayedGame.activeColor}
-                    gameStatus={displayedGame.status}
-                    drawReason={displayedGame.drawReason}
-                    winner={displayedGame.winner}
-                    promotionPending={promotionPending}
-                    onResolvePromotion={handleResolvePromotion}
-                    onCancelPromotion={handleCancelPromotion}
-                    onNewGame={handleNewGame}
-                    orientation={activeTab === "bot" ? (botGameData?.botColor ?? "white") : "white"}
-                  />
-                ) : (
-                  <section className="board-shell placeholder">
-                    <div className="loading">Warte auf Bot-Spieldaten... / Waiting for bot game data...</div>
-                  </section>
-                )}
-
-                {activeTab !== "bot" && (
-                  <section className="replay-timeline panel" aria-label="Time-travel timeline">
-                    <header className="replay-timeline-header">
-                      <h2>Time-Travel</h2>
-                      <p>
-                        Frame {timelinePly} / {timelineTotalPlies}
-                        {replayModeActive ? " (Replay)" : " (Live)"}
-                      </p>
-                    </header>
-
-                  {timelineError ? (
-                    <div className="replay-timeline-error">{timelineError}</div>
-                  ) : null}
-
-                  <input
-                    type="range"
-                    min={0}
-                    max={timelineTotalPlies}
-                    step={1}
-                    value={boundedTimelinePly}
-                    onChange={(event) =>
-                      setTimelinePly(Number(event.currentTarget.value))
-                    }
-                    disabled={timelineLoading || timelineTotalPlies <= 0}
-                  />
-
-                    <div className="replay-timeline-meta">
-                      <span>
-                        {currentReplayMove
-                          ? `${currentReplayMove.from} -> ${currentReplayMove.to}${currentReplayMove.promotion
-                            ? ` (${currentReplayMove.promotion})`
-                            : ""
-                          }`
-                          : "Initial position"}
-                      </span>
-                      {replayModeActive ? (
-                        <button
-                          type="button"
-                          onClick={() => setTimelinePly(timelineTotalPlies)}
-                          disabled={timelineLoading}
-                        >
-                          Back To Live
-                        </button>
-                      ) : null}
-                    </div>
-                  </section>
-                )}
-              </section>
-            ) : (
-              <section className="board-shell placeholder">
-                <div className="loading">Waiting for game data...</div>
-              </section>
-            )}
-
-            <aside className="side right-side">
-              <ControlPanel
-                game={activeTab === "bot" ? (displayedGame ?? undefined) : game}
-                busy={busy}
-                whiteTimeMs={displayedWhiteTimeMs}
-                blackTimeMs={displayedBlackTimeMs}
-                activeColor={displayedActiveColor}
-                clockRunning={displayedClockRunning}
-                gameMode={gameMode}
-                canResign={canResign}
-                sessionId={session?.sessionId}
-                gameId={activeTab === "bot" ? (displayedGame?.id ?? undefined) : (game?.id ?? session?.gameId)}
-                fen={activeTab === "bot" ? undefined : notation?.fen}
-                pgn={activeTab === "bot" ? undefined : notation?.pgn}
-                onImportNotation={handleImportNotation}
-                onExportNotation={handleExportNotation}
-                onGameModeChange={setGameMode}
-                onNewGame={handleNewGame}
-                onSaveSession={handleSaveSession}
-                onResign={handleResign}
-                onRunAiTurns={handleRunAiTurns}
-                onBackToMenu={handleBackToMenu}
-                onOpenHeatmap={() => navigate("/analysis")}
-              />
-
-            </aside>
-          </main>
-        } />
-        <Route
-          path="/analysis"
-          element={<GameAnalysisView gameId={game?.id ?? session?.gameId ?? null} />}
-        />
-        <Route
-          path="/settings"
-          element={<ProfilePanel onBack={() => navigate("/")} />}
-        />
-        <Route
-          path="/lichess"
-          element={
-            <LichessHubPage
-              profile={profile}
-              onOpenSettings={() => navigate("/settings")}
-              onOpenLichessGame={(gameId) => navigate(`/lichess/games/${gameId}`)}
-              onBack={() => navigate("/")}
-            />
-          }
-        />
-        <Route
-          path="/lichess/games/:gameId"
-          element={<LichessGamePage onBack={() => navigate("/lichess")} />}
-        />
-      </Routes>
+      <AppRoutes
+        game={game}
+        displayedGame={displayedGame}
+        mappedBotGame={mappedBotGame}
+        selectedSquare={selectedSquare}
+        legalMoves={legalMoves}
+        animationPlan={animationPlan}
+        promotionPending={promotionPending}
+        busy={busy}
+        gameMode={gameMode}
+        notation={notation}
+        boardInteractionDisabled={boardInteractionDisabled}
+        canResign={canResign}
+        session={session}
+        profile={profile}
+        onboardingRequired={onboardingRequired}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        botGameData={botGameData}
+        hasNewBotMoveNotification={hasNewBotMoveNotification}
+        botConnectionState={botConnectionState}
+        displayedConnection={displayedConnection}
+        displayedLiveConnection={displayedLiveConnection}
+        displayedMessage={displayedMessage}
+        timelinePly={timelinePly}
+        setTimelinePly={setTimelinePly}
+        timelineTotalPlies={timelineTotalPlies}
+        timelineLoading={timelineLoading}
+        timelineError={timelineError}
+        replayModeActive={replayModeActive}
+        boundedTimelinePly={boundedTimelinePly}
+        currentReplayMove={currentReplayMove}
+        displayedWhiteTimeMs={displayedWhiteTimeMs}
+        displayedBlackTimeMs={displayedBlackTimeMs}
+        displayedClockRunning={displayedClockRunning}
+        gameSceneId={gameSceneId}
+        setGameSceneId={setGameSceneId}
+        gameScenes={gameScenes}
+        gameScene={gameScene}
+        spriteCatalog={spriteCatalog}
+        backgroundId={backgroundId}
+        setBackgroundId={setBackgroundId}
+        backgrounds={backgrounds}
+        onContinueActiveGame={handleContinueActiveGame}
+        onStartGame={handleStartGame}
+        onResumeSession={handleResumeAndNavigate}
+        onOpenSettings={handleOpenSettings}
+        onOpenOnboarding={handleOpenOnboarding}
+        onOpenLichessHub={handleOpenLichessHub}
+        onOpenBotDemo={handleOpenBotDemo}
+        onCompleteOnboarding={handleCompleteOnboarding}
+        onOpenHeatmap={handleOpenHeatmap}
+        onBackToMenu={handleBackToMenu}
+        onOpenLichessGame={handleOpenLichessGame}
+        onBackToLichess={handleBackToLichess}
+        onSelect={handleSelect}
+        onAnimationFinished={handleAnimationFinished}
+        onResolvePromotion={handleResolvePromotion}
+        onCancelPromotion={handleCancelPromotion}
+        onNewGame={handleNewGame}
+        onImportNotation={handleImportNotation}
+        onExportNotation={handleExportNotation}
+        onGameModeChange={setGameMode}
+        onSaveSession={handleSaveSession}
+        onResign={handleResign}
+        onRunAiTurns={handleRunAiTurns}
+      />
     </div>
   );
 }

@@ -31,6 +31,7 @@ import {
   submitMove
 } from "../api/client";
 import { mapGameSnapshotToGameState } from "../api/mapper";
+import { ensureAuthenticated } from "../auth/keycloak";
 import type { BoardAnimation } from "../animation/animationTypes";
 import { planAnimation } from "../animation/planAnimation";
 import { useSession } from "../session/SessionProvider";
@@ -329,7 +330,7 @@ export function useGameState(): UseGameStateReturn {
       setBusyState(true);
 
       const thisGen = generation.current;
-      
+
       requestAiMove(game.id)
         .then(response => {
           if (thisGen !== generation.current) return;
@@ -592,7 +593,9 @@ export function useGameState(): UseGameStateReturn {
     setMessageState("Promotion cancelled.");
   }, []);
 
-  const handleNewGame = useCallback(async (overrideMode?: PlayableGameMode): Promise<boolean> => {
+  const handleNewGame = useCallback(async (overrideMode?: PlayableGameMode): Promise<void> => {
+    if (!ensureAuthenticated()) return;
+
     const thisGen = ++generation.current;
     const request: CreateGameRequest = { mode: overrideMode ?? gameMode };
 
@@ -623,6 +626,8 @@ export function useGameState(): UseGameStateReturn {
 
   const handleImportNotation = useCallback(
     async (format: "FEN" | "PGN", notation: string): Promise<void> => {
+      if (!ensureAuthenticated()) return;
+
       const trimmed = notation.trim();
 
       if (!trimmed) {

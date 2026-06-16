@@ -21,7 +21,8 @@ resources:
   - ../../base
 
 # Actively developed services (build locally, import via k3d):
-#   game-service, web-ui, bot-service, user-service, history-service
+#   game-service, web-ui, bot-service, user-service, history-service,
+#   analytics-service, tournament-service
 #
 # Stable / heavy services (pulled from GHCR, cached in k3d node on first apply):
 #   history-service, ai-service, python-ai-service (~1.3 GB — avoids local import)
@@ -40,6 +41,10 @@ images:
   - name: searchess/user-service
     newTag: local
   - name: searchess/history-service
+    newTag: local
+  - name: searchess/analytics-service
+    newTag: local
+  - name: searchess/tournament-service
     newTag: local
 
   # --- stable: pulled from GHCR, base imagePullPolicy: IfNotPresent applies ---
@@ -146,5 +151,19 @@ patches:
     target:
       kind: Deployment
       name: history-service
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never
+    target:
+      kind: Deployment
+      name: analytics-service
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never
+    target:
+      kind: Deployment
+      name: tournament-service
   # history-service, ai-service, python-ai-service: base already sets
   # imagePullPolicy: IfNotPresent — no patch needed for GHCR images.

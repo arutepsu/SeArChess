@@ -33,7 +33,7 @@ export async function loadSpriteCatalog(): Promise<SpriteCatalog> {
     return cachedCatalog;
   }
 
-  const response = await fetch("/assets/sprite_catalog.json");
+  const response = await fetch("/assets/chess/sprite_catalog.json");
   if (!response.ok) {
     throw new Error(`Failed to load sprite catalog: ${response.status}`);
   }

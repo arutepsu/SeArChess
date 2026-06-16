@@ -11,24 +11,21 @@
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(200px, 0.4fr) minmax(360px, 1.2fr) minmax(200px, 0.4fr);
-  gap: 100px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
   align-items: start;
-  padding-top: 20px;
-}
-
-.layout> :nth-child(2) {
-  position: sticky;
-  top: 25px;
-  /* Abstand zum oberen Bildschirmrand beim Scrollen */
-  height: fit-content;
-  /* Wichtig, damit das Element nicht die volle Grid-Höhe einnimmt */
+  padding-top: 4px;
+  justify-items: center;
 }
 
 .board-column {
   display: grid;
   gap: 14px;
   justify-items: center;
+  position: sticky;
+  top: 8px;
+  height: fit-content;
+  width: min(100%, 1080px);
 }
 
 .replay-timeline {
@@ -66,38 +63,12 @@
   font-size: 0.86rem;
 }
 
-.replay-timeline-meta button {
-  border: none;
-  border-radius: 999px;
-  padding: 6px 12px;
-  background: rgba(255, 255, 255, 0.14);
-  color: #f4efe6;
-  cursor: pointer;
-}
 
 .replay-timeline-error {
   border-radius: 10px;
   padding: 8px 10px;
   border: 1px solid rgba(255, 120, 120, 0.55);
   background: rgba(0, 0, 0, 0.3);
-}
-
-.side {
-  display: grid;
-  gap: 16px;
-  width: 100%;
-  max-width: 280px;
-}
-
-.left-side {
-  justify-self: end;
-  margin-right: 170px;
-  margin-top: 0%;
-}
-
-.right-side {
-  justify-self: start;
-  margin-left: 90px;
 }
 
 .placeholder {
@@ -117,19 +88,11 @@
 
 .panel {
   background: rgba(43, 24, 28, 0.85);
-  /* Beibehalten für die Tiefe */
-  border-radius: 24px;
+  border-radius: 16px;
   padding: 24px;
   color: #f4efe6;
-  border: 1px solid rgba(197, 160, 89, 0.3);
-
-  box-shadow:
-    0 10px 30px rgba(0, 0, 0, 0.5),
-    0 0 15px rgba(197, 160, 89, 0.05);
-
-  background-image: linear-gradient(135deg,
-      rgba(255, 255, 255, 0.05) 0%,
-      rgba(255, 255, 255, 0) 50%);
+  border: 2px solid #5a3a3a;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
 .background-panel {
@@ -259,20 +222,6 @@ pre {
     grid-template-columns: 1fr;
   }
 
-  .side {
-    max-width: 100%;
-  }
-
-  .left-side {
-    justify-self: center;
-    margin-right: 0;
-  }
-
-  .right-side {
-    justify-self: center;
-    margin-left: 0;
-  }
-
   .background-grid {
     grid-template-columns: repeat(3, minmax(80px, 1fr));
   }
@@ -285,46 +234,6 @@ pre {
     flex-direction: column;
     align-items: flex-start;
   }
-}
-
-/* Tab Navigation Styles */
-.tab-navigation {
-  display: flex;
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(197, 160, 89, 0.3);
-  border-radius: 14px;
-  padding: 4px;
-  margin-bottom: 8px;
-  align-self: center;
-  gap: 4px;
-}
-
-.tab-btn {
-  background: transparent;
-  border: none;
-  color: #a3a3a3;
-  padding: 8px 16px;
-  font-family: inherit;
-  font-size: 0.92rem;
-  font-weight: 600;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.25s ease;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  position: relative;
-}
-
-.tab-btn:hover {
-  color: #f4efe6;
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.tab-btn.active {
-  background: rgba(197, 160, 89, 0.7);
-  color: #ffffff;
-  box-shadow: 0 4px 10px rgba(197, 160, 89, 0.15);
 }
 
 .notification-dot {
@@ -495,4 +404,158 @@ pre {
   .pekko-room-panel {
     grid-template-columns: 1fr;
   }
+}
+
+/* ── Scene-mode: ancestor overhead reset ─────────────────────────────────── */
+
+/*
+ * In scene mode (.layout--scene is present) the #app shell's generous
+ * padding (32px top + 48px bottom = 80 px) and the .layout padding-top (4 px)
+ * push the stage below the viewport fold.  Clear both so the scene can fill
+ * the full viewport height with no page scroll.
+ *
+ * body:has() gives us a CSS-only ancestor hook — no JS body-class needed.
+ * Specificity: (0,1,1) + (1,0,0) = (1,1,1) > #app's (1,0,0). ✓
+ */
+body:has(.layout--scene) #app {
+  padding: 0;
+}
+
+.layout--scene {
+  padding-top: 0;
+  gap: 0;
+}
+
+/* ── Scene-mode: full-image stage with overlaid UI ──────────────────────── */
+
+/*
+ * .game-stage   — outer frame / backplate around the board scene.
+ * .game-stage__content — inner area that holds the scene image + overlays.
+ *
+ * Width formula (now that #app padding is cleared):
+ *   calc(100dvh - 8px)   fills the viewport height with only a tiny safety
+ *                        margin (4 px top + 4 px bottom).
+ *   calc(100vw - 16px)   8 px margin on each side, avoids horizontal overflow.
+ *   1280px               generous cap for large monitors.
+ *   max-width: 100%      never overflow the board-column (≤ 1080 px wide).
+ *
+ * With box-sizing: border-box and padding: 10px the outer frame stays square
+ * (outer = inner + 20 px each axis) and no new scroll is introduced.
+ */
+.game-stage {
+  width: min(calc(100dvh - 8px), calc(100vw - 16px), 1280px);
+  max-width: 100%;
+  margin: 0 auto;
+  position: relative;
+  isolation: isolate;
+
+  /* Frame / backplate */
+  padding: 10px;
+  box-sizing: border-box;
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(20, 12, 14, 0.88), rgba(56, 34, 28, 0.72));
+  border: 2px solid rgba(230, 179, 71, 0.45);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.65),
+    inset 0 0 24px rgba(255, 210, 120, 0.08);
+}
+
+/*
+ * Inner content area — the scene image fills this; overlays position
+ * relative to it.  overflow:hidden + border-radius clips the scene image
+ * corners so the rounded frame reads cleanly.
+ */
+.game-stage__content {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+/* BoardSceneView fills the content area; overrides BoardSceneView.css default sizing */
+.game-stage .board-scene-container {
+  width: 100%;
+}
+
+/* ── Overlay base ────────────────────────────────────────────────────────── */
+/*
+ * All overlay wrappers: pointer-events:none so board clicks pass through
+ * transparent gaps. Interactive content inside restores pointer-events.
+ * They are children of .game-stage__content (position:relative), so
+ * left/right/top/bottom are relative to the scene image area — not the frame.
+ */
+.game-stage__hud-overlay,
+.game-stage__status-overlay,
+.game-stage__timeline-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  z-index: 20;
+}
+
+/* HUD at the very top of the scene image */
+.game-stage__hud-overlay {
+  top: 0;
+  z-index: 30;  /* above status/timeline so user-menu dropdown is never clipped */
+}
+
+.game-stage__hud-overlay .game-hud {
+  pointer-events: auto;
+}
+
+/* Status banner: floats just below the HUD (~56 px = HUD height estimate) */
+.game-stage__status-overlay {
+  top: 56px;
+  display: flex;
+  justify-content: center;
+}
+
+.game-stage__status-overlay .banner {
+  pointer-events: auto;
+  width: min(90%, 560px);
+}
+
+/* Timeline: pinned to the bottom of the scene image */
+.game-stage__timeline-overlay {
+  bottom: 0;
+}
+
+.game-stage__timeline-overlay .replay-timeline {
+  pointer-events: auto;
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  margin: 0;
+}
+
+/* Compact, translucent overlay variant for the replay timeline in scene mode */
+.replay-timeline--overlay {
+  background: rgba(14, 7, 10, 0.82);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(90, 58, 58, 0.45);
+  border-radius: 0;
+  padding: 8px 16px;
+  gap: 6px;
+}
+
+.replay-timeline--overlay .replay-timeline-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.replay-timeline--overlay .replay-timeline-header h2 {
+  margin: 0;
+  font-size: 0.72rem;
+  font-family: 'Courier New', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.08rem;
+  opacity: 0.7;
+}
+
+.replay-timeline--overlay .replay-timeline-header p {
+  margin: 0;
+  font-size: 0.72rem;
+  opacity: 0.7;
 }

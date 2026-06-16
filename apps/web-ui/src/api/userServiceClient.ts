@@ -14,7 +14,16 @@ import type {
 import keycloak from "../auth/keycloak";
 import { apiUrl } from "./client";
 
-function authHeaders(): Record<string, string> {
+async function authHeaders(): Promise<Record<string, string>> {
+  if (!keycloak.authenticated) return {};
+
+  try {
+    await keycloak.updateToken(30);
+  } catch {
+    keycloak.clearToken();
+    return {};
+  }
+
   return keycloak.token ? { Authorization: `Bearer ${keycloak.token}` } : {};
 }
 
@@ -23,7 +32,7 @@ async function fetchUserJson<T>(path: string, options?: RequestInit): Promise<T>
     ...options,
     headers: {
       "Content-Type": "application/json",
-      ...authHeaders(),
+      ...(await authHeaders()),
       ...(options?.headers as Record<string, string> | undefined),
     },
   });
@@ -101,9 +110,11 @@ export async function getActiveLichessGames(): Promise<LichessActiveGamesRespons
 export async function deleteLichessLink(): Promise<void> {
   const response = await fetch(apiUrl("/users/me/links/lichess"), {
     method: "DELETE",
-    headers: authHeaders(),
+    headers: await authHeaders(),
   });
   if (!response.ok && response.status !== 404) {
     throw new Error(`Delete failed: ${response.status}`);
   }
 }
+
+

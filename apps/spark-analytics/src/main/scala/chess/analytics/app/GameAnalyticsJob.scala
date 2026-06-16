@@ -1,0 +1,31 @@
+package chess.analytics.app
+
+import org.apache.spark.sql.SparkSession
+import chess.analytics.config.PostgresConfig
+import chess.analytics.pipeline.GameAnalytics
+
+object GameAnalyticsJob {
+
+  def main(args: Array[String]): Unit = {
+    val inputPath  = if (args.length > 0) args(0) else "docs/samples/generated-heuristic-tournament.jsonl"
+    val outputPath = if (args.length > 1) args(1) else "target/spark-analytics"
+
+    val spark = SparkSession.builder()
+      .appName("Arena Game Analytics")
+      .master("local[*]")
+      .config("spark.sql.shuffle.partitions", "4")
+      .config("spark.driver.bindAddress", "127.0.0.1")
+      .getOrCreate()
+
+    spark.sparkContext.setLogLevel("WARN")
+
+    val pgConfig = PostgresConfig.fromEnv()
+
+    try {
+      val result = GameAnalytics.runWithResult(spark, inputPath, outputPath, pgConfig)
+      println(s"ANALYTICS_RUN_RESULT runId=${result.runId} sourcePath=${result.sourcePath} outputPath=${result.outputPath}")
+    } finally {
+      spark.stop()
+    }
+  }
+}

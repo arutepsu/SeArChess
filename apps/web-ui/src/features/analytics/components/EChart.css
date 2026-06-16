@@ -1,0 +1,20 @@
+.analytics-echart {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.analytics-echart > div {
+  max-width: 100%;
+}
+
+.analytics-echart--empty {
+  display: grid;
+  place-items: center;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  color: rgba(248, 241, 230, 0.56);
+  font-size: 0.9rem;
+  font-style: italic;
+  background: rgba(0, 0, 0, 0.12);
+}

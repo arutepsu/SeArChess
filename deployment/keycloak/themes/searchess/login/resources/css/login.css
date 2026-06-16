@@ -1,0 +1,278 @@
+@font-face {
+  font-family: "JungleAdventurer";
+  src:
+    url("../fonts/JungleAdventurer.otf") format("opentype"),
+    url("../fonts/JungleAdventurer.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --searchess-font-main: "JungleAdventurer", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --searchess-text-primary: #f8f1e6;
+  --searchess-text-bright: #fff8ea;
+  --searchess-text-muted: rgba(248, 241, 230, 0.68);
+  --searchess-text-subtle: rgba(248, 241, 230, 0.52);
+  --searchess-gold: #ffce74;
+  --searchess-gold-bright: #ffe0a1;
+  --searchess-gold-soft: rgba(255, 206, 116, 0.12);
+  --searchess-gold-border: rgba(255, 206, 116, 0.32);
+  --searchess-bg-glass: rgba(17, 13, 18, 0.78);
+  --searchess-bg-strong: rgba(12, 10, 16, 0.88);
+  --searchess-bg-control: rgba(0, 0, 0, 0.35);
+  --searchess-danger: #ff9d9d;
+}
+
+body,
+.login-pf {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255, 206, 116, 0.18), transparent 34%),
+    linear-gradient(140deg, rgba(9, 11, 18, 0.9), rgba(31, 18, 24, 0.76) 48%, rgba(9, 11, 18, 0.88)),
+    url("../img/background2.jpg") center / cover no-repeat fixed;
+  color: var(--searchess-text-primary);
+  font-family: var(--searchess-font-main);
+}
+
+.login-pf body {
+  background: transparent;
+}
+
+.login-pf-page {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  min-height: 100vh;
+  padding: 32px 16px;
+}
+
+#kc-header {
+  margin: 0 0 18px;
+  text-align: center;
+}
+
+#kc-header-wrapper {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 0;
+  color: transparent;
+  font-size: 0;
+  line-height: 1;
+  text-transform: none;
+}
+
+#kc-header-wrapper::before {
+  content: "";
+  width: clamp(86px, 18vw, 128px);
+  aspect-ratio: 1;
+  background: url("../img/logo256.png") center / contain no-repeat;
+  filter:
+    drop-shadow(0 0 22px rgba(255, 206, 116, 0.18))
+    drop-shadow(0 18px 42px rgba(0, 0, 0, 0.34));
+}
+
+#kc-header-wrapper::after {
+  content: "Searchess";
+  color: var(--searchess-text-bright);
+  font-family: var(--searchess-font-main);
+  font-size: clamp(2.45rem, 8vw, 4.25rem);
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 0.9;
+  text-shadow: 0 16px 44px rgba(0, 0, 0, 0.48);
+  text-transform: uppercase;
+}
+
+.card-pf {
+  width: min(420px, calc(100vw - 32px));
+  margin: 0;
+  padding: 28px clamp(18px, 5vw, 34px);
+  border: 1px solid var(--searchess-gold-border);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 206, 116, 0.11), rgba(255, 255, 255, 0.035)),
+    var(--searchess-bg-strong);
+  box-shadow:
+    0 22px 52px rgba(0, 0, 0, 0.42),
+    0 0 28px rgba(255, 206, 116, 0.08),
+    inset 0 1px 0 rgba(255, 244, 214, 0.08);
+  backdrop-filter: blur(16px);
+}
+
+#kc-page-title,
+#kc-form-login,
+#kc-info,
+#kc-terms-text,
+.instruction {
+  color: var(--searchess-text-primary);
+}
+
+#kc-page-title {
+  margin: 0 0 18px;
+  color: var(--searchess-gold);
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 0.12rem;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.pf-c-form__label,
+.control-label,
+label {
+  color: var(--searchess-text-primary);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.form-control,
+.pf-c-form-control,
+input[type="text"],
+input[type="password"],
+input[type="email"] {
+  min-height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: var(--searchess-bg-control);
+  color: var(--searchess-text-primary);
+  box-shadow: none;
+}
+
+.form-control:hover,
+.pf-c-form-control:hover,
+input[type="text"]:hover,
+input[type="password"]:hover,
+input[type="email"]:hover {
+  border-color: rgba(255, 206, 116, 0.24);
+}
+
+.form-control:focus,
+.pf-c-form-control:focus,
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus {
+  border-color: var(--searchess-gold-border);
+  outline: 3px solid rgba(255, 206, 116, 0.74);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(255, 206, 116, 0.14);
+}
+
+.form-control::placeholder,
+.pf-c-form-control::placeholder {
+  color: var(--searchess-text-subtle);
+}
+
+#kc-form-buttons {
+  margin-top: 22px;
+}
+
+#kc-login,
+.pf-c-button.pf-m-primary,
+input[type="submit"] {
+  min-height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.03)),
+    rgba(20, 13, 18, 0.74);
+  color: var(--searchess-text-primary);
+  font-weight: 900;
+  letter-spacing: 0.02rem;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+  text-transform: none;
+}
+
+#kc-login:hover,
+.pf-c-button.pf-m-primary:hover,
+input[type="submit"]:hover {
+  border-color: rgba(255, 206, 116, 0.48);
+  background:
+    linear-gradient(180deg, rgba(255, 206, 116, 0.13), rgba(255, 255, 255, 0.04)),
+    rgba(25, 15, 20, 0.82);
+  color: var(--searchess-text-bright);
+}
+
+#kc-login:focus-visible,
+.pf-c-button.pf-m-primary:focus-visible,
+input[type="submit"]:focus-visible {
+  outline: 3px solid rgba(255, 206, 116, 0.74);
+  outline-offset: 3px;
+  box-shadow:
+    0 0 0 1px var(--searchess-gold-border),
+    0 0 22px rgba(255, 206, 116, 0.22);
+}
+
+a,
+.pf-c-button.pf-m-link {
+  color: var(--searchess-gold);
+  font-weight: 700;
+}
+
+a:hover,
+a:focus,
+.pf-c-button.pf-m-link:hover,
+.pf-c-button.pf-m-link:focus {
+  color: var(--searchess-gold-bright);
+}
+
+#kc-info-wrapper {
+  margin-top: 18px;
+  border-top: 1px solid rgba(255, 206, 116, 0.18);
+  background: transparent;
+  color: var(--searchess-text-muted);
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.checkbox label,
+.pf-c-check__label,
+#kc-form-options,
+#kc-registration,
+#kc-social-providers,
+#kc-info {
+  color: var(--searchess-text-muted);
+}
+
+.alert,
+.pf-c-alert {
+  border: 1px solid rgba(255, 157, 157, 0.36);
+  border-radius: 8px;
+  background: rgba(70, 18, 24, 0.62);
+  color: var(--searchess-text-primary);
+}
+
+.alert-error,
+.pf-m-danger,
+#input-error,
+.kc-feedback-text {
+  color: var(--searchess-danger);
+}
+
+.pf-c-alert__title,
+.alert-error .kc-feedback-text {
+  color: var(--searchess-danger);
+}
+
+.pf-c-input-group,
+.input-group {
+  background: transparent;
+}
+
+.pf-c-input-group .pf-c-button,
+.input-group button {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--searchess-text-primary);
+}
+
+@media (max-width: 520px) {
+  .login-pf-page {
+    padding: 18px 12px;
+  }
+
+  .card-pf {
+    padding: 24px 16px;
+  }
+}

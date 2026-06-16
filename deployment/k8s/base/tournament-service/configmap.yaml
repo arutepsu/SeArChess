@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tournament-service-env
+  namespace: searchess
+data:
+  TOURNAMENT_HTTP_HOST: "0.0.0.0"
+  TOURNAMENT_HTTP_PORT: "8085"
+  TOURNAMENT_JOB_STORE: "postgres"
+  TOURNAMENT_POSTGRES_URL: "jdbc:postgresql://postgres:5432/searchess"
+  TOURNAMENT_POSTGRES_USER: "searchess"
+  TOURNAMENT_POSTGRES_SCHEMA: "public"
+  TOURNAMENT_OUTPUT_BASE_PATH: "/data/tournament-jobs"
+  # Logging publisher only — no Kafka broker is deployed. Do not set
+  # TOURNAMENT_OUTBOX_PUBLISHER_TYPE=kafka here without first adding a broker
+  # and TOURNAMENT_KAFKA_BOOTSTRAP_SERVERS; config validation rejects that
+  # combination at startup.
+  TOURNAMENT_OUTBOX_PUBLISHER_ENABLED: "true"
+  TOURNAMENT_OUTBOX_PUBLISHER_TYPE: "logging"
+  # Packaged Spark analytics distribution baked into Dockerfile.tournament —
+  # no sbt/source tree needed at runtime. These three already match the
+  # image's own ENV defaults; listed explicitly here for visibility.
+  TOURNAMENT_ANALYTICS_COMMAND: "/app/spark-analytics/bin/run-analytics.sh"
+  TOURNAMENT_ANALYTICS_WORKING_DIR: "/app"
+  TOURNAMENT_ANALYTICS_OUTPUT_BASE_PATH: "/data/tournament-jobs/analytics-output"
+  # Read by the spark-analytics subprocess (inherited from this Pod's
+  # environment), not by tournament-service itself. Schema must match
+  # analytics-service's ANALYTICS_POSTGRES_SCHEMA so analytics-service can
+  # read what Spark writes. Password comes from the searchess-secrets Secret
+  # below (same postgres-password key used for TOURNAMENT_POSTGRES_PASSWORD).
+  # Bot runtime: SearchessAI calls ai-service over cluster DNS.
+  # Stockfish is installed inside the image (apt stockfish in Dockerfile.tournament).
+  SEARCHESS_AI_BASE_URL: "http://ai-service:8765"
+  STOCKFISH_PATH: "/usr/games/stockfish"
+  POSTGRES_WRITE_ENABLED: "true"
+  POSTGRES_URL: "jdbc:postgresql://postgres:5432/searchess"
+  POSTGRES_USER: "searchess"
+  POSTGRES_SCHEMA: "public"
+  POSTGRES_WRITE_MODE: "append"
+  POSTGRES_STRICT_WRITE: "true"
+  JAVA_TOOL_OPTIONS: "-javaagent:/app/opentelemetry-javaagent.jar"
+  OTEL_SERVICE_NAME: "searchess-tournament-service"
+  OTEL_TRACES_EXPORTER: "otlp"
+  OTEL_METRICS_EXPORTER: "none"
+  OTEL_LOGS_EXPORTER: "none"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+  OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"

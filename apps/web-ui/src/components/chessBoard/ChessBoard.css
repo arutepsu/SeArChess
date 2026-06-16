@@ -1,0 +1,409 @@
+.board-shell {
+  background: rgba(49, 46, 43, 0.6);
+  border: 1px solid rgba(181, 136, 99, 0.35);
+  padding: 6px;
+  width: fit-content;
+  justify-self: center;
+  margin-left: 0;
+  --square-size: 80px;
+}
+
+.board-grid {
+  position: relative;
+  display: grid;
+  grid-template-rows: repeat(8, var(--square-size, 72px));
+  gap: 1px;
+}
+
+.board-row {
+  display: grid;
+  grid-template-columns: repeat(8, var(--square-size, 72px));
+  gap: 1px;
+}
+
+.board-square {
+  position: relative;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  width: var(--square-size, 72px);
+  height: var(--square-size, 72px);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.board-square:disabled {
+  cursor: default;
+}
+
+.square-light {
+  background: #f0d9b5e7;
+}
+
+.square-dark {
+  background: #b58863c9;
+}
+
+.piece {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  z-index: 1;
+}
+
+.piece-light {
+  color: #f7f4ee;
+}
+
+.piece-dark {
+  color: #1a1411;
+}
+
+.has-sprite {
+  color: transparent;
+}
+
+.animation-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.animation-piece {
+  position: absolute;
+  background-repeat: no-repeat;
+  background-position: 0% 50%;
+  background-size: 100% 100%;
+  transform-origin: center;
+}
+
+.is-selected {
+  outline: none;
+}
+
+.is-legal::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  width: calc(var(--square-size, 72px) * 0.36);
+  height: calc(var(--square-size, 72px) * 0.36);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.board-square.has-piece.is-legal::after {
+  width: calc(var(--square-size, 72px) * 0.92);
+  height: calc(var(--square-size, 72px) * 0.92);
+  background: transparent;
+  border: calc(var(--square-size, 72px) * 0.08) solid rgba(0, 0, 0, 0.33);
+}
+
+.board-square.square-light.is-legal {
+  background: #cdd16e;
+}
+
+.board-square.square-dark.is-legal {
+  background: #aaa23a;
+}
+
+.board-square.square-light.is-last-move {
+  background: #f5e28a;
+}
+
+.board-square.square-dark.is-last-move {
+  background: #c8b03c;
+}
+
+.board-square.square-light.is-selected {
+  background: #f6f669;
+}
+
+.board-square.square-dark.is-selected {
+  background: #baca2b;
+}
+
+/* Check highlighing */
+.board-square.is-check {
+  box-shadow: inset 0 0 15px rgba(255, 68, 68, 0.8), 0 0 10px rgba(255, 68, 68, 0.5);
+  animation: check-pulsate 1.5s infinite ease-in-out;
+}
+
+@keyframes check-pulsate {
+  0% {
+    background-color: rgba(255, 0, 0, 0.2);
+  }
+  50% {
+    background-color: rgba(255, 0, 0, 0.55);
+  }
+  100% {
+    background-color: rgba(255, 0, 0, 0.2);
+  }
+}
+
+/* Modals & Overlays */
+.promotion-overlay,
+.game-over-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(18, 10, 12, 0.65);
+  backdrop-filter: blur(5px);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.promotion-dialog,
+.game-over-dialog {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 420px;
+  width: 90%;
+  border: 2px solid rgba(197, 160, 89, 0.8);
+}
+
+.promotion-dialog h3,
+.game-over-dialog h3 {
+  margin: 0 0 8px 0;
+  color: #e6b347;
+  font-family: var(--searchess-font-main);
+  font-size: 1.25rem;
+  letter-spacing: 0.05rem;
+  text-transform: uppercase;
+}
+
+.promotion-desc,
+.game-over-message {
+  margin: 0 0 20px 0;
+  font-size: 0.92rem;
+  opacity: 0.9;
+  color: #f4efe6;
+}
+
+.promotion-options {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  justify-content: center;
+  width: 100%;
+}
+
+.promotion-option-btn {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(197, 160, 89, 0.3);
+  border-radius: 16px;
+  width: 72px;
+  height: 96px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-around;
+  padding: 8px 4px;
+  cursor: pointer;
+  color: #f4efe6;
+  transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.promotion-option-btn:hover {
+  transform: translateY(-4px);
+  border-color: rgba(197, 160, 89, 0.9);
+  background: rgba(197, 160, 89, 0.12);
+  box-shadow: 0 0 12px rgba(197, 160, 89, 0.25);
+}
+
+.promotion-option-btn .piece {
+  width: 48px;
+  height: 48px;
+  background-size: 100% 100%;
+  pointer-events: none;
+}
+
+.promotion-option-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  opacity: 0.88;
+  pointer-events: none;
+}
+
+.promotion-cancel-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.8);
+  border-radius: 999px;
+  padding: 8px 20px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.promotion-cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #fff;
+}
+
+.game-over-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.game-over-btn {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 24px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+  width: 100%;
+}
+
+.game-over-btn.primary {
+  background: linear-gradient(135deg, #e6b347, #b8860b);
+  color: #120a0c;
+  box-shadow: 0 4px 15px rgba(230, 179, 71, 0.3);
+}
+
+.game-over-btn.primary:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, #ffc75f, #cca300);
+  box-shadow: 0 6px 20px rgba(230, 179, 71, 0.45);
+}
+
+.game-over-btn.secondary {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #f4efe6;
+}
+
+.game-over-btn.secondary:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+/* ── Transparent overlay mode ─────────────────────────────────────────────── */
+/*
+ * Used when a GameSceneSkin is active. BoardSceneView positions this shell
+ * absolutely over the playable area; the shell fills that container.
+ * The scene image itself is rendered by BoardSceneView, not here.
+ */
+.board-shell--transparent-overlay {
+  background: transparent;
+  border: none;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.board-shell--transparent-overlay .board-grid {
+  grid-template-rows: repeat(8, 1fr);
+  gap: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.board-shell--transparent-overlay .board-row {
+  grid-template-columns: repeat(8, 1fr);
+  gap: 0;
+  width: 100%;
+}
+
+.board-shell--transparent-overlay .board-square {
+  width: 100%;
+  height: 100%;
+}
+
+/* Scene image draws its own squares — HTML squares are transparent */
+.board-shell--transparent-overlay .board-square.square-light,
+.board-shell--transparent-overlay .board-square.square-dark {
+  background: transparent;
+}
+
+/* Preserve state highlights as semi-transparent overlays */
+.board-shell--transparent-overlay .board-square.is-last-move {
+  background: rgba(255, 220, 30, 0.28);
+}
+
+.board-shell--transparent-overlay .board-square.is-selected {
+  background: rgba(255, 255, 60, 0.35);
+}
+
+.board-shell--transparent-overlay .board-square.is-legal {
+  background: transparent;
+}
+
+/* Legal-move dot on empty squares — bright green glow visible over any scene */
+.board-shell--transparent-overlay .board-square.is-legal::after {
+  content: "";
+  position: absolute;
+  width: 36%;
+  height: 36%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: rgba(60, 255, 120, 0.75);
+  box-shadow:
+    0 0 8px  rgba(60, 255, 120, 0.9),
+    0 0 20px rgba(60, 255, 120, 0.45);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Legal-move ring on occupied squares */
+.board-shell--transparent-overlay .board-square.has-piece.is-legal::after {
+  width: 88%;
+  height: 88%;
+  background: transparent;
+  border: 3px solid rgba(60, 255, 120, 0.85);
+  box-shadow:
+    inset 0 0 8px  rgba(60, 255, 120, 0.5),
+          0 0 10px rgba(60, 255, 120, 0.4);
+}
+
+.board-shell--transparent-overlay .board-square.has-piece.is-legal {
+  box-shadow: none;
+}
+
+/* ── Animations ───────────────────────────────────────────────────────────── */
+
+/* Animations */
+.animate-fade-in {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+
+.animate-scale-up {
+  animation: scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

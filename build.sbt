@@ -8,6 +8,26 @@ val scalaFxVersion   = "21.0.0-R32"
 val javaFxVersion    = "21.0.1"
 val http4sVersion    = "0.23.29"
 val gatlingVersion   = "3.11.3"
+// Spark 3.5.x requires Scala 2.13 — sparkAnalytics module overrides scalaVersion accordingly.
+val sparkVersion     = "3.5.3"
+
+// JVM --add-opens required for Spark 3.5.x on Java 17+.
+val sparkJvmOpens: Seq[String] = Seq(
+  "--add-opens=java.base/java.lang=ALL-UNNAMED",
+  "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
+  "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
+  "--add-opens=java.base/java.io=ALL-UNNAMED",
+  "--add-opens=java.base/java.net=ALL-UNNAMED",
+  "--add-opens=java.base/java.nio=ALL-UNNAMED",
+  "--add-opens=java.base/java.util=ALL-UNNAMED",
+  "--add-opens=java.base/java.util.concurrent=ALL-UNNAMED",
+  "--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED",
+  "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+  "--add-opens=java.base/sun.nio.cs=ALL-UNNAMED",
+  "--add-opens=java.base/sun.security.action=ALL-UNNAMED",
+  "--add-opens=java.base/sun.util.calendar=ALL-UNNAMED",
+  "--add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED"
+)
 
 lazy val osClassifier: String = System.getProperty("os.name") match {
   case n if n.startsWith("Windows") => "win"
@@ -516,6 +536,70 @@ lazy val userService = project
   )
   .dependsOn(observability)
 
+// ── App: analytics-service ───────────────────────────────────────────────────
+
+lazy val analyticsService = project
+  .in(file("apps/analytics-service"))
+  .enablePlugins(JavaAppPackaging)
+  .settings(
+    commonSettings,
+    name := "searchess-analytics-service",
+    coverageMinimumStmtTotal := 0,
+    Compile / mainClass := Some("chess.analyticsservice.AnalyticsServiceMain"),
+    run / mainClass     := Some("chess.analyticsservice.AnalyticsServiceMain"),
+    run / fork          := true,
+    libraryDependencies ++= Seq(
+      "org.http4s"          %% "http4s-ember-server" % http4sVersion,
+      "org.http4s"          %% "http4s-dsl"          % http4sVersion,
+      "com.lihaoyi"         %% "ujson"               % "4.0.2",
+      "com.typesafe.slick"  %% "slick"               % slickVersion,
+      "com.typesafe.slick"  %% "slick-hikaricp"      % slickVersion,
+      "org.postgresql"       % "postgresql"           % postgresVersion
+    ),
+    excludeFromCoverage(
+      ".*chess.analyticsservice.AnalyticsServiceMain.*",
+      ".*chess.analyticsservice.AnalyticsServiceConfig.*",
+      ".*chess.analyticsservice.AnalyticsServiceWiring.*",
+      ".*chess.analyticsservice.AnalyticsServiceRuntime.*",
+      ".*chess.analyticsservice.slick.SlickAnalyticsRepository.*"
+    )
+  )
+  .dependsOn(observability)
+
+// App: tournament-service
+// Owns Bot Evaluation Arena tournament job lifecycle and JSONL event output.
+lazy val tournamentService = project
+  .in(file("apps/tournament-service"))
+  .enablePlugins(JavaAppPackaging)
+  .settings(
+    commonSettings,
+    name := "searchess-tournament-service",
+    coverageMinimumStmtTotal := 0,
+    Compile / mainClass := Some("chess.tournamentservice.TournamentServiceMain"),
+    run / mainClass     := Some("chess.tournamentservice.TournamentServiceMain"),
+    run / fork          := true,
+    run / baseDirectory := (ThisBuild / baseDirectory).value,
+    libraryDependencies ++= Seq(
+      "org.http4s"          %% "http4s-ember-server" % http4sVersion,
+      "org.http4s"          %% "http4s-dsl"          % http4sVersion,
+      "com.lihaoyi"         %% "ujson"               % "4.0.2",
+      "com.typesafe.slick"  %% "slick"               % slickVersion,
+      "com.typesafe.slick"  %% "slick-hikaricp"      % slickVersion,
+      "org.postgresql"       % "postgresql"           % postgresVersion,
+      "org.apache.kafka"     % "kafka-clients"        % "3.7.1",
+      "org.testcontainers"   % "testcontainers"       % testcontainersVersion % Test,
+      "org.testcontainers"   % "postgresql"           % testcontainersVersion % Test
+    ),
+    excludeFromCoverage(
+      ".*chess.tournamentservice.TournamentServiceMain.*",
+      ".*chess.tournamentservice.TournamentServiceWiring.*",
+      ".*chess.tournamentservice.TournamentServiceRuntime.*",
+      ".*chess.tournamentservice.TournamentServiceConfig.*",
+      ".*chess.tournamentservice.db.SlickTournamentJobRepository.*"
+    )
+  )
+  .dependsOn(arenaCore, arenaEvents, arenaWriterJsonl, arenaBotsHeuristic, arenaBotsUci, arenaBotsAi, observability)
+
 // App: bot-service (searchess-bot-worker)
 // Talks to game-service; polls pending bot turns and submits AI moves.
 // Lichess integration removed. No Lichess token or external-game APIs.
@@ -564,6 +648,167 @@ lazy val lichessBridgeService = project
     )
   )
   .dependsOn(observability, notation, aiContract)
+
+// ── Bot Evaluation Arena ──────────────────────────────────────────────────────
+
+// Module: arena-events (GameEvent sealed trait, GameEventJson codec, EventEmitter)
+lazy val arenaEvents = project
+  .in(file("apps/bot-arena/arena-events"))
+  .settings(
+    commonSettings,
+    coverageMinimumStmtTotal := 0,
+    libraryDependencies += "com.lihaoyi" %% "ujson" % "4.0.2"
+  )
+
+// Module: arena-core (BotProfile, BotPlayer, GameRunner skeleton, Tournament skeleton)
+lazy val arenaCore = project
+  .in(file("apps/bot-arena/arena-core"))
+  .settings(
+    commonSettings,
+    coverageMinimumStmtTotal := 0
+  )
+  .dependsOn(arenaEvents, domain)
+
+// Module: arena-writer-jsonl (JsonlFileWriter)
+lazy val arenaWriterJsonl = project
+  .in(file("apps/bot-arena/writers/jsonl"))
+  .settings(
+    commonSettings,
+    coverageMinimumStmtTotal := 0
+  )
+  .dependsOn(arenaEvents)
+
+// Module: spark-analytics (Spark batch analytics — Scala 2.13; Spark 3.5.x requires Scala 2.13)
+// Module: arena-writer-kafka (Kafka EventEmitter implementation)
+lazy val arenaWriterKafka = project
+  .in(file("apps/bot-arena/writers/kafka"))
+  .settings(
+    commonSettings,
+    coverageMinimumStmtTotal := 0,
+    libraryDependencies += "org.apache.kafka" % "kafka-clients" % "3.7.1"
+  )
+  .dependsOn(arenaEvents)
+
+lazy val sparkAnalytics = project
+  .in(file("apps/spark-analytics"))
+  .enablePlugins(JavaAppPackaging)
+  .disablePlugins(wartremover.WartRemover)
+  .settings(
+    scalaVersion             := "2.13.14",
+    coverageEnabled          := false,
+    Compile / doc / sources  := Seq.empty,
+    name                     := "spark-analytics",
+    Compile / mainClass      := Some("chess.analytics.app.GameAnalyticsJob"),
+    libraryDependencies ++= Seq(
+      "org.apache.spark" %% "spark-sql"             % sparkVersion,
+      "org.apache.spark" %% "spark-sql-kafka-0-10"  % sparkVersion,
+      "org.postgresql"    % "postgresql"            % postgresVersion,
+      "org.scalatest"    %% "scalatest"             % "3.2.19"        % Test
+    ),
+    fork                     := true,
+    // Run from project root so relative paths resolve consistently with demoHeuristicTournament.
+    run  / baseDirectory     := (ThisBuild / baseDirectory).value,
+    run  / javaOptions       ++= sparkJvmOpens,
+    Test / javaOptions       ++= sparkJvmOpens :+
+      s"-DprojectRoot=${(ThisBuild / baseDirectory).value.getAbsolutePath}"
+    // Packaged distribution: sbt sparkAnalytics/stage -> target/universal/stage/bin/spark-analytics.
+    // The generated script does not bake in --add-opens by default; deployments that need them
+    // (Java 17+) invoke it through apps/spark-analytics/docker/run-analytics.sh, which sets
+    // JAVA_OPTS before exec'ing the staged binary. See that script for the flag list.
+  )
+
+// Module: arena-bots-heuristic (RandomBot, CaptureFirstBot, MaterialGreedyBot)
+lazy val arenaBotsHeuristic = project
+  .in(file("apps/bot-arena/bots/heuristic"))
+  .settings(
+    commonSettings,
+    coverageMinimumStmtTotal := 0
+  )
+  .dependsOn(arenaCore, arenaWriterJsonl % Test)
+
+// Module: arena-bots-uci (UCI adapter + Stockfish bot profiles)
+lazy val arenaBotsUci = project
+  .in(file("apps/bot-arena/bots/uci"))
+  .settings(
+    commonSettings,
+    coverageMinimumStmtTotal := 0
+  )
+  .dependsOn(
+    arenaCore,
+    notation,
+    arenaWriterJsonl % Test,
+    arenaBotsHeuristic % Test
+  )
+
+// App: arena-demo-heuristic (runnable demo — wires bots + writer)
+lazy val arenaDemoHeuristic = project
+  .in(file("apps/bot-arena/demo"))
+  .settings(
+    commonSettings,
+    coverageMinimumStmtTotal := 0,
+    Compile / mainClass      := Some("chess.arena.demo.HeuristicTournamentDemo"),
+    run / fork               := true,
+    // Run from project root so relative paths (target/arena/...) resolve consistently.
+    run / baseDirectory      := (ThisBuild / baseDirectory).value
+  )
+  .dependsOn(arenaBotsHeuristic, arenaWriterJsonl)
+
+// App: arena-demo-kafka (heuristic tournament to Kafka; optional JSONL dual-write)
+lazy val arenaDemoKafka = project
+  .in(file("apps/bot-arena/demo-kafka"))
+  .settings(
+    commonSettings,
+    coverageMinimumStmtTotal := 0,
+    Compile / mainClass      := Some("chess.arena.demo.KafkaHeuristicTournamentDemo"),
+    run / fork               := true,
+    run / baseDirectory      := (ThisBuild / baseDirectory).value
+  )
+  .dependsOn(arenaBotsHeuristic, arenaWriterJsonl, arenaWriterKafka)
+
+// App: arena-demo-stockfish (optional runnable demo; requires Stockfish binary)
+lazy val arenaDemoStockfish = project
+  .in(file("apps/bot-arena/demo-stockfish"))
+  .settings(
+    commonSettings,
+    coverageMinimumStmtTotal := 0,
+    Compile / mainClass      := Some("chess.arena.demo.StockfishTournamentDemo"),
+    run / fork               := true,
+    run / baseDirectory      := (ThisBuild / baseDirectory).value
+  )
+  .dependsOn(arenaBotsHeuristic, arenaBotsUci, arenaWriterJsonl)
+
+// Module: arena-bots-ai (SearchessAI HTTP adapter — BotPlayer over /v1/move-suggestions)
+lazy val arenaBotsAi = project
+  .in(file("apps/bot-arena/bots/ai"))
+  .settings(
+    commonSettings,
+    coverageMinimumStmtTotal := 0
+  )
+  .dependsOn(arenaCore, notation, aiContract, arenaWriterJsonl % Test)
+
+// App: arena-demo-ai (SearchessAI mixed tournament demo)
+lazy val arenaDemoAi = project
+  .in(file("apps/bot-arena/demo-ai"))
+  .settings(
+    commonSettings,
+    coverageMinimumStmtTotal := 0,
+    Compile / mainClass      := Some("chess.arena.demo.SearchessAiTournamentDemo"),
+    run / fork               := true,
+    run / baseDirectory      := (ThisBuild / baseDirectory).value
+  )
+  .dependsOn(arenaBotsAi, arenaBotsHeuristic, arenaBotsUci, arenaWriterJsonl)
+
+// App: arena-demo-evaluation (unified strong evaluation tournament — all bot families)
+lazy val arenaDemoEvaluation = project
+  .in(file("apps/bot-arena/demo-evaluation"))
+  .settings(
+    commonSettings,
+    coverageMinimumStmtTotal := 0,
+    Compile / mainClass      := Some("chess.arena.demo.EvaluationTournamentDemo"),
+    run / fork               := true,
+    run / baseDirectory      := (ThisBuild / baseDirectory).value
+  )
+  .dependsOn(arenaBotsAi, arenaBotsHeuristic, arenaBotsUci, arenaWriterJsonl)
 
 // App: chess-streaming
 lazy val chessStreaming = project
@@ -710,6 +955,38 @@ addCommandAlias("testAllAdapters",
 addCommandAlias("testApps",
   ";startupShared/test;gameService/test;historyService/test;userService/test;aiService/test;desktopGui/test;tuiCli/test")
 addCommandAlias("testLichessBridgeService", "lichessBridgeService/test")
+addCommandAlias("testArenaEvents",          "arenaEvents/test")
+addCommandAlias("testArenaCore",            "arenaCore/test")
+addCommandAlias("testArenaBotsHeuristic",   "arenaBotsHeuristic/test")
+addCommandAlias("testArenaBotsUci",         "arenaBotsUci/test")
+addCommandAlias("testArenaBotsAi",          "arenaBotsAi/test")
+addCommandAlias("testArenaWriterKafka",     "arenaWriterKafka/test")
+addCommandAlias("testArena",                ";arenaEvents/test;arenaCore/test;arenaBotsHeuristic/test;arenaBotsUci/test")
+addCommandAlias("testAnalyticsService",     "analyticsService/test")
+addCommandAlias("testTournamentService",    "tournamentService/test")
+addCommandAlias("testSparkAnalytics",       "sparkAnalytics/test")
+addCommandAlias("demoHeuristicTournament",  "arenaDemoHeuristic/run")
+addCommandAlias("demoKafkaHeuristicTournament", "arenaDemoKafka/run")
+addCommandAlias("demoStockfishTournament",  "arenaDemoStockfish/run")
+addCommandAlias("demoSparkAnalytics",
+  "sparkAnalytics/run target/arena/heuristic-tournament/game-events.jsonl target/spark-analytics")
+addCommandAlias("demoSparkAnalyticsStockfish",
+  "sparkAnalytics/run target/arena/stockfish-tournament/game-events.jsonl target/spark-analytics-stockfish")
+addCommandAlias("demoStockfishSparkAnalytics",
+  "sparkAnalytics/run target/arena/stockfish-tournament/game-events.jsonl target/spark-analytics-stockfish")
+addCommandAlias("demoSearchessAiTournament",  "arenaDemoAi/run")
+addCommandAlias("demoSearchessAiSparkAnalytics",
+  "sparkAnalytics/run target/arena/searchess-ai-tournament/game-events.jsonl target/spark-analytics-searchess-ai")
+addCommandAlias("demoEvaluationTournament",   "arenaDemoEvaluation/run")
+addCommandAlias("demoTournamentService",      "tournamentService/run")
+addCommandAlias("demoEvaluationSparkAnalytics",
+  "sparkAnalytics/run target/arena/evaluation-tournament/game-events.jsonl target/spark-analytics-evaluation")
+addCommandAlias("stockfishSmokeCheck",
+  "arenaDemoStockfish/runMain chess.arena.demo.StockfishSmokeCheck")
+addCommandAlias("demoSparkStreamingAnalytics",
+  "sparkAnalytics/runMain chess.analytics.app.GameAnalyticsStreamingJob")
+addCommandAlias("demoKafkaSparkStreaming",
+  "sparkAnalytics/runMain chess.analytics.app.GameAnalyticsStreamingJob")
 
 // ── Compile slices ────────────────────────────────────────────────────────────
 
@@ -742,5 +1019,9 @@ lazy val root = project
     adapterRestContract, adapterRestHttp4s,
     adapterWebsocket, adapterGui, adapterTui,
     startupShared, gameService, historyService, userService, aiService, desktopGui, tuiCli, loadTests, benchmarks,
-    botService, chessStreaming, lichessBridgeService
+    botService, chessStreaming, lichessBridgeService,
+    arenaEvents, arenaCore, arenaWriterJsonl, arenaWriterKafka, sparkAnalytics, arenaBotsHeuristic, arenaBotsUci,
+    arenaBotsAi,
+    arenaDemoHeuristic, arenaDemoKafka, arenaDemoStockfish, arenaDemoAi, arenaDemoEvaluation,
+    analyticsService, tournamentService
   )

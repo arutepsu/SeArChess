@@ -21,6 +21,11 @@ on:
     #   Infra change (deployment/**) → bot-service image rebuilt; Argo CD syncs the manifest.
     #   Docs change → no CI action; nothing is deployed.
     #
+    # analytics-service and tournament-service (Deploy Phase 2) start at
+    # newTag: sha-placeholder in uni-server-registry — no image has ever been
+    # pushed for them. The sha-placeholder safety net below forces their first
+    # build regardless of which files changed, same as user-service's bootstrap.
+    #
     # python-ai-service lives in a separate repo (arutepsu/searchess-ai-service).
     # There are no tracked app-code paths in this repo that map to it, so it is never
     # rebuilt on push. Use workflow_dispatch with rebuild_python_ai=true to force a rebuild.
@@ -88,6 +93,8 @@ jobs:
       build_web_ui:                ${{ steps.changes.outputs.build_web_ui }}
       build_python_ai:             ${{ steps.changes.outputs.build_python_ai }}
       build_lichess_bridge:        ${{ steps.changes.outputs.build_lichess_bridge }}
+      build_analytics:             ${{ steps.changes.outputs.build_analytics }}
+      build_tournament:            ${{ steps.changes.outputs.build_tournament }}
 
     steps:
       - name: Checkout
@@ -109,6 +116,8 @@ jobs:
             echo "build_web_ui=true"                >> $GITHUB_OUTPUT
             echo "build_python_ai=${{ inputs.rebuild_python_ai }}" >> $GITHUB_OUTPUT
             echo "build_lichess_bridge=true"        >> $GITHUB_OUTPUT
+            echo "build_analytics=true"             >> $GITHUB_OUTPUT
+            echo "build_tournament=true"            >> $GITHUB_OUTPUT
             exit 0
           fi
 
@@ -126,6 +135,8 @@ jobs:
             echo "build_web_ui=true"                >> $GITHUB_OUTPUT
             echo "build_python_ai=false"            >> $GITHUB_OUTPUT
             echo "build_lichess_bridge=true"        >> $GITHUB_OUTPUT
+            echo "build_analytics=true"             >> $GITHUB_OUTPUT
+            echo "build_tournament=true"            >> $GITHUB_OUTPUT
             exit 0
           fi
 
@@ -148,6 +159,8 @@ jobs:
             echo "build_web_ui=false"               >> $GITHUB_OUTPUT
             echo "build_python_ai=false"            >> $GITHUB_OUTPUT
             echo "build_lichess_bridge=true"        >> $GITHUB_OUTPUT
+            echo "build_analytics=true"             >> $GITHUB_OUTPUT
+            echo "build_tournament=true"            >> $GITHUB_OUTPUT
             exit 0
           fi
 
@@ -165,6 +178,8 @@ jobs:
             echo "build_web_ui=true"                >> $GITHUB_OUTPUT
             echo "build_python_ai=false"            >> $GITHUB_OUTPUT
             echo "build_lichess_bridge=true"        >> $GITHUB_OUTPUT
+            echo "build_analytics=true"             >> $GITHUB_OUTPUT
+            echo "build_tournament=true"            >> $GITHUB_OUTPUT
             exit 0
           fi
 
@@ -176,13 +191,25 @@ jobs:
           USER_SERVICE=$(echo      "$CHANGED" | grep -E "^apps/user-service/|^Dockerfile\.user-service$|^deployment/k8s/base/user-service/" || true)
           WEB_UI=$(echo            "$CHANGED" | grep -E "^apps/web-ui/|^deployment/k8s/base/web-ui/"     || true)
           LICHESS_BRIDGE=$(echo    "$CHANGED" | grep -E "^apps/lichess-bridge-service/|^Dockerfile\.lichess-bridge-service$" || true)
+          ANALYTICS=$(echo         "$CHANGED" | grep -E "^apps/analytics-service/|^Dockerfile\.analytics$|^deployment/k8s/base/analytics-service/" || true)
+          TOURNAMENT=$(echo        "$CHANGED" | grep -E "^apps/tournament-service/|^Dockerfile\.tournament$|^deployment/k8s/base/tournament-service/" || true)
 
-          # Safety: if the overlay still carries sha-placeholder the image was never
-          # pushed to GHCR. Force a rebuild regardless of which files changed.
-          if grep -q "newTag: sha-placeholder" \
-              deployment/k8s/overlays/uni-server-registry/kustomization.yaml 2>/dev/null; then
+          OVERLAY_FILE=deployment/k8s/overlays/uni-server-registry/kustomization.yaml
+
+          # Safety: if the overlay still carries sha-placeholder for a given service,
+          # its image was never pushed to GHCR. Force a rebuild of that service
+          # regardless of which files changed in this push.
+          if grep -A1 "name: searchess/user-service" "$OVERLAY_FILE" 2>/dev/null | grep -q "sha-placeholder"; then
             echo "user-service overlay tag is sha-placeholder — forcing rebuild."
             USER_SERVICE="forced"
+          fi
+          if grep -A1 "name: searchess/analytics-service" "$OVERLAY_FILE" 2>/dev/null | grep -q "sha-placeholder"; then
+            echo "analytics-service overlay tag is sha-placeholder — forcing rebuild."
+            ANALYTICS="forced"
+          fi
+          if grep -A1 "name: searchess/tournament-service" "$OVERLAY_FILE" 2>/dev/null | grep -q "sha-placeholder"; then
+            echo "tournament-service overlay tag is sha-placeholder — forcing rebuild."
+            TOURNAMENT="forced"
           fi
 
           [ -n "$GAME" ]           && echo "build_game=true"                 >> $GITHUB_OUTPUT \
@@ -199,6 +226,10 @@ jobs:
                                    || echo "build_web_ui=false"              >> $GITHUB_OUTPUT
           [ -n "$LICHESS_BRIDGE" ] && echo "build_lichess_bridge=true"       >> $GITHUB_OUTPUT \
                                    || echo "build_lichess_bridge=false"      >> $GITHUB_OUTPUT
+          [ -n "$ANALYTICS" ]      && echo "build_analytics=true"           >> $GITHUB_OUTPUT \
+                                   || echo "build_analytics=false"           >> $GITHUB_OUTPUT
+          [ -n "$TOURNAMENT" ]     && echo "build_tournament=true"          >> $GITHUB_OUTPUT \
+                                   || echo "build_tournament=false"          >> $GITHUB_OUTPUT
           echo "build_python_ai=false" >> $GITHUB_OUTPUT
 
   # ---------------------------------------------------------------------------
@@ -487,6 +518,100 @@ jobs:
           cache-from: type=gha,scope=user-service
           cache-to: type=gha,mode=max,scope=user-service
 
+  build-analytics-service:
+    name: Build analytics-service
+    runs-on: ubuntu-latest
+    needs: determine-changes
+    if: |
+      github.actor != 'github-actions[bot]' &&
+      needs.determine-changes.outputs.build_analytics == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set short SHA
+        id: sha
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.ORG }}/searchess-analytics-service
+          tags: |
+            type=raw,value=sha-${{ steps.sha.outputs.SHORT_SHA }}
+            type=raw,value=main-latest
+            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push analytics-service
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.analytics
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=analytics-service
+          cache-to: type=gha,mode=max,scope=analytics-service
+
+  build-tournament-service:
+    name: Build tournament-service
+    runs-on: ubuntu-latest
+    needs: determine-changes
+    if: |
+      github.actor != 'github-actions[bot]' &&
+      needs.determine-changes.outputs.build_tournament == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set short SHA
+        id: sha
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.ORG }}/searchess-tournament-service
+          tags: |
+            type=raw,value=sha-${{ steps.sha.outputs.SHORT_SHA }}
+            type=raw,value=main-latest
+            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push tournament-service
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.tournament
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=tournament-service
+          cache-to: type=gha,mode=max,scope=tournament-service
+
   build-web-ui:
     name: Build web-ui
     runs-on: ubuntu-latest
@@ -625,6 +750,8 @@ jobs:
       - build-user-service
       - build-web-ui
       - build-python-ai-service
+      - build-analytics-service
+      - build-tournament-service
     # Run if no build job failed or was cancelled AND at least one build succeeded.
     # always() is required so skipped jobs do not prevent this job from running.
     if: |
@@ -640,7 +767,9 @@ jobs:
         needs.build-lichess-bridge-service.result == 'success' ||
         needs.build-user-service.result == 'success' ||
         needs.build-web-ui.result == 'success' ||
-        needs.build-python-ai-service.result == 'success'
+        needs.build-python-ai-service.result == 'success' ||
+        needs.build-analytics-service.result == 'success' ||
+        needs.build-tournament-service.result == 'success'
       )
 
     steps:
@@ -718,6 +847,16 @@ jobs:
             kustomize edit set image \
               searchess/lichess-bridge-service=ghcr.io/${{ env.ORG }}/searchess-lichess-bridge-service:sha-${SHORT_SHA}
             IMAGES_UPDATED="${IMAGES_UPDATED} lichess-bridge-service"
+          fi
+          if [ "${{ needs.build-analytics-service.result }}" = "success" ]; then
+            kustomize edit set image \
+              searchess/analytics-service=ghcr.io/${{ env.ORG }}/searchess-analytics-service:sha-${SHORT_SHA}
+            IMAGES_UPDATED="${IMAGES_UPDATED} analytics-service"
+          fi
+          if [ "${{ needs.build-tournament-service.result }}" = "success" ]; then
+            kustomize edit set image \
+              searchess/tournament-service=ghcr.io/${{ env.ORG }}/searchess-tournament-service:sha-${SHORT_SHA}
+            IMAGES_UPDATED="${IMAGES_UPDATED} tournament-service"
           fi
 
           IMAGES_UPDATED=$(echo "$IMAGES_UPDATED" | xargs)

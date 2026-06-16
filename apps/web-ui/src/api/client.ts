@@ -40,7 +40,7 @@ function normalizePathPrefix(raw: unknown): string {
 }
 
 export const apiPathPrefix = normalizePathPrefix(
-  import.meta.env.VITE_API_PATH_PREFIX
+  import.meta.env.VITE_API_PATH_PREFIX ?? "/api"
 );
 
 function apiPath(path: string): string {
@@ -48,20 +48,33 @@ function apiPath(path: string): string {
   return `${apiPathPrefix}${normalizedPath}`;
 }
 
+async function authHeaders(): Promise<Record<string, string>> {
+  if (!keycloak.authenticated) return {};
+
+  try {
+    await keycloak.updateToken(30);
+  } catch {
+    // Refresh token expired/invalid — drop the stale token and let the
+    // request go out unauthenticated; the caller handles the resulting 401.
+    keycloak.clearToken();
+    return {};
+  }
+
+  return keycloak.token ? { Authorization: `Bearer ${keycloak.token}` } : {};
+}
+
 export function apiUrl(path: string): string {
   return `${apiBaseUrl}${apiPath(path)}`;
 }
 
 async function fetchJson<T>(path: string, options?: RequestInit): Promise<T> {
-  const authHeaders: Record<string, string> = keycloak.token
-    ? { Authorization: `Bearer ${keycloak.token}` }
-    : {};
+  const auth = await authHeaders();
 
   const response = await fetch(apiUrl(path), {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      ...authHeaders,
+      ...auth,
       ...(options?.headers as Record<string, string> | undefined),
     },
   });
