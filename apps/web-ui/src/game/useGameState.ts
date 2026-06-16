@@ -593,36 +593,39 @@ export function useGameState(): UseGameStateReturn {
     setMessageState("Promotion cancelled.");
   }, []);
 
-  const handleNewGame = useCallback(async (overrideMode?: PlayableGameMode): Promise<void> => {
-    if (!ensureAuthenticated()) return;
+  const handleNewGame: UseGameStateReturn["handleNewGame"] = useCallback(
+    async (overrideMode?: PlayableGameMode): Promise<boolean> => {
+      if (!ensureAuthenticated()) return false;
 
-    const thisGen = ++generation.current;
-    const request: CreateGameRequest = { mode: overrideMode ?? gameMode };
+      const thisGen = ++generation.current;
+      const request: CreateGameRequest = { mode: overrideMode ?? gameMode };
 
-    setBusyState(true);
-    setMessageState("Creating game...");
+      setBusyState(true);
+      setMessageState("Starting a new game...");
 
-    try {
-      const response = await createGame(request);
+      try {
+        const response = await createGame(request);
 
-      if (thisGen !== generation.current) return false;
+        if (thisGen !== generation.current) return false;
 
-      setSession(response.session);
-      commitGameSnapshot(response.game);
-      void refreshNotation(response.game.gameId, thisGen);
-      setMessageState(undefined);
-      return true;
-    } catch (error) {
-      if (thisGen !== generation.current) return false;
+        setSession(response.session);
+        commitGameSnapshot(response.game);
+        void refreshNotation(response.game.gameId, thisGen);
+        setMessageState(undefined);
+        return true;
+      } catch (error) {
+        if (thisGen !== generation.current) return false;
 
-      setMessageState(
-        error instanceof Error ? error.message : "Failed to start game."
-      );
-      return false;
-    } finally {
-      setBusyState(false);
-    }
-  }, [commitGameSnapshot, gameMode, refreshNotation, setSession]);
+        setMessageState(
+          error instanceof Error ? error.message : "Failed to start game."
+        );
+        return false;
+      } finally {
+        setBusyState(false);
+      }
+    },
+    [commitGameSnapshot, gameMode, refreshNotation, setSession]
+  );
 
   const handleImportNotation = useCallback(
     async (format: "FEN" | "PGN", notation: string): Promise<void> => {
