@@ -48,7 +48,7 @@ function apiPath(path: string): string {
   return `${apiPathPrefix}${normalizedPath}`;
 }
 
-async function authHeaders(): Promise<Record<string, string>> {
+export async function authHeaders(): Promise<Record<string, string>> {
   if (!keycloak.authenticated) return {};
 
   try {

@@ -6,14 +6,27 @@ import type {
   TournamentJobDetails,
   TournamentJobSummary,
 } from "./tournamentTypes";
+import { authHeaders } from "./client";
 
 const tournamentBase =
   (import.meta.env.VITE_TOURNAMENT_API_BASE_URL?.trim() ?? "");
 
+async function withAuth(init?: RequestInit): Promise<RequestInit> {
+  const headers = new Headers(init?.headers);
+  const auth = await authHeaders();
+  for (const [key, value] of Object.entries(auth)) {
+    headers.set(key, value);
+  }
+  return { ...init, headers };
+}
+
 async function fetchTournament<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${tournamentBase}${path}`, init);
+  const response = await fetch(`${tournamentBase}${path}`, await withAuth(init));
 
   if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error("You are not logged in, or your session token is missing.");
+    }
     const text = await response.text().catch(() => "");
     let message = `Tournament request failed: ${response.status}`;
     try {

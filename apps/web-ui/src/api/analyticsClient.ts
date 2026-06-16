@@ -11,14 +11,24 @@ import type {
   StrategyRow,
   TerminationReasonRow,
 } from "./analyticsTypes";
+import { authHeaders } from "./client";
 
 const analyticsBase =
   (import.meta.env.VITE_ANALYTICS_API_BASE_URL?.trim() ?? "");
 
 async function fetchAnalytics<T>(path: string): Promise<T> {
-  const response = await fetch(`${analyticsBase}${path}`);
+  const headers = new Headers();
+  const auth = await authHeaders();
+  for (const [key, value] of Object.entries(auth)) {
+    headers.set(key, value);
+  }
+
+  const response = await fetch(`${analyticsBase}${path}`, { headers });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error("You are not logged in, or your session token is missing.");
+    }
     const text = await response.text().catch(() => "");
     let message = `Analytics request failed: ${response.status}`;
     try {
