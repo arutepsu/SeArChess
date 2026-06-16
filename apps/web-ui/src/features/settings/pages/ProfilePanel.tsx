@@ -8,7 +8,6 @@ import {
   setManualLichessLink,
   startLichessLink
 } from "../../../api/userServiceClient";
-import ActionTile from "../../../components/ui/ActionTile";
 import Button from "../../../components/ui/Button";
 import GlassPanel from "../../../components/ui/GlassPanel";
 import "./ProfilePanel.css";
@@ -55,8 +54,6 @@ export default function ProfilePanel({ onBack }: ProfilePanelProps) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialLichessResult = useRef(searchParams.get("lichess"));
-  const linkedAccountsRef = useRef<HTMLElement | null>(null);
-  const highlightTimeoutRef = useRef<number | null>(null);
 
   const [profile, setProfile] = useState<UserProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -65,7 +62,6 @@ export default function ProfilePanel({ onBack }: ProfilePanelProps) {
   const [nicknameInput, setNicknameInput] = useState("");
   const [editingNickname, setEditingNickname] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [highlightLinkedAccounts, setHighlightLinkedAccounts] = useState(false);
   const [lichessNotice, setLichessNotice] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const [nicknameNotice, setNicknameNotice] = useState<{ kind: "success" | "error"; text: string } | null>(null);
 
@@ -91,14 +87,6 @@ export default function ProfilePanel({ onBack }: ProfilePanelProps) {
       })
       .finally(() => setLoading(false));
   }, [setSearchParams]);
-
-  useEffect(() => {
-    return () => {
-      if (highlightTimeoutRef.current !== null) {
-        window.clearTimeout(highlightTimeoutRef.current);
-      }
-    };
-  }, []);
 
   const lichessLink = profile?.links.find((l) => l.provider === "Lichess") ?? null;
   const displayName = profile?.nickname || profile?.displayName || "Searchess player";
@@ -181,24 +169,6 @@ export default function ProfilePanel({ onBack }: ProfilePanelProps) {
     setNicknameNotice(null);
   };
 
-  const handleLinkedAccountsAction = () => {
-    if (lichessLink) {
-      linkedAccountsRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-      linkedAccountsRef.current?.focus();
-      if (highlightTimeoutRef.current !== null) {
-        window.clearTimeout(highlightTimeoutRef.current);
-      }
-      setHighlightLinkedAccounts(true);
-      highlightTimeoutRef.current = window.setTimeout(() => {
-        setHighlightLinkedAccounts(false);
-        highlightTimeoutRef.current = null;
-      }, 1400);
-      return;
-    }
-
-    void handleLinkLichess();
-  };
-
   return (
     <main className="profile-page">
       <div className="profile-shell">
@@ -208,6 +178,7 @@ export default function ProfilePanel({ onBack }: ProfilePanelProps) {
             <h1>Profile &amp; Settings</h1>
             <p>Manage your Searchess identity, linked accounts, and game preferences.</p>
           </div>
+          <Button variant="secondary" onClick={onBack}>Back</Button>
         </header>
 
         {loading ? (
@@ -314,10 +285,8 @@ export default function ProfilePanel({ onBack }: ProfilePanelProps) {
 
               <GlassPanel
                 as="section"
-                className={["profile-card", "profile-linked-card", highlightLinkedAccounts ? "profile-linked-card--highlight" : ""].filter(Boolean).join(" ")}
+                className="profile-card profile-linked-card"
                 variant="default"
-                ref={linkedAccountsRef}
-                tabIndex={-1}
                 aria-label="Connected accounts"
               >
                 <div className="profile-section-heading">
@@ -399,73 +368,7 @@ export default function ProfilePanel({ onBack }: ProfilePanelProps) {
                   <p className={`profile-notice profile-notice--${lichessNotice.kind}`}>{lichessNotice.text}</p>
                 ) : null}
               </GlassPanel>
-
-              <GlassPanel as="section" className="profile-card" variant="subtle">
-                <div className="profile-section-heading">
-                  <div>
-                    <p className="profile-kicker">Game identity</p>
-                    <h2>Chess preferences</h2>
-                  </div>
-                  <span className="profile-pill">Coming soon</span>
-                </div>
-                <div className="profile-empty">
-                  <h3>Game identity settings coming soon</h3>
-                  <p>Player-side preferences and display options will live here when they become account settings.</p>
-                </div>
-              </GlassPanel>
             </div>
-
-            <aside className="profile-side-column" aria-label="Profile quick actions">
-              <GlassPanel as="section" className="profile-card" variant="default">
-                <p className="profile-kicker">Quick actions</p>
-                <div className="profile-action-list">
-                  <ActionTile
-                    label="Edit profile"
-                    description="Change your Searchess username."
-                    onClick={startNicknameEdit}
-                    disabled={saving}
-                  />
-                  <ActionTile
-                    label={lichessLink ? "Linked accounts" : "Link Lichess"}
-                    description={lichessLink ? "Review your Lichess connection." : "Connect a Lichess account."}
-                    badge={lichessLink ? "CONNECTED" : "OPEN"}
-                    onClick={handleLinkedAccountsAction}
-                    disabled={saving}
-                  />
-                  <ActionTile
-                    label="Analytics"
-                    description="Open completed tournament analytics."
-                    onClick={() => navigate("/analytics")}
-                  />
-                  <ActionTile
-                    label="Tournaments"
-                    description="Build or inspect bot tournament jobs."
-                    onClick={() => navigate("/tournaments")}
-                  />
-                </div>
-              </GlassPanel>
-
-              <GlassPanel as="section" className="profile-card profile-account-card" variant="subtle">
-                <p className="profile-kicker">Account info</p>
-                <dl className="profile-details profile-details--compact">
-                  <div>
-                    <dt>Authentication</dt>
-                    <dd>{profile.keycloakSubject ? "Signed in" : "Unavailable"}</dd>
-                  </div>
-                  <div>
-                    <dt>Profile</dt>
-                    <dd>{accountStatus}</dd>
-                  </div>
-                  <div>
-                    <dt>Linked services</dt>
-                    <dd>{profile.links.length}</dd>
-                  </div>
-                </dl>
-                <Button variant="secondary" fullWidth onClick={() => navigate("/")}>
-                  Back to dashboard
-                </Button>
-              </GlassPanel>
-            </aside>
           </div>
         ) : (
           <GlassPanel as="section" className="profile-state-card" variant="strong">
