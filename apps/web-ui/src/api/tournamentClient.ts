@@ -40,7 +40,7 @@ async function fetchTournament<T>(path: string, init?: RequestInit): Promise<T> 
 
   return (await response.json()) as T;
 }
-const TOURNAMENT_ROUTE = "/api/tournaments/tournament";
+const TOURNAMENT_ROUTE = "/api/tournaments";
 
 export async function fetchTournamentBots(): Promise<BotSummary[]> {
   const data = await fetchTournament<{ bots: BotSummary[] }>("/api/tournaments/bots");

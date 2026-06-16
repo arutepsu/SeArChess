@@ -82,7 +82,7 @@ static_resources:
                           route:
                             cluster: analytics_service_http
                         - match:
-                            prefix: /api/tournaments/
+                            prefix: /api/tournaments
                           route:
                             cluster: tournament_service_http
                         - match:
