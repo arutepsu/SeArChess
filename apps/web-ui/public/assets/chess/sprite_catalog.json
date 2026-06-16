@@ -1,4 +1,4 @@
-﻿{
+{
   "theme": "classic",
   "clipSpecs": {
     "pawn_idle":   { "frameCount": 4, "frameSize": { "width": 200, "height": 200 } },

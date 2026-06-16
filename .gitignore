@@ -36,19 +36,20 @@ docs/performance/**/logs/
 docs/performance/**/runs/
 
 # Local environment overrides — never commit real values
-<<<<<<< HEAD
 .env
 
 # Docker image archives
-*.tarvite.err.log
+*.tar
+vite.err.log
 vite.out.log
 .sbt/boot/
-
-# Local build artifacts
-*.tar
-apps/web-ui/vite*.log
-
-# Local build artifacts
-*.tar
-apps/web-ui/vite*.log
 .sbt/
+
+# Local build artifacts
+apps/web-ui/vite*.log
+
+# Generated/local output (sbt console dumps, runtime logs, kustomize render output)
+compile_output.txt
+game-service.log
+rendered.yaml
+test.txt
