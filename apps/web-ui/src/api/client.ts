@@ -63,10 +63,14 @@ async function authHeaders(): Promise<Record<string, string>> {
   return keycloak.token ? { Authorization: `Bearer ${keycloak.token}` } : {};
 }
 
+export function apiUrl(path: string): string {
+  return `${apiBaseUrl}${apiPath(path)}`;
+}
+
 async function fetchJson<T>(path: string, options?: RequestInit): Promise<T> {
   const auth = await authHeaders();
 
-  const response = await fetch(`${apiBaseUrl}${apiPath(path)}`, {
+  const response = await fetch(apiUrl(path), {
     ...options,
     headers: {
       "Content-Type": "application/json",

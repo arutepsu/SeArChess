@@ -7,9 +7,11 @@ import chess.adapter.event.{
   HistoryEventOutbox,
   HistoryHttpEventPublisher,
   HistoryOutboxForwarder,
+  KafkaGameEventPublisher,
   RedisStreamHistoryPublisher,
   SqliteHistoryEventOutbox
 }
+import org.apache.pekko.actor.ActorSystem
 import redis.clients.jedis.JedisPooled
 import chess.adapter.websocket.{
   ChessWebSocketServer,
@@ -117,6 +119,24 @@ object EventAssembly:
             NoOpTerminalEventJsonSerializer,
             None,
             () => jedis.close()
+          )
+
+        case HistoryDeliveryMode.Kafka =>
+          val bootstrapServers = config.history.kafkaBootstrapServers.getOrElse(
+            throw IllegalArgumentException("History Kafka delivery enabled but KAFKA_BOOTSTRAP_SERVERS is not configured")
+          )
+          given ActorSystem = ActorSystem("game-service-kafka-events")
+          StructuredLog.info(
+            "game-service",
+            "history_kafka_delivery_configured",
+            "bootstrapServers" -> bootstrapServers,
+            "topic" -> config.history.kafkaGameEventsTopic
+          )
+          (
+            Seq(KafkaGameEventPublisher(bootstrapServers, config.history.kafkaGameEventsTopic)),
+            NoOpTerminalEventJsonSerializer,
+            None,
+            () => summon[ActorSystem].terminate()
           )
 
         case HistoryDeliveryMode.Http =>

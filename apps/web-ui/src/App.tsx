@@ -37,6 +37,7 @@ function isGameStateRefreshHint(event: WsEvent): boolean {
 }
 
 
+
 export default function App() {
   const {
     game,
@@ -135,9 +136,9 @@ export default function App() {
   const botClockRunning = useMemo(() => {
     return Boolean(
       mappedBotGame &&
-        mappedBotGame.status !== "checkmate" &&
-        mappedBotGame.status !== "draw" &&
-        mappedBotGame.status !== "resigned"
+      mappedBotGame.status !== "checkmate" &&
+      mappedBotGame.status !== "draw" &&
+      mappedBotGame.status !== "resigned"
     );
   }, [mappedBotGame]);
 
@@ -159,6 +160,8 @@ export default function App() {
       .then(() => setConnection("connected"))
       .catch(() => setConnection("offline"));
   }, [loadGame]);
+
+
 
   const handleStartGame = async (selectedMode: PlayableGameMode) => {
     if (onboardingRequired) {
@@ -251,6 +254,8 @@ export default function App() {
       onMessage: (event) => {
         if (!active) return;
 
+
+
         if (isGameStateRefreshHint(event)) {
           void refreshGameSnapshotAfterHint(event);
           return;
@@ -296,22 +301,33 @@ export default function App() {
 
   useMoveSound(game);
 
-  const displayedConnection: ConnectionState =
-    activeTab === "bot"
-      ? botConnectionState === "disconnected"
-        ? "offline"
-        : botConnectionState === "connecting"
-        ? "loading"
-        : "connected"
-      : connection;
+
+
+  useEffect(() => {
+    const match = backgrounds.find((item) => item.id === backgroundId);
+    const nextUrl = match?.imageUrl ?? backgrounds[0].imageUrl;
+
+    document.documentElement.style.setProperty(
+      "--app-background",
+      `url("${nextUrl}")`
+    );
+  }, [backgroundId]);
+
+
+
+
+
+  const displayedConnection = activeTab === "bot"
+    ? (botConnectionState === "disconnected" ? "offline" as const : botConnectionState === "connecting" ? "loading" as const : "connected" as const)
+    : connection;
 
   const displayedLiveConnection: LiveConnectionState =
     activeTab === "bot"
       ? botConnectionState === "live"
         ? "live"
         : botConnectionState === "connecting"
-        ? "connecting"
-        : "disconnected"
+          ? "connecting"
+          : "disconnected"
       : liveConnection;
 
   const displayedMessage =
@@ -319,8 +335,8 @@ export default function App() {
       ? botConnectionState === "disconnected"
         ? "Disconnected from bot server. Reconnecting..."
         : !botGameData
-        ? "Waiting for bot games..."
-        : undefined
+          ? "Waiting for bot games..."
+          : undefined
       : message;
 
   return (

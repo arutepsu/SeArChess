@@ -24,7 +24,7 @@ final case class MongoConfig(
 final case class CorsConfig(enabled: Boolean, allowedOrigin: String)
 
 enum HistoryDeliveryMode:
-  case Http, RedisStream
+  case Http, RedisStream, Kafka
 
 final case class HistoryForwardingConfig(
     enabled: Boolean,
@@ -35,6 +35,8 @@ final case class HistoryForwardingConfig(
     redisHost: Option[String] = None,
     redisPort: Int = 6379,
     redisStream: String = "searchess.history.archives",
+    kafkaBootstrapServers: Option[String] = None,
+    kafkaGameEventsTopic: String = "searchess.game.events.v1",
     interaction: ServiceInteraction = ServiceInteraction.DownstreamAsynchronousHttp,
     startupPolicy: DependencyStartupPolicy = DependencyStartupPolicy.NotRequired,
     failureBehaviour: DependencyFailureBehaviour = DependencyFailureBehaviour.LogAndContinue

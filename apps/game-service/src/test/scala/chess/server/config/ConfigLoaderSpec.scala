@@ -112,6 +112,27 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues with 
     ).left.value should include("HISTORY_REDIS_URL or REDIS_HOST is required")
   }
 
+  it should "parse Kafka history delivery config" in {
+    val config = loadDefault(
+      "HISTORY_FORWARDING_ENABLED" -> "true",
+      "HISTORY_DELIVERY_MODE" -> "kafka",
+      "KAFKA_BOOTSTRAP_SERVERS" -> "kafka:9092",
+      "KAFKA_GAME_EVENTS_TOPIC" -> "searchess.game.events.v1"
+    ).value
+
+    config.history.enabled shouldBe true
+    config.history.deliveryMode shouldBe HistoryDeliveryMode.Kafka
+    config.history.kafkaBootstrapServers.value shouldBe "kafka:9092"
+    config.history.kafkaGameEventsTopic shouldBe "searchess.game.events.v1"
+  }
+
+  it should "reject Kafka history delivery without bootstrap servers" in {
+    loadDefault(
+      "HISTORY_FORWARDING_ENABLED" -> "true",
+      "HISTORY_DELIVERY_MODE" -> "kafka"
+    ).left.value should include("KAFKA_BOOTSTRAP_SERVERS is required")
+  }
+
   it should "reject enabled History forwarding without a base URL" in {
     loadDefault("HISTORY_FORWARDING_ENABLED" -> "true").left.value should include(
       "HISTORY_SERVICE_BASE_URL is required"
