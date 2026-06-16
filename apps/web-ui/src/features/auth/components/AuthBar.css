@@ -1,0 +1,7 @@
+.auth-bar {
+  position: fixed;
+  top: 10px;
+  right: 14px;
+  z-index: 1000;
+  font-family: var(--searchess-font-main);
+}

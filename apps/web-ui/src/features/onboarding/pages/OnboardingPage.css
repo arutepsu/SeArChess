@@ -1,0 +1,78 @@
+.onboarding-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    linear-gradient(140deg, rgba(9, 11, 18, 0.82), rgba(31, 18, 24, 0.72)),
+    var(--app-background);
+  color: var(--searchess-text-primary, #f8f1e6);
+}
+
+.onboarding-card {
+  padding: 2.5rem 2rem;
+  max-width: 420px;
+  width: 90%;
+}
+
+.onboarding-card h1 {
+  font-size: 1.6rem;
+  color: var(--searchess-text-bright, #fff8ea);
+  margin: 0 0 0.75rem;
+  text-align: center;
+}
+
+.onboarding-intro {
+  color: var(--searchess-text-muted, rgba(248, 241, 230, 0.68));
+  font-size: 0.95rem;
+  text-align: center;
+  margin: 0 0 1.5rem;
+  line-height: 1.5;
+}
+
+.onboarding-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.onboarding-form label {
+  color: var(--searchess-text-primary, #f8f1e6);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.onboarding-form input {
+  background: var(--searchess-bg-control, rgba(0, 0, 0, 0.35));
+  border: 1px solid var(--searchess-border-muted, rgba(255, 255, 255, 0.14));
+  border-radius: var(--searchess-radius-control, 8px);
+  color: var(--searchess-text-primary, #f8f1e6);
+  font-size: 1rem;
+  padding: 0.6rem 0.75rem;
+  outline: none;
+  transition:
+    border-color var(--searchess-transition-fast, 0.16s ease),
+    box-shadow var(--searchess-transition-fast, 0.16s ease);
+}
+
+.onboarding-form input:focus {
+  border-color: var(--searchess-border-gold, rgba(255, 206, 116, 0.32));
+  box-shadow: var(--searchess-focus-shadow, 0 0 0 4px rgba(255, 206, 116, 0.14));
+}
+
+.onboarding-hint {
+  color: var(--searchess-text-subtle, rgba(248, 241, 230, 0.52));
+  font-size: 0.78rem;
+  margin: 0;
+}
+
+.onboarding-error {
+  color: var(--searchess-danger, #ff9d9d);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.onboarding-submit {
+  margin-top: 0.75rem;
+}

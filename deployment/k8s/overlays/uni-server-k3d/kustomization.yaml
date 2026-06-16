@@ -21,6 +21,10 @@ images:
     newTag: local
   - name: searchess/web-ui
     newTag: local
+  - name: searchess/analytics-service
+    newTag: local
+  - name: searchess/tournament-service
+    newTag: local
   # mongo:7.0 requires AVX CPU instructions which are not available on the
   # university VM. mongo:4.4 is the last release that does not require AVX.
   - name: mongo
@@ -87,3 +91,17 @@ patches:
     target:
       kind: Deployment
       name: web-ui
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never
+    target:
+      kind: Deployment
+      name: analytics-service
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never
+    target:
+      kind: Deployment
+      name: tournament-service

@@ -1,11 +1,29 @@
+# "edge" is NOT created by this file. It's the network the standalone local
+# Keycloak stack (deployment/compose/docker-compose.yml) creates as
+# "searchess_edge" — start that stack's `keycloak` service at least once
+# before bringing Envoy up here, otherwise this network won't exist yet.
+# Envoy joins it (in addition to the implicit "default" it shares with
+# game-service/analytics-service/tournament-service) purely so it can resolve
+# `keycloak:8080` by Docker DNS to fetch JWKS for JWT validation
+# (config/envoy/envoy.yaml). Keycloak itself is untouched here.
+networks:
+  edge:
+    name: searchess_edge
+    external: true
+
 services:
   envoy:
     image: envoyproxy/envoy:v1.32-latest
+    networks:
+      - default
+      - edge
     depends_on:
       game-service:
         condition: service_healthy
+      user-service:
+        condition: service_healthy
     ports:
-      - "10000:10000"
+      - "11000:10000"
     volumes:
       - ./config/envoy/envoy.yaml:/etc/envoy/envoy.yaml:ro
 
@@ -21,6 +39,8 @@ services:
       searchess-ai-service:
         condition: service_healthy
       history-service:
+        condition: service_healthy
+      user-service:
         condition: service_healthy
     expose:
       - "8080"
@@ -41,6 +61,8 @@ services:
       HISTORY_FORWARDING_ENABLED: "true"
       HISTORY_SERVICE_BASE_URL: http://history-service:8081
       HISTORY_FORWARDING_TIMEOUT_MILLIS: 2000
+      USER_SERVICE_BASE_URL: http://user-service:8082
+      USER_SERVICE_TIMEOUT_MILLIS: 2000
       AI_PROVIDER_MODE: remote
       AI_REMOTE_BASE_URL: http://searchess-ai-service:8765
       AI_TIMEOUT_MILLIS: 30000
@@ -90,6 +112,100 @@ services:
       HISTORY_ACCEPT_LEGACY_INGESTION_PATH: "false"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8081/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  user-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.user-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "8082"
+    environment:
+      USER_HTTP_HOST: 0.0.0.0
+      USER_HTTP_PORT: 8082
+      USER_POSTGRES_URL: jdbc:postgresql://postgres:5432/searchess
+      USER_POSTGRES_USER: searchess
+      USER_POSTGRES_PASSWORD: searchess
+      USER_POSTGRES_SCHEMA: users
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8082/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  analytics-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.analytics
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8084:8084"
+    environment:
+      ANALYTICS_HTTP_HOST: 0.0.0.0
+      ANALYTICS_HTTP_PORT: 8084
+      ANALYTICS_POSTGRES_URL: jdbc:postgresql://postgres:5432/searchess
+      ANALYTICS_POSTGRES_USER: searchess
+      ANALYTICS_POSTGRES_PASSWORD: searchess
+      ANALYTICS_POSTGRES_SCHEMA: public
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8084/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  tournament-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.tournament
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8085:8085"
+    environment:
+      TOURNAMENT_HTTP_HOST: 0.0.0.0
+      TOURNAMENT_HTTP_PORT: 8085
+      TOURNAMENT_JOB_STORE: postgres
+      TOURNAMENT_POSTGRES_URL: jdbc:postgresql://postgres:5432/searchess
+      TOURNAMENT_POSTGRES_USER: searchess
+      TOURNAMENT_POSTGRES_PASSWORD: searchess
+      TOURNAMENT_POSTGRES_SCHEMA: public
+      TOURNAMENT_OUTBOX_PUBLISHER_ENABLED: "true"
+      TOURNAMENT_OUTBOX_PUBLISHER_TYPE: logging
+      TOURNAMENT_OUTPUT_BASE_PATH: /data/tournament-jobs
+      # Packaged Spark analytics distribution baked into Dockerfile.tournament —
+      # no sbt/source tree needed at runtime. These three already match the
+      # image's own ENV defaults; listed explicitly here for visibility.
+      TOURNAMENT_ANALYTICS_COMMAND: /app/spark-analytics/bin/run-analytics.sh
+      TOURNAMENT_ANALYTICS_WORKING_DIR: /app
+      TOURNAMENT_ANALYTICS_OUTPUT_BASE_PATH: /data/tournament-jobs/analytics-output
+      # Bot runtime: SearchessAI and Stockfish.
+      # Stockfish is installed inside the image (apt stockfish); path is /usr/games/stockfish.
+      # For local host dev (sbt tournamentService/run), override STOCKFISH_PATH in .env.
+      STOCKFISH_PATH: /usr/games/stockfish
+      SEARCHESS_AI_BASE_URL: http://searchess-ai-service:8765
+      # Read by the spark-analytics subprocess (inherited from this container's
+      # environment), not by tournament-service itself. Schema must match
+      # analytics-service's ANALYTICS_POSTGRES_SCHEMA so analytics-service can
+      # read what Spark writes.
+      POSTGRES_WRITE_ENABLED: "true"
+      POSTGRES_URL: jdbc:postgresql://postgres:5432/searchess
+      POSTGRES_USER: searchess
+      POSTGRES_PASSWORD: searchess
+      POSTGRES_SCHEMA: public
+      POSTGRES_WRITE_MODE: append
+      POSTGRES_STRICT_WRITE: "true"
+    volumes:
+      - tournament-jobs:/data/tournament-jobs
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8085/health"]
       interval: 5s
       timeout: 3s
       retries: 12
@@ -171,3 +287,5 @@ volumes:
     name: searchess_mongo_data
   searchess_redis_data:
     name: searchess_redis_data
+  tournament-jobs:
+    name: searchess_tournament_jobs

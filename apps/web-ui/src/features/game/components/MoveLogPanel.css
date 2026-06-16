@@ -1,0 +1,72 @@
+.move-log-panel__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 880;
+}
+
+.move-log-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: min(380px, 100vw);
+  height: 100vh;
+  overflow: hidden;
+  z-index: 881;
+  background: rgba(14, 7, 10, 0.97);
+  backdrop-filter: blur(16px);
+  border-right: 2px solid #5a3a3a;
+  color: #f4efe6;
+  display: flex;
+  flex-direction: column;
+}
+
+.move-log-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid rgba(90, 58, 58, 0.6);
+  flex-shrink: 0;
+}
+
+.move-log-panel__header h2 {
+  margin: 0;
+  font-family: var(--searchess-font-display);
+  font-size: 1.3rem;
+  letter-spacing: 0.04rem;
+  color: #e6b347;
+}
+
+.move-log-panel__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 20px 28px;
+  display: grid;
+  gap: 16px;
+}
+
+.move-log-panel__body::-webkit-scrollbar {
+  width: 5px;
+}
+
+.move-log-panel__body::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.move-log-panel__body::-webkit-scrollbar-thumb {
+  background: #5a3a3a;
+  border-radius: 4px;
+}
+
+.move-log-panel__body::-webkit-scrollbar-thumb:hover {
+  background: #e6b347;
+}
+
+.move-log-panel .move-list-panel,
+.move-log-panel .capture-panel {
+  width: 100%;
+  box-sizing: border-box;
+}

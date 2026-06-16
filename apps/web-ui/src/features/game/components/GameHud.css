@@ -1,0 +1,118 @@
+.game-hud {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(43, 24, 28, 0.82);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(90, 58, 58, 0.55);
+  border-radius: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Left cluster: profile menu, logo */
+.game-hud__left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.game-hud__logo {
+  height: 32px;
+  width: 32px;
+  object-fit: contain;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+/* Clocks */
+.game-hud__clocks {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  justify-content: center;
+}
+
+.game-hud__clock {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.game-hud__clock.is-active {
+  border-color: rgba(255, 206, 116, 0.5);
+  box-shadow: 0 0 0 1px rgba(255, 206, 116, 0.2);
+}
+
+.game-hud__clock-label {
+  font-family: 'Courier New', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.07rem;
+  text-transform: uppercase;
+  color: #bfa8a8;
+}
+
+.game-hud__clock-time {
+  font-family: 'Courier New', monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.05rem;
+  color: #f4efe6;
+}
+
+.game-hud__clock.is-active .game-hud__clock-time {
+  color: #ffce74;
+}
+
+/* Action buttons */
+.game-hud__actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.game-hud__actions .ui-btn {
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .game-hud {
+    flex-wrap: wrap;
+  }
+
+  .game-hud__left {
+    flex: 1 1 100%;
+  }
+
+  .game-hud__clocks {
+    flex: 1 1 220px;
+  }
+
+  .game-hud__actions {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 700px) {
+  .game-hud {
+    gap: 8px;
+  }
+
+  .game-hud__clocks {
+    order: -1;
+    width: 100%;
+    justify-content: space-around;
+  }
+}

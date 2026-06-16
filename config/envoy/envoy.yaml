@@ -29,6 +29,21 @@ static_resources:
                           route:
                             cluster: game_service_http
                         - match:
+                            prefix: /api/analytics/
+                          route:
+                            cluster: analytics_service_http
+                        - match:
+                            prefix: /api/tournaments/
+                          route:
+                            cluster: tournament_service_http
+                        # user-service: must be listed before the catch-all /api/ rule.
+                        # Envoy rewrites /api/users/* -> /users/* on the upstream.
+                        - match:
+                            prefix: /api/users
+                          route:
+                            cluster: user_service
+                            prefix_rewrite: /users
+                        - match:
                             prefix: /api/
                           route:
                             cluster: game_service_http
@@ -113,6 +128,18 @@ static_resources:
                     socket_address:
                       address: game-service
                       port_value: 9090
+    - name: user_service
+      type: STRICT_DNS
+      connect_timeout: 1s
+      load_assignment:
+        cluster_name: user_service
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: user-service
+                      port_value: 8082
     - name: keycloak
       type: STRICT_DNS
       connect_timeout: 5s
@@ -125,6 +152,30 @@ static_resources:
                     socket_address:
                       address: keycloak
                       port_value: 8080
+    - name: analytics_service_http
+      type: STRICT_DNS
+      connect_timeout: 1s
+      load_assignment:
+        cluster_name: analytics_service_http
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: analytics-service
+                      port_value: 8084
+    - name: tournament_service_http
+      type: STRICT_DNS
+      connect_timeout: 1s
+      load_assignment:
+        cluster_name: tournament_service_http
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: tournament-service
+                      port_value: 8085
 
 admin:
   address:

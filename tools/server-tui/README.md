@@ -56,13 +56,13 @@ Accept the default path unless you know what you are doing.
 Step 2: Copy the public key to the university server. This will ask for the SSH password one last time:
 
 ```powershell
-type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh chess@141.37.74.145 "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh chess@141.37.123.125 "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
 ```
 
 Step 3: Test it:
 
 ```powershell
-ssh chess@141.37.74.145
+ssh chess@141.37.123.125
 ```
 
 After this, the normal TUI actions should connect without asking for the server password.
@@ -72,14 +72,14 @@ After this, the normal TUI actions should connect without asking for the server 
 The target is configured in `src/config.ts` as `SSH_TARGET`. By default:
 
 ```ts
-export const SSH_TARGET = "chess@141.37.74.145";
+export const SSH_TARGET = "chess@141.37.123.125";
 ```
 
 You can add an SSH config alias:
 
 ```text
 Host searchess-server
-  HostName 141.37.74.145
+  HostName 141.37.123.125
   User chess
   IdentityFile ~/.ssh/id_ed25519
   IdentitiesOnly yes
@@ -144,7 +144,7 @@ Warning:
 Turn on VPN first.
 
 Target:
-chess@141.37.74.145
+chess@141.37.123.125
 
 Authentication:
 Uses normal SSH authentication.
@@ -176,7 +176,7 @@ Choose a safe read-only action
 Runs a non-interactive SSH key-authentication check:
 
 ```text
-ssh -o BatchMode=yes -o ConnectTimeout=5 chess@141.37.74.145 "echo SSH_OK"
+ssh -o BatchMode=yes -o ConnectTimeout=5 chess@141.37.123.125 "echo SSH_OK"
 ```
 
 If it prints `SSH_OK` and exits with code 0, passwordless SSH is configured. If it fails, the TUI prints the PowerShell setup steps above.
@@ -186,7 +186,7 @@ If it prints `SSH_OK` and exits with code 0, passwordless SSH is configured. If 
 Opens an interactive SSH session:
 
 ```text
-ssh chess@141.37.74.145
+ssh chess@141.37.123.125
 ```
 
 This is blocking and asks for confirmation before it starts.
@@ -196,7 +196,7 @@ This is blocking and asks for confirmation before it starts.
 Opens local port forwards:
 
 ```text
-ssh -L 10000:127.0.0.1:10000 -L 33001:127.0.0.1:33001 chess@141.37.74.145
+ssh -L 10000:127.0.0.1:10000 -L 33001:127.0.0.1:33001 chess@141.37.123.125
 ```
 
 The tunnel stays open until Ctrl+C. Local URLs:
@@ -258,7 +258,7 @@ The menu loop in `src/server-tui.ts` dispatches selected entries. Command execut
 Remote SSH commands are passed as arguments to `spawn`, not shell-concatenated locally:
 
 ```ts
-spawn("ssh", ["chess@141.37.74.145", remoteCommand], ...)
+spawn("ssh", ["chess@141.37.123.125", remoteCommand], ...)
 ```
 
 This keeps Windows PowerShell out of the remote command quoting path.

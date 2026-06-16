@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getMyProfile } from "../api/userServiceClient";
 import type { UserProfileResponse } from "../api/userServiceTypes";
+import keycloak, { authEnabled } from "../auth/keycloak";
 
 export interface UseProfileOnboardingResult {
   profile: UserProfileResponse | null;
@@ -15,6 +16,8 @@ export function useProfileOnboarding(): UseProfileOnboardingResult {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (authEnabled && !keycloak.authenticated) return;
+
     getMyProfile()
       .then((p) => {
         setProfile(p);

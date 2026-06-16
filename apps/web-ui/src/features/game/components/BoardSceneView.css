@@ -1,0 +1,100 @@
+/*
+ * BoardSceneView — full game-scene background with transparent ChessBoard overlay.
+ *
+ * Layout model:
+ *   .board-scene-container   responsive square; full scene image as CSS background
+ *     .board-scene-grid-area  absolutely positioned over the playable 8×8 area
+ *       ChessBoard             fills 100% of the grid area; transparent overlay mode
+ *   .board-scene-debug        DEV-ONLY; pointer-events:none calibration overlay
+ *
+ * Geometry custom properties (inline style set by BoardSceneView.tsx):
+ *   --board-scene-image       url() of the full scene image
+ *   --board-rect-left-pct     grid left edge as % of scene width    (e.g. "19.000%")
+ *   --board-rect-top-pct      grid top edge as % of scene height    (e.g. "19.000%")
+ *   --board-rect-width-pct    grid width as % of scene width        (e.g. "61.000%")
+ *   --board-rect-height-pct   grid height as % of scene height      (e.g. "66.000%")
+ *
+ * Width and height are kept independent so non-square board regions calibrate correctly.
+ */
+
+.board-scene-container {
+  position: relative;
+  background-image: var(--board-scene-image);
+  background-size: cover;
+  background-position: center;
+  flex-shrink: 0;
+  /*
+   * Responsive square.
+   *   1080px        - generous upper cap on large monitors
+   *   100vh - 120px - prioritize the scene while keeping HUD/status visible
+   *   100vw - 32px  - avoid horizontal overflow on narrow viewports
+   *   100%          - never overflow the board column
+   */
+  width: min(1080px, calc(100vh - 120px), calc(100vw - 32px), 100%);
+  aspect-ratio: 1 / 1;
+}
+
+/* Absolute overlay positioned exactly on the playable board area */
+.board-scene-grid-area {
+  position: absolute;
+  left: var(--board-rect-left-pct);
+  top: var(--board-rect-top-pct);
+  width: var(--board-rect-width-pct);
+  height: var(--board-rect-height-pct);
+}
+
+/* ── Developer calibration overlay ───────────────────────────────────────── */
+/* Revealed only with ?debugBoardScene in the URL. Does not capture clicks.  */
+
+.board-scene-debug {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 99;
+}
+
+/*
+ * Red outline + 8×8 grid lines at the exact boardRect position.
+ * Uses the same %-based vars as .board-scene-grid-area for pixel-perfect alignment.
+ * Grid line interval = 12.5% = 100% / 8 of the rect element's own size.
+ */
+.board-scene-debug__rect {
+  position: absolute;
+  left: var(--board-rect-left-pct);
+  top: var(--board-rect-top-pct);
+  width: var(--board-rect-width-pct);
+  height: var(--board-rect-height-pct);
+  outline: 2px solid rgba(255, 70, 70, 0.95);
+  box-shadow: inset 0 0 0 1px rgba(255, 70, 70, 0.3);
+  background-image:
+    repeating-linear-gradient(
+      to right,
+      rgba(255, 70, 70, 0.25) 0,
+      rgba(255, 70, 70, 0.25) 1px,
+      transparent 1px,
+      transparent 12.5%
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      rgba(255, 70, 70, 0.25) 0,
+      rgba(255, 70, 70, 0.25) 1px,
+      transparent 1px,
+      transparent 12.5%
+    );
+}
+
+.board-scene-debug__label {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  margin: 0;
+  background: rgba(8, 4, 4, 0.88);
+  color: #ff9090;
+  font-family: 'Courier New', monospace;
+  font-size: 10px;
+  line-height: 1.6;
+  padding: 5px 9px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 70, 70, 0.45);
+  white-space: pre;
+}

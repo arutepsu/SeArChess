@@ -1,0 +1,113 @@
+.piece-types-page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 32px 24px;
+  background:
+    linear-gradient(140deg, rgba(9, 11, 18, 0.82), rgba(31, 18, 24, 0.72)),
+    var(--app-background);
+  color: var(--searchess-text-primary, #f8f1e6);
+  box-sizing: border-box;
+}
+
+.piece-types-shell {
+  width: 100%;
+  max-width: 900px;
+}
+
+.piece-types-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.piece-types-title {
+  margin: 0;
+  font-size: 1.8rem;
+  color: var(--searchess-text-bright, #fff8ea);
+}
+
+.piece-types-intro {
+  color: var(--searchess-text-muted, rgba(248, 241, 230, 0.68));
+  font-size: 0.95rem;
+  margin: 0 0 24px;
+}
+
+.piece-types-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.piece-types-card {
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.piece-types-card-name {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--searchess-text-bright, #fff8ea);
+  letter-spacing: 0.03em;
+}
+
+.piece-types-anim-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 14px;
+}
+
+.piece-types-anim-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px;
+  border-radius: var(--searchess-radius-control, 8px);
+  background: var(--searchess-bg-control, rgba(0, 0, 0, 0.35));
+  border: 1px solid var(--searchess-border-muted, rgba(255, 255, 255, 0.14));
+}
+
+.piece-types-sprite {
+  display: block;
+  width: 72px;
+  height: 72px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+.piece-types-sprite--missing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--searchess-text-subtle, rgba(248, 241, 230, 0.52));
+  font-size: 1.5rem;
+  font-weight: 700;
+  border: 1px dashed var(--searchess-border-muted, rgba(255, 255, 255, 0.14));
+  border-radius: var(--searchess-radius-control, 8px);
+}
+
+.piece-types-anim-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--searchess-text-subtle, rgba(248, 241, 230, 0.52));
+}
+
+@media (max-width: 480px) {
+  .piece-types-anim-grid {
+    grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  }
+
+  .piece-types-sprite,
+  .piece-types-sprite--missing {
+    width: 56px;
+    height: 56px;
+  }
+}

@@ -80,12 +80,12 @@ export function showPasswordlessSshInstructions(): void {
       "This will ask for the SSH password one last time:",
       "",
       pc.gray(
-        'type $env:USERPROFILE\\.ssh\\id_ed25519.pub | ssh chess@141.37.74.145 "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"'
+        'type $env:USERPROFILE\\.ssh\\id_ed25519.pub | ssh chess@141.37.123.125 "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"'
       ),
       "",
       "Step 3: Test it:",
       "",
-      pc.gray("ssh chess@141.37.74.145"),
+      pc.gray("ssh chess@141.37.123.125"),
       "",
       "After this, the normal TUI actions should connect without asking for the server password."
     ].join("\n"),
