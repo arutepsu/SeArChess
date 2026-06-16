@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="apps/web-ui/public/assets/logo/logo256.png" alt="Searchess logo" width="160" />
+  <img src="apps/web-ui/public/assets/logo/logo512.cut.png" alt="Searchess logo" width="160" />
 </p>
 
-<h1 align="center">♟️ Searchess</h1>
+<h1 align="center"> Searchess</h1>
 
 <p align="center">
   A chess platform built as a playground for clean software architecture.
@@ -89,3 +89,14 @@ Right now the project is centered on:
 Searchess is a living university project — modules get refactored, services
 get split out, and the architecture keeps maturing as the course progresses.
 Expect things to change, and expect them to keep getting cleaner.
+
+For operational use, either run `DryRun`, then `Execute`, then `ValidateOnly`,
+or run `DryRun` followed by `Execute --validate-after-execute`. The inline
+validation pass only runs after a successful execute report; failed execution
+reports are returned without running validation.
+
+### Future Extension: Admin API / Microservice
+
+The current design is intentionally suitable for later exposure as an admin API
+or dedicated migration service. The migration orchestration already lives behind
+application ports; the CLI is only a thin operational shell around it.
