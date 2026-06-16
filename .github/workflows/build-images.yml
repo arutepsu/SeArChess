@@ -154,17 +154,24 @@ jobs:
             "^(modules/|build\.sbt$|project/)" || true)
           if [ -n "$SCALA_SHARED" ]; then
             echo "Scala shared inputs changed — rebuilding all Scala services."
+            # web-ui is a Node.js app and does not consume Scala shared inputs,
+            # but the same push may also contain apps/web-ui/** changes — check
+            # independently so the early exit does not suppress a web-ui rebuild.
+            WEB_UI_IN_PUSH=$(echo "$CHANGED" | grep -E \
+              "^apps/web-ui/" || true)
             echo "build_game=true"                  >> $GITHUB_OUTPUT
             echo "build_history=true"               >> $GITHUB_OUTPUT
             echo "build_ai=true"                    >> $GITHUB_OUTPUT
             echo "build_bot_service=true"           >> $GITHUB_OUTPUT
             echo "build_user_service=true"          >> $GITHUB_OUTPUT
-            echo "build_web_ui=false"               >> $GITHUB_OUTPUT
+            [ -n "$WEB_UI_IN_PUSH" ] \
+              && echo "build_web_ui=true"           >> $GITHUB_OUTPUT \
+              || echo "build_web_ui=false"          >> $GITHUB_OUTPUT
             echo "build_python_ai=false"            >> $GITHUB_OUTPUT
             echo "build_lichess_bridge=true"        >> $GITHUB_OUTPUT
             echo "build_analytics=true"             >> $GITHUB_OUTPUT
             echo "build_tournament=true"            >> $GITHUB_OUTPUT
-            echo "build_keycloak=false"              >> $GITHUB_OUTPUT
+            echo "build_keycloak=false"             >> $GITHUB_OUTPUT
             exit 0
           fi
 
