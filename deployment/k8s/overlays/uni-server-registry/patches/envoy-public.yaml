@@ -1,0 +1,264 @@
+static_resources:
+  listeners:
+    - name: public_edge
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 10000
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: searchess_edge
+                codec_type: AUTO
+                upgrade_configs:
+                  - upgrade_type: websocket
+                route_config:
+                  name: local_route
+                  virtual_hosts:
+                    - name: searchess_edge
+                      domains:
+                        - "*"
+                      routes:
+                        - match:
+                            path: /health
+                          route:
+                            cluster: game_service_http
+                        # KC_HOSTNAME is a fixed public URL (see
+                        # patches/keycloak-public-hostname.yaml), so these
+                        # headers aren't needed for the front-channel issuer/
+                        # authorization/token endpoints — but
+                        # KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true derives some
+                        # backchannel URLs (e.g. jwks_uri, end_session) from
+                        # X-Forwarded-Host/Port when present. Without them,
+                        # Keycloak falls back to the raw Host header and
+                        # silently drops the port, producing the
+                        # http://141.37.123.125/auth/... (no :10000) URLs
+                        # seen in OIDC discovery. OVERWRITE_IF_EXISTS_OR_ADD
+                        # also stops a client from spoofing these headers.
+                        - match:
+                            prefix: /auth
+                          route:
+                            cluster: keycloak
+                          request_headers_to_add:
+                            - header:
+                                key: x-forwarded-proto
+                                value: "http"
+                              append_action: OVERWRITE_IF_EXISTS_OR_ADD
+                            - header:
+                                key: x-forwarded-host
+                                value: "141.37.123.125:10000"
+                              append_action: OVERWRITE_IF_EXISTS_OR_ADD
+                            - header:
+                                key: x-forwarded-port
+                                value: "10000"
+                              append_action: OVERWRITE_IF_EXISTS_OR_ADD
+                        # user-service: must be listed before the catch-all /api/ rule.
+                        # Envoy rewrites /api/users/* → /users/* on the upstream.
+                        - match:
+                            prefix: /api/users
+                          route:
+                            cluster: user_service
+                            prefix_rewrite: /users
+                        # Lichess bridge — read-only status and policy, exact-path only.
+                        # Upstream sees /internal/lichess/*; no other bridge endpoint is reachable.
+                        # JWT is enforced by the prefix: "/api/" rule below — no new JWT rule needed.
+                        - match:
+                            path: /api/lichess/bridge/status
+                          route:
+                            cluster: lichess_bridge
+                            prefix_rewrite: /internal/lichess/status
+                        - match:
+                            path: /api/lichess/bridge/policy
+                          route:
+                            cluster: lichess_bridge
+                            prefix_rewrite: /internal/lichess/policy
+                        # Lichess game events — SSE. Must be before the /api/ catch-all.
+                        # timeout: 0s disables request timeout for long-lived SSE connections.
+                        - match:
+                            prefix: /api/lichess/games/
+                          route:
+                            cluster: lichess_bridge
+                            prefix_rewrite: /internal/lichess/games/
+                            timeout: 0s
+                        # analytics-service / tournament-service: must be listed before the
+                        # catch-all /api/ rule. No prefix_rewrite — both services already
+                        # serve their routes under /api/analytics and /api/tournaments.
+                        - match:
+                            prefix: /api/analytics/
+                          route:
+                            cluster: analytics_service_http
+                        - match:
+                            prefix: /api/tournaments/
+                          route:
+                            cluster: tournament_service_http
+                        - match:
+                            prefix: /api/
+                          route:
+                            cluster: game_service_http
+                            prefix_rewrite: /
+                        - match:
+                            prefix: /ws/
+                          route:
+                            cluster: game_service_ws
+                        - match:
+                            path: /admin/migrations
+                          route:
+                            cluster: game_service_http
+                        # All other paths served by the web-ui SPA (nginx returns index.html).
+                        - match:
+                            prefix: /
+                          route:
+                            cluster: web_ui
+                http_filters:
+                  # ---------------------------------------------------------------------------
+                  # JWT validation — uni-server-registry overlay (public direct access).
+                  #
+                  # Issuer matches the token iss claim: browser authenticates against
+                  # http://141.37.123.125:10000/auth through Envoy (see
+                  # patches/keycloak-public-hostname.yaml for the matching KC_HOSTNAME).
+                  # JWKS is fetched internally: Envoy reaches Keycloak via K8s DNS keycloak:8080.
+                  #
+                  # Protected:  /api/*  (except /api/health)
+                  # Public:     /health, /api/health, /ws/*, /admin/migrations, /* (web-ui)
+                  # ---------------------------------------------------------------------------
+                  - name: envoy.filters.http.jwt_authn
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication
+                      providers:
+                        keycloak:
+                          issuer: "http://141.37.123.125:10000/auth/realms/searchess"
+                          audiences:
+                            - searchess-api
+                          remote_jwks:
+                            http_uri:
+                              uri: "http://keycloak:8080/auth/realms/searchess/protocol/openid-connect/certs"
+                              cluster: keycloak
+                              timeout: 5s
+                            cache_duration:
+                              seconds: 300
+                          forward: true
+                      rules:
+                        # Carve out /api/health before the protected /api/ prefix rule.
+                        - match:
+                            path: "/api/health"
+                        # Lichess OAuth callback: browser redirect from Lichess carries no Bearer token.
+                        - match:
+                            path: "/api/users/me/links/lichess/callback"
+                        # Require a valid JWT for all other /api/ routes.
+                        - match:
+                            prefix: "/api/"
+                          requires:
+                            provider_name: "keycloak"
+                      # Let OPTIONS preflight pass without a token.
+                      bypass_cors_preflight: true
+                  - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+
+  clusters:
+    - name: game_service_http
+      type: STRICT_DNS
+      connect_timeout: 1s
+      load_assignment:
+        cluster_name: game_service_http
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: game-service
+                      port_value: 8080
+    - name: game_service_ws
+      type: STRICT_DNS
+      connect_timeout: 1s
+      load_assignment:
+        cluster_name: game_service_ws
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: game-service
+                      port_value: 9090
+    - name: web_ui
+      type: STRICT_DNS
+      connect_timeout: 1s
+      load_assignment:
+        cluster_name: web_ui
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: web-ui
+                      port_value: 80
+    - name: user_service
+      type: STRICT_DNS
+      connect_timeout: 1s
+      load_assignment:
+        cluster_name: user_service
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: user-service
+                      port_value: 8082
+    - name: keycloak
+      type: STRICT_DNS
+      connect_timeout: 5s
+      load_assignment:
+        cluster_name: keycloak
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: keycloak
+                      port_value: 8080
+    - name: lichess_bridge
+      type: STRICT_DNS
+      connect_timeout: 2s
+      load_assignment:
+        cluster_name: lichess_bridge
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: lichess-bridge-service
+                      port_value: 8090
+    - name: analytics_service_http
+      type: STRICT_DNS
+      connect_timeout: 1s
+      load_assignment:
+        cluster_name: analytics_service_http
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: analytics-service
+                      port_value: 8084
+    - name: tournament_service_http
+      type: STRICT_DNS
+      connect_timeout: 1s
+      load_assignment:
+        cluster_name: tournament_service_http
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: tournament-service
+                      port_value: 8085
+
+# Admin bound to 0.0.0.0 (not 127.0.0.1) so Kubernetes httpGet readiness probes
+# can reach /ready from the kubelet outside the container's loopback.
+admin:
+  address:
+    socket_address:
+      address: 0.0.0.0
+      port_value: 9901

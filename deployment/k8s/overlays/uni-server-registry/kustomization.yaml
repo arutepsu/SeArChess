@@ -15,6 +15,15 @@ resources:
 - keycloak-searchess-web-reconcile-job.yaml
 - python-ai-service-rollout.yaml
 
+# Override the base envoy-config ConfigMap with a copy whose JWT issuer and
+# /auth route headers match the public KC_HOSTNAME below (patches/envoy-public.yaml).
+# behavior: replace regenerates the ConfigMap (new hash) so Envoy rolls on apply.
+configMapGenerator:
+  - name: envoy-config
+    behavior: replace
+    files:
+      - envoy.yaml=patches/envoy-public.yaml
+
 # Image tags are managed by CI (.github/workflows/build-images.yml).
 # Only services whose app-code paths changed are rebuilt and have their tag updated
 # in this file. Services not rebuilt in a given push retain their existing sha-* tag.
@@ -135,3 +144,9 @@ patches:
   target:
     kind: Deployment
     name: web-ui
+# Public direct-access browser URL (http://141.37.123.125:10000) instead of
+# the base's SSH-tunnel/port-forward default (http://localhost:18000).
+- path: patches/keycloak-public-hostname.yaml
+  target:
+    kind: Deployment
+    name: keycloak
