@@ -54,6 +54,9 @@ spec:
                   admin_password = os.environ["KEYCLOAK_ADMIN_PASSWORD"]
 
                   required_redirect_uris = [
+                      "http://141.37.123.125:10000",
+                      "http://141.37.123.125:10000/",
+                      "http://141.37.123.125:10000/*",
                       "http://localhost:18000",
                       "http://localhost:18000/",
                       "http://localhost:18000/*",
@@ -68,6 +71,7 @@ spec:
                       "http://127.0.0.1:18080/*",
                   ]
                   required_web_origins = [
+                      "http://141.37.123.125:10000",
                       "http://localhost:18000",
                       "http://127.0.0.1:18000",
                       "http://localhost:18080",

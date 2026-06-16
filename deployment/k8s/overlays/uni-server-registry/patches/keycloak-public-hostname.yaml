@@ -1,0 +1,29 @@
+# Overrides KC_HOSTNAME for uni-server-registry only.
+#
+# Base sets KC_HOSTNAME=http://localhost:18000/auth, which assumes browser
+# access via an SSH tunnel or kubectl port-forward. This overlay is reached
+# directly by the browser at http://141.37.123.125:10000, so Keycloak must
+# mint issuer/authorization/token endpoint URLs against that public
+# host:port — otherwise OIDC discovery advertises a hostname the browser
+# cannot reach and Envoy's jwt_authn issuer check (see patches/envoy-public
+# via the envoy-config ConfigMap override) won't match the token's iss claim.
+#
+# KC_HOSTNAME_STRICT=true (explicit, matches the KC 26 default) rejects any
+# request whose Host header doesn't match this configured hostname, instead
+# of silently deriving a different one — fail loudly rather than serving
+# inconsistent URLs again.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: searchess
+spec:
+  template:
+    spec:
+      containers:
+        - name: keycloak
+          env:
+            - name: KC_HOSTNAME
+              value: "http://141.37.123.125:10000/auth"
+            - name: KC_HOSTNAME_STRICT
+              value: "true"
