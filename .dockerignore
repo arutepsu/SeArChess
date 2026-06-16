@@ -8,7 +8,7 @@
 **/target
 **/.pytest_cache
 **/.venv
-apps/web-ui/node_modules
+**/node_modules
 apps/web-ui/dist
 Dockerfile
 docker-compose.yml

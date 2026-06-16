@@ -28,14 +28,23 @@ ENV VITE_API_PATH_PREFIX=$VITE_API_PATH_PREFIX
 ENV VITE_LICHESS_BOT_WS_URL=$VITE_LICHESS_BOT_WS_URL
 ENV VITE_WS_URL=$VITE_WS_URL
 
-WORKDIR /app
-COPY package.json package-lock.json* ./
+# Build context is the repo root (not apps/web-ui) because the prebuild step
+# (npm run sync:chess-assets -> tools/sync-chess-assets.mjs) copies chess
+# assets from shared/chess-assets/, both of which live outside apps/web-ui.
+WORKDIR /repo/apps/web-ui
+COPY apps/web-ui/package.json apps/web-ui/package-lock.json* ./
 RUN npm ci
-COPY . .
+
+WORKDIR /repo
+COPY tools/sync-chess-assets.mjs tools/sync-chess-assets.mjs
+COPY shared/ shared/
+COPY apps/web-ui/ apps/web-ui/
+
+WORKDIR /repo/apps/web-ui
 RUN npm run build
 
 # Stage 2: serve
 FROM nginx:1.27-alpine AS runtime
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /repo/apps/web-ui/dist /usr/share/nginx/html
+COPY apps/web-ui/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
