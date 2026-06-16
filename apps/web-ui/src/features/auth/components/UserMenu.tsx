@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import keycloak from "../../../auth/keycloak";
+import keycloak, { authEnabled } from "../../../auth/keycloak";
 import Button from "../../../components/ui/Button";
 import GlassPanel from "../../../components/ui/GlassPanel";
 import "./UserMenu.css";
-
-const authEnabled = import.meta.env.VITE_AUTH_ENABLED !== "false";
 
 interface UserMenuProps {
   dropdownAlign?: "left" | "right";
@@ -27,15 +25,32 @@ export default function UserMenu({ dropdownAlign = "left" }: UserMenuProps) {
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [open]);
 
-  const username = authEnabled
-    ? ((keycloak.tokenParsed?.["preferred_username"] as string | undefined) ?? "-")
-    : "Guest";
+  const signedIn = !authEnabled || Boolean(keycloak.authenticated);
+  const username = !authEnabled
+    ? "Guest"
+    : (keycloak.tokenParsed?.["preferred_username"] as string | undefined) ?? "-";
 
   const close = () => setOpen(false);
   const go = (path: string) => {
     close();
     navigate(path);
   };
+
+  if (!signedIn) {
+    return (
+      <div className="user-menu" ref={containerRef}>
+        <Button
+          type="button"
+          variant="utility"
+          size="sm"
+          className="user-menu__trigger"
+          onClick={() => void keycloak.login({ redirectUri: window.location.href })}
+        >
+          Log in
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="user-menu" ref={containerRef}>
@@ -71,9 +86,8 @@ export default function UserMenu({ dropdownAlign = "left" }: UserMenuProps) {
             <span>Keyboard Shortcuts</span>
             <span className="user-menu__badge">Coming soon</span>
           </button>
-          <button type="button" role="menuitem" className="user-menu__item user-menu__item--disabled" disabled>
-            <span>About Searchess</span>
-            <span className="user-menu__badge">Coming soon</span>
+          <button type="button" role="menuitem" className="user-menu__item" onClick={() => go("/pieces")}>
+            Piece Types
           </button>
           {authEnabled && (
             <>

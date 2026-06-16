@@ -15,7 +15,8 @@ import { OnboardingPage } from "../features/onboarding";
 import { ProfilePanel } from "../features/settings";
 import { LichessHubPage, LichessGamePage } from "../features/lichess";
 import { AnalyticsPage, GameAnalysisView } from "../features/analytics";
-import { TournamentBuilderPage } from "../features/tournaments";
+import { TournamentBuilderPage, TournamentJobsPage, TournamentRunningPage } from "../features/tournaments";
+import { PieceTypesPage } from "../features/pieceTypes";
 
 interface AppRoutesProps {
   // Game state
@@ -295,8 +296,11 @@ export default function AppRoutes({
         element={<LichessGamePage onBack={onBackToLichess} />}
       />
 
+      <Route path="/pieces" element={<PieceTypesPage />} />
       <Route path="/analytics" element={<AnalyticsPage />} />
       <Route path="/tournaments" element={<TournamentBuilderPage />} />
+      <Route path="/tournaments/jobs" element={<TournamentJobsPage />} />
+      <Route path="/tournaments/:jobId" element={<TournamentRunningPage />} />
     </Routes>
   );
 }

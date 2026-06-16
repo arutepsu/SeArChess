@@ -70,6 +70,8 @@ each in its own schema (default `public` for both — change via `ANALYTICS_POST
 | `TOURNAMENT_ANALYTICS_COMMAND` | `/app/spark-analytics/bin/run-analytics.sh` | packaged Spark executable baked into the image (Phase 4) |
 | `TOURNAMENT_ANALYTICS_WORKING_DIR` | `/app` | working directory for the Spark subprocess |
 | `TOURNAMENT_ANALYTICS_OUTPUT_BASE_PATH` | `/data/tournament-jobs/analytics-output` | Spark output, same volume as job JSONL |
+| `STOCKFISH_PATH` | `/usr/games/stockfish` | Linux Stockfish binary installed in the image via `apt`. Enables `stockfish-depth-*` and `stockfish-elo-*` bots. On Windows host dev (`sbt tournamentService/run`), override to your Windows binary path. |
+| `SEARCHESS_AI_BASE_URL` | `http://searchess-ai-service:8765` (root compose) / `http://ai-service:8765` (deployment/compose) | Internal URL of the running ai-service. Enables `searchess-ai-v1` bot. Not needed for host dev unless ai-service is running locally. |
 | `POSTGRES_WRITE_ENABLED` / `POSTGRES_URL` / `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_SCHEMA` / `POSTGRES_WRITE_MODE` / `POSTGRES_STRICT_WRITE` | see compose file | read by the **spark-analytics subprocess** (`PostgresConfig.fromEnv`), inherited from this container's environment — not read by tournament-service itself. `POSTGRES_SCHEMA` must match `ANALYTICS_POSTGRES_SCHEMA` so analytics-service can read what Spark writes. |
 
 ## Health checks
@@ -82,6 +84,37 @@ curl http://localhost:8085/health
 Both compose files also wire `healthcheck:` blocks (`curl -fsS .../health`) so
 `docker compose ps` shows `healthy` once each service is actually accepting requests,
 not just once the container has started.
+
+## Bot availability (Stockfish and SearchessAI)
+
+`GET /api/tournaments/bots` lists available bots and their availability status.
+Heuristic bots (`random-bot`, `capture-first`, etc.) are always available.
+Two additional bot families require runtime configuration:
+
+**Stockfish** — `stockfish-depth-1` through `stockfish-depth-5` and `stockfish-elo-*`.
+`Dockerfile.tournament` installs Stockfish via `apt-get install stockfish` in the runtime
+image. The binary lands at `/usr/games/stockfish`. `STOCKFISH_PATH=/usr/games/stockfish`
+is set in both compose files so tournament-service finds it automatically in Docker.
+
+For local host dev (`sbt tournamentService/run` on Windows), override in `.env` or your shell:
+```
+STOCKFISH_PATH=C:/path/to/stockfish.exe
+```
+
+**SearchessAI v1** — `searchess-ai-v1`.
+`SEARCHESS_AI_BASE_URL` is set to the internal service DNS name:
+- Root dev compose (`docker-compose.yml`): `http://searchess-ai-service:8765`
+- Full local stack (`deployment/compose/docker-compose.yml`): `http://ai-service:8765`
+
+The `searchess-ai-service` (root) and `ai-service` (deployment/compose) are already
+declared in the same compose file — they start before tournament-service needs them.
+No extra host port is exposed; tournament-service reaches them over the internal Docker network.
+
+For local host dev (`sbt tournamentService/run`), set in `.env`:
+```
+SEARCHESS_AI_BASE_URL=http://localhost:8765
+```
+only if ai-service is also running locally on that port.
 
 ## Creating a small tournament
 

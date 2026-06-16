@@ -54,7 +54,7 @@
 .admin-title-block h1 {
   margin: 0;
   font-size: 1.8rem;
-  font-family: "Playfair Display", serif;
+  font-family: var(--searchess-font-display);
   color: #f4efe6;
 }
 
@@ -330,7 +330,7 @@
 }
 
 .result-h2 {
-  font-family: "Playfair Display", serif;
+  font-family: var(--searchess-font-display);
   font-size: 1.3rem;
   color: #f4efe6;
 }

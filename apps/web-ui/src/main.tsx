@@ -3,15 +3,13 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App.tsx";
 import PersistenceAdminPage from "./admin/PersistenceAdminPage.tsx";
 import { SessionProvider } from "./session/SessionProvider";
-import keycloak from "./auth/keycloak";
+import keycloak, { authEnabled } from "./auth/keycloak";
 import "./assets/base.css";
 
 const container = document.getElementById("app");
 if (!container) {
   throw new Error("Missing #app root element");
 }
-
-const authEnabled = import.meta.env.VITE_AUTH_ENABLED !== "false";
 
 function renderApp(el: HTMLElement) {
   const root = createRoot(el);
@@ -31,19 +29,26 @@ function renderApp(el: HTMLElement) {
 if (!authEnabled) {
   renderApp(container);
 } else {
+  // check-sso: never blocks the app on load. An unauthenticated visitor still
+  // gets a usable guest UI; protected actions trigger login individually
+  // (see ensureAuthenticated in ./auth/keycloak.ts).
   keycloak
-    .init({ onLoad: "login-required", pkceMethod: "S256" })
+    .init({
+      onLoad: "check-sso",
+      pkceMethod: "S256",
+      checkLoginIframe: false,
+      silentCheckSsoRedirectUri: `${window.location.origin}/silent-check-sso.html`,
+    })
     .then((authenticated: boolean) => {
-      if (!authenticated) return;
-
-      keycloak.onTokenExpired = () => {
-        void keycloak.updateToken(30).catch(() => void keycloak.login());
-      };
-
+      if (authenticated) {
+        keycloak.onTokenExpired = () => {
+          void keycloak.updateToken(30).catch(() => keycloak.clearToken());
+        };
+      }
       renderApp(container);
     })
     .catch(() => {
-      const keycloakUrl = import.meta.env.VITE_KEYCLOAK_URL ?? "http://localhost:8080";
-      container.textContent = `Auth initialization failed. Is Keycloak reachable at ${keycloakUrl}?`;
+      // Keycloak unreachable: degrade to guest mode rather than blocking the app.
+      renderApp(container);
     });
 }

@@ -8,5 +8,5 @@ interface Props {
 
 export default function AvgGameLengthChart({ rows }: Props) {
   const shownRows = Math.min(rows.length, 10);
-  return <EChart option={avgGameLengthOption(rows)} height={Math.max(280, shownRows * 38 + 96)} empty={rows.length === 0} />;
+  return <EChart option={avgGameLengthOption(rows)} height={Math.max(340, shownRows * 38 + 96)} empty={rows.length === 0} />;
 }

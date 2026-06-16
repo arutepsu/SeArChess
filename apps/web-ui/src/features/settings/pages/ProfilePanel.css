@@ -113,7 +113,7 @@
     linear-gradient(135deg, rgba(255, 206, 116, 0.24), rgba(145, 82, 43, 0.18)),
     rgba(12, 10, 16, 0.78);
   color: #ffce74;
-  font-family: Georgia, serif;
+  font-family: var(--searchess-font-display);
   font-size: 1.75rem;
   font-weight: 900;
   box-shadow: 0 16px 38px rgba(0, 0, 0, 0.32);

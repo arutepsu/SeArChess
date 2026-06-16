@@ -3,10 +3,14 @@
   place-items: start center;
   min-height: 100vh;
   padding: 24px;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 .tournament-shell {
-  width: min(1440px, calc(100vw - 48px));
+  width: min(1440px, 100%);
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .tournament-header {
@@ -339,7 +343,7 @@
   }
 
   .tournament-shell {
-    width: min(100vw - 32px, 1440px);
+    width: 100%;
   }
 
   .tournament-header,

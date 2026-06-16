@@ -185,8 +185,6 @@ export default function MainGameView({
     blackTimeMs: blackClockMs,
     clockRunning,
     activeColor: displayedGame?.activeColor ?? game?.activeColor,
-    activeTab,
-    setActiveTab,
     hasNewBotMoveNotification,
     onOpenGameMenu: () => setIsMenuOpen(true),
     onOpenMoveLog: () => setIsMoveLogOpen(true),
@@ -279,6 +277,8 @@ export default function MainGameView({
         onOpenHeatmap={onOpenHeatmap}
         onBackToMenu={onBackToMenu}
         onNewGame={() => onNewGame()}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
       />
 
       <MoveLogPanel
@@ -327,6 +327,7 @@ export default function MainGameView({
                 <BotDemoGameView
                   mappedBotGame={mappedBotGame}
                   orientation={botGameData?.botColor ?? "white"}
+                  onBackToGame={() => setActiveTab("local")}
                 />
               ) : chessBoardProps ? (
                 <ChessBoard {...chessBoardProps} />

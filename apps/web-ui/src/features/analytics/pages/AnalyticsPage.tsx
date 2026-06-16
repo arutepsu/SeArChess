@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   fetchAvgGameLength,
   fetchBotFamilies,
@@ -80,34 +80,35 @@ function applyResult<T>(
 
 // ── Tables ────────────────────────────────────────────────────────────────────
 
-function LeaderboardTable({ rows }: { rows: LeaderboardRow[] }) {
+function BotStatisticsTable({ rows }: { rows: LeaderboardRow[] }) {
+  const ranked = [...rows].sort((a, b) => b.totalScore - a.totalScore);
   return (
     <table className="analytics-table">
       <thead>
         <tr>
-          <th>#</th>
+          <th>Rank</th>
           <th>Bot</th>
-          <th>Score</th>
-          <th>W</th>
-          <th>D</th>
-          <th>L</th>
           <th>Games</th>
-          <th>Avg ply</th>
-          <th>Win %</th>
+          <th>Wins</th>
+          <th>Draws</th>
+          <th>Losses</th>
+          <th>Win rate</th>
+          <th>Score</th>
+          <th>Avg game length</th>
         </tr>
       </thead>
       <tbody>
-        {rows.map((r, i) => (
+        {ranked.map((r, i) => (
           <tr key={r.botId}>
             <td className="analytics-td-num">{i + 1}</td>
             <td className="analytics-td-name">{r.botId}</td>
-            <td className="analytics-td-num">{r.totalScore}</td>
+            <td className="analytics-td-num">{r.gamesPlayed}</td>
             <td className="analytics-td-num">{r.wins}</td>
             <td className="analytics-td-num">{r.draws}</td>
             <td className="analytics-td-num">{r.losses}</td>
-            <td className="analytics-td-num">{r.gamesPlayed}</td>
-            <td className="analytics-td-num">{r.avgPly.toFixed(1)}</td>
             <td className="analytics-td-num">{pct(r.winRate)}</td>
+            <td className="analytics-td-num">{r.totalScore}</td>
+            <td className="analytics-td-num">{r.avgPly.toFixed(1)} ply</td>
           </tr>
         ))}
       </tbody>
@@ -409,15 +410,27 @@ function renderSection<T>(
   );
 }
 
+function renderChartOnly<T>(
+  state: SectionState<T>,
+  Chart: React.ComponentType<{ rows: T[] }>
+): React.ReactNode {
+  if (state.status === "loading") return <LoadingState />;
+  if (state.status === "error") return <ErrorState message={analyticsErrorMessage(state.message)} />;
+  if (state.status === "empty") return <EmptyState />;
+  return <Chart rows={state.rows} />;
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AnalyticsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const runIdFilter = searchParams.get("runId");
 
   const [runs, setRuns] = useState<AnalyticsRunSummary[]>([]);
   const [runsLoading, setRunsLoading] = useState(true);
   const [runsError, setRunsError] = useState<string | null>(null);
-  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(runIdFilter);
 
   const [leaderboard, setLeaderboard] = useState<SectionState<LeaderboardRow>>({ status: "loading" });
   const [botFamilies, setBotFamilies] = useState<SectionState<BotFamilyRow>>({ status: "loading" });
@@ -442,7 +455,7 @@ export default function AnalyticsPage() {
         setRuns(data);
         setRunsLoading(false);
         if (data.length > 0) {
-          setSelectedRunId(data[0].runId);
+          if (!runIdFilter) setSelectedRunId(data[0].runId);
         } else {
           setLeaderboard(empty);
           setBotFamilies(empty);
@@ -522,6 +535,22 @@ export default function AnalyticsPage() {
 
   const selectedRun = runs.find((r) => r.runId === selectedRunId);
 
+  const clearRunFilter = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("runId");
+    setSearchParams(next);
+    if (runs.length > 0) setSelectedRunId(runs[0].runId);
+  };
+
+  const handleRunSelect = (runId: string) => {
+    setSelectedRunId(runId);
+    if (runIdFilter) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("runId");
+      setSearchParams(next);
+    }
+  };
+
   return (
     <div className="analytics-page">
       <div className="analytics-shell">
@@ -556,7 +585,7 @@ export default function AnalyticsPage() {
                 id="run-select"
                 className="analytics-run-select"
                 value={selectedRunId ?? ""}
-                onChange={(e) => setSelectedRunId(e.target.value)}
+                onChange={(e) => handleRunSelect(e.target.value)}
               >
                 {runs.map((r) => (
                   <option key={r.runId} value={r.runId}>
@@ -573,13 +602,36 @@ export default function AnalyticsPage() {
           )}
         </div>
 
+        {runIdFilter && (
+          <div className="analytics-context-bar">
+            Showing analytics for tournament run <code>{runIdFilter.slice(0, 8)}…</code>
+            <button type="button" className="analytics-context-clear" onClick={clearRunFilter}>
+              Show global analytics
+            </button>
+          </div>
+        )}
+
+        <SectionCard className="analytics-card analytics-card--full" title="Bot Statistics">
+          {leaderboard.status === "loading" ? (
+            <LoadingState />
+          ) : leaderboard.status === "error" ? (
+            <ErrorState message={analyticsErrorMessage(leaderboard.message)} />
+          ) : leaderboard.status === "empty" ? (
+            <EmptyState message="No bot statistics available yet." />
+          ) : (
+            <div className="analytics-table-wrapper">
+              <BotStatisticsTable rows={leaderboard.rows} />
+            </div>
+          )}
+        </SectionCard>
+
         <div className="analytics-sections">
 
-          <SectionCard className="analytics-card" title="Leaderboard">
-            {renderSection(leaderboard, LeaderboardTable, LeaderboardChart)}
+          <SectionCard className="analytics-card analytics-card--full" title="Leaderboard">
+            {renderChartOnly(leaderboard, LeaderboardChart)}
           </SectionCard>
 
-          <SectionCard className="analytics-card" title="Elo Ratings">
+          <SectionCard className="analytics-card analytics-card--full" title="Elo Ratings">
             {renderSection(eloRatings, EloRatingsTable, EloRatingsChart)}
           </SectionCard>
 

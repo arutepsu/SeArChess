@@ -14,14 +14,14 @@ export default function StatusBanner({ game, connection, liveConnection = "idle"
       return {
         className: "is-loading",
         icon: "⏳",
-        text: "Verbindung zum Spiel-Server wird hergestellt... / Connecting to game service..."
+        text: "Connecting to game service..."
       };
     }
     if (connection === "offline") {
       return {
         className: "is-offline",
         icon: "⚠️",
-        text: "Spiel-Server nicht erreichbar. Bitte Docker Compose starten. / Game service unreachable."
+        text: "Game service unreachable. Please start Docker Compose."
       };
     }
     if (message) {
@@ -35,14 +35,14 @@ export default function StatusBanner({ game, connection, liveConnection = "idle"
       return {
         className: "is-idle",
         icon: "🎮",
-        text: "Bereit für ein neues Spiel. / Ready for a new game."
+        text: "Ready for a new game."
       };
     }
 
     const liveText = liveConnection === "connecting"
-      ? " (Live-Verbindung wird aufgebaut... / Connecting...)"
+      ? " (Connecting...)"
       : liveConnection === "disconnected"
-        ? " (Live-Verbindung getrennt / Offline, using HTTP)"
+        ? " (Offline, using HTTP)"
         : "";
 
     switch (game.status) {
@@ -50,16 +50,16 @@ export default function StatusBanner({ game, connection, liveConnection = "idle"
         return {
           className: "is-checkmate",
           icon: "🏆",
-          text: game.winner 
-            ? `Schachmatt! ${game.winner.toUpperCase()} gewinnt! / Checkmate! ${game.winner.toUpperCase()} wins!` 
-            : "Schachmatt! Spiel beendet. / Checkmate! Game over."
+          text: game.winner
+            ? `Checkmate! ${game.winner.toUpperCase()} wins!`
+            : "Checkmate! Game over."
         };
       case "draw":
-        const drawReasonText = game.drawReason === "stalemate" 
-          ? "Patt! Unentschieden. / Stalemate! Draw." 
-          : game.drawReason 
-            ? `Remis! (${game.drawReason}) / Draw! (${game.drawReason})` 
-            : "Remis! Unentschieden. / Draw!";
+        const drawReasonText = game.drawReason === "stalemate"
+          ? "Stalemate! Draw."
+          : game.drawReason
+            ? `Draw! (${game.drawReason})`
+            : "Draw!";
         return {
           className: "is-draw",
           icon: "🤝",
@@ -70,19 +70,19 @@ export default function StatusBanner({ game, connection, liveConnection = "idle"
           className: "is-resigned",
           icon: "🏳️",
           text: game.winner
-            ? `Aufgegeben! ${game.winner.toUpperCase()} gewinnt! / Resigned! ${game.winner.toUpperCase()} wins!`
-            : "Aufgegeben. / Resigned."
+            ? `Resigned! ${game.winner.toUpperCase()} wins!`
+            : "Resigned."
         };
       case "check":
         return {
           className: "is-check",
           icon: "🚨",
-          text: `Schach! ${game.activeColor.toUpperCase()} ist am Zug. / Check! ${game.activeColor.toUpperCase()} to move.` + liveText
+          text: `Check! ${game.activeColor.toUpperCase()} to move.` + liveText
         };
       default:
-        const turnText = game.activeColor === "white" 
-          ? "Weiß ist am Zug / White to move" 
-          : "Schwarz ist am Zug / Black to move";
+        const turnText = game.activeColor === "white"
+          ? "White to move"
+          : "Black to move";
         return {
           className: "is-active",
           icon: "⚔️",

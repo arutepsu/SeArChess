@@ -222,7 +222,6 @@ export default function ProfilePanel({ onBack }: ProfilePanelProps) {
             <p className="profile-state-card__detail">{loadError}</p>
             <div className="profile-actions-row">
               <Button variant="secondary" onClick={onBack}>Back</Button>
-              <Button variant="ghost" onClick={() => navigate("/")}>Go home</Button>
             </div>
           </GlassPanel>
         ) : profile ? (
@@ -474,7 +473,6 @@ export default function ProfilePanel({ onBack }: ProfilePanelProps) {
             <p>We could not load your profile information yet.</p>
             <div className="profile-actions-row">
               <Button variant="secondary" onClick={onBack}>Back</Button>
-              <Button variant="ghost" onClick={() => navigate("/")}>Go home</Button>
             </div>
           </GlassPanel>
         )}

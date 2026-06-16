@@ -1,12 +1,18 @@
+body:has(.main-menu-page) {
+  overflow: hidden;
+}
+
 body:has(.main-menu-page) #app {
   width: 100%;
   max-width: none;
-  min-height: 100dvh;
+  height: 100dvh;
   padding: 0;
+  overflow: hidden;
 }
 
 .main-menu-page {
-  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
   color: var(--searchess-text-warm, #f6efe4);
   background-image:
     radial-gradient(circle at 50% 20%, rgba(255, 206, 116, 0.18), transparent 34%),
@@ -21,9 +27,11 @@ body:has(.main-menu-page) #app {
   grid-template-rows: auto auto minmax(0, 1fr);
   gap: 22px;
   width: min(1280px, 100%);
-  min-height: 100dvh;
+  height: 100dvh;
+  min-height: 0;
   margin: 0 auto;
   padding: 24px clamp(18px, 4vw, 54px) 38px;
+  overflow: hidden;
 }
 
 .main-menu-topbar {
@@ -87,7 +95,7 @@ body:has(.main-menu-page) #app {
 }
 
 .homepage-logo {
-  width: clamp(96px, 14vw, 168px);
+  width: clamp(112px, 16vw, 200px);
   height: auto;
   object-fit: contain;
   filter: drop-shadow(var(--searchess-glow-gold, 0 0 22px rgba(255, 206, 116, 0.16)))
@@ -100,7 +108,7 @@ body:has(.main-menu-page) #app {
 
 .main-menu-title-block h1 {
   color: var(--searchess-text-bright, #fff8ea);
-  font-family: Georgia, serif;
+  font-family: var(--searchess-font-display);
   font-size: clamp(3rem, 8vw, 6rem);
   font-weight: 900;
   letter-spacing: 0;
@@ -142,7 +150,7 @@ body:has(.main-menu-page) #app {
 
 @media (max-width: 520px) {
   .homepage-logo {
-    width: clamp(90px, 28vw, 130px);
+    width: clamp(100px, 30vw, 150px);
   }
 
   .main-menu-title-block h1 {

@@ -1,4 +1,4 @@
-/* Hauptcontainer für den Move-Log */
+/* Main container for the move log */
 .move-list-panel {
   background: rgba(43, 24, 28, 0.85);
   backdrop-filter: blur(12px);
@@ -10,16 +10,16 @@
   display: flex;
   flex-direction: column;
   max-height: 400px;
-  /* Begrenzung der Höhe mit Scrollbar */
+  /* Cap height with a scrollbar */
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
 .move-list-panel h2 {
-  font-family: 'Georgia', serif;
+  font-family: var(--searchess-font-display);
   margin: 0;
   font-size: 1.3rem;
   color: #e6b347;
-  /* Goldener Akzent */
+  /* Golden accent */
 }
 
 .move-list-panel p {
@@ -28,17 +28,17 @@
   color: #bfa8a8;
 }
 
-/* Die Liste der Züge */
+/* The list of moves */
 .move-list {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding-right: 8px;
-  /* Platz für Scrollbar */
+  /* Room for the scrollbar */
 }
 
-/* Einzelner Zug-Eintrag */
+/* Single move entry */
 .move {
   display: grid;
   grid-template-columns: 40px 1fr 80px;
@@ -50,7 +50,7 @@
   transition: all 0.2s ease;
 }
 
-/* Hervorhebung des letzten Zuges (optional via JS Klasse) */
+/* Highlight the last move (optional via a JS class) */
 .move:last-child {
   background: rgba(230, 179, 71, 0.1);
   border-left-color: #e6b347;
@@ -60,7 +60,7 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
-/* Spalten-Styling */
+/* Column styling */
 .move .ply {
   font-family: 'Courier New', monospace;
   font-weight: bold;
@@ -81,7 +81,7 @@
   text-align: right;
 }
 
-/* Leerer Zustand */
+/* Empty state */
 .move-list .empty {
   text-align: center;
   padding: 20px;
@@ -90,7 +90,7 @@
   font-size: 0.9rem;
 }
 
-/* Custom Scrollbar für den Retro-Look */
+/* Custom scrollbar for the retro look */
 .move-list::-webkit-scrollbar {
   width: 6px;
 }

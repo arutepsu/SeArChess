@@ -54,6 +54,10 @@ ConfigMap values (non-secret): `ANALYTICS_HTTP_HOST=0.0.0.0`,
 `TOURNAMENT_OUTPUT_BASE_PATH=/data/tournament-jobs`,
 `TOURNAMENT_OUTBOX_PUBLISHER_ENABLED=true`, `TOURNAMENT_OUTBOX_PUBLISHER_TYPE=logging`.
 
+**Phase 5 additions** (`deployment/k8s/base/tournament-service/configmap.yaml`):
+`SEARCHESS_AI_BASE_URL=http://ai-service:8765` and
+`STOCKFISH_PATH=/usr/games/stockfish` — see "Bot runtime vars" above.
+
 **Phase 4 additions** (`deployment/k8s/base/tournament-service/configmap.yaml`):
 `TOURNAMENT_ANALYTICS_COMMAND=/app/spark-analytics/bin/run-analytics.sh`,
 `TOURNAMENT_ANALYTICS_WORKING_DIR=/app`,
@@ -72,9 +76,18 @@ service): `ANALYTICS_POSTGRES_PASSWORD` / `TOURNAMENT_POSTGRES_PASSWORD` /
 `postgres-password` key — no new Secret keys were added, since both services share
 the same Postgres instance/credentials as `history-service`/`user-service`.
 
-`STOCKFISH_PATH` and `SEARCHESS_AI_BASE_URL` are intentionally **not** set —
-both are optional, and tournament-service already reports the affected bots
-as `unavailable` with a clear reason when unset (verified in Phase 1).
+**Bot runtime vars** (set in ConfigMap):
+- `STOCKFISH_PATH=/usr/games/stockfish` — Stockfish is installed inside the
+  `tournament-service` image via `apt-get install stockfish` in `Dockerfile.tournament`.
+  The binary lands at `/usr/games/stockfish` on the Linux runtime image; no host binary
+  or Windows path is ever used inside the container.
+- `SEARCHESS_AI_BASE_URL=http://ai-service:8765` — resolves to the `ai-service`
+  ClusterIP Service over in-cluster DNS, enabling the `searchess-ai-v1` bot.
+
+Both are now set unconditionally in the ConfigMap. For local host dev
+(`sbt tournamentService/run` on Windows), override `STOCKFISH_PATH` in `.env` to
+your Windows Stockfish binary path; set `SEARCHESS_AI_BASE_URL` only if an
+ai-service instance is reachable from the host.
 
 ## Kafka — still disabled
 

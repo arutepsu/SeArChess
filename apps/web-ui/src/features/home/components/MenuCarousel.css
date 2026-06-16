@@ -130,7 +130,7 @@
 .menu-carousel__label {
   min-width: 0;
   overflow-wrap: anywhere;
-  font-family: Georgia, serif;
+  font-family: var(--searchess-font-display);
   font-size: clamp(1.25rem, 4vw, 2.6rem);
   font-weight: 900;
   letter-spacing: 0.08rem;

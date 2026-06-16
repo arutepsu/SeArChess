@@ -9,8 +9,6 @@ interface GameHudProps {
   blackTimeMs: number;
   clockRunning: boolean;
   activeColor?: PlayerColor;
-  activeTab: "local" | "bot";
-  setActiveTab: (tab: "local" | "bot") => void;
   hasNewBotMoveNotification: boolean;
   onOpenGameMenu: () => void;
   onOpenMoveLog: () => void;
@@ -21,8 +19,6 @@ export default function GameHud({
   blackTimeMs,
   clockRunning,
   activeColor,
-  activeTab,
-  setActiveTab,
   hasNewBotMoveNotification,
   onOpenGameMenu,
   onOpenMoveLog,
@@ -32,25 +28,10 @@ export default function GameHud({
 
   return (
     <div className="game-hud" aria-label="Game Controls">
-      <nav className="game-hud__tabs" aria-label="Game Mode Tabs">
-        <button
-          type="button"
-          className={`game-hud__tab${activeTab === "local" ? " is-active" : ""}`}
-          onClick={() => setActiveTab("local")}
-        >
-          🎮 Lokal Spielen
-        </button>
-        <button
-          type="button"
-          className={`game-hud__tab${activeTab === "bot" ? " is-active" : ""}`}
-          onClick={() => setActiveTab("bot")}
-        >
-          🤖 Bot-Live-Monitor
-          {hasNewBotMoveNotification && (
-            <span className="notification-dot" aria-hidden="true" />
-          )}
-        </button>
-      </nav>
+      <div className="game-hud__left">
+        <UserMenu dropdownAlign="left" />
+        <img className="game-hud__logo" src="/assets/logo/logo64.png" alt="Searchess" />
+      </div>
 
       <div className="game-hud__clocks">
         <div className={`game-hud__clock${whiteActive ? " is-active" : ""}`}>
@@ -69,8 +50,10 @@ export default function GameHud({
         </Button>
         <Button variant="ghost" onClick={onOpenGameMenu} aria-label="Open game menu">
           ☰ Menu
+          {hasNewBotMoveNotification && (
+            <span className="notification-dot" aria-hidden="true" />
+          )}
         </Button>
-        <UserMenu dropdownAlign="right" />
       </div>
     </div>
   );

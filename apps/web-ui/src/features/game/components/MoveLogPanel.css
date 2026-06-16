@@ -33,7 +33,7 @@
 
 .move-log-panel__header h2 {
   margin: 0;
-  font-family: 'Georgia', serif;
+  font-family: var(--searchess-font-display);
   font-size: 1.3rem;
   letter-spacing: 0.04rem;
   color: #e6b347;

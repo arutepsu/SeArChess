@@ -2,10 +2,19 @@
     display: grid;
     place-items: start center;
     padding: 24px;
+    /* Safety guard: the real fix is .analysis-shell sizing off its parent
+       instead of 100vw below, but this stays as a last-resort backstop. */
+    overflow-x: hidden;
 }
 
 .analysis-shell {
-    width: min(1500px, calc(100vw - 48px));
+    /* Size against the actual parent (already capped by #app's max-width),
+       not the raw viewport — calc(100vw - 48px) ignored #app's own max-width
+       and centering, so on wide screens this shell was wider than the space
+       #app actually gave it and overflowed off both edges. */
+    width: 100%;
+    max-width: 1500px;
+    min-width: 0;
 }
 
 .analysis-header {
@@ -62,6 +71,15 @@
 .analysis-replay-board {
     display: grid;
     place-items: center;
+    min-width: 0;
+}
+
+/* ChessBoard renders at a fixed --square-size (80px default); on narrow
+   viewports 8 squares + padding/border is wider than the page, which was
+   another source of horizontal overflow. Scoped here so /game is unaffected. */
+.analysis-replay-board .board-shell {
+    --square-size: clamp(28px, 8vw, 80px);
+    max-width: 100%;
 }
 
 .analysis-replay-loading,

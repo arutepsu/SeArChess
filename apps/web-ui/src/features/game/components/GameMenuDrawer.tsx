@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { GameState, PlayableGameMode } from "../../../api/types";
 import type { RunAiTurnsResponse } from "../../../api/backendTypes";
 import type { GameSceneSkin } from "../sceneSkins";
@@ -35,6 +35,9 @@ interface GameMenuDrawerProps {
   onOpenHeatmap: () => void;
   onBackToMenu: () => void;
   onNewGame: () => void;
+
+  activeTab: "local" | "bot";
+  setActiveTab: (tab: "local" | "bot") => void;
 }
 
 export default function GameMenuDrawer({
@@ -59,6 +62,8 @@ export default function GameMenuDrawer({
   onOpenHeatmap,
   onBackToMenu,
   onNewGame,
+  activeTab,
+  setActiveTab,
 }: GameMenuDrawerProps) {
   const [notationFormat, setNotationFormat] = useState<"FEN" | "PGN">("FEN");
   const [fenDraft, setFenDraft] = useState("");
@@ -69,6 +74,7 @@ export default function GameMenuDrawer({
   const [aiMaxPlies, setAiMaxPlies] = useState(20);
   const [aiRunResult, setAiRunResult] = useState<RunAiTurnsResponse | null>(null);
   const [aiRunError, setAiRunError] = useState<string | null>(null);
+  const importFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -178,6 +184,20 @@ export default function GameMenuDrawer({
               >
                 View Analytics
               </Button>
+              <Button
+                variant="ghost"
+                disabled={activeTab === "local"}
+                onClick={() => { setActiveTab("local"); onClose(); }}
+              >
+                🎮 Play Locally
+              </Button>
+              <Button
+                variant="ghost"
+                disabled={activeTab === "bot"}
+                onClick={() => { setActiveTab("bot"); onClose(); }}
+              >
+                🤖 Bot-Live-Monitor
+              </Button>
             </div>
           </section>
 
@@ -248,11 +268,20 @@ export default function GameMenuDrawer({
                 disabled={busy}
               />
               <input
+                ref={importFileInputRef}
                 type="file"
                 accept={notationFormat === "FEN" ? ".fen,.txt" : ".pgn,.txt"}
                 disabled={busy}
                 onChange={e => void readNotationFile(e.currentTarget.files?.[0], setCurrentDraft)}
+                className="gmd-file-input"
               />
+              <Button
+                variant="secondary"
+                disabled={busy}
+                onClick={() => importFileInputRef.current?.click()}
+              >
+                Choose File for Import
+              </Button>
               <Button
                 variant="secondary"
                 disabled={busy || !currentDraft.trim()}

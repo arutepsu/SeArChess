@@ -71,6 +71,10 @@ export default function App() {
   const location = useLocation();
   const isGameRoute = location.pathname === "/game";
   const isHomeRoute = location.pathname === "/";
+  const isTournamentsRoute = location.pathname.startsWith("/tournaments");
+  const isAnalyticsRoute = location.pathname === "/analytics";
+  const isAnalysisRoute = location.pathname === "/analysis";
+  const isSettingsRoute = location.pathname === "/settings";
 
   const { profile, onboardingRequired, setOnboardingRequired } = useProfileOnboarding();
 
@@ -313,15 +317,15 @@ export default function App() {
   const displayedMessage =
     activeTab === "bot"
       ? botConnectionState === "disconnected"
-        ? "Verbindung zum Bot-Server getrennt. Reconnect in 3s... / Disconnected from bot server. Reconnecting..."
+        ? "Disconnected from bot server. Reconnecting..."
         : !botGameData
-        ? "Warte auf Bot-Spiele... / Waiting for bot games..."
+        ? "Waiting for bot games..."
         : undefined
       : message;
 
   return (
     <div className="app">
-      {!isGameRoute && !isHomeRoute && <AuthBar />}
+      {!isGameRoute && !isHomeRoute && !isTournamentsRoute && !isAnalyticsRoute && !isAnalysisRoute && !isSettingsRoute && <AuthBar />}
 
       <AppRoutes
         game={game}

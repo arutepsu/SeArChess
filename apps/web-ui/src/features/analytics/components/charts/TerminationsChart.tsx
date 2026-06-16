@@ -7,5 +7,5 @@ interface Props {
 }
 
 export default function TerminationsChart({ rows }: Props) {
-  return <EChart option={terminationsOption(rows)} height={Math.max(260, rows.length * 34 + 90)} empty={rows.length === 0} />;
+  return <EChart option={terminationsOption(rows)} height={Math.max(320, rows.length * 34 + 90)} empty={rows.length === 0} />;
 }

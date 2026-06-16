@@ -178,7 +178,7 @@
 .game-over-dialog h3 {
   margin: 0 0 8px 0;
   color: #e6b347;
-  font-family: 'Outfit', 'Inter', sans-serif;
+  font-family: var(--searchess-font-main);
   font-size: 1.25rem;
   letter-spacing: 0.05rem;
   text-transform: uppercase;

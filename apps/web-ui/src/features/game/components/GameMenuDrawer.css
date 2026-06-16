@@ -34,7 +34,7 @@
 
 .gmd-title {
   margin: 0;
-  font-family: 'Georgia', serif;
+  font-family: var(--searchess-font-display);
   font-size: 1.3rem;
   letter-spacing: 0.04rem;
   color: #e6b347;
@@ -198,6 +198,17 @@
 
 .gmd-textarea:disabled {
   opacity: 0.6;
+}
+
+/* Native file input stays functional but visually replaced by a shared Button
+   that triggers it via a ref click — see GameMenuDrawer.tsx. */
+.gmd-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 
 /* Session identifier key/value list */

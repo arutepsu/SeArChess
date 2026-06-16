@@ -1,23 +1,22 @@
-/* Container-Styling */
+/* Container styling */
 .background-panel {
-    /* Hintergrund an Background-Panel anpassen */
+    /* Match background to the background panel */
     background: rgba(43, 24, 28, 0.5);
     backdrop-filter: blur(12px);
     border: 2px solid #5a3a3a;
-    /* Gleicher Rahmen wie links */
+    /* Same border as on the left */
     border-radius: 16px;
-    /* Einheitlicher Radius */
+    /* Consistent radius */
     padding: 20px;
     color: #f0e6d2;
-    /* Etwas wärmeres Weiß */
+    /* Slightly warmer white */
     width: 280px;
-    /* Leicht breiter für bessere Lesbarkeit */
+    /* Slightly wider for better readability */
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
 .background-panel h2 {
-    font-family: 'Georgia', serif;
-    /* Oder deine Custom Serif-Font */
+    font-family: var(--searchess-font-display);
     margin: 0 0 0.5rem 0;
     font-size: 1.5rem;
     letter-spacing: 1px;
@@ -36,7 +35,7 @@
     gap: 12px;
 }
 
-/* Die einzelnen Buttons */
+/* The individual buttons */
 .background-option {
     background: transparent;
     border: 2px solid transparent;
@@ -49,7 +48,7 @@
     outline: none;
 }
 
-/* Die runden/eckigen Vorschaubilder */
+/* The round/square preview thumbnails */
 .background-option span {
     width: 100%;
     aspect-ratio: 16 / 9;
@@ -61,7 +60,7 @@
     margin-bottom: 6px;
 }
 
-/* Hover-Effekt */
+/* Hover effect */
 .background-option:hover {
     transform: translateY(-3px);
 }
@@ -70,10 +69,10 @@
     border-color: #a34e56;
 }
 
-/* Aktiver Zustand (ausgewählt) */
+/* Active state (selected) */
 .background-option.is-active {
     border-color: #e6b347;
-    /* Goldener Akzent */
+    /* Golden accent */
     background: rgba(230, 179, 71, 0.1);
     border-radius: 8px;
 }
@@ -94,7 +93,7 @@
 }
 
 .scene-header h3 {
-    font-family: 'Georgia', serif;
+    font-family: var(--searchess-font-display);
     margin: 0 0 0.75rem 0;
     font-size: 1.1rem;
     letter-spacing: 0.5px;
@@ -112,10 +111,10 @@
     background-color: #f0d9b5;
 }
 
-/* Text unter den Bildern */
+/* Text under the images */
 .background-option small {
     font-family: 'Courier New', Courier, monospace;
-    /* Pixel-Vibe */
+    /* Pixel vibe */
     color: #f0e6d2;
     font-size: 0.75rem;
     text-transform: uppercase;

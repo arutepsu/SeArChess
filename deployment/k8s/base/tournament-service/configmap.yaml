@@ -28,6 +28,10 @@ data:
   # analytics-service's ANALYTICS_POSTGRES_SCHEMA so analytics-service can
   # read what Spark writes. Password comes from the searchess-secrets Secret
   # below (same postgres-password key used for TOURNAMENT_POSTGRES_PASSWORD).
+  # Bot runtime: SearchessAI calls ai-service over cluster DNS.
+  # Stockfish is installed inside the image (apt stockfish in Dockerfile.tournament).
+  SEARCHESS_AI_BASE_URL: "http://ai-service:8765"
+  STOCKFISH_PATH: "/usr/games/stockfish"
   POSTGRES_WRITE_ENABLED: "true"
   POSTGRES_URL: "jdbc:postgresql://postgres:5432/searchess"
   POSTGRES_USER: "searchess"

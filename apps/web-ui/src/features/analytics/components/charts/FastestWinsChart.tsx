@@ -7,5 +7,5 @@ interface Props {
 }
 
 export default function FastestWinsChart({ rows }: Props) {
-  return <EChart option={fastestWinsOption(rows)} height={Math.max(260, rows.length * 34 + 90)} empty={rows.length === 0} />;
+  return <EChart option={fastestWinsOption(rows)} height={Math.max(320, rows.length * 34 + 90)} empty={rows.length === 0} />;
 }

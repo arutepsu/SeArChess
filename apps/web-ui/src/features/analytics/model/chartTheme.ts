@@ -1,5 +1,7 @@
 import type { EChartsOption } from "echarts";
 
+const CHART_FONT = "'JungleAdventurer', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+
 export const chartColors = {
   score: "#ffce74",
   wins: "#73d38b",
@@ -29,14 +31,14 @@ export function baseChartOption(): EChartsOption {
     ],
     textStyle: {
       color: chartColors.text,
-      fontFamily: "Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      fontFamily: CHART_FONT,
     },
     tooltip: {
       trigger: "axis",
       backgroundColor: chartColors.tooltipBg,
       borderColor: chartColors.tooltipBorder,
       borderWidth: 1,
-      textStyle: { color: "#f8f1e6" },
+      textStyle: { color: "#f8f1e6", fontFamily: CHART_FONT },
       axisPointer: {
         type: "shadow",
         shadowStyle: { color: "rgba(255, 255, 255, 0.06)" },
@@ -45,7 +47,7 @@ export function baseChartOption(): EChartsOption {
     legend: {
       top: 0,
       right: 0,
-      textStyle: { color: chartColors.mutedText },
+      textStyle: { color: chartColors.mutedText, fontFamily: CHART_FONT },
       icon: "roundRect",
     },
     grid: {
@@ -62,8 +64,8 @@ export function valueAxis(name?: string) {
   return {
     type: "value" as const,
     name,
-    nameTextStyle: { color: chartColors.mutedText },
-    axisLabel: { color: chartColors.mutedText },
+    nameTextStyle: { color: chartColors.mutedText, fontFamily: CHART_FONT },
+    axisLabel: { color: chartColors.mutedText, fontFamily: CHART_FONT },
     axisLine: { lineStyle: { color: chartColors.grid } },
     splitLine: { lineStyle: { color: chartColors.grid } },
   };
@@ -76,6 +78,7 @@ export function categoryAxis(data: string[], inverse = false) {
     inverse,
     axisLabel: {
       color: chartColors.text,
+      fontFamily: CHART_FONT,
       width: 150,
       overflow: "truncate" as const,
     },
