@@ -42,42 +42,42 @@ resources:
 # mongo:7.0 requires AVX CPU instructions not available on the university VM.
 # mongo:4.4 is the last release that does not require AVX.
 # lichess-bridge-service: Phase 3A — replicas set to 1 via patch below.
-images:
-- name: mongo
-  newTag: "4.4"
 # Custom image bakes the searchess login theme into
 # /opt/keycloak/themes/searchess (see Dockerfile.keycloak), replacing the
 # oversized generated ConfigMap that exceeded the 3 MiB object size limit.
+images:
+- name: mongo
+  newTag: "4.4"
 - name: quay.io/keycloak/keycloak
   newName: ghcr.io/arutepsu/searchess-keycloak
-  newTag: sha-f0ac855
+  newTag: sha-b6d5998
 - name: searchess/ai-service
   newName: ghcr.io/arutepsu/searchess-ai-service
-  newTag: sha-e813387
+  newTag: sha-b6d5998
 - name: searchess/analytics-service
   newName: ghcr.io/arutepsu/searchess-analytics-service
-  newTag: sha-e813387
+  newTag: sha-b6d5998
 - name: searchess/bot-service
   newName: ghcr.io/arutepsu/searchess-bot-service
-  newTag: sha-e813387
+  newTag: sha-b6d5998
 - name: searchess/game-service
   newName: ghcr.io/arutepsu/searchess-game-service
-  newTag: sha-e813387
+  newTag: sha-b6d5998
 - name: searchess/history-service
   newName: ghcr.io/arutepsu/searchess-history-service
-  newTag: sha-e813387
+  newTag: sha-b6d5998
 - name: searchess/lichess-bridge-service
   newName: ghcr.io/arutepsu/searchess-lichess-bridge-service
-  newTag: sha-e813387
+  newTag: sha-b6d5998
 - name: searchess/python-ai-service
   newName: ghcr.io/arutepsu/searchess-python-ai-service
   newTag: sha-2247329
 - name: searchess/tournament-service
   newName: ghcr.io/arutepsu/searchess-tournament-service
-  newTag: sha-e813387
+  newTag: sha-b6d5998
 - name: searchess/user-service
   newName: ghcr.io/arutepsu/searchess-user-service
-  newTag: sha-e813387
+  newTag: sha-b6d5998
 - name: searchess/web-ui
   newName: ghcr.io/arutepsu/searchess-web-ui
   newTag: main
