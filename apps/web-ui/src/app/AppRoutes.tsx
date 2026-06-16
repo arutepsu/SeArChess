@@ -17,6 +17,8 @@ import { LichessHubPage, LichessGamePage } from "../features/lichess";
 import { AnalyticsPage, GameAnalysisView } from "../features/analytics";
 import { TournamentBuilderPage, TournamentJobsPage, TournamentRunningPage } from "../features/tournaments";
 import { PieceTypesPage } from "../features/pieceTypes";
+import LiveEventStreamPage from "../admin/LiveEventStreamPage";
+import type { LiveTimelineEvent } from "../components/EventTimeline";
 
 interface AppRoutesProps {
   // Game state
@@ -53,6 +55,7 @@ interface AppRoutesProps {
   displayedConnection: ConnectionState;
   displayedLiveConnection: LiveConnectionState;
   displayedMessage: string | undefined;
+  liveTimelineEvents: LiveTimelineEvent[];
 
   // Timeline
   timelinePly: number;
@@ -94,6 +97,7 @@ interface AppRoutesProps {
   onBackToMenu: () => void;
   onOpenLichessGame: (gameId: string) => void;
   onBackToLichess: () => void;
+  onClearLiveTimelineEvents: () => void;
 
   // Game action handlers
   onSelect: (square: string) => void;
@@ -133,6 +137,7 @@ export default function AppRoutes({
   displayedConnection,
   displayedLiveConnection,
   displayedMessage,
+  liveTimelineEvents,
   timelinePly,
   setTimelinePly,
   timelineTotalPlies,
@@ -164,6 +169,7 @@ export default function AppRoutes({
   onBackToMenu,
   onOpenLichessGame,
   onBackToLichess,
+  onClearLiveTimelineEvents,
   onSelect,
   onAnimationFinished,
   onResolvePromotion,
@@ -294,6 +300,18 @@ export default function AppRoutes({
       <Route
         path="/lichess/games/:gameId"
         element={<LichessGamePage onBack={onBackToLichess} />}
+      />
+
+      <Route
+        path="/admin/events"
+        element={
+          <LiveEventStreamPage
+            events={liveTimelineEvents}
+            liveConnection={displayedLiveConnection}
+            onBack={onBackToMenu}
+            onClear={onClearLiveTimelineEvents}
+          />
+        }
       />
 
       <Route path="/pieces" element={<PieceTypesPage />} />

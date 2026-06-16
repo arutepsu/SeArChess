@@ -16,6 +16,7 @@ import { AuthBar } from "./features/auth";
 import AppRoutes from "./app/AppRoutes";
 import type { ConnectionState, LiveConnectionState } from "./app/types";
 import { useMoveSound } from "./app/hooks/useMoveSound";
+import type { LiveTimelineEvent } from "./components/EventTimeline";
 import "./App.css";
 
 function isGameStateRefreshHint(event: WsEvent): boolean {
@@ -91,6 +92,7 @@ export default function App() {
 
   const [connection, setConnection] = useState<ConnectionState>("loading");
   const [liveConnection, setLiveConnection] = useState<LiveConnectionState>("idle");
+  const [liveTimelineEvents, setLiveTimelineEvents] = useState<LiveTimelineEvent[]>([]);
   const { whiteClockMs, blackClockMs, clockRunning } = useGameClock({
     gameId: game?.id,
     gameStatus: game?.status,
@@ -254,7 +256,14 @@ export default function App() {
       onMessage: (event) => {
         if (!active) return;
 
-
+        setLiveTimelineEvents((events) => [
+          ...events,
+          {
+            id: `${event.gameId}:${event.eventType}:${Date.now()}:${events.length}`,
+            receivedAt: new Date().toISOString(),
+            event
+          }
+        ].slice(-100));
 
         if (isGameStateRefreshHint(event)) {
           void refreshGameSnapshotAfterHint(event);
@@ -366,6 +375,7 @@ export default function App() {
         botConnectionState={botConnectionState}
         displayedConnection={displayedConnection}
         displayedLiveConnection={displayedLiveConnection}
+        liveTimelineEvents={liveTimelineEvents}
         displayedMessage={displayedMessage}
         timelinePly={timelinePly}
         setTimelinePly={setTimelinePly}
@@ -398,6 +408,7 @@ export default function App() {
         onBackToMenu={handleBackToMenu}
         onOpenLichessGame={handleOpenLichessGame}
         onBackToLichess={handleBackToLichess}
+        onClearLiveTimelineEvents={() => setLiveTimelineEvents([])}
         onSelect={handleSelect}
         onAnimationFinished={handleAnimationFinished}
         onResolvePromotion={handleResolvePromotion}

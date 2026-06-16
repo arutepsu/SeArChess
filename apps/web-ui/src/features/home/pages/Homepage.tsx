@@ -151,6 +151,12 @@ export default function Homepage({
               onSelect: onOpenLichessHub,
             },
             {
+              id: "live-event-stream",
+              label: "Live Event Stream",
+              description: "Inspect live game events and delivery status.",
+              onSelect: () => navigate("/admin/events"),
+            },
+            {
               id: "saved-sessions",
               label: "Saved Sessions",
               description: "Resume a stored local session.",
