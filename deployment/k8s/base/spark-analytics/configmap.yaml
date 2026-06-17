@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spark-analytics-env
+  namespace: searchess
+data:
+  # Kafka source
+  KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+  KAFKA_GAME_EVENTS_TOPIC: "searchess.game.events.v1"
+  # Spark Structured Streaming
+  SPARK_CHECKPOINT_DIR: "/spark-checkpoints/live-game-events"
+  SPARK_STREAMING_STARTING_OFFSETS: "latest"
+  SPARK_STREAMING_TRIGGER_SECONDS: "10"
+  # PostgreSQL sink (POSTGRES_PASSWORD supplied from searchess-secrets)
+  POSTGRES_WRITE_ENABLED: "true"
+  POSTGRES_URL: "jdbc:postgresql://postgres:5432/searchess"
+  POSTGRES_USER: "searchess"
+  POSTGRES_SCHEMA: "public"

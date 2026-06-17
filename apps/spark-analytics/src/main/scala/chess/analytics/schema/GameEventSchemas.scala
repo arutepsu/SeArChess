@@ -39,4 +39,31 @@ object GameEventSchemas {
 
     StructField(corruptRecordColumn, StringType, nullable = true)
   ))
+
+  // ── Production game-events topic: EventEnvelope wrapping AppEvent payloads ──
+  // Field names are camelCase to match the JSON wire format produced by EventEnvelope.writePayloadEnvelope.
+  // Only the GameFinished payload fields are defined here; other event types will have null payload fields.
+
+  private val envelopePayloadSchema: StructType = StructType(Seq(
+    StructField("type",       StringType, nullable = true),
+    StructField("sessionId",  StringType, nullable = true),
+    StructField("gameId",     StringType, nullable = true),
+    StructField("result",     StringType, nullable = true),
+    StructField("winner",     StringType, nullable = true),
+    StructField("drawReason", StringType, nullable = true)
+  ))
+
+  val envelopeSchema: StructType = StructType(Seq(
+    StructField("eventId",       StringType,           nullable = true),
+    StructField("eventType",     StringType,           nullable = true),
+    StructField("eventVersion",  IntegerType,          nullable = true),
+    StructField("occurredAt",    StringType,           nullable = true),
+    StructField("producer",      StringType,           nullable = true),
+    StructField("correlationId", StringType,           nullable = true),
+    StructField("causationId",   StringType,           nullable = true),
+    StructField("aggregateType", StringType,           nullable = true),
+    StructField("aggregateId",   StringType,           nullable = true),
+    StructField("payload",       envelopePayloadSchema, nullable = true),
+    StructField(corruptRecordColumn, StringType,       nullable = true)
+  ))
 }

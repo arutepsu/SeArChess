@@ -66,6 +66,9 @@ images:
 - name: searchess/analytics-service
   newName: ghcr.io/arutepsu/searchess-analytics-service
   newTag: sha-e813387
+- name: searchess/spark-analytics
+  newName: ghcr.io/arutepsu/searchess-spark-analytics
+  newTag: sha-287d3c8
 - name: searchess/bot-service
   newName: ghcr.io/arutepsu/searchess-bot-service
   newTag: sha-e813387

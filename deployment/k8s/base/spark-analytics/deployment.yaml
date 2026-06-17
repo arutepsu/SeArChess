@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spark-analytics
+  namespace: searchess
+  labels:
+    app: spark-analytics
+spec:
+  # Replicas: 1 — Structured Streaming checkpoint state is bound to a single driver.
+  # Scaling requires migrating checkpoint storage to a shared FS (e.g. MinIO / S3).
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spark-analytics
+  template:
+    metadata:
+      labels:
+        app: spark-analytics
+    spec:
+      containers:
+        - name: spark-analytics
+          image: searchess/spark-analytics:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: spark-analytics-env
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: searchess-secrets
+                  key: postgres-password
+          volumeMounts:
+            - name: spark-checkpoints
+              mountPath: /spark-checkpoints
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "200m"
+            # Spark local[*] runs driver and executor in the same JVM; 2Gi matches
+            # the headroom used by tournament-service when it spawns the batch job.
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+      volumes:
+        - name: spark-checkpoints
+          persistentVolumeClaim:
+            claimName: spark-analytics-checkpoints

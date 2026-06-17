@@ -987,6 +987,8 @@ addCommandAlias("demoSparkStreamingAnalytics",
   "sparkAnalytics/runMain chess.analytics.app.GameAnalyticsStreamingJob")
 addCommandAlias("demoKafkaSparkStreaming",
   "sparkAnalytics/runMain chess.analytics.app.GameAnalyticsStreamingJob")
+addCommandAlias("demoSparkLiveGameAnalytics",
+  "sparkAnalytics/runMain chess.analytics.app.GameEventStreamingAnalyticsJob")
 
 // ── Compile slices ────────────────────────────────────────────────────────────
 

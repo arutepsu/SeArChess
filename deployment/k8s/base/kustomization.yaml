@@ -32,6 +32,9 @@ resources:
   - analytics-service/configmap.yaml
   - analytics-service/deployment.yaml
   - analytics-service/service.yaml
+  - spark-analytics/pvc.yaml
+  - spark-analytics/configmap.yaml
+  - spark-analytics/deployment.yaml
   - tournament-service/configmap.yaml
   - tournament-service/deployment.yaml
   - tournament-service/service.yaml

@@ -1,5 +1,7 @@
 package chess.analytics
 
+import chess.analytics.config.PostgresConfig
+import chess.analytics.sink.PostgresWriter
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
