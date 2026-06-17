@@ -49,3 +49,15 @@ final case class FastestWinRow(
   winnerBotId: String, decisiveGames: Long, avgWinPly: Double,
   minWinPly: Long, avgWinDurationMs: Double
 )
+
+final case class LiveGameResultRow(
+  eventId:       String,
+  aggregateId:   String,
+  sessionId:     Option[String],
+  occurredAt:    String,
+  result:        String,
+  winner:        Option[String],
+  drawReason:    Option[String],
+  correlationId: Option[String],
+  ingestedAt:    String
+)

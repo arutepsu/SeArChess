@@ -94,6 +94,7 @@ jobs:
       build_python_ai:             ${{ steps.changes.outputs.build_python_ai }}
       build_lichess_bridge:        ${{ steps.changes.outputs.build_lichess_bridge }}
       build_analytics:             ${{ steps.changes.outputs.build_analytics }}
+      build_spark_analytics:       ${{ steps.changes.outputs.build_spark_analytics }}
       build_tournament:            ${{ steps.changes.outputs.build_tournament }}
       build_keycloak:              ${{ steps.changes.outputs.build_keycloak }}
 
@@ -118,6 +119,7 @@ jobs:
             echo "build_python_ai=${{ inputs.rebuild_python_ai }}" >> $GITHUB_OUTPUT
             echo "build_lichess_bridge=true"        >> $GITHUB_OUTPUT
             echo "build_analytics=true"             >> $GITHUB_OUTPUT
+            echo "build_spark_analytics=true"       >> $GITHUB_OUTPUT
             echo "build_tournament=true"            >> $GITHUB_OUTPUT
             echo "build_keycloak=true"              >> $GITHUB_OUTPUT
             exit 0
@@ -138,6 +140,7 @@ jobs:
             echo "build_python_ai=false"            >> $GITHUB_OUTPUT
             echo "build_lichess_bridge=true"        >> $GITHUB_OUTPUT
             echo "build_analytics=true"             >> $GITHUB_OUTPUT
+            echo "build_spark_analytics=true"       >> $GITHUB_OUTPUT
             echo "build_tournament=true"            >> $GITHUB_OUTPUT
             echo "build_keycloak=true"              >> $GITHUB_OUTPUT
             exit 0
@@ -170,6 +173,7 @@ jobs:
             echo "build_python_ai=false"            >> $GITHUB_OUTPUT
             echo "build_lichess_bridge=true"        >> $GITHUB_OUTPUT
             echo "build_analytics=true"             >> $GITHUB_OUTPUT
+            echo "build_spark_analytics=true"       >> $GITHUB_OUTPUT
             echo "build_tournament=true"            >> $GITHUB_OUTPUT
             echo "build_keycloak=false"             >> $GITHUB_OUTPUT
             exit 0
@@ -190,6 +194,7 @@ jobs:
             echo "build_python_ai=false"            >> $GITHUB_OUTPUT
             echo "build_lichess_bridge=true"        >> $GITHUB_OUTPUT
             echo "build_analytics=true"             >> $GITHUB_OUTPUT
+            echo "build_spark_analytics=true"       >> $GITHUB_OUTPUT
             echo "build_tournament=true"            >> $GITHUB_OUTPUT
             echo "build_keycloak=true"              >> $GITHUB_OUTPUT
             exit 0
@@ -206,6 +211,7 @@ jobs:
           ANALYTICS=$(echo         "$CHANGED" | grep -E "^apps/analytics-service/|^Dockerfile\.analytics$|^deployment/k8s/base/analytics-service/" || true)
           TOURNAMENT=$(echo        "$CHANGED" | grep -E "^apps/tournament-service/|^Dockerfile\.tournament$|^deployment/k8s/base/tournament-service/" || true)
           KEYCLOAK=$(echo          "$CHANGED" | grep -E "^Dockerfile\.keycloak$|^deployment/k8s/base/keycloak/" || true)
+          SPARK_ANALYTICS=$(echo   "$CHANGED" | grep -E "^apps/spark-analytics/|^Dockerfile\.spark-analytics$" || true)
 
           OVERLAY_FILE=deployment/k8s/overlays/uni-server-registry/kustomization.yaml
 
@@ -228,6 +234,10 @@ jobs:
             echo "keycloak overlay tag is sha-placeholder — forcing rebuild."
             KEYCLOAK="forced"
           fi
+          if grep -A1 "name: searchess/spark-analytics" "$OVERLAY_FILE" 2>/dev/null | grep -q "sha-placeholder"; then
+            echo "spark-analytics overlay tag is sha-placeholder — forcing rebuild."
+            SPARK_ANALYTICS="forced"
+          fi
 
           [ -n "$GAME" ]           && echo "build_game=true"                 >> $GITHUB_OUTPUT \
                                    || echo "build_game=false"                >> $GITHUB_OUTPUT
@@ -245,6 +255,8 @@ jobs:
                                    || echo "build_lichess_bridge=false"      >> $GITHUB_OUTPUT
           [ -n "$ANALYTICS" ]      && echo "build_analytics=true"           >> $GITHUB_OUTPUT \
                                    || echo "build_analytics=false"           >> $GITHUB_OUTPUT
+          [ -n "$SPARK_ANALYTICS" ] && echo "build_spark_analytics=true"    >> $GITHUB_OUTPUT \
+                                    || echo "build_spark_analytics=false"    >> $GITHUB_OUTPUT
           [ -n "$TOURNAMENT" ]     && echo "build_tournament=true"          >> $GITHUB_OUTPUT \
                                    || echo "build_tournament=false"          >> $GITHUB_OUTPUT
           [ -n "$KEYCLOAK" ]       && echo "build_keycloak=true"            >> $GITHUB_OUTPUT \
@@ -584,6 +596,53 @@ jobs:
           cache-from: type=gha,scope=analytics-service
           cache-to: type=gha,mode=max,scope=analytics-service
 
+  build-spark-analytics:
+    name: Build spark-analytics
+    runs-on: ubuntu-latest
+    needs: determine-changes
+    if: |
+      github.actor != 'github-actions[bot]' &&
+      needs.determine-changes.outputs.build_spark_analytics == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set short SHA
+        id: sha
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.ORG }}/searchess-spark-analytics
+          tags: |
+            type=raw,value=sha-${{ steps.sha.outputs.SHORT_SHA }}
+            type=raw,value=main-latest
+            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push spark-analytics
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.spark-analytics
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=spark-analytics
+          cache-to: type=gha,mode=max,scope=spark-analytics
+
   build-tournament-service:
     name: Build tournament-service
     runs-on: ubuntu-latest
@@ -822,6 +881,7 @@ jobs:
       - build-web-ui
       - build-python-ai-service
       - build-analytics-service
+      - build-spark-analytics
       - build-tournament-service
       - build-keycloak-image
     # Run if no build job failed or was cancelled AND at least one build succeeded.
@@ -841,6 +901,7 @@ jobs:
         needs.build-web-ui.result == 'success' ||
         needs.build-python-ai-service.result == 'success' ||
         needs.build-analytics-service.result == 'success' ||
+        needs.build-spark-analytics.result == 'success' ||
         needs.build-tournament-service.result == 'success' ||
         needs.build-keycloak-image.result == 'success'
       )
@@ -925,6 +986,11 @@ jobs:
             kustomize edit set image \
               searchess/analytics-service=ghcr.io/${{ env.ORG }}/searchess-analytics-service:sha-${SHORT_SHA}
             IMAGES_UPDATED="${IMAGES_UPDATED} analytics-service"
+          fi
+          if [ "${{ needs.build-spark-analytics.result }}" = "success" ]; then
+            kustomize edit set image \
+              searchess/spark-analytics=ghcr.io/${{ env.ORG }}/searchess-spark-analytics:sha-${SHORT_SHA}
+            IMAGES_UPDATED="${IMAGES_UPDATED} spark-analytics"
           fi
           if [ "${{ needs.build-tournament-service.result }}" = "success" ]; then
             kustomize edit set image \

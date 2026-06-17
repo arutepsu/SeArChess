@@ -6,6 +6,7 @@ import type {
   EloRatingsRow,
   FastestWinRow,
   LeaderboardRow,
+  LiveGameResult,
   SearchessAiComparisonRow,
   StockfishComparisonRow,
   StrategyRow,
@@ -100,5 +101,12 @@ export async function fetchColorPerformance(runId?: string): Promise<ColorPerfor
 
 export async function fetchFastestWins(runId?: string): Promise<FastestWinRow[]> {
   const data = await fetchAnalytics<{ rows: FastestWinRow[] }>(analyticsPath("fastest-wins", runId));
+  return data.rows;
+}
+
+export async function fetchLiveGameResults(limit = 50): Promise<LiveGameResult[]> {
+  const data = await fetchAnalytics<{ rows: LiveGameResult[] }>(
+    `/api/analytics/live/game-results?limit=${limit}`
+  );
   return data.rows;
 }

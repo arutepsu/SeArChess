@@ -143,6 +143,34 @@ services:
       - bot-service
     restart: unless-stopped
 
+  spark-analytics:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.spark-analytics
+    networks:
+      - internal
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_GAME_EVENTS_TOPIC: searchess.game.events.v1
+      SPARK_CHECKPOINT_DIR: /spark-checkpoints/live-game-events
+      SPARK_STREAMING_STARTING_OFFSETS: ${SPARK_STREAMING_STARTING_OFFSETS:-latest}
+      SPARK_STREAMING_TRIGGER_SECONDS: ${SPARK_STREAMING_TRIGGER_SECONDS:-10}
+      POSTGRES_WRITE_ENABLED: "true"
+      POSTGRES_URL: jdbc:postgresql://postgres:5432/searchess
+      POSTGRES_USER: ${SEARCHESS_POSTGRES_USER:-searchess}
+      POSTGRES_PASSWORD: ${SEARCHESS_POSTGRES_PASSWORD:-searchess}
+      POSTGRES_SCHEMA: public
+    volumes:
+      - spark_checkpoints:/spark-checkpoints
+    profiles:
+      - spark-analytics
+    restart: unless-stopped
+
   history-service:
     build:
       context: ../..
@@ -513,3 +541,5 @@ volumes:
   grafana_data:
   tournament_jobs:
     name: searchess_tournament_jobs
+  spark_checkpoints:
+    name: searchess_spark_checkpoints

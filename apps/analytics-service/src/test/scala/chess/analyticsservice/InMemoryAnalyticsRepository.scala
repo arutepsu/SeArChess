@@ -5,17 +5,18 @@ package chess.analyticsservice
   * filter by runId, since routing and validation logic is tested at the routes layer.
   */
 final class InMemoryAnalyticsRepository(
-  runs:          Either[String, List[AnalyticsRunSummary]]          = Right(Nil),
-  leaderboard:   Either[String, List[LeaderboardRow]]               = Right(Nil),
-  botFamilies:   Either[String, List[BotFamilyRow]]                 = Right(Nil),
-  strategies:    Either[String, List[StrategyRow]]                  = Right(Nil),
-  searchessAi:   Either[String, List[SearchessAiComparisonRow]]     = Right(Nil),
-  stockfish:     Either[String, List[StockfishComparisonRow]]       = Right(Nil),
-  avgGameLength: Either[String, List[AvgGameLengthRow]]             = Right(Nil),
-  eloRatings:    Either[String, List[EloRatingsRow]]                = Right(Nil),
-  terminations:  Either[String, List[TerminationReasonRow]]          = Right(Nil),
-  colorPerf:     Either[String, List[ColorPerformanceRow]]           = Right(Nil),
-  fastestWins:   Either[String, List[FastestWinRow]]                 = Right(Nil)
+  runs:             Either[String, List[AnalyticsRunSummary]]      = Right(Nil),
+  leaderboard:      Either[String, List[LeaderboardRow]]           = Right(Nil),
+  botFamilies:      Either[String, List[BotFamilyRow]]             = Right(Nil),
+  strategies:       Either[String, List[StrategyRow]]              = Right(Nil),
+  searchessAi:      Either[String, List[SearchessAiComparisonRow]] = Right(Nil),
+  stockfish:        Either[String, List[StockfishComparisonRow]]   = Right(Nil),
+  avgGameLength:    Either[String, List[AvgGameLengthRow]]         = Right(Nil),
+  eloRatings:       Either[String, List[EloRatingsRow]]            = Right(Nil),
+  terminations:     Either[String, List[TerminationReasonRow]]     = Right(Nil),
+  colorPerf:        Either[String, List[ColorPerformanceRow]]      = Right(Nil),
+  fastestWins:      Either[String, List[FastestWinRow]]            = Right(Nil),
+  liveGameResults:  Either[String, List[LiveGameResultRow]]        = Right(Nil)
 ) extends AnalyticsRepository:
 
   // ── Latest-run methods ────────────────────────────────────────────────────
@@ -30,6 +31,9 @@ final class InMemoryAnalyticsRepository(
   override def getTerminations(): Either[String, List[TerminationReasonRow]]                     = terminations
   override def getColorPerformance(): Either[String, List[ColorPerformanceRow]]                  = colorPerf
   override def getFastestWins(): Either[String, List[FastestWinRow]]                             = fastestWins
+
+  // ── Live streaming results ─────────────────────────────────────────────────
+  override def getLiveGameResults(limit: Int): Either[String, List[LiveGameResultRow]] = liveGameResults
 
   // ── Run-specific methods (ignore runId, return same data as latest) ───────
   override def getLeaderboard(runId: String): Either[String, List[LeaderboardRow]]               = leaderboard
@@ -48,17 +52,18 @@ object InMemoryAnalyticsRepository:
   val empty: InMemoryAnalyticsRepository = new InMemoryAnalyticsRepository()
 
   def withError(msg: String): InMemoryAnalyticsRepository = new InMemoryAnalyticsRepository(
-    runs          = Left(msg),
-    leaderboard   = Left(msg),
-    botFamilies   = Left(msg),
-    strategies    = Left(msg),
-    searchessAi   = Left(msg),
-    stockfish     = Left(msg),
-    avgGameLength = Left(msg),
-    eloRatings    = Left(msg),
-    terminations  = Left(msg),
-    colorPerf     = Left(msg),
-    fastestWins   = Left(msg)
+    runs            = Left(msg),
+    leaderboard     = Left(msg),
+    botFamilies     = Left(msg),
+    strategies      = Left(msg),
+    searchessAi     = Left(msg),
+    stockfish       = Left(msg),
+    avgGameLength   = Left(msg),
+    eloRatings      = Left(msg),
+    terminations    = Left(msg),
+    colorPerf       = Left(msg),
+    fastestWins     = Left(msg),
+    liveGameResults = Left(msg)
   )
 
   // ── Sample data ───────────────────────────────────────────────────────────
@@ -102,30 +107,45 @@ object InMemoryAnalyticsRepository:
   val sampleFastestWinRow: FastestWinRow =
     FastestWinRow("stockfish-fast", 4, 28.5, 18, 2100.0)
 
+  val sampleLiveGameResultRow: LiveGameResultRow =
+    LiveGameResultRow(
+      eventId       = "550e8400-e29b-41d4-a716-446655440abc",
+      aggregateId   = "game-001",
+      sessionId     = Some("sess-001"),
+      occurredAt    = "2026-06-17T10:00:00Z",
+      result        = "Checkmate",
+      winner        = Some("White"),
+      drawReason    = None,
+      correlationId = Some("corr-001"),
+      ingestedAt    = "2026-06-17T10:00:01Z"
+    )
+
   def withSampleData: InMemoryAnalyticsRepository = new InMemoryAnalyticsRepository(
-    runs          = Right(List(sampleRun)),
-    leaderboard   = Right(List(sampleLeaderboardRow)),
-    botFamilies   = Right(List(sampleBotFamilyRow)),
-    strategies    = Right(List(sampleStrategyRow)),
-    searchessAi   = Right(List(sampleSearchessAiRow)),
-    stockfish     = Right(List(sampleStockfishRow)),
-    avgGameLength = Right(List(sampleAvgGameLengthRow)),
-    eloRatings    = Right(List(sampleEloRatingsRow)),
-    terminations  = Right(List(sampleTerminationReasonRow)),
-    colorPerf     = Right(List(sampleColorPerformanceRow)),
-    fastestWins   = Right(List(sampleFastestWinRow))
+    runs            = Right(List(sampleRun)),
+    leaderboard     = Right(List(sampleLeaderboardRow)),
+    botFamilies     = Right(List(sampleBotFamilyRow)),
+    strategies      = Right(List(sampleStrategyRow)),
+    searchessAi     = Right(List(sampleSearchessAiRow)),
+    stockfish       = Right(List(sampleStockfishRow)),
+    avgGameLength   = Right(List(sampleAvgGameLengthRow)),
+    eloRatings      = Right(List(sampleEloRatingsRow)),
+    terminations    = Right(List(sampleTerminationReasonRow)),
+    colorPerf       = Right(List(sampleColorPerformanceRow)),
+    fastestWins     = Right(List(sampleFastestWinRow)),
+    liveGameResults = Right(List(sampleLiveGameResultRow))
   )
 
   def withTwoRuns: InMemoryAnalyticsRepository = new InMemoryAnalyticsRepository(
-    runs          = Right(List(sampleRun2, sampleRun)), // newest first
-    leaderboard   = Right(List(sampleLeaderboardRow)),
-    botFamilies   = Right(List(sampleBotFamilyRow)),
-    strategies    = Right(List(sampleStrategyRow)),
-    searchessAi   = Right(List(sampleSearchessAiRow)),
-    stockfish     = Right(List(sampleStockfishRow)),
-    avgGameLength = Right(List(sampleAvgGameLengthRow)),
-    eloRatings    = Right(List(sampleEloRatingsRow)),
-    terminations  = Right(List(sampleTerminationReasonRow)),
-    colorPerf     = Right(List(sampleColorPerformanceRow)),
-    fastestWins   = Right(List(sampleFastestWinRow))
+    runs            = Right(List(sampleRun2, sampleRun)), // newest first
+    leaderboard     = Right(List(sampleLeaderboardRow)),
+    botFamilies     = Right(List(sampleBotFamilyRow)),
+    strategies      = Right(List(sampleStrategyRow)),
+    searchessAi     = Right(List(sampleSearchessAiRow)),
+    stockfish       = Right(List(sampleStockfishRow)),
+    avgGameLength   = Right(List(sampleAvgGameLengthRow)),
+    eloRatings      = Right(List(sampleEloRatingsRow)),
+    terminations    = Right(List(sampleTerminationReasonRow)),
+    colorPerf       = Right(List(sampleColorPerformanceRow)),
+    fastestWins     = Right(List(sampleFastestWinRow)),
+    liveGameResults = Right(List(sampleLiveGameResultRow))
   )

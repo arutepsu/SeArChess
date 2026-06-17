@@ -287,6 +287,35 @@ body:has(.analytics-page) #app {
     font-style: italic;
 }
 
+/* ── Live game results ────────────────────────────────────────────────────── */
+
+.analytics-live-section {
+    margin-bottom: 20px;
+}
+
+.live-results-summary {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.live-results-stat {
+    font-size: 0.85rem;
+    color: rgba(240, 230, 210, 0.8);
+}
+
+.live-results-stat-num {
+    font-family: monospace;
+    font-weight: 700;
+    color: var(--accent, #ffce74);
+    margin-right: 4px;
+}
+
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 
 @media (max-width: 1100px) {

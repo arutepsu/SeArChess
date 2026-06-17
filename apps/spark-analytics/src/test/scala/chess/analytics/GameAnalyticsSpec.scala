@@ -1,5 +1,13 @@
 package chess.analytics
 
+import chess.analytics.config.{EloConfig, SparkLakeConfig, StreamingAnalyticsConfig}
+import chess.analytics.ingestion.{BronzeEvents, KafkaEventParser, SilverEvents}
+import chess.analytics.pipeline.{AnalyticsPipeline, GameAnalytics}
+import chess.analytics.quality.DataQualityChecks
+import chess.analytics.rating.EloAnalytics
+import chess.analytics.schema.GameEventSchemas
+import chess.analytics.sink.ParquetLakeWriter
+import chess.analytics.streaming.{StreamingGoldAnalytics, WindowedStreamingAnalytics}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.LongType

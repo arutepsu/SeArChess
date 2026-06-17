@@ -27,3 +27,6 @@ trait AnalyticsRepository:
   def getTerminations(runId: String): Either[String, List[TerminationReasonRow]]
   def getColorPerformance(runId: String): Either[String, List[ColorPerformanceRow]]
   def getFastestWins(runId: String): Either[String, List[FastestWinRow]]
+
+  // ── Live streaming results ─────────────────────────────────────────────────
+  def getLiveGameResults(limit: Int): Either[String, List[LiveGameResultRow]]

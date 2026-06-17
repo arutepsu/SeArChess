@@ -113,3 +113,16 @@ object AnalyticsRowJson:
       "minWinPly"        -> r.minWinPly.toDouble,
       "avgWinDurationMs" -> r.avgWinDurationMs
     )
+
+  def liveGameResult(r: LiveGameResultRow): Value =
+    Obj(
+      "eventId"       -> r.eventId,
+      "aggregateId"   -> r.aggregateId,
+      "sessionId"     -> r.sessionId.map(ujson.Str(_)).getOrElse(ujson.Null),
+      "occurredAt"    -> r.occurredAt,
+      "result"        -> r.result,
+      "winner"        -> r.winner.map(ujson.Str(_)).getOrElse(ujson.Null),
+      "drawReason"    -> r.drawReason.map(ujson.Str(_)).getOrElse(ujson.Null),
+      "correlationId" -> r.correlationId.map(ujson.Str(_)).getOrElse(ujson.Null),
+      "ingestedAt"    -> r.ingestedAt
+    )

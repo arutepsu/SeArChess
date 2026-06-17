@@ -7,6 +7,7 @@ import {
   fetchEloRatings,
   fetchFastestWins,
   fetchLeaderboard,
+  fetchLiveGameResults,
   fetchSearchessAi,
   fetchStockfish,
   fetchStrategies,
@@ -21,6 +22,7 @@ import type {
   EloRatingsRow,
   FastestWinRow,
   LeaderboardRow,
+  LiveGameResult,
   SearchessAiComparisonRow,
   StockfishComparisonRow,
   StrategyRow,
@@ -64,6 +66,61 @@ function analyticsErrorMessage(message: string): string {
     return "Analytics data unavailable. Run Spark analytics with PostgreSQL output enabled first.";
   }
   return message;
+}
+
+function liveResultsErrorMessage(message: string): string {
+  const lower = message.toLowerCase();
+  if (lower.includes("unavailable") || lower.includes("does not exist") || lower.includes("failed")) {
+    return "Live results not yet available. Start the Spark streaming job to populate this table.";
+  }
+  return message;
+}
+
+function shortId(id: string): string {
+  return id.length > 14 ? `${id.slice(0, 8)}…` : id;
+}
+
+function LiveGameResultsSummary({ rows }: { rows: LiveGameResult[] }) {
+  const whiteWins = rows.filter((r) => r.winner === "White").length;
+  const blackWins = rows.filter((r) => r.winner === "Black").length;
+  const draws = rows.filter((r) => !r.winner).length;
+  return (
+    <div className="live-results-summary">
+      <span className="live-results-stat"><span className="live-results-stat-num">{rows.length}</span> games</span>
+      <span className="live-results-stat"><span className="live-results-stat-num">{whiteWins}</span> White wins</span>
+      <span className="live-results-stat"><span className="live-results-stat-num">{blackWins}</span> Black wins</span>
+      <span className="live-results-stat"><span className="live-results-stat-num">{draws}</span> draws</span>
+    </div>
+  );
+}
+
+function LiveGameResultsTable({ rows }: { rows: LiveGameResult[] }) {
+  return (
+    <table className="analytics-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Result</th>
+          <th>Winner</th>
+          <th>Draw reason</th>
+          <th>Game ID</th>
+          <th>Session</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r.eventId}>
+            <td className="analytics-td-num">{new Date(r.occurredAt).toLocaleString()}</td>
+            <td>{r.result}</td>
+            <td>{r.winner ?? "—"}</td>
+            <td>{r.drawReason ?? "—"}</td>
+            <td className="analytics-td-name" title={r.aggregateId}>{shortId(r.aggregateId)}</td>
+            <td className="analytics-td-name" title={r.sessionId ?? ""}>{r.sessionId ? shortId(r.sessionId) : "—"}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
 }
 
 function applyResult<T>(
@@ -432,6 +489,8 @@ export default function AnalyticsPage() {
   const [runsError, setRunsError] = useState<string | null>(null);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(runIdFilter);
 
+  const [liveGameResults, setLiveGameResults] = useState<SectionState<LiveGameResult>>({ status: "loading" });
+
   const [leaderboard, setLeaderboard] = useState<SectionState<LeaderboardRow>>({ status: "loading" });
   const [botFamilies, setBotFamilies] = useState<SectionState<BotFamilyRow>>({ status: "loading" });
   const [strategies, setStrategies] = useState<SectionState<StrategyRow>>({ status: "loading" });
@@ -489,7 +548,23 @@ export default function AnalyticsPage() {
     return () => { active = false; };
   }, []);
 
-  // Effect 2: fetch all sections whenever selected run changes
+  // Effect 2: load live game results on mount (independent of run selection)
+  useEffect(() => {
+    let active = true;
+    fetchLiveGameResults(50)
+      .then((rows) => {
+        if (!active) return;
+        setLiveGameResults(rows.length > 0 ? { status: "ok", rows } : { status: "empty" });
+      })
+      .catch((e: unknown) => {
+        if (!active) return;
+        const msg = e instanceof Error ? e.message : "Failed to load live game results";
+        setLiveGameResults({ status: "error", message: msg });
+      });
+    return () => { active = false; };
+  }, []);
+
+  // Effect 3: fetch all sections whenever selected run changes
   useEffect(() => {
     if (!selectedRunId) return;
     let active = true;
@@ -610,6 +685,23 @@ export default function AnalyticsPage() {
             </button>
           </div>
         )}
+
+        <SectionCard className="analytics-card analytics-card--full analytics-live-section" title="Live Completed Games">
+          {liveGameResults.status === "loading" ? (
+            <LoadingState />
+          ) : liveGameResults.status === "error" ? (
+            <ErrorState message={liveResultsErrorMessage(liveGameResults.message)} />
+          ) : liveGameResults.status === "empty" ? (
+            <EmptyState message="No completed games yet. Results appear here after the Spark streaming job processes game events." />
+          ) : (
+            <>
+              <LiveGameResultsSummary rows={liveGameResults.rows} />
+              <div className="analytics-table-wrapper">
+                <LiveGameResultsTable rows={liveGameResults.rows} />
+              </div>
+            </>
+          )}
+        </SectionCard>
 
         <SectionCard className="analytics-card analytics-card--full" title="Bot Statistics">
           {leaderboard.status === "loading" ? (

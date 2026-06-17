@@ -105,3 +105,15 @@ export interface AnalyticsUnavailableError {
   code: "ANALYTICS_UNAVAILABLE";
   message: string;
 }
+
+export interface LiveGameResult {
+  eventId: string;
+  aggregateId: string;
+  sessionId: string | null;
+  occurredAt: string;
+  result: string;
+  winner: string | null;
+  drawReason: string | null;
+  correlationId: string | null;
+  ingestedAt: string;
+}

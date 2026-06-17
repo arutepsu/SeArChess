@@ -9,6 +9,16 @@ import org.http4s.headers.`Content-Type`
 
 class AnalyticsRoutes(repo: AnalyticsRepository):
 
+  private object RawLimitParam extends OptionalQueryParamDecoderMatcher[String]("limit")
+
+  private def parseLimitParam(raw: Option[String]): Either[String, Int] =
+    raw match
+      case None    => Right(50)
+      case Some(s) =>
+        s.toIntOption match
+          case None    => Left(s"limit must be a positive integer, got: '$s'")
+          case Some(n) => Right(n.max(1).min(200))
+
   // UUID format: 8-4-4-4-12 hex digits
   private val uuidPattern = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}".r
 
@@ -199,6 +209,17 @@ class AnalyticsRoutes(repo: AnalyticsRepository):
           repo.getFastestWins(id) match
             case Right(rows) =>
               json(Status.Ok, ujson.Obj("rows" -> ujson.Arr(rows.map(AnalyticsRowJson.fastestWin)*)))
+            case Left(msg) =>
+              error(Status.ServiceUnavailable, "ANALYTICS_UNAVAILABLE", msg)
+
+    // ── Live streaming results ──────────────────────────────────────────────
+    case GET -> Root / "api" / "analytics" / "live" / "game-results" :? RawLimitParam(rawLimit) =>
+      parseLimitParam(rawLimit) match
+        case Left(errMsg) => error(Status.BadRequest, "INVALID_LIMIT", errMsg)
+        case Right(limit) =>
+          repo.getLiveGameResults(limit) match
+            case Right(rows) =>
+              json(Status.Ok, ujson.Obj("rows" -> ujson.Arr(rows.map(AnalyticsRowJson.liveGameResult)*)))
             case Left(msg) =>
               error(Status.ServiceUnavailable, "ANALYTICS_UNAVAILABLE", msg)
   }

@@ -81,6 +81,20 @@ final class SlickAnalyticsRepository(db: Database, schema: String) extends Analy
     FastestWinRow(r.nextString(), r.nextLong(), r.nextDouble(), r.nextLong(), r.nextDouble())
   }
 
+  private given GetResult[LiveGameResultRow] = GetResult { r =>
+    LiveGameResultRow(
+      eventId       = r.nextString(),
+      aggregateId   = r.nextString(),
+      sessionId     = r.nextStringOption(),
+      occurredAt    = r.nextTimestamp().toInstant.toString,
+      result        = r.nextString(),
+      winner        = r.nextStringOption(),
+      drawReason    = r.nextStringOption(),
+      correlationId = r.nextStringOption(),
+      ingestedAt    = r.nextTimestamp().toInstant.toString
+    )
+  }
+
   // ── Latest-run convenience methods ────────────────────────────────────────
 
   // Spark has not run yet against this database on a fresh deployment, so
@@ -256,6 +270,19 @@ final class SlickAnalyticsRepository(db: Database, schema: String) extends Analy
             FROM #$t.analytics_fastest_wins
             WHERE run_id = $runId
             ORDER BY "avgWinPly" ASC""".as[FastestWinRow]
+    )
+
+  // ── Live streaming results ─────────────────────────────────────────────────
+
+  // public.live_game_results is hardcoded (not #$t) because the Spark sink always
+  // writes to the public schema regardless of the analytics-service schema config.
+  override def getLiveGameResults(limit: Int): Either[String, List[LiveGameResultRow]] =
+    runAllowingMissingTable(
+      sql"""SELECT event_id, aggregate_id, session_id, occurred_at, result, winner,
+                   draw_reason, correlation_id, ingested_at
+            FROM public.live_game_results
+            ORDER BY occurred_at DESC
+            LIMIT $limit""".as[LiveGameResultRow]
     )
 
   // ── Internal helpers ──────────────────────────────────────────────────────
