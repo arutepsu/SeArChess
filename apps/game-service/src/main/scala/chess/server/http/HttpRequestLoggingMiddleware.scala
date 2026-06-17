@@ -2,9 +2,12 @@ package chess.server.http
 
 import cats.data.Kleisli
 import cats.effect.IO
-import chess.observability.StructuredLog
+import chess.observability.{CorrelationContext, StructuredLog, TraceReporter}
 import org.http4s.{Headers, HttpApp}
 import org.typelevel.ci.CIString
+
+import java.util.UUID
+import scala.concurrent.duration.{FiniteDuration, MICROSECONDS}
 
 /** Middleware that logs one structured line per HTTP request for performance correlation.
   *
@@ -28,9 +31,21 @@ object HttpRequestLoggingMiddleware:
   def apply(inner: HttpApp[IO]): HttpApp[IO] =
     Kleisli { request =>
       val startNs = System.nanoTime()
-      inner.run(request).attempt.flatMap { result =>
+      val correlationId = extractCorrelationId(request.headers)
+      IO(CorrelationContext.push(correlationId)).flatMap { previousCorrelationId =>
+        inner.run(request).attempt.guarantee(IO(CorrelationContext.restore(previousCorrelationId)))
+      }.flatMap { result =>
         val durationMs = (System.nanoTime() - startNs).toDouble / 1e6
         val route      = HttpMetricsMiddleware.normalizeRoute(request.pathInfo.renderString)
+        TraceReporter.emit(
+          "game-service",
+          s"${request.method.name} $route",
+          correlationId,
+          FiniteDuration(math.max(1L, (durationMs * 1000).toLong), MICROSECONDS),
+          "http.method" -> request.method.name,
+          "http.route" -> route,
+          "http.path" -> request.pathInfo.renderString
+        )
         result match
           case Right(response) =>
             IO(
@@ -41,6 +56,7 @@ object HttpRequestLoggingMiddleware:
                 "route"               -> route,
                 "status"              -> response.status.code,
                 "durationMs"          -> durationMs,
+                "correlationId"       -> correlationId,
                 "performanceRunId"    -> extractPerfHeader(request.headers, "X-Performance-Run-Id"),
                 "performanceTool"     -> extractPerfHeader(request.headers, "X-Performance-Tool"),
                 "performanceWorkload" -> extractPerfHeader(request.headers, "X-Performance-Workload"),
@@ -55,6 +71,7 @@ object HttpRequestLoggingMiddleware:
                 "method"              -> request.method.name,
                 "route"               -> route,
                 "durationMs"          -> durationMs,
+                "correlationId"       -> correlationId,
                 "performanceRunId"    -> extractPerfHeader(request.headers, "X-Performance-Run-Id"),
                 "performanceTool"     -> extractPerfHeader(request.headers, "X-Performance-Tool"),
                 "performanceWorkload" -> extractPerfHeader(request.headers, "X-Performance-Workload"),
@@ -68,6 +85,12 @@ object HttpRequestLoggingMiddleware:
 
   private[http] def extractPerfHeader(headers: Headers, name: String): String =
     headers.get(CIString(name)).fold(Fallback)(_.head.value)
+
+  private def extractCorrelationId(headers: Headers): String =
+    headers
+      .get(CIString("X-Correlation-Id"))
+      .orElse(headers.get(CIString("X-Request-Id")))
+      .fold(UUID.randomUUID().toString)(_.head.value)
 
   private def safeMessage(error: Throwable): String =
     Option(error.getMessage).filter(_.nonEmpty).getOrElse(error.getClass.getSimpleName)

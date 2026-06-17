@@ -112,6 +112,14 @@ export default function App() {
   } = useReplayTimeline(game);
 
   const wsClientRef = useRef<WsClient | null>(null);
+  const recordedLiveEventIdsRef = useRef<Set<string>>(new Set());
+
+  const appendLiveTimelineEvent = useCallback((entry: LiveTimelineEvent) => {
+    if (recordedLiveEventIdsRef.current.has(entry.id)) return;
+
+    recordedLiveEventIdsRef.current.add(entry.id);
+    setLiveTimelineEvents((events) => [...events, entry].slice(-100));
+  }, []);
 
   const sessionClosed =
     sessionLifecycle === "Finished" || sessionLifecycle === "Cancelled";
@@ -147,6 +155,84 @@ export default function App() {
   const displayedWhiteTimeMs = activeTab === "bot" ? (botWhiteClockMs ?? 0) : whiteClockMs;
   const displayedBlackTimeMs = activeTab === "bot" ? (botBlackClockMs ?? 0) : blackClockMs;
   const displayedClockRunning = activeTab === "bot" ? botClockRunning : clockRunning;
+
+  const gameStateTimelineEvents = useMemo<LiveTimelineEvent[]>(() => {
+    if (!game?.id) return [];
+
+    const sessionId = session?.sessionId ?? game.id;
+    const correlationId = session?.sessionId ?? game.id;
+    const snapshotTime = new Date().toISOString();
+
+    const createdEvent: LiveTimelineEvent = {
+      id: `state:${game.id}:created`,
+      receivedAt: snapshotTime,
+      event: {
+        eventType: "GameCreated",
+        gameId: game.id,
+        sessionId,
+        producer: "game-service",
+        correlationId,
+        occurredAt: snapshotTime,
+        status: "processed"
+      } as unknown as WsEvent
+    };
+
+    const moveEvents = game.moves.map((move) => ({
+      id: `state:${game.id}:move:${move.ply}`,
+      receivedAt: snapshotTime,
+      event: {
+        eventType: "MoveApplied",
+        gameId: game.id,
+        sessionId,
+        producer: "game-service",
+        correlationId,
+        occurredAt: snapshotTime,
+        status: "processed",
+        move: {
+          from: move.from,
+          to: move.to,
+          ...(move.promotion ? { promotion: move.promotion } : {})
+        },
+        playerWhoMoved: move.ply % 2 === 1 ? "white" : "black"
+      } as unknown as WsEvent
+    }));
+
+    const finishedEvent =
+      game.status === "checkmate" || game.status === "draw" || game.status === "resigned"
+        ? [
+            {
+              id: `state:${game.id}:finished:${game.status}`,
+              receivedAt: snapshotTime,
+              event: {
+                eventType: "GameFinished",
+                gameId: game.id,
+                sessionId,
+                producer: "game-service",
+                correlationId,
+                occurredAt: snapshotTime,
+                status: "processed",
+                winner: game.winner,
+                drawReason: game.drawReason
+              } as unknown as WsEvent
+            }
+          ]
+        : [];
+
+    return [createdEvent, ...moveEvents, ...finishedEvent];
+  }, [
+    game?.drawReason,
+    game?.id,
+    game?.moves,
+    game?.status,
+    game?.winner,
+    session?.sessionId
+  ]);
+
+  const displayedLiveTimelineEvents = useMemo<LiveTimelineEvent[]>(() => {
+    const byId = new Map<string, LiveTimelineEvent>();
+    [...gameStateTimelineEvents, ...liveTimelineEvents].forEach((event) => byId.set(event.id, event));
+    return Array.from(byId.values()).slice(-100);
+  }, [gameStateTimelineEvents, liveTimelineEvents]);
 
   const canResign =
     activeTab !== "bot" &&
@@ -256,14 +342,11 @@ export default function App() {
       onMessage: (event) => {
         if (!active) return;
 
-        setLiveTimelineEvents((events) => [
-          ...events,
-          {
-            id: `${event.gameId}:${event.eventType}:${Date.now()}:${events.length}`,
-            receivedAt: new Date().toISOString(),
-            event
-          }
-        ].slice(-100));
+        appendLiveTimelineEvent({
+          id: `ws:${event.gameId}:${event.eventType}:${Date.now()}`,
+          receivedAt: new Date().toISOString(),
+          event
+        });
 
         if (isGameStateRefreshHint(event)) {
           void refreshGameSnapshotAfterHint(event);
@@ -300,6 +383,7 @@ export default function App() {
     };
   }, [
     game?.id,
+    appendLiveTimelineEvent,
     getSessionId,
     refreshFromServer,
     session,
@@ -375,7 +459,7 @@ export default function App() {
         botConnectionState={botConnectionState}
         displayedConnection={displayedConnection}
         displayedLiveConnection={displayedLiveConnection}
-        liveTimelineEvents={liveTimelineEvents}
+        liveTimelineEvents={displayedLiveTimelineEvents}
         displayedMessage={displayedMessage}
         timelinePly={timelinePly}
         setTimelinePly={setTimelinePly}
@@ -408,7 +492,10 @@ export default function App() {
         onBackToMenu={handleBackToMenu}
         onOpenLichessGame={handleOpenLichessGame}
         onBackToLichess={handleBackToLichess}
-        onClearLiveTimelineEvents={() => setLiveTimelineEvents([])}
+        onClearLiveTimelineEvents={() => {
+          recordedLiveEventIdsRef.current.clear();
+          setLiveTimelineEvents([]);
+        }}
         onSelect={handleSelect}
         onAnimationFinished={handleAnimationFinished}
         onResolvePromotion={handleResolvePromotion}

@@ -8,7 +8,7 @@ import chess.adapter.event.kafka.{
   KafkaTopics
 }
 import chess.history.{ArchiveRecord, HistoryIngestionError}
-import chess.observability.StructuredLog
+import chess.observability.{StructuredLog, TraceReporter}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.serialization.StringDeserializer
@@ -23,6 +23,7 @@ import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 
 import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.{FiniteDuration, MICROSECONDS}
 
 final class KafkaHistoryProjectionConsumer(
     bootstrapServers: String,
@@ -56,6 +57,7 @@ final class KafkaHistoryProjectionConsumer(
     done
 
   private def processMessage(message: CommittableMessage[String, String]): Future[Done] =
+    val startNs = System.nanoTime()
     val metadata = message.record
     val payload  = metadata.value()
     EventEnvelope.readPayloadEnvelope(payload).flatMap(GameEventEnvelope.validate) match
@@ -65,6 +67,22 @@ final class KafkaHistoryProjectionConsumer(
       case Right(envelope) =>
         project(envelope) match
           case Right(_) =>
+            val durationMs = (System.nanoTime() - startNs).toDouble / 1e6
+            TraceReporter.emit(
+              "history-service",
+              s"kafka consume ${envelope.eventType}",
+              envelope.correlationId,
+              FiniteDuration(math.max(1L, (durationMs * 1000).toLong), MICROSECONDS),
+              "messaging.system" -> "kafka",
+              "messaging.destination.name" -> metadata.topic,
+              "messaging.operation" -> "process",
+              "kafka.partition" -> metadata.partition,
+              "kafka.offset" -> metadata.offset,
+              "consumer.group" -> groupId,
+              "event.id" -> envelope.eventId,
+              "event.type" -> envelope.eventType,
+              "game.id" -> envelope.aggregateId
+            )
             StructuredLog.info(
               "history-service",
               "kafka_history_projection_processed",
@@ -85,13 +103,29 @@ final class KafkaHistoryProjectionConsumer(
               .flatMap(_ => message.committableOffset.commitScaladsl())
 
   private def project(envelope: EventEnvelope[ujson.Value]): Either[HistoryIngestionError, Unit] =
-    envelope.eventType match
-      case GameEventEnvelope.GameFinished =>
-        ingest(ujson.write(envelope.payload)).map(_ => ())
-      case GameEventEnvelope.GameCreated | GameEventEnvelope.MoveApplied | GameEventEnvelope.MoveRejected =>
-        Right(())
-      case other =>
-        Left(HistoryIngestionError.InvalidEvent(s"unsupported event type: $other"))
+    val startNs = System.nanoTime()
+    val result =
+      envelope.eventType match
+        case GameEventEnvelope.GameFinished =>
+          ingest(ujson.write(envelope.payload)).map(_ => ())
+        case GameEventEnvelope.GameCreated | GameEventEnvelope.MoveApplied | GameEventEnvelope.MoveRejected =>
+          Right(())
+        case other =>
+          Left(HistoryIngestionError.InvalidEvent(s"unsupported event type: $other"))
+    val durationMs = (System.nanoTime() - startNs).toDouble / 1e6
+    TraceReporter.emit(
+      "history-service",
+      "MongoDB update",
+      envelope.correlationId,
+      FiniteDuration(math.max(1L, (durationMs * 1000).toLong), MICROSECONDS),
+      "db.system" -> "mongodb",
+      "db.operation" -> "projection",
+      "event.id" -> envelope.eventId,
+      "event.type" -> envelope.eventType,
+      "game.id" -> envelope.aggregateId,
+      "projection.result" -> result.fold(_ => "failed", _ => "projected")
+    )
+    result
 
   private def isRetryable(error: HistoryIngestionError): Boolean =
     error match

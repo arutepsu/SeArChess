@@ -593,8 +593,8 @@ export function useGameState(): UseGameStateReturn {
     setMessageState("Promotion cancelled.");
   }, []);
 
-  const handleNewGame = useCallback(async (overrideMode?: PlayableGameMode): Promise<void> => {
-    if (!ensureAuthenticated()) return;
+  const handleNewGame = useCallback(async (overrideMode?: PlayableGameMode): Promise<boolean> => {
+    if (!ensureAuthenticated()) return false;
 
     const thisGen = ++generation.current;
     const request: CreateGameRequest = { mode: overrideMode ?? gameMode };

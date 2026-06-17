@@ -233,7 +233,9 @@ export default function LiveEventStreamPage({ events, liveConnection, onBack, on
                     <td>{row.eventType}</td>
                     <td title={row.gameId}>{shortId(row.gameId)}</td>
                     <td>{row.producer}</td>
-                    <td title={row.correlationId}>{shortId(row.correlationId)}</td>
+                    <td className="live-event-correlation" title={row.correlationId}>
+                      {row.correlationId}
+                    </td>
                   </tr>
                 ))
               )}
@@ -454,7 +456,9 @@ function CorrelationTraceView({ events }: { events: AdminEventRow[] }) {
     .filter((event) => selectedCorrelationId && event.correlationId === selectedCorrelationId)
     .slice()
     .reverse();
-  const tempoBaseUrl = import.meta.env.VITE_TEMPO_URL as string | undefined;
+  const traceBaseUrl =
+    (import.meta.env.VITE_TEMPO_URL as string | undefined) ??
+    (import.meta.env.VITE_GRAFANA_EXPLORE_URL as string | undefined);
 
   const traceItems = selectedCorrelationId
     ? [
@@ -481,16 +485,26 @@ function CorrelationTraceView({ events }: { events: AdminEventRow[] }) {
         </datalist>
         <button
           type="button"
-          disabled={!tempoBaseUrl || !selectedCorrelationId}
+          disabled={!traceBaseUrl || !selectedCorrelationId}
           onClick={() => {
-            if (tempoBaseUrl && selectedCorrelationId) {
-              window.open(`${tempoBaseUrl}?correlationId=${encodeURIComponent(selectedCorrelationId)}`, "_blank");
+            if (traceBaseUrl && selectedCorrelationId) {
+              window.open(`${traceBaseUrl}?correlationId=${encodeURIComponent(selectedCorrelationId)}`, "_blank");
             }
           }}
+          title={
+            traceBaseUrl
+              ? `Open trace for ${selectedCorrelationId}`
+              : "Set VITE_GRAFANA_EXPLORE_URL or VITE_TEMPO_URL to enable trace links."
+          }
         >
-          Open Trace
+          {traceBaseUrl ? "Open Trace" : "Trace not configured"}
         </button>
       </div>
+      {!traceBaseUrl ? (
+        <p className="trace-config-hint">
+          Configure <code>VITE_GRAFANA_EXPLORE_URL</code> or <code>VITE_TEMPO_URL</code> to open real traces.
+        </p>
+      ) : null}
       <div className="trace-chain">
         {traceItems.length === 0 ? (
           <div className="ops-empty">No correlation id available yet.</div>

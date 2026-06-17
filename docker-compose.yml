@@ -77,6 +77,8 @@ services:
       BOT_WORKER_ACTOR_ID: ${BOT_WORKER_ACTOR_ID:-searchess-bot}
       MIGRATION_ADMIN_ENABLED: ${MIGRATION_ADMIN_ENABLED:-false}
       MIGRATION_ADMIN_TOKEN: ${MIGRATION_ADMIN_TOKEN:-}
+      TRACE_EXPORT_ENABLED: "true"
+      TRACE_ZIPKIN_ENDPOINT: http://tempo:9411/api/v2/spans
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
       interval: 5s
@@ -148,6 +150,8 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
       KAFKA_GAME_EVENTS_TOPIC: ${KAFKA_GAME_EVENTS_TOPIC:-searchess.game.events.v1}
       HISTORY_KAFKA_GROUP: ${HISTORY_KAFKA_GROUP:-history-service-game-projector}
+      TRACE_EXPORT_ENABLED: "true"
+      TRACE_ZIPKIN_ENDPOINT: http://tempo:9411/api/v2/spans
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8081/health"]
       interval: 5s
@@ -341,6 +345,69 @@ services:
       retries: 12
       start_period: 30s
 
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./tools/performance/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - searchess_prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=7d"
+      - "--web.enable-lifecycle"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9090/-/healthy >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 10s
+
+  tempo:
+    image: grafana/tempo:2.6.1
+    user: "0:0"
+    ports:
+      - "3200:3200"
+      - "4317:4317"
+      - "4318:4318"
+      - "9411:9411"
+    volumes:
+      - ./tools/performance/observability/tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - searchess_tempo_data:/tmp/tempo
+    command:
+      - "-config.file=/etc/tempo/tempo.yaml"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3200/ready >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 10s
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      tempo:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    volumes:
+      - ./tools/performance/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./tools/performance/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - searchess_grafana_data:/var/lib/grafana
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 10s
+
 volumes:
   searchess_postgres_data:
     name: searchess_postgres_data
@@ -352,3 +419,9 @@ volumes:
     name: searchess_kafka_data
   tournament-jobs:
     name: searchess_tournament_jobs
+  searchess_prometheus_data:
+    name: searchess_prometheus_data
+  searchess_tempo_data:
+    name: searchess_tempo_data
+  searchess_grafana_data:
+    name: searchess_grafana_data
