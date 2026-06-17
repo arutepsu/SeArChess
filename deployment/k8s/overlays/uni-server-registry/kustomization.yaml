@@ -62,31 +62,34 @@ images:
   newTag: sha-de79bc1
 - name: searchess/ai-service
   newName: ghcr.io/arutepsu/searchess-ai-service
-  newTag: sha-de79bc1
+  newTag: sha-943ba63
 - name: searchess/analytics-service
   newName: ghcr.io/arutepsu/searchess-analytics-service
-  newTag: sha-de79bc1
+  newTag: sha-943ba63
 - name: searchess/bot-service
   newName: ghcr.io/arutepsu/searchess-bot-service
-  newTag: sha-88c4220
+  newTag: sha-943ba63
 - name: searchess/game-service
   newName: ghcr.io/arutepsu/searchess-game-service
-  newTag: sha-de79bc1
+  newTag: sha-943ba63
 - name: searchess/history-service
   newName: ghcr.io/arutepsu/searchess-history-service
-  newTag: sha-de79bc1
+  newTag: sha-943ba63
 - name: searchess/lichess-bridge-service
   newName: ghcr.io/arutepsu/searchess-lichess-bridge-service
-  newTag: sha-de79bc1
+  newTag: sha-943ba63
 - name: searchess/python-ai-service
   newName: ghcr.io/arutepsu/searchess-python-ai-service
   newTag: sha-2247329
+- name: searchess/spark-analytics
+  newName: ghcr.io/arutepsu/searchess-spark-analytics
+  newTag: sha-943ba63
 - name: searchess/tournament-service
   newName: ghcr.io/arutepsu/searchess-tournament-service
-  newTag: sha-de79bc1
+  newTag: sha-943ba63
 - name: searchess/user-service
   newName: ghcr.io/arutepsu/searchess-user-service
-  newTag: sha-de79bc1
+  newTag: sha-943ba63
 - name: searchess/web-ui
   newName: ghcr.io/arutepsu/searchess-web-ui
   newTag: main
