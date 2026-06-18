@@ -143,8 +143,8 @@ for detail and why this wasn't covered by an automated test.
 
 - `.github/workflows/build-images.yml` gained `build-analytics-service` and
   `build-tournament-service` jobs (mirroring `build-history-service`),
-  path-triggered by `apps/analytics-service/**` / `Dockerfile.analytics` and
-  `apps/tournament-service/**` / `Dockerfile.tournament` respectively (also
+  path-triggered by `backend/services/analytics-service/**` / `Dockerfile.analytics` and
+  `backend/services/tournament-service/**` / `Dockerfile.tournament` respectively (also
   triggered by changes under their own `deployment/k8s/base/<service>/`
   directories, same reasoning as the existing `user-service` trigger).
 - `deployment/k8s/overlays/local-k3d/kustomization.yaml`,

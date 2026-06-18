@@ -46,7 +46,7 @@ vite.out.log
 .sbt/
 
 # Local build artifacts
-apps/web-ui/vite*.log
+frontend/web-ui/vite*.log
 
 # Generated/local output (sbt console dumps, runtime logs, kustomize render output)
 compile_output.txt

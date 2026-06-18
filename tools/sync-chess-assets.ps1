@@ -3,8 +3,8 @@
 
 $RepoRoot = Resolve-Path "$PSScriptRoot\.."
 $Source = Join-Path $RepoRoot "shared\chess-assets"
-$WebTarget = Join-Path $RepoRoot "apps\web-ui\public\assets\chess"
-$DesktopTarget = Join-Path $RepoRoot "apps\desktop-gui\modules\gui\src\main\resources\assets"
+$WebTarget = Join-Path $RepoRoot "frontend\web-ui\public\assets\chess"
+$DesktopTarget = Join-Path $RepoRoot "frontend\desktop-gui\modules\gui\src\main\resources\assets"
 
 Write-Host ""
 Write-Host "=== sync-chess-assets ==="

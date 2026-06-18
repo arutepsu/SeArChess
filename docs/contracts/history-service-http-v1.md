@@ -6,8 +6,8 @@ Base path: `/`
 Content type: `application/json`
 
 This document describes the current HTTP boundary of the standalone History
-Service. It reflects the implementation in `apps/history-service` and
-`apps/history-service/modules/core`; it does not introduce new endpoints or stronger delivery
+Service. It reflects the implementation in `backend/services/history-service` and
+`backend/services/history-service/modules/core`; it does not introduce new endpoints or stronger delivery
 guarantees than the code provides.
 
 ## Service Role

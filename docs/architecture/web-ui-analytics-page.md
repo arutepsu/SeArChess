@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The `/analytics` route in `apps/web-ui` displays bot evaluation tournament results
+The `/analytics` route in `frontend/web-ui` displays bot evaluation tournament results
 fetched from `analytics-service`. It reads no JSONL, runs no Spark, and connects to
 no database directly — it consumes only the `analytics-service` HTTP API.
 
@@ -95,7 +95,7 @@ Leave `VITE_ANALYTICS_API_BASE_URL` unset (empty = same origin).
 
 4. **Start web UI in analytics mode**:
    ```bash
-   cd apps/web-ui
+   cd frontend/web-ui
    npm run dev:analytics
    # Vite dev server on :5173, proxying /api/analytics → :8084
    # VITE_AUTH_ENABLED=false, no Keycloak needed

@@ -112,7 +112,7 @@ lazy val gameContract = project
 // Module: game-core
 
 lazy val gameCore = project
-  .in(file("apps/game-service/modules/core"))
+  .in(file("backend/services/game-service/modules/core"))
   .settings(commonSettings)
   .dependsOn(domain, gameContract)
 
@@ -128,7 +128,7 @@ lazy val aiContract = project
 // Module: history
 
 lazy val history = project
-  .in(file("apps/history-service/modules/core"))
+  .in(file("backend/services/history-service/modules/core"))
   .settings(
     commonSettings,
     libraryDependencies ++= Seq(
@@ -172,7 +172,7 @@ val pekkoVersion           = "1.1.2"
 val pekkoKafkaVersion      = "1.1.0"
 
 lazy val adapterPersistence = project
-  .in(file("apps/game-service/modules/persistence"))
+  .in(file("backend/services/game-service/modules/persistence"))
   .settings(
     commonSettings,
     libraryDependencies ++= Seq(
@@ -209,14 +209,14 @@ lazy val adapterPersistence = project
 // Module: migration
 
 lazy val migration = project
-  .in(file("apps/game-service/modules/migration"))
+  .in(file("backend/services/game-service/modules/migration"))
   .settings(commonSettings)
   .dependsOn(gameCore)
 
 // Module: adapter-ai
 
 lazy val adapterAi = project
-  .in(file("apps/game-service/modules/ai"))
+  .in(file("backend/services/game-service/modules/ai"))
   .settings(
     commonSettings,
     libraryDependencies += "com.lihaoyi" %% "ujson" % "4.0.2"
@@ -228,7 +228,7 @@ lazy val adapterAi = project
 // Module: adapter-event (internal in-process publishers/test collectors)
 
 lazy val adapterEvent = project
-  .in(file("apps/game-service/modules/eventing"))
+  .in(file("backend/services/game-service/modules/eventing"))
   .settings(
     commonSettings,
     libraryDependencies += "com.lihaoyi" %% "ujson" % "4.0.2"
@@ -248,7 +248,7 @@ lazy val gameEventContract = project
 // Module: game-history-delivery (Game-owned History outbox/forwarder)
 
 lazy val gameHistoryDelivery = project
-  .in(file("apps/game-service/modules/history-delivery"))
+  .in(file("backend/services/game-service/modules/history-delivery"))
   .settings(
     commonSettings,
     libraryDependencies ++= Seq(
@@ -276,7 +276,7 @@ lazy val adapterRestContract = project
 // Module: adapter-rest-http4s (authoritative REST adapter)
 
 lazy val adapterRestHttp4s = project
-  .in(file("apps/game-service/modules/rest-http4s"))
+  .in(file("backend/services/game-service/modules/rest-http4s"))
   .settings(
     commonSettings,
     libraryDependencies ++= Seq(
@@ -294,7 +294,7 @@ lazy val adapterRestHttp4s = project
 // Module: adapter-websocket
 
 lazy val adapterWebsocket = project
-  .in(file("apps/game-service/modules/websocket"))
+  .in(file("backend/services/game-service/modules/websocket"))
   .settings(
     commonSettings,
     libraryDependencies ++= Seq(
@@ -311,7 +311,7 @@ lazy val adapterWebsocket = project
 // Module: adapter-gui
 
 lazy val adapterGui = project
-  .in(file("apps/desktop-gui/modules/gui"))
+  .in(file("frontend/desktop-gui/modules/gui"))
   .settings(
     commonSettings,
     libraryDependencies ++= Seq(
@@ -335,7 +335,7 @@ lazy val adapterGui = project
 // Module: adapter-tui
 
 lazy val adapterTui = project
-  .in(file("apps/tui-cli/modules/tui"))
+  .in(file("cli/tui-cli/modules/tui"))
   .settings(
     commonSettings,
     excludeFromCoverage(
@@ -348,7 +348,7 @@ lazy val adapterTui = project
 // ── App: startup-shared ──────────────────────────────────────────────────────
 
 lazy val startupShared = project
-  .in(file("apps/startup-shared"))
+  .in(file("backend/shared/startup-shared"))
   .settings(
     commonSettings,
     coverageMinimumStmtTotal := 0,
@@ -370,7 +370,7 @@ lazy val startupShared = project
 // ── App: desktop-gui ─────────────────────────────────────────────────────────
 
 lazy val desktopGui = project
-  .in(file("apps/desktop-gui"))
+  .in(file("frontend/desktop-gui"))
   .settings(
     commonSettings,
     coverageMinimumStmtTotal := 0,
@@ -387,7 +387,7 @@ lazy val desktopGui = project
 // ── App: tui-cli ─────────────────────────────────────────────────────────────
 
 lazy val tuiCli = project
-  .in(file("apps/tui-cli"))
+  .in(file("cli/tui-cli"))
   .settings(
     commonSettings,
     coverageMinimumStmtTotal := 0,
@@ -404,7 +404,7 @@ lazy val tuiCli = project
 // ── App: game-service ────────────────────────────────────────────────────────
 
 lazy val gameService = project
-  .in(file("apps/game-service"))
+  .in(file("backend/services/game-service"))
   .enablePlugins(JavaAppPackaging)
   .settings(
     commonSettings,
@@ -454,7 +454,7 @@ lazy val gameService = project
 // ── App: history-service ─────────────────────────────────────────────────────
 
 lazy val historyService = project
-  .in(file("apps/history-service"))
+  .in(file("backend/services/history-service"))
   .enablePlugins(JavaAppPackaging)
   .settings(
     commonSettings,
@@ -478,7 +478,7 @@ lazy val historyService = project
 // App: ai-service
 
 lazy val aiService = project
-  .in(file("apps/ai-service"))
+  .in(file("backend/services/ai-service"))
   .enablePlugins(JavaAppPackaging)
   .settings(
     commonSettings,
@@ -501,7 +501,7 @@ lazy val aiService = project
 // ── App: user-service ────────────────────────────────────────────────────────
 
 lazy val userService = project
-  .in(file("apps/user-service"))
+  .in(file("backend/services/user-service"))
   .enablePlugins(JavaAppPackaging)
   .settings(
     commonSettings,
@@ -539,7 +539,7 @@ lazy val userService = project
 // ── App: analytics-service ───────────────────────────────────────────────────
 
 lazy val analyticsService = project
-  .in(file("apps/analytics-service"))
+  .in(file("backend/services/analytics-service"))
   .enablePlugins(JavaAppPackaging)
   .settings(
     commonSettings,
@@ -569,7 +569,7 @@ lazy val analyticsService = project
 // App: tournament-service
 // Owns Bot Evaluation Arena tournament job lifecycle and JSONL event output.
 lazy val tournamentService = project
-  .in(file("apps/tournament-service"))
+  .in(file("backend/services/tournament-service"))
   .enablePlugins(JavaAppPackaging)
   .settings(
     commonSettings,
@@ -604,7 +604,7 @@ lazy val tournamentService = project
 // Talks to game-service; polls pending bot turns and submits AI moves.
 // Lichess integration removed. No Lichess token or external-game APIs.
 lazy val botService = project
-  .in(file("apps/bot-service"))
+  .in(file("backend/services/bot-service"))
   .enablePlugins(JavaAppPackaging)
   .settings(
     commonSettings,
@@ -626,7 +626,7 @@ lazy val botService = project
 //   notation  — FEN parse/export (FenNotationFacade, GamePositionAdapter)
 //   aiContract — RemoteAiMoveDto, RemoteAiJson, request/response wire types
 lazy val lichessBridgeService = project
-  .in(file("apps/lichess-bridge-service"))
+  .in(file("backend/services/lichess-bridge-service"))
   .enablePlugins(JavaAppPackaging)
   .settings(
     commonSettings,
@@ -653,7 +653,7 @@ lazy val lichessBridgeService = project
 
 // Module: arena-events (GameEvent sealed trait, GameEventJson codec, EventEmitter)
 lazy val arenaEvents = project
-  .in(file("apps/bot-arena/arena-events"))
+  .in(file("backend/jobs/bot-arena/arena-events"))
   .settings(
     commonSettings,
     coverageMinimumStmtTotal := 0,
@@ -662,7 +662,7 @@ lazy val arenaEvents = project
 
 // Module: arena-core (BotProfile, BotPlayer, GameRunner skeleton, Tournament skeleton)
 lazy val arenaCore = project
-  .in(file("apps/bot-arena/arena-core"))
+  .in(file("backend/jobs/bot-arena/arena-core"))
   .settings(
     commonSettings,
     coverageMinimumStmtTotal := 0
@@ -671,7 +671,7 @@ lazy val arenaCore = project
 
 // Module: arena-writer-jsonl (JsonlFileWriter)
 lazy val arenaWriterJsonl = project
-  .in(file("apps/bot-arena/writers/jsonl"))
+  .in(file("backend/jobs/bot-arena/writers/jsonl"))
   .settings(
     commonSettings,
     coverageMinimumStmtTotal := 0
@@ -681,7 +681,7 @@ lazy val arenaWriterJsonl = project
 // Module: spark-analytics (Spark batch analytics — Scala 2.13; Spark 3.5.x requires Scala 2.13)
 // Module: arena-writer-kafka (Kafka EventEmitter implementation)
 lazy val arenaWriterKafka = project
-  .in(file("apps/bot-arena/writers/kafka"))
+  .in(file("backend/jobs/bot-arena/writers/kafka"))
   .settings(
     commonSettings,
     coverageMinimumStmtTotal := 0,
@@ -690,7 +690,7 @@ lazy val arenaWriterKafka = project
   .dependsOn(arenaEvents)
 
 lazy val sparkAnalytics = project
-  .in(file("apps/spark-analytics"))
+  .in(file("backend/jobs/spark-analytics"))
   .enablePlugins(JavaAppPackaging)
   .disablePlugins(wartremover.WartRemover)
   .settings(
@@ -713,13 +713,13 @@ lazy val sparkAnalytics = project
       s"-DprojectRoot=${(ThisBuild / baseDirectory).value.getAbsolutePath}"
     // Packaged distribution: sbt sparkAnalytics/stage -> target/universal/stage/bin/spark-analytics.
     // The generated script does not bake in --add-opens by default; deployments that need them
-    // (Java 17+) invoke it through apps/spark-analytics/docker/run-analytics.sh, which sets
+    // (Java 17+) invoke it through backend/jobs/spark-analytics/docker/run-analytics.sh, which sets
     // JAVA_OPTS before exec'ing the staged binary. See that script for the flag list.
   )
 
 // Module: arena-bots-heuristic (RandomBot, CaptureFirstBot, MaterialGreedyBot)
 lazy val arenaBotsHeuristic = project
-  .in(file("apps/bot-arena/bots/heuristic"))
+  .in(file("backend/jobs/bot-arena/bots/heuristic"))
   .settings(
     commonSettings,
     coverageMinimumStmtTotal := 0
@@ -728,7 +728,7 @@ lazy val arenaBotsHeuristic = project
 
 // Module: arena-bots-uci (UCI adapter + Stockfish bot profiles)
 lazy val arenaBotsUci = project
-  .in(file("apps/bot-arena/bots/uci"))
+  .in(file("backend/jobs/bot-arena/bots/uci"))
   .settings(
     commonSettings,
     coverageMinimumStmtTotal := 0
@@ -742,7 +742,7 @@ lazy val arenaBotsUci = project
 
 // App: arena-demo-heuristic (runnable demo — wires bots + writer)
 lazy val arenaDemoHeuristic = project
-  .in(file("apps/bot-arena/demo"))
+  .in(file("backend/jobs/bot-arena/demo"))
   .settings(
     commonSettings,
     coverageMinimumStmtTotal := 0,
@@ -755,7 +755,7 @@ lazy val arenaDemoHeuristic = project
 
 // App: arena-demo-kafka (heuristic tournament to Kafka; optional JSONL dual-write)
 lazy val arenaDemoKafka = project
-  .in(file("apps/bot-arena/demo-kafka"))
+  .in(file("backend/jobs/bot-arena/demo-kafka"))
   .settings(
     commonSettings,
     coverageMinimumStmtTotal := 0,
@@ -767,7 +767,7 @@ lazy val arenaDemoKafka = project
 
 // App: arena-demo-stockfish (optional runnable demo; requires Stockfish binary)
 lazy val arenaDemoStockfish = project
-  .in(file("apps/bot-arena/demo-stockfish"))
+  .in(file("backend/jobs/bot-arena/demo-stockfish"))
   .settings(
     commonSettings,
     coverageMinimumStmtTotal := 0,
@@ -779,7 +779,7 @@ lazy val arenaDemoStockfish = project
 
 // Module: arena-bots-ai (SearchessAI HTTP adapter — BotPlayer over /v1/move-suggestions)
 lazy val arenaBotsAi = project
-  .in(file("apps/bot-arena/bots/ai"))
+  .in(file("backend/jobs/bot-arena/bots/ai"))
   .settings(
     commonSettings,
     coverageMinimumStmtTotal := 0
@@ -788,7 +788,7 @@ lazy val arenaBotsAi = project
 
 // App: arena-demo-ai (SearchessAI mixed tournament demo)
 lazy val arenaDemoAi = project
-  .in(file("apps/bot-arena/demo-ai"))
+  .in(file("backend/jobs/bot-arena/demo-ai"))
   .settings(
     commonSettings,
     coverageMinimumStmtTotal := 0,
@@ -800,7 +800,7 @@ lazy val arenaDemoAi = project
 
 // App: arena-demo-evaluation (unified strong evaluation tournament — all bot families)
 lazy val arenaDemoEvaluation = project
-  .in(file("apps/bot-arena/demo-evaluation"))
+  .in(file("backend/jobs/bot-arena/demo-evaluation"))
   .settings(
     commonSettings,
     coverageMinimumStmtTotal := 0,
@@ -812,7 +812,7 @@ lazy val arenaDemoEvaluation = project
 
 // App: chess-streaming
 lazy val chessStreaming = project
-  .in(file("apps/chess-streaming"))
+  .in(file("backend/services/chess-streaming"))
   .enablePlugins(JavaAppPackaging)
   .settings(
     commonSettings,

@@ -273,12 +273,12 @@ curl http://localhost:10000/health
 ### Terminal 3 — start the Web UI
 
 ```bash
-cd apps/web-ui
+cd frontend/web-ui
 npm run dev:deployed
 # Opens at http://localhost:5173
 ```
 
-`npm run dev:deployed` loads `apps/web-ui/.env.deployed`, which sets:
+`npm run dev:deployed` loads `frontend/web-ui/.env.deployed`, which sets:
 - `VITE_API_BASE_URL=http://localhost:10000`
 - `VITE_WS_URL=ws://localhost:10000/ws`
 

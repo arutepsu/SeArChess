@@ -9,8 +9,7 @@
 **/.pytest_cache
 **/.venv
 **/node_modules
-apps/web-ui/dist
-Dockerfile
+frontend/web-ui/dist
 docker-compose.yml
 *.db
 *.sqlite

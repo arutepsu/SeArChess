@@ -57,7 +57,7 @@ operating the deployment pipeline without unnecessary canary promotions.
 
 | Commit type | Image rebuild? | Argo CD action |
 |---|---|---|
-| App-specific code (`apps/<service>/**`, `Dockerfile[.<service>]`) | **Yes — that service only** | Detects OutOfSync (new sha-* tag for that service); auto-syncs |
+| App-specific code (`backend/services/<service>/**`, `Dockerfile[.<service>]`) | **Yes — that service only** | Detects OutOfSync (new sha-* tag for that service); auto-syncs |
 | Shared Scala input (`modules/**`, `build.sbt`, `project/**`) | **Yes — all Scala services, including bot-service** | Detects OutOfSync (new sha-* tags for rebuilt Scala images); auto-syncs |
 | `python-ai-service` (code in sibling repo) | **Never on push** — `workflow_dispatch rebuild_python_ai=true` only | Rollout enters canary only when its image tag changes |
 | Deployment change (`deployment/**`) | **Yes — bot-service only** | Detects OutOfSync after the manifest change and the refreshed bot image tag commit |
@@ -92,7 +92,9 @@ deployment wiring change** (see paths filter below), or manual dispatch via
 Paths that trigger an image build:
 
 ```
-apps/**
+backend/**
+frontend/**
+cli/**
 modules/**
 project/**
 build.sbt

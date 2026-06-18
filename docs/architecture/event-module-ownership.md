@@ -9,8 +9,8 @@ Scope: event serialization, internal publishing, and Game -> History delivery
 |---|---|---|
 | `game-contract` | shared boundary | `AppEvent`, event publisher/serializer ports, session ids and boundary values |
 | `game-event-contract` | boundary schema | JSON serialization for `docs/contracts/game-events-v1` |
-| `apps/game-service/modules/eventing` | internal JVM plumbing | fan-out, no-op, and collecting event publishers |
-| `apps/game-service/modules/history-delivery` | Game Service-owned delivery | SQLite History outbox, forwarder, direct HTTP fallback |
+| `backend/services/game-service/modules/eventing` | internal JVM plumbing | fan-out, no-op, and collecting event publishers |
+| `backend/services/game-service/modules/history-delivery` | Game Service-owned delivery | SQLite History outbox, forwarder, direct HTTP fallback |
 
 ## Why
 

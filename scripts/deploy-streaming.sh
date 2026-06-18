@@ -9,7 +9,7 @@ CONTAINER_NAME="chess-streaming"
 PORT=8082
 
 echo "==> 1. Building Docker image locally on the server..."
-docker build -t "$IMAGE_NAME" -f Dockerfile.streaming .
+docker build -t "$IMAGE_NAME" -f deployment/docker/Dockerfile.streaming .
 
 echo "==> 2. Stopping old container if exists..."
 docker stop "$CONTAINER_NAME" 2>/dev/null || true

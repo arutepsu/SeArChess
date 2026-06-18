@@ -39,7 +39,7 @@ The top auth/nav bar includes a **Tournaments** link near **Analytics**.
 Dev mode:
 
 ```powershell
-cd apps/web-ui
+cd frontend/web-ui
 npm run dev:tournaments
 ```
 

@@ -8,8 +8,8 @@ import { fileURLToPath } from "node:url";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const source = join(repoRoot, "shared", "chess-assets");
-const webTarget = join(repoRoot, "apps", "web-ui", "public", "assets", "chess");
-const desktopTarget = join(repoRoot, "apps", "desktop-gui", "modules", "gui", "src", "main", "resources", "assets");
+const webTarget = join(repoRoot, "frontend", "web-ui", "public", "assets", "chess");
+const desktopTarget = join(repoRoot, "frontend", "desktop-gui", "modules", "gui", "src", "main", "resources", "assets");
 
 console.log("");
 console.log("=== sync-chess-assets ===");

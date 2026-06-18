@@ -81,9 +81,9 @@ These files are expected platform/deployment additions or documentation changes.
 
 ### Web UI deployed-backend mode
 
-- `apps/web-ui/.env.deployed`
-- `apps/web-ui/package.json`
-- `apps/web-ui/src/vite-env.d.ts`
+- `frontend/web-ui/.env.deployed`
+- `frontend/web-ui/package.json`
+- `frontend/web-ui/src/vite-env.d.ts`
 
 ### Deployment documentation and evidence
 
@@ -103,9 +103,9 @@ These are not pure deployment changes, but they are expected because they implem
 
 ### Scala ai-service → Python AI proxy
 
-- `apps/ai-service/src/main/scala/chess/aiservice/AiServiceConfig.scala`
-- `apps/ai-service/src/main/scala/chess/aiservice/AiServiceRoutes.scala`
-- `apps/game-service/modules/ai/src/test/scala/chess/adapter/ai/remote/RemoteAiIntegrationSpec.scala`
+- `backend/services/ai-service/src/main/scala/chess/aiservice/AiServiceConfig.scala`
+- `backend/services/ai-service/src/main/scala/chess/aiservice/AiServiceRoutes.scala`
+- `backend/services/game-service/modules/ai/src/test/scala/chess/adapter/ai/remote/RemoteAiIntegrationSpec.scala`
 
 Expected behavior:
 - ai-service can proxy to `python-ai-service`
@@ -114,7 +114,7 @@ Expected behavior:
 
 ### Redis Streams history delivery
 
-- `apps/game-service/modules/history-delivery/**`
+- `backend/services/game-service/modules/history-delivery/**`
 - `modules/game-event-contract/src/main/scala/chess/adapter/event/HistoryArchiveStreamEvent.scala`
 - `modules/game-event-contract/src/test/scala/chess/adapter/event/HistoryArchiveStreamEventSpec.scala`
 
@@ -125,12 +125,12 @@ Expected behavior:
 
 ### Game-service Postgres schema isolation
 
-- `apps/game-service/modules/persistence/src/main/scala/chess/adapter/repository/postgres/**`
-- `apps/game-service/modules/persistence/src/main/scala/chess/adapter/repository/slick/SlickTables.scala`
-- `apps/game-service/src/main/scala/chess/server/config/**`
-- `apps/game-service/src/main/scala/chess/server/migration/**`
-- `apps/game-service/src/main/scala/chess/server/assembly/PersistenceAssembly.scala`
-- `apps/game-service/src/main/scala/chess/server/GameServiceMain.scala`
+- `backend/services/game-service/modules/persistence/src/main/scala/chess/adapter/repository/postgres/**`
+- `backend/services/game-service/modules/persistence/src/main/scala/chess/adapter/repository/slick/SlickTables.scala`
+- `backend/services/game-service/src/main/scala/chess/server/config/**`
+- `backend/services/game-service/src/main/scala/chess/server/migration/**`
+- `backend/services/game-service/src/main/scala/chess/server/assembly/PersistenceAssembly.scala`
+- `backend/services/game-service/src/main/scala/chess/server/GameServiceMain.scala`
 
 Expected behavior:
 - game-service uses dedicated Postgres schema
@@ -139,11 +139,11 @@ Expected behavior:
 
 ### History-service Postgres/Slick persistence
 
-- `apps/history-service/modules/core/src/main/resources/db/migration/history/V1__create_history_archives.sql`
-- `apps/history-service/modules/core/src/main/scala/chess/history/postgres/HistoryFlywaySchemaInitializer.scala`
-- `apps/history-service/modules/core/src/main/scala/chess/history/slick/SlickPostgresArchiveRepository.scala`
-- `apps/history-service/modules/core/src/main/scala/chess/history/redis/RedisStreamHistoryConsumer.scala`
-- `apps/history-service/src/main/scala/chess/historyservice/**`
+- `backend/services/history-service/modules/core/src/main/resources/db/migration/history/V1__create_history_archives.sql`
+- `backend/services/history-service/modules/core/src/main/scala/chess/history/postgres/HistoryFlywaySchemaInitializer.scala`
+- `backend/services/history-service/modules/core/src/main/scala/chess/history/slick/SlickPostgresArchiveRepository.scala`
+- `backend/services/history-service/modules/core/src/main/scala/chess/history/redis/RedisStreamHistoryConsumer.scala`
+- `backend/services/history-service/src/main/scala/chess/historyservice/**`
 
 Expected behavior:
 - history-service stores archives in Postgres
@@ -166,16 +166,16 @@ These files must be reviewed carefully before merge.
 
 ### SQLite removal
 
-- `apps/history-service/modules/core/src/main/scala/chess/history/sqlite/SqliteArchiveRepository.scala`
-- `apps/history-service/modules/core/src/test/scala/chess/history/sqlite/SqliteArchiveRepositorySpec.scala`
+- `backend/services/history-service/modules/core/src/main/scala/chess/history/sqlite/SqliteArchiveRepository.scala`
+- `backend/services/history-service/modules/core/src/test/scala/chess/history/sqlite/SqliteArchiveRepositorySpec.scala`
 
 Review question:
 - Is removing SQLite acceptable for this branch, or should SQLite remain as a local/dev option?
 
 ### Event delivery behavior
 
-- `apps/game-service/src/main/scala/chess/server/assembly/EventAssembly.scala`
-- `apps/game-service/modules/history-delivery/src/main/scala/chess/adapter/event/RedisStreamHistoryPublisher.scala`
+- `backend/services/game-service/src/main/scala/chess/server/assembly/EventAssembly.scala`
+- `backend/services/game-service/modules/history-delivery/src/main/scala/chess/adapter/event/RedisStreamHistoryPublisher.scala`
 
 Review question:
 - Does Redis Streams mode remain configurable and safe?
@@ -183,7 +183,7 @@ Review question:
 
 ### ai-service runtime behavior
 
-- `apps/ai-service/src/main/scala/chess/aiservice/AiServiceRoutes.scala`
+- `backend/services/ai-service/src/main/scala/chess/aiservice/AiServiceRoutes.scala`
 
 Review question:
 - Does Python proxy fallback behave safely on timeout, HTTP error, and connection failure?

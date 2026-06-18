@@ -31,7 +31,7 @@ Phase 1 established the skeleton with no real Lichess integration:
 - Config case class reading all relevant env vars; `LICHESS_BRIDGE_ENABLED` defaults to `false`
 - Stub traits: `LichessClient`, `LichessEventStream`, `ChallengePolicy` — no network calls
 - Kubernetes Deployment with `replicas: 0`; `LICHESS_BOT_TOKEN` secret ref marked `optional: true`
-- CI build job gated on `apps/lichess-bridge-service/**` and `Dockerfile.lichess-bridge-service`
+- CI build job gated on `backend/services/lichess-bridge-service/**` and `Dockerfile.lichess-bridge-service`
 
 ---
 
@@ -301,8 +301,8 @@ The user-service call is **last in the chain** — obvious policy violations (ra
 
 | File | Role |
 |---|---|
-| `apps/lichess-bridge-service/.../UserServiceClient.scala` | `UserServiceClient[F[_]]` trait; `ChallengeAuthResult` ADT (`Authorized`, `NotLinked`, `Unavailable`); `JdkUserServiceClient` HTTP impl; `JdkUserServiceClient.parseAuthResponse` pure parser |
-| `apps/user-service/.../InternalLichessRoutes.scala` | `GET /internal/lichess/challenge-auth/{username}` — protected by `X-Internal-Api-Key`; returns `{"allowed": true/false, ...}` |
+| `backend/services/lichess-bridge-service/.../UserServiceClient.scala` | `UserServiceClient[F[_]]` trait; `ChallengeAuthResult` ADT (`Authorized`, `NotLinked`, `Unavailable`); `JdkUserServiceClient` HTTP impl; `JdkUserServiceClient.parseAuthResponse` pure parser |
+| `backend/services/user-service/.../InternalLichessRoutes.scala` | `GET /internal/lichess/challenge-auth/{username}` — protected by `X-Internal-Api-Key`; returns `{"allowed": true/false, ...}` |
 
 ### Modified files
 

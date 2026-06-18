@@ -30,7 +30,7 @@ services:
   game-service:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: deployment/docker/Dockerfile
     depends_on:
       postgres:
         condition: service_healthy
@@ -86,7 +86,7 @@ services:
   user-service:
     build:
       context: .
-      dockerfile: Dockerfile.user-service
+      dockerfile: deployment/docker/Dockerfile.user-service
     depends_on:
       postgres:
         condition: service_healthy
@@ -113,7 +113,7 @@ services:
   bot-service:
     build:
       context: .
-      dockerfile: Dockerfile.bot-service
+      dockerfile: deployment/docker/Dockerfile.bot-service
     depends_on:
       game-service:
         condition: service_healthy
@@ -126,7 +126,7 @@ services:
   history-service:
     build:
       context: .
-      dockerfile: Dockerfile.history
+      dockerfile: deployment/docker/Dockerfile.history
     depends_on:
       postgres:
         condition: service_healthy
@@ -157,7 +157,7 @@ services:
   analytics-service:
     build:
       context: .
-      dockerfile: Dockerfile.analytics
+      dockerfile: deployment/docker/Dockerfile.analytics
     depends_on:
       postgres:
         condition: service_healthy
@@ -179,7 +179,7 @@ services:
   tournament-service:
     build:
       context: .
-      dockerfile: Dockerfile.tournament
+      dockerfile: deployment/docker/Dockerfile.tournament
     depends_on:
       postgres:
         condition: service_healthy

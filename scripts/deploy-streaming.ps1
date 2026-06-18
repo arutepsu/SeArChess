@@ -10,7 +10,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 Write-Host "==> 1. Building Docker image locally..."
-docker build -t $ImageName -f Dockerfile.streaming .
+docker build -t $ImageName -f deployment/docker/Dockerfile.streaming .
 
 Write-Host "==> 2. Exporting Docker image to $TarFile..."
 if (Test-Path $TarFile) {
