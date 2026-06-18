@@ -112,9 +112,11 @@ These modules look shared mostly because the monolith still owns every app:
 
 1. Generic Game core module identity. (Resolved at the SBT/module level.)
 
-   The old `modules/application` source tree is now `backend/services/game-service/modules/core`, and
-   the SBT project is `gameCore`. This makes the module graph show that Game
-   orchestration is Game-owned rather than shared application infrastructure.
+   The old `modules/application` Game orchestration is now
+   `backend/services/game-service/modules/core`, and the SBT project is `gameCore`.
+   The heatmap endpoint implementation is owned by
+   `backend/services/game-service/modules/rest-http4s`. This makes the module graph show
+   that Game behavior is Game-owned rather than shared application infrastructure.
 
 2. Package names still say `chess.application.*`.
 
