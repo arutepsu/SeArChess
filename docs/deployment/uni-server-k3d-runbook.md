@@ -84,10 +84,10 @@ Images can be built on the server itself or transferred as tar archives.
 docker build -t searchess/game-service:local .
 
 # History service
-docker build -t searchess/history-service:local -f Dockerfile.history .
+docker build -t searchess/history-service:local -f deployment/docker/Dockerfile.history .
 
 # Scala AI service (random-legal facade)
-docker build -t searchess/ai-service:local -f Dockerfile.ai .
+docker build -t searchess/ai-service:local -f deployment/docker/Dockerfile.ai .
 
 # Python AI service (build from the sibling searchess-ai-service repo)
 docker build -t searchess/python-ai-service:local \

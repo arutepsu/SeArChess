@@ -74,7 +74,7 @@ Summaries are stored in `docs/performance/baseline/`.
 
 ## Gatling
 
-`modules/load-tests/src/test/scala/gatling/GameSimulation.scala` targets backend session and game
+`performance/load-tests/src/test/scala/gatling/GameSimulation.scala` targets backend session and game
 read endpoints. It reads the target from, in order:
 
 - JVM system property `BASE_URL`
@@ -107,7 +107,7 @@ Assertions:
 
 ## JMH
 
-`modules/benchmarks/src/main/scala/chess/rules/LegalMoveGeneratorBenchmark.scala` benchmarks
+`performance/benchmarks/src/main/scala/chess/rules/LegalMoveGeneratorBenchmark.scala` benchmarks
 `LegalMoveGenerator.legalMovesFrom` and `LegalMoveGenerator.legalTargetsFrom` for real initial
 position pieces. The benchmark has warmup iterations, measurement iterations, one fork, throughput
 mode, and returns the generated sets so JMH cannot eliminate the work.

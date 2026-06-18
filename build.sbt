@@ -830,7 +830,7 @@ lazy val chessStreaming = project
 
 // Module: load-tests
 lazy val loadTests = project
-  .in(file("modules/load-tests"))
+  .in(file("performance/load-tests"))
   .enablePlugins(GatlingPlugin)
   .disablePlugins(wartremover.WartRemover)
   .settings(
@@ -847,7 +847,7 @@ lazy val loadTests = project
 // and should not slow down normal compile/test workflows.
 
 lazy val benchmarks = project
-  .in(file("modules/benchmarks"))
+  .in(file("performance/benchmarks"))
   .enablePlugins(JmhPlugin)
   .disablePlugins(wartremover.WartRemover)
   .settings(

@@ -883,7 +883,7 @@ elimination, forks, timing modes, and measurement stability. Its results should 
 directly with k6 or Gatling throughput. Use JMH to understand internal operation cost; use k6 and
 Gatling to understand full-service behavior under load.
 
-The initial benchmark suite lives in `modules/benchmarks` and targets:
+The initial benchmark suite lives in `performance/benchmarks` and targets:
 
 - legal move generation through `GameStateRules.legalMoves`
 - move application/state transition through `GameStateRules.applyMove`

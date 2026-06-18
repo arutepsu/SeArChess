@@ -42,10 +42,10 @@ Run these from the repo root. The three application services must be built befor
 docker build -t searchess/game-service:local .
 
 # History service
-docker build -t searchess/history-service:local -f Dockerfile.history .
+docker build -t searchess/history-service:local -f deployment/docker/Dockerfile.history .
 
 # AI service
-docker build -t searchess/ai-service:local -f Dockerfile.ai .
+docker build -t searchess/ai-service:local -f deployment/docker/Dockerfile.ai .
 ```
 
 Third-party images (Envoy, Postgres, Mongo, Redis, Prometheus, Grafana) are pulled
