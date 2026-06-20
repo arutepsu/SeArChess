@@ -81,7 +81,7 @@ Images can be built on the server itself or transferred as tar archives.
 
 ```bash
 # Game service
-docker build -t searchess/game-service:local .
+docker build -t searchess/game-service:local -f deployment/docker/Dockerfile .
 
 # History service
 docker build -t searchess/history-service:local -f deployment/docker/Dockerfile.history .
@@ -388,7 +388,7 @@ After changing application code:
 
 ```bash
 # 1. Rebuild the image
-docker build -t searchess/game-service:local .
+docker build -t searchess/game-service:local -f deployment/docker/Dockerfile .
 
 # 2. Import the updated image
 k3d image import searchess/game-service:local --cluster searchess-server

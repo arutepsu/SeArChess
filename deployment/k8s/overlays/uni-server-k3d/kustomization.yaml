@@ -25,6 +25,17 @@ images:
     newTag: local
   - name: searchess/tournament-service
     newTag: local
+  - name: searchess/user-service
+    newTag: local
+  - name: searchess/spark-analytics
+    newTag: local
+  - name: searchess/lichess-bridge-service
+    newTag: local
+  # Replace stock Keycloak with the local themed image so the searchess realm's
+  # loginTheme: searchess resolves correctly in k3d (no registry pull needed).
+  - name: quay.io/keycloak/keycloak
+    newName: searchess/keycloak
+    newTag: local
   # mongo:7.0 requires AVX CPU instructions which are not available on the
   # university VM. mongo:4.4 is the last release that does not require AVX.
   - name: mongo
@@ -105,3 +116,31 @@ patches:
     target:
       kind: Deployment
       name: tournament-service
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never
+    target:
+      kind: Deployment
+      name: user-service
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never
+    target:
+      kind: Deployment
+      name: spark-analytics
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never
+    target:
+      kind: Deployment
+      name: keycloak
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never
+    target:
+      kind: Deployment
+      name: lichess-bridge-service

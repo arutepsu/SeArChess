@@ -45,6 +45,8 @@ on:
       - 'deployment/docker/Dockerfile*'
       - 'deployment/**'
       - '.github/workflows/build-images.yml'
+      - 'shared/**'
+      - 'tools/sync-chess-assets.mjs'
   workflow_dispatch:
     inputs:
       tag:
@@ -211,7 +213,7 @@ jobs:
           WEB_UI=$(echo            "$CHANGED" | grep -E "^frontend/web-ui/|^deployment/k8s/base/web-ui/|^tools/sync-chess-assets\.|^shared/"     || true)
           LICHESS_BRIDGE=$(echo    "$CHANGED" | grep -E "^backend/services/lichess-bridge-service/|^deployment/docker/Dockerfile\.lichess-bridge-service$" || true)
           ANALYTICS=$(echo         "$CHANGED" | grep -E "^backend/services/analytics-service/|^deployment/docker/Dockerfile\.analytics$|^deployment/k8s/base/analytics-service/" || true)
-          TOURNAMENT=$(echo        "$CHANGED" | grep -E "^backend/services/tournament-service/|^backend/jobs/bot-arena/|^deployment/docker/Dockerfile\.tournament$|^deployment/k8s/base/tournament-service/" || true)
+          TOURNAMENT=$(echo        "$CHANGED" | grep -E "^backend/services/tournament-service/|^backend/jobs/bot-arena/|^backend/jobs/spark-analytics/|^deployment/docker/Dockerfile\.tournament$|^deployment/k8s/base/tournament-service/" || true)
           KEYCLOAK=$(echo          "$CHANGED" | grep -E "^deployment/docker/Dockerfile\.keycloak$|^deployment/k8s/base/keycloak/" || true)
           SPARK_ANALYTICS=$(echo   "$CHANGED" | grep -E "^backend/jobs/spark-analytics/|^backend/jobs/bot-arena/|^deployment/docker/Dockerfile\.spark-analytics$" || true)
 
