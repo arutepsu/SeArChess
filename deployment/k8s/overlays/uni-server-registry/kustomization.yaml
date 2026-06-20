@@ -68,7 +68,7 @@ images:
   newTag: sha-efca728
 - name: searchess/bot-service
   newName: ghcr.io/arutepsu/searchess-bot-service
-  newTag: sha-1f33a88
+  newTag: sha-a6a5311
 - name: searchess/game-service
   newName: ghcr.io/arutepsu/searchess-game-service
   newTag: sha-efca728
