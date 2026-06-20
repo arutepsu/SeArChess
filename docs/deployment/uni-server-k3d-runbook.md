@@ -361,10 +361,10 @@ manual-import overlay to the registry overlay without recreating the cluster:
 ```bash
 export PATH="$HOME/bin:$PATH"
 
-# Apply the registry overlay (uses 'performance-latest' tag by default):
+# Apply the registry overlay with committed sha-* tags (no-arg: applies as-is):
 bash deployment/server/deploy-server-registry.sh
 
-# Or pin to a specific git SHA:
+# Emergency pin/rollback — override all sha-* app images with a specific tag:
 bash deployment/server/deploy-server-registry.sh abc1234
 
 # Verify:
