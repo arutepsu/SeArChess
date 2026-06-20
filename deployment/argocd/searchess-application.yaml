@@ -65,3 +65,11 @@ spec:
         - k3s
       jqPathExpressions:
         - ".spec.volumeClaimTemplates[].status"
+    - group: apps
+      kind: StatefulSet
+      name: kafka
+      namespace: searchess
+      managedFieldsManagers:
+        - k3s
+      jqPathExpressions:
+        - ".spec.volumeClaimTemplates[].status"
