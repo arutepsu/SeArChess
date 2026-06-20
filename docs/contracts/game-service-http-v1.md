@@ -119,7 +119,7 @@ present for draws.
 
 ### GET /health
 
-Liveness endpoint owned by `apps/game-service`.
+Liveness endpoint owned by `backend/services/game-service`.
 
 Response `200 OK`:
 

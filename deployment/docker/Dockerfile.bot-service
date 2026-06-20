@@ -1,0 +1,23 @@
+# syntax=docker/dockerfile:1
+
+FROM sbtscala/scala-sbt:eclipse-temurin-21.0.8_9_1.12.6_3.8.2 AS build
+
+WORKDIR /build
+
+COPY project/ project/
+COPY build.sbt ./
+COPY backend/ backend/
+COPY modules/ modules/
+
+RUN sbt "botService / stage"
+
+FROM eclipse-temurin:21-jre
+
+WORKDIR /app
+
+COPY --from=build /build/backend/services/bot-service/target/universal/stage/ ./
+
+ENV GAME_SERVICE_BASE_URL=http://game-service:8080 \
+    BOT_WORKER_ACTOR_ID=searchess-bot
+
+CMD ["bin/searchess-bot-worker"]

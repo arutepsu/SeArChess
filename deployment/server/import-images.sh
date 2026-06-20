@@ -21,7 +21,11 @@ k3d image import \
   searchess/bot-service:local \
   searchess/analytics-service:local \
   searchess/tournament-service:local \
+  searchess/user-service:local \
+  searchess/spark-analytics:local \
+  searchess/keycloak:local \
+  searchess/lichess-bridge-service:local \
   --cluster "$CLUSTER"
 
 echo "==> Import complete. Verify:"
-k3d image list --cluster "$CLUSTER" | grep -E "searchess/(game|history|ai|python-ai|bot|analytics|tournament)-service|searchess/web-ui"
+k3d image list --cluster "$CLUSTER" | grep -E "searchess/(game|history|ai|python-ai|bot|analytics|tournament|user|lichess-bridge)-service|searchess/(web-ui|spark-analytics|keycloak)"

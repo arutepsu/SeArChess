@@ -67,7 +67,7 @@ services:
   game-service:
     build:
       context: ../..
-      dockerfile: Dockerfile
+      dockerfile: deployment/docker/Dockerfile
     networks:
       - edge
       - internal
@@ -130,7 +130,7 @@ services:
   bot-service:
     build:
       context: ../..
-      dockerfile: Dockerfile.bot-service
+      dockerfile: deployment/docker/Dockerfile.bot-service
     networks:
       - internal
     depends_on:
@@ -146,7 +146,7 @@ services:
   spark-analytics:
     build:
       context: ../..
-      dockerfile: Dockerfile.spark-analytics
+      dockerfile: deployment/docker/Dockerfile.spark-analytics
     networks:
       - internal
     depends_on:
@@ -174,7 +174,7 @@ services:
   history-service:
     build:
       context: ../..
-      dockerfile: Dockerfile.history
+      dockerfile: deployment/docker/Dockerfile.history
     networks:
       - internal
       - observability
@@ -237,7 +237,7 @@ services:
   ai-service:
     build:
       context: ../..
-      dockerfile: Dockerfile.ai
+      dockerfile: deployment/docker/Dockerfile.ai
     networks:
       - internal
       - observability
@@ -263,7 +263,7 @@ services:
   analytics-service:
     build:
       context: ../..
-      dockerfile: Dockerfile.analytics
+      dockerfile: deployment/docker/Dockerfile.analytics
     networks:
       - edge
       - internal
@@ -290,7 +290,7 @@ services:
   tournament-service:
     build:
       context: ../..
-      dockerfile: Dockerfile.tournament
+      dockerfile: deployment/docker/Dockerfile.tournament
     networks:
       - edge
       - internal

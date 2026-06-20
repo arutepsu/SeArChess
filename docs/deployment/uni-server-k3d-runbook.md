@@ -81,13 +81,13 @@ Images can be built on the server itself or transferred as tar archives.
 
 ```bash
 # Game service
-docker build -t searchess/game-service:local .
+docker build -t searchess/game-service:local -f deployment/docker/Dockerfile .
 
 # History service
-docker build -t searchess/history-service:local -f Dockerfile.history .
+docker build -t searchess/history-service:local -f deployment/docker/Dockerfile.history .
 
 # Scala AI service (random-legal facade)
-docker build -t searchess/ai-service:local -f Dockerfile.ai .
+docker build -t searchess/ai-service:local -f deployment/docker/Dockerfile.ai .
 
 # Python AI service (build from the sibling searchess-ai-service repo)
 docker build -t searchess/python-ai-service:local \
@@ -273,12 +273,12 @@ curl http://localhost:10000/health
 ### Terminal 3 — start the Web UI
 
 ```bash
-cd apps/web-ui
+cd frontend/web-ui
 npm run dev:deployed
 # Opens at http://localhost:5173
 ```
 
-`npm run dev:deployed` loads `apps/web-ui/.env.deployed`, which sets:
+`npm run dev:deployed` loads `frontend/web-ui/.env.deployed`, which sets:
 - `VITE_API_BASE_URL=http://localhost:10000`
 - `VITE_WS_URL=ws://localhost:10000/ws`
 
@@ -361,10 +361,10 @@ manual-import overlay to the registry overlay without recreating the cluster:
 ```bash
 export PATH="$HOME/bin:$PATH"
 
-# Apply the registry overlay (uses 'performance-latest' tag by default):
+# Apply the registry overlay with committed sha-* tags (no-arg: applies as-is):
 bash deployment/server/deploy-server-registry.sh
 
-# Or pin to a specific git SHA:
+# Emergency pin/rollback — override all sha-* app images with a specific tag:
 bash deployment/server/deploy-server-registry.sh abc1234
 
 # Verify:
@@ -388,7 +388,7 @@ After changing application code:
 
 ```bash
 # 1. Rebuild the image
-docker build -t searchess/game-service:local .
+docker build -t searchess/game-service:local -f deployment/docker/Dockerfile .
 
 # 2. Import the updated image
 k3d image import searchess/game-service:local --cluster searchess-server

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="apps/web-ui/public/assets/logo/logo512.cut.png" alt="Searchess logo" width="260" />
+  <img src="frontend/web-ui/public/assets/logo/logo512.cut.png" alt="Searchess logo" width="260" />
 </p>
 
 <h1 align="center"> Searchess</h1>

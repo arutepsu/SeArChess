@@ -53,7 +53,7 @@ docker compose -f deployment/compose/docker-compose.yml up \
   keycloak envoy game-service postgres mongo redis history-service ai-service python-ai-service
 
 # 2. Start Web UI with auth mode (separate terminal, from repo root)
-cd apps/web-ui
+cd frontend/web-ui
 npm install
 npm run dev:auth        # loads .env.auth → VITE_KEYCLOAK_URL=http://localhost:8080
 
@@ -135,7 +135,7 @@ kubectl port-forward -n searchess svc/keycloak 8080:8080
 ## Kubernetes — run Web UI against deployed backend
 
 ```bash
-# In apps/web-ui/:
+# In frontend/web-ui/:
 npm run dev:deployed
 # loads .env.deployed:
 #   VITE_KEYCLOAK_URL=/auth

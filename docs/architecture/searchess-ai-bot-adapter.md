@@ -16,7 +16,7 @@ Stockfish bots do — no changes to `GameRunner`, `TournamentRunner`, or `arena-
 | Path | `/v1/move-suggestions` |
 | Default port | `8765` |
 | Health check | `GET /health` |
-| Service module | `apps/ai-service` |
+| Service module | `backend/services/ai-service` |
 | Contract module | `modules/ai-contract` |
 
 ---
@@ -69,7 +69,7 @@ Promotion (optional): `"q"`, `"r"`, `"b"`, `"n"`.
 ## Module Structure
 
 ```
-apps/bot-arena/bots/ai/               ← arenaBotsAi module
+backend/jobs/bot-arena/bots/ai/               ← arenaBotsAi module
   src/main/scala/chess/arena/bots/ai/
     AiServiceBotConfig.scala          ← config (baseUrl, timeout, botId, …)
     AiSquareNotation.scala            ← Move ↔ RemoteAiMoveDto conversion
@@ -77,7 +77,7 @@ apps/bot-arena/bots/ai/               ← arenaBotsAi module
     HttpSearchessAiClient.scala       ← JDK HttpClient implementation
     SearchessAiBot.scala              ← BotPlayer; calls client, validates move
 
-apps/bot-arena/demo-ai/               ← arenaDemoAi module
+backend/jobs/bot-arena/demo-ai/               ← arenaDemoAi module
   src/main/scala/chess/arena/demo/
     SearchessAiTournamentDemo.scala   ← runnable demo (5 bots, 20 matchups)
 ```

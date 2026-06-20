@@ -22,7 +22,7 @@ Mapping between internal Game Service models and these DTOs is owned by the
 Game Service HTTP adapter, currently:
 
 ```text
-apps/game-service/modules/rest-http4s/src/main/scala/chess/adapter/http4s/mapper
+backend/services/game-service/modules/rest-http4s/src/main/scala/chess/adapter/http4s/mapper
 ```
 
 That mapper package may import Game core/domain types because it is part of the
@@ -48,8 +48,8 @@ Desired direction:
 
 ```text
 adapter-rest-contract  -> ujson only
-apps/game-service/modules/rest-http4s -> adapter-rest-contract + game-core
-apps/game-service                     -> rest-http4s
+backend/services/game-service/modules/rest-http4s -> adapter-rest-contract + game-core
+backend/services/game-service                     -> rest-http4s
 ```
 
 This keeps public HTTP shapes importable without also pulling in Game Service

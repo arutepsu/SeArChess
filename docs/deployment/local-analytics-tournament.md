@@ -154,7 +154,7 @@ distributions into the runtime image — no sbt binary, no monorepo source tree 
 runtime, only the two `target/universal/stage/` outputs.
 
 `TOURNAMENT_ANALYTICS_COMMAND` points at `/app/spark-analytics/bin/run-analytics.sh`,
-a thin wrapper (`apps/spark-analytics/docker/run-analytics.sh`) that sets `JAVA_OPTS`
+a thin wrapper (`backend/jobs/spark-analytics/docker/run-analytics.sh`) that sets `JAVA_OPTS`
 to the `--add-opens` flags Spark 3.5.x needs on Java 17+ (must stay in sync with
 `sparkJvmOpens` in `build.sbt`) and `exec`s the staged `bin/spark-analytics` binary.
 `tournament-service`'s `PackagedSparkAnalyticsProcessRunner` invokes it with
@@ -217,7 +217,7 @@ is fixed) job in every phase, local and production alike.
   request handling while it's in progress. There's no concurrency limit beyond
   `TOURNAMENT_MAX_PARALLEL_ANALYTICS_JOBS` (still in-process, not resource-isolated).
 - **`--add-opens` flags are duplicated** between `build.sbt`'s `sparkJvmOpens` (used for
-  `sbt sparkAnalytics/run`) and `apps/spark-analytics/docker/run-analytics.sh` (used by
+  `sbt sparkAnalytics/run`) and `backend/jobs/spark-analytics/docker/run-analytics.sh` (used by
   the packaged path). They must be kept in sync manually if Spark's JDK requirements
   change.
 - **Long-term direction:** extract a separate `analytics-executor` service, or trigger

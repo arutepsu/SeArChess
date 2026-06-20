@@ -16,43 +16,49 @@ implementation modules live beside the runnable service apps that own them.
 | `gameContract` | shared contract | `modules/game-contract` |
 | `gameEventContract` | shared boundary contract | `modules/game-event-contract` |
 | `adapterRestContract` | shared HTTP contract | `modules/adapter-rest-contract` |
-| `gameCore` | Game-owned | `apps/game-service/modules/core` |
-| `adapterPersistence` | Game-owned | `apps/game-service/modules/persistence` |
-| `adapterRestHttp4s` | Game-owned | `apps/game-service/modules/rest-http4s` |
-| `adapterWebsocket` | Game-owned | `apps/game-service/modules/websocket` |
-| `adapterAi` | Game-owned | `apps/game-service/modules/ai` |
-| `adapterEvent` | Game-owned internal eventing | `apps/game-service/modules/eventing` |
-| `gameHistoryDelivery` | Game-owned delivery | `apps/game-service/modules/history-delivery` |
-| `history` | History-owned | `apps/history-service/modules/core` |
-| `adapterGui` | desktop client-owned | `apps/desktop-gui/modules/gui` |
-| `adapterTui` | TUI client-owned | `apps/tui-cli/modules/tui` |
-| `startupShared` | deferred shared local bootstrap | `apps/startup-shared` |
-| `web-ui` | web client-owned | `apps/web-ui` |
+| `gameCore` | Game-owned | `backend/services/game-service/modules/core` |
+| `adapterPersistence` | Game-owned | `backend/services/game-service/modules/persistence` |
+| `adapterRestHttp4s` | Game-owned | `backend/services/game-service/modules/rest-http4s` |
+| `adapterWebsocket` | Game-owned | `backend/services/game-service/modules/websocket` |
+| `adapterAi` | Game-owned | `backend/services/game-service/modules/ai` |
+| `adapterEvent` | Game-owned internal eventing | `backend/services/game-service/modules/eventing` |
+| `gameHistoryDelivery` | Game-owned delivery | `backend/services/game-service/modules/history-delivery` |
+| `history` | History-owned | `backend/services/history-service/modules/core` |
+| `adapterGui` | desktop client-owned | `frontend/desktop-gui/modules/gui` |
+| `adapterTui` | TUI client-owned | `cli/tui-cli/modules/tui` |
+| `startupShared` | deferred shared local bootstrap | `backend/shared/startup-shared` |
+| `web-ui` | web client-owned | `frontend/web-ui` |
 
 ## Resulting Shape
 
 ```text
-apps/
-  game-service/
-    modules/
-      ai/
-      core/
-      eventing/
-      history-delivery/
-      persistence/
-      rest-http4s/
-      websocket/
-  history-service/
-    modules/
-      core/
+backend/
+  services/
+    game-service/
+      modules/
+        ai/
+        core/
+        eventing/
+        history-delivery/
+        persistence/
+        rest-http4s/
+        websocket/
+    history-service/
+      modules/
+        core/
+  shared/
+    startup-shared/
+
+frontend/
   desktop-gui/
     modules/
       gui/
+  web-ui/
+
+cli/
   tui-cli/
     modules/
       tui/
-  startup-shared/
-  web-ui/
 
 modules/
   adapter-rest-contract/

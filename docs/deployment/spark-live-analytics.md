@@ -34,7 +34,7 @@ The pod reads `POSTGRES_PASSWORD` from the `searchess-secrets` Secret (key: `pos
 #### Step 1 — Build the image
 
 ```sh
-docker build -f Dockerfile.spark-analytics -t searchess-spark-analytics:test .
+docker build -t searchess/spark-analytics:local -f deployment/docker/Dockerfile.spark-analytics .
 ```
 
 #### Step 2 — Tag and push to GHCR
@@ -42,7 +42,7 @@ docker build -f Dockerfile.spark-analytics -t searchess-spark-analytics:test .
 ```sh
 # Replace <sha> with the 7-char git commit hash (matches CI convention sha-<sha>)
 SHA=$(git rev-parse --short HEAD)
-docker tag searchess-spark-analytics:test ghcr.io/arutepsu/searchess-spark-analytics:sha-${SHA}
+docker tag searchess/spark-analytics:local ghcr.io/arutepsu/searchess-spark-analytics:sha-${SHA}
 docker push ghcr.io/arutepsu/searchess-spark-analytics:sha-${SHA}
 ```
 

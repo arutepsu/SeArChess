@@ -92,15 +92,15 @@ The arena must be decoupled from any specific bot implementation. Bots plug in v
 
 | Module | Responsibility | Lives In |
 |---|---|---|
-| `arena-events` | `BotFamily` enum, `GameEvent` sealed trait, JSON codec (`GameEventJson`), `EventEmitter` interface | `apps/bot-arena/arena-events` |
-| `arena-core` | `BotProfile` metadata model, `BotPlayer` interface, `GameRunner` skeleton, `Tournament` skeleton | `apps/bot-arena/arena-core` |
-| `arena-bots-heuristic` | `RandomBot`, `CaptureFirstBot`, `MaterialGreedyBot` | `apps/bot-arena/bots/heuristic` |
-| `arena-bots-uci` | UCI engine adapter (Stockfish, LCZero) | `apps/bot-arena/bots/uci` |
-| `arena-bots-ai-service` | HTTP adapter for SearchessAI REST endpoint | `apps/bot-arena/bots/ai-service` |
-| `arena-bots-imported` | Lichess game import, replayed moves as a bot | `apps/bot-arena/bots/imported` |
-| `arena-writer-jsonl` | Append-only JSONL file writer implementing `EventEmitter` | `apps/bot-arena/writers/jsonl` |
-| `arena-writer-kafka` | Kafka producer (Phase 6 stub, not implemented) | `apps/bot-arena/writers/kafka` |
-| `spark-analytics` | Spark batch jobs, aggregation queries | `apps/spark-analytics` (new) |
+| `arena-events` | `BotFamily` enum, `GameEvent` sealed trait, JSON codec (`GameEventJson`), `EventEmitter` interface | `backend/jobs/bot-arena/arena-events` |
+| `arena-core` | `BotProfile` metadata model, `BotPlayer` interface, `GameRunner` skeleton, `Tournament` skeleton | `backend/jobs/bot-arena/arena-core` |
+| `arena-bots-heuristic` | `RandomBot`, `CaptureFirstBot`, `MaterialGreedyBot` | `backend/jobs/bot-arena/bots/heuristic` |
+| `arena-bots-uci` | UCI engine adapter (Stockfish, LCZero) | `backend/jobs/bot-arena/bots/uci` |
+| `arena-bots-ai-service` | HTTP adapter for SearchessAI REST endpoint | `backend/jobs/bot-arena/bots/ai-service` |
+| `arena-bots-imported` | Lichess game import, replayed moves as a bot | `backend/jobs/bot-arena/bots/imported` |
+| `arena-writer-jsonl` | Append-only JSONL file writer implementing `EventEmitter` | `backend/jobs/bot-arena/writers/jsonl` |
+| `arena-writer-kafka` | Kafka producer (Phase 6 stub, not implemented) | `backend/jobs/bot-arena/writers/kafka` |
+| `spark-analytics` | Spark batch jobs, aggregation queries | `backend/jobs/spark-analytics` (new) |
 
 **Dependency rules:**
 - `arena-events` depends on nothing in this project (only ujson).
@@ -401,7 +401,7 @@ Previously open questions, now decided.
 
 ### 13.1 sbt Module Layout
 
-`bot-arena` lives under `apps/`, not `tools/`.
+`bot-arena` lives under `backend/jobs/`, not `tools/`.
 
 **Reason:** `bot-arena` is a runtime application/job — it can run tournaments, call HTTP services, manage UCI engine processes, and later produce Kafka events. It is not a helper script. `tools/` is reserved for thin developer utilities (shell scripts, generators, one-off data processors).
 

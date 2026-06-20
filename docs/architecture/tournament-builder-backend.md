@@ -18,7 +18,7 @@ directly, does not update the Web UI dashboard directly, and does not use Kafka 
 
 | Service | Default port | Module |
 |---------|--------------|--------|
-| tournament-service | 8085 | `apps/tournament-service` |
+| tournament-service | 8085 | `backend/services/tournament-service` |
 
 Configuration:
 

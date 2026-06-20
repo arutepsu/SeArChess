@@ -39,13 +39,13 @@ Run these from the repo root. The three application services must be built befor
 
 ```bash
 # Game service
-docker build -t searchess/game-service:local .
+docker build -t searchess/game-service:local -f deployment/docker/Dockerfile .
 
 # History service
-docker build -t searchess/history-service:local -f Dockerfile.history .
+docker build -t searchess/history-service:local -f deployment/docker/Dockerfile.history .
 
 # AI service
-docker build -t searchess/ai-service:local -f Dockerfile.ai .
+docker build -t searchess/ai-service:local -f deployment/docker/Dockerfile.ai .
 ```
 
 Third-party images (Envoy, Postgres, Mongo, Redis, Prometheus, Grafana) are pulled
@@ -203,7 +203,7 @@ After making code changes to an application service:
 
 ```bash
 # 1. Rebuild the image
-docker build -t searchess/game-service:local .
+docker build -t searchess/game-service:local -f deployment/docker/Dockerfile .
 
 # 2. Import the updated image
 k3d image import searchess/game-service:local --cluster searchess

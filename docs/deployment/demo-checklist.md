@@ -73,14 +73,15 @@ kubectl logs -n searchess job/postgres-init-keycloak
 The web-ui Docker image is not yet built by CI (CI integration is a follow-up). Build manually:
 
 ```bash
-# From apps/web-ui/
+# From repo root:
 docker build \
   --build-arg VITE_KEYCLOAK_URL=http://127.0.0.1:8080 \
   --build-arg VITE_KEYCLOAK_REALM=searchess \
   --build-arg VITE_KEYCLOAK_CLIENT_ID=searchess-web \
   --build-arg VITE_API_BASE_URL=http://127.0.0.1:10000 \
   --build-arg VITE_WS_URL=ws://127.0.0.1:10000/ws \
-  -t ghcr.io/arutepsu/searchess-web-ui:sha-<commit> .
+  -t ghcr.io/arutepsu/searchess-web-ui:sha-<commit> \
+  -f frontend/web-ui/Dockerfile .
 
 docker push ghcr.io/arutepsu/searchess-web-ui:sha-<commit>
 ```

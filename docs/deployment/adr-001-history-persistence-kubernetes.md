@@ -57,7 +57,7 @@ history-service uses schema isolation rather than `baselineOnMigrate`. Flyway is
 `schemas("history")`, `defaultSchema("history")`, and schema creation enabled. Slick receives the
 same configured schema and qualifies archive table access as `history.history_archives`.
 
-Migration: `apps/history-service/modules/core/src/main/resources/db/migration/history/V1__create_history_archives.sql`
+Migration: `backend/services/history-service/modules/core/src/main/resources/db/migration/history/V1__create_history_archives.sql`
 
 ```sql
 create table if not exists history_archives (
@@ -116,8 +116,8 @@ through Slick. Direct HTTP ingestion remains as a fallback mode.
 
 ## References
 
-- `apps/history-service/modules/core/src/main/scala/chess/history/slick/` — Slick adapter
-- `apps/history-service/modules/core/src/main/scala/chess/history/postgres/` — Flyway initializer
-- `apps/history-service/modules/core/src/main/resources/db/migration/history/` — Flyway migration
+- `backend/services/history-service/modules/core/src/main/scala/chess/history/slick/` — Slick adapter
+- `backend/services/history-service/modules/core/src/main/scala/chess/history/postgres/` — Flyway initializer
+- `backend/services/history-service/modules/core/src/main/resources/db/migration/history/` — Flyway migration
 - `deployment/k8s/base/history-service/` — updated manifests
 - `docs/deployment/deployment-inventory.md` — service inventory

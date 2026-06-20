@@ -65,11 +65,11 @@ Keycloak base settings (both overlays inherit from base):
 
 | Image | Build command (from repo root) | Source |
 |---|---|---|
-| `searchess/game-service:local` | `docker build -f Dockerfile -t searchess/game-service:local .` | `Dockerfile` |
-| `searchess/history-service:local` | `docker build -f Dockerfile.history -t searchess/history-service:local .` | `Dockerfile.history` |
-| `searchess/ai-service:local` | `docker build -f Dockerfile.ai -t searchess/ai-service:local .` | `Dockerfile.ai` |
-| `searchess/bot-service:local` | `docker build -f Dockerfile.bot-service -t searchess/bot-service:local .` | `Dockerfile.bot-service` |
-| `searchess/web-ui:local` | `docker build -t searchess/web-ui:local apps/web-ui/` | `apps/web-ui/Dockerfile` |
+| `searchess/game-service:local` | `docker build -f deployment/docker/Dockerfile -t searchess/game-service:local .` | `deployment/docker/Dockerfile` |
+| `searchess/history-service:local` | `docker build -f deployment/docker/Dockerfile.history -t searchess/history-service:local .` | `deployment/docker/Dockerfile.history` |
+| `searchess/ai-service:local` | `docker build -f deployment/docker/Dockerfile.ai -t searchess/ai-service:local .` | `deployment/docker/Dockerfile.ai` |
+| `searchess/bot-service:local` | `docker build -f deployment/docker/Dockerfile.bot-service -t searchess/bot-service:local .` | `deployment/docker/Dockerfile.bot-service` |
+| `searchess/web-ui:local` | `docker build -t searchess/web-ui:local -f frontend/web-ui/Dockerfile .` | `frontend/web-ui/Dockerfile` |
 | `searchess/python-ai-service:local` | `docker load -i python-ai-service-local.tar` | pre-built tar |
 
 The web-ui Dockerfile defaults (`VITE_KEYCLOAK_URL=/auth`, same-origin API/WS)
@@ -168,11 +168,11 @@ repo and does not affect the uni-server deployment.
 ### Step 3 — Build images (skip if already built and present)
 
 ```powershell
-docker build -f Dockerfile            -t searchess/game-service:local    .
-docker build -f Dockerfile.ai         -t searchess/ai-service:local      .
-docker build -f Dockerfile.history    -t searchess/history-service:local .
-docker build -f Dockerfile.bot-service -t searchess/bot-service:local    .
-docker build -t searchess/web-ui:local apps/web-ui/
+docker build -f deployment/docker/Dockerfile             -t searchess/game-service:local    .
+docker build -f deployment/docker/Dockerfile.ai          -t searchess/ai-service:local      .
+docker build -f deployment/docker/Dockerfile.history     -t searchess/history-service:local .
+docker build -f deployment/docker/Dockerfile.bot-service -t searchess/bot-service:local     .
+docker build -t searchess/web-ui:local -f frontend/web-ui/Dockerfile .
 docker load -i python-ai-service-local.tar
 # Retag if loaded tag is not :local
 docker tag searchess/python-ai-service:latest searchess/python-ai-service:local

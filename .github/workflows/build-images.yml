@@ -17,7 +17,7 @@ on:
     # CI/CD boundary contract:
     #   App change (service-specific) → that service's image rebuilt; only its tag updated.
     #   App change (shared Scala: modules/**, build.sbt, project/**) → all Scala images rebuilt.
-    #   App change (apps/web-ui/**) → web-ui image rebuilt only; Scala images untouched.
+    #   App change (frontend/web-ui/**) → web-ui image rebuilt only; Scala images untouched.
     #   Infra change (deployment/**) → bot-service image rebuilt; Argo CD syncs the manifest.
     #   Docs change → no CI action; nothing is deployed.
     #
@@ -35,14 +35,18 @@ on:
     #    is listed below for human-authored deployment changes.
     # 2. [skip ci] in the commit message adds a second explicit guard.
     paths:
-      - 'apps/**'
+      - 'backend/**'
+      - 'cli/**'
+      - 'frontend/**'
       - 'modules/**'
       - 'project/**'
       - 'build.sbt'
       - '**/Dockerfile'
-      - 'Dockerfile*'
+      - 'deployment/docker/Dockerfile*'
       - 'deployment/**'
       - '.github/workflows/build-images.yml'
+      - 'shared/**'
+      - 'tools/sync-chess-assets.mjs'
   workflow_dispatch:
     inputs:
       tag:
@@ -70,8 +74,8 @@ jobs:
   # Separation of concerns:
   #   Scala shared (modules/, build.sbt, project/) → all Scala services; NOT web-ui.
   #   Workflow file change                          → all Scala services AND web-ui.
-  #   apps/web-ui/**                                → web-ui only; NOT Scala services.
-  #   apps/<scala-service>/**                       → that service only.
+  #   frontend/web-ui/**                            → web-ui only; NOT Scala services.
+  #   backend/services/<scala-service>/**           → that service only.
   #   deployment/**                                 → bot-service, so GitOps enablement
   #                                                   cannot reference an unbuilt image.
   #   deployment/k8s/base/user-service/**           → user-service, same reason.
@@ -154,14 +158,14 @@ jobs:
           # These affect Scala services — web-ui is a Node.js app
           # and does not share these inputs.
           SCALA_SHARED=$(echo "$CHANGED" | grep -E \
-            "^(modules/|build\.sbt$|project/)" || true)
+            "^(modules/|backend/shared/|build\.sbt$|project/)" || true)
           if [ -n "$SCALA_SHARED" ]; then
             echo "Scala shared inputs changed — rebuilding all Scala services."
             # web-ui is a Node.js app and does not consume Scala shared inputs,
-            # but the same push may also contain apps/web-ui/** changes — check
+            # but the same push may also contain frontend/web-ui/** changes — check
             # independently so the early exit does not suppress a web-ui rebuild.
             WEB_UI_IN_PUSH=$(echo "$CHANGED" | grep -E \
-              "^apps/web-ui/" || true)
+              "^frontend/web-ui/" || true)
             echo "build_game=true"                  >> $GITHUB_OUTPUT
             echo "build_history=true"               >> $GITHUB_OUTPUT
             echo "build_ai=true"                    >> $GITHUB_OUTPUT
@@ -201,17 +205,17 @@ jobs:
           fi
 
           # Service-specific paths: rebuild only the affected service(s).
-          GAME=$(echo              "$CHANGED" | grep -E "^apps/game-service/|^Dockerfile$"                    || true)
-          HISTORY=$(echo           "$CHANGED" | grep -E "^apps/history-service/|^Dockerfile\.history$"     || true)
-          AI=$(echo                "$CHANGED" | grep -E "^apps/ai-service/|^Dockerfile\.ai$"               || true)
-          BOT_SERVICE=$(echo       "$CHANGED" | grep -E "^apps/bot-service/|^Dockerfile\.bot-service$|^deployment/" || true)
-          USER_SERVICE=$(echo      "$CHANGED" | grep -E "^apps/user-service/|^Dockerfile\.user-service$|^deployment/k8s/base/user-service/" || true)
-          WEB_UI=$(echo            "$CHANGED" | grep -E "^apps/web-ui/|^deployment/k8s/base/web-ui/|^tools/sync-chess-assets\.|^shared/"     || true)
-          LICHESS_BRIDGE=$(echo    "$CHANGED" | grep -E "^apps/lichess-bridge-service/|^Dockerfile\.lichess-bridge-service$" || true)
-          ANALYTICS=$(echo         "$CHANGED" | grep -E "^apps/analytics-service/|^Dockerfile\.analytics$|^deployment/k8s/base/analytics-service/" || true)
-          TOURNAMENT=$(echo        "$CHANGED" | grep -E "^apps/tournament-service/|^Dockerfile\.tournament$|^deployment/k8s/base/tournament-service/" || true)
-          KEYCLOAK=$(echo          "$CHANGED" | grep -E "^Dockerfile\.keycloak$|^deployment/k8s/base/keycloak/" || true)
-          SPARK_ANALYTICS=$(echo   "$CHANGED" | grep -E "^apps/spark-analytics/|^Dockerfile\.spark-analytics$" || true)
+          GAME=$(echo              "$CHANGED" | grep -E "^backend/services/game-service/|^deployment/docker/Dockerfile$"                    || true)
+          HISTORY=$(echo           "$CHANGED" | grep -E "^backend/services/history-service/|^deployment/docker/Dockerfile\.history$"     || true)
+          AI=$(echo                "$CHANGED" | grep -E "^backend/services/ai-service/|^deployment/docker/Dockerfile\.ai$"               || true)
+          BOT_SERVICE=$(echo       "$CHANGED" | grep -E "^backend/services/bot-service/|^deployment/docker/Dockerfile\.bot-service$|^deployment/" || true)
+          USER_SERVICE=$(echo      "$CHANGED" | grep -E "^backend/services/user-service/|^deployment/docker/Dockerfile\.user-service$|^deployment/k8s/base/user-service/" || true)
+          WEB_UI=$(echo            "$CHANGED" | grep -E "^frontend/web-ui/|^deployment/k8s/base/web-ui/|^tools/sync-chess-assets\.|^shared/"     || true)
+          LICHESS_BRIDGE=$(echo    "$CHANGED" | grep -E "^backend/services/lichess-bridge-service/|^deployment/docker/Dockerfile\.lichess-bridge-service$" || true)
+          ANALYTICS=$(echo         "$CHANGED" | grep -E "^backend/services/analytics-service/|^deployment/docker/Dockerfile\.analytics$|^deployment/k8s/base/analytics-service/" || true)
+          TOURNAMENT=$(echo        "$CHANGED" | grep -E "^backend/services/tournament-service/|^backend/jobs/bot-arena/|^backend/jobs/spark-analytics/|^deployment/docker/Dockerfile\.tournament$|^deployment/k8s/base/tournament-service/" || true)
+          KEYCLOAK=$(echo          "$CHANGED" | grep -E "^deployment/docker/Dockerfile\.keycloak$|^deployment/k8s/base/keycloak/" || true)
+          SPARK_ANALYTICS=$(echo   "$CHANGED" | grep -E "^backend/jobs/spark-analytics/|^backend/jobs/bot-arena/|^deployment/docker/Dockerfile\.spark-analytics$" || true)
 
           OVERLAY_FILE=deployment/k8s/overlays/uni-server-registry/kustomization.yaml
 
@@ -307,7 +311,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile
+          file: deployment/docker/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -354,7 +358,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile.history
+          file: deployment/docker/Dockerfile.history
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -401,7 +405,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile.ai
+          file: deployment/docker/Dockerfile.ai
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -448,7 +452,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile.bot-service
+          file: deployment/docker/Dockerfile.bot-service
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -495,7 +499,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile.lichess-bridge-service
+          file: deployment/docker/Dockerfile.lichess-bridge-service
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -542,7 +546,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile.user-service
+          file: deployment/docker/Dockerfile.user-service
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -589,7 +593,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile.analytics
+          file: deployment/docker/Dockerfile.analytics
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -636,7 +640,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile.spark-analytics
+          file: deployment/docker/Dockerfile.spark-analytics
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -683,7 +687,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile.tournament
+          file: deployment/docker/Dockerfile.tournament
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -730,7 +734,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile.keycloak
+          file: deployment/docker/Dockerfile.keycloak
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -777,16 +781,16 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           # Context is the repo root: the build's prebuild step
-          # (npm run sync:chess-assets) reaches outside apps/web-ui to
+          # (npm run sync:chess-assets) reaches outside frontend/web-ui to
           # tools/sync-chess-assets.mjs and shared/chess-assets/, so both must
-          # be in the build context. apps/web-ui/Dockerfile COPYs only those
-          # specific paths plus apps/web-ui/ itself — see Dockerfile and
+          # be in the build context. frontend/web-ui/Dockerfile COPYs only those
+          # specific paths plus frontend/web-ui/ itself — see Dockerfile and
           # .dockerignore for what's excluded from the upload.
           # VITE_* build args are baked into the static bundle at build time.
           # Values target deployed Envoy serving the SPA and API on one origin:
           #   Keycloak/API/WS: same-origin relative URLs through Envoy
           context: .
-          file: apps/web-ui/Dockerfile
+          file: frontend/web-ui/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

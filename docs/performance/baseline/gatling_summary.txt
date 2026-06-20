@@ -29,7 +29,7 @@ WARNING: Restricted methods will be blocked in a future release unless native ac
 [warn]  
 [warn] note: a setting might still be used by a command; to exclude a key from this `lintUnused` check
 [warn] either append it to `Global / excludeLintKeys` or call .withRank(KeyRanks.Invisible) on the key
-[info] compiling 1 Scala source to C:\SeArChess\modules\load-tests\target\scala-2.13\test-classes ...
+[info] compiling 1 Scala source to C:\SeArChess\performance\load-tests\target\scala-2.13\test-classes ...
 [info] done compiling
 23:40:34.644 [pool-1-thread-1] INFO io.gatling.core.config.GatlingConfiguration$ -- Gatling will try to load 'gatling.conf' config file as ClassLoader resource.
 23:40:34.735 [pool-1-thread-1] DEBUG io.netty.util.internal.logging.InternalLoggerFactory -- Using SLF4J as the default logging framework
@@ -1594,7 +1594,7 @@ Simulation gatling.GameSimulation completed in 10 seconds
 23:40:48.845 [gatling-1-6] DEBUG io.netty.buffer.PoolThreadCache -- Freed 2 thread-local buffer(s) from thread: gatling-1-6
 23:40:48.845 [gatling-1-8] DEBUG io.netty.buffer.PoolThreadCache -- Freed 2 thread-local buffer(s) from thread: gatling-1-8
 Parsing log file(s)...
-23:40:48.856 [pool-1-thread-1] INFO io.gatling.charts.stats.LogFileReader$ -- Collected List(C:\SeArChess\modules\load-tests\target\gatling\gamesimulation-20260429214037818\simulation.log) from gamesimulation-20260429214037818
+23:40:48.856 [pool-1-thread-1] INFO io.gatling.charts.stats.LogFileReader$ -- Collected List(C:\SeArChess\performance\load-tests\target\gatling\gamesimulation-20260429214037818\simulation.log) from gamesimulation-20260429214037818
 23:40:48.870 [pool-1-thread-1] INFO io.gatling.charts.stats.LogFileReader -- First pass
 23:40:48.885 [pool-1-thread-1] INFO io.gatling.charts.stats.LogFileReader -- First pass done: read 153 lines
 23:40:48.900 [pool-1-thread-1] INFO io.gatling.charts.stats.LogFileReader -- Second pass
@@ -1621,7 +1621,7 @@ Generating reports...
 > failed                                                 0 (     0%)
 ================================================================================
 
-Reports generated, please open the following file: file:///C:/SeArChess/modules/load-tests/target/gatling/gamesimulation-20260429214037818/index.html
+Reports generated, please open the following file: file:///C:/SeArChess/performance/load-tests/target/gatling/gamesimulation-20260429214037818/index.html
 Global: 99th percentile of response time is less than 500.0 : true (actual : 35.0)
 Global: percentage of failed events is less than 1.0 : true (actual : 0.0)
 [info] Simulation GameSimulation successful.

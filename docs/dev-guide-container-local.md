@@ -217,9 +217,9 @@ independent runnable entry point:
 
 | Service | Stage command | Default health path | Notes |
 |---|---|---|---|
-| Game | `sbt "gameService / stage"` then `apps/game-service/target/universal/stage/bin/searchess-game-service` | `GET /health` on port `8080` | History and AI are optional for process health. |
-| History | `sbt "historyService / stage"` then `apps/history-service/target/universal/stage/bin/searchess-history-service` | `GET /health` on port `8081` | Game archive reads are optional for process health. |
-| AI | `sbt "aiService / stage"` then `apps/ai-service/target/universal/stage/bin/searchess-ai-service` | `GET /health` on port `8765` | Internal capability service only. |
+| Game | `sbt "gameService / stage"` then `backend/services/game-service/target/universal/stage/bin/searchess-game-service` | `GET /health` on port `8080` | History and AI are optional for process health. |
+| History | `sbt "historyService / stage"` then `backend/services/history-service/target/universal/stage/bin/searchess-history-service` | `GET /health` on port `8081` | Game archive reads are optional for process health. |
+| AI | `sbt "aiService / stage"` then `backend/services/ai-service/target/universal/stage/bin/searchess-ai-service` | `GET /health` on port `8765` | Internal capability service only. |
 
 When running services directly on the host, choose non-conflicting ports if
 Compose is also running. Host-run service ports are for development only; in

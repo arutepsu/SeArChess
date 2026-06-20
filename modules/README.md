@@ -19,10 +19,10 @@ services or clients.
 
 Service-owned runtime code should live with the service that owns it:
 
-- Game Service code lives under `apps/game-service/modules`.
-- History Service code lives under `apps/history-service/modules`.
-- Desktop GUI adapter code lives under `apps/desktop-gui/modules`.
-- TUI adapter code lives under `apps/tui-cli/modules`.
+- Game Service code lives under `backend/services/game-service/modules`.
+- History Service code lives under `backend/services/history-service/modules`.
+- Desktop GUI adapter code lives under `frontend/desktop-gui/modules`.
+- TUI adapter code lives under `cli/tui-cli/modules`.
 
 Package names are intentionally not renamed in this slice. The ownership change
 is expressed first through the project and directory structure.

@@ -1,6 +1,6 @@
 # Reactive Streams Assignment Architecture
 
-The `apps/chess-streaming` module contains the university assignment pipeline for Searchess-specific reactive streams. It is intentionally local to the assignment module and does not change the production `EventPublisher` implementation or the domain model.
+The `backend/services/chess-streaming` module contains the university assignment pipeline for Searchess-specific reactive streams. It is intentionally local to the assignment module and does not change the production `EventPublisher` implementation or the domain model.
 
 ## Pipeline
 
@@ -16,7 +16,7 @@ Source[String]
 
 ## Source: Searchess DSL file
 
-The stream starts from a Searchess DSL file. The default demo input is `apps/chess-streaming/src/main/resources/searchess-game.dsl`, and the command-line runner can also accept a file path from `args`.
+The stream starts from a Searchess DSL file. The default demo input is `backend/services/chess-streaming/src/main/resources/searchess-game.dsl`, and the command-line runner can also accept a file path from `args`.
 
 Each line is emitted as one `String` element. Empty lines and comment lines beginning with `#` are intentionally handled by the parser flow, so the source stays simple and only owns file reading.
 
@@ -82,7 +82,7 @@ Source.queue[String]
 
 Commands are submitted as raw Searchess DSL lines. Current subscribers receive live `EventEnvelope` values from the room's `BroadcastHub`, and consumers that need assignment-style batches can use the room's batched event source.
 
-`SearchessRoomRegistry` manages rooms by `roomId`. It intentionally stays inside `apps/chess-streaming`; it does not change production `EventPublisher`, does not persist room state, and does not introduce a custom Publisher/Subscriber framework.
+`SearchessRoomRegistry` manages rooms by `roomId`. It intentionally stays inside `backend/services/chess-streaming`; it does not change production `EventPublisher`, does not persist room state, and does not introduce a custom Publisher/Subscriber framework.
 
 ## HTTP/WebSocket adapter
 

@@ -117,7 +117,7 @@ triggers — Argo CD syncs them directly.
 
 | Change type | Triggers image build? | Argo CD action |
 |---|---|---|
-| `apps/<service>/**`, `Dockerfile[.<service>]` | **Yes — that service only** | Sync with updated sha-* tag for that service |
+| `backend/services/<service>/**`, `Dockerfile[.<service>]` | **Yes — that service only** | Sync with updated sha-* tag for that service |
 | `modules/**`, `build.sbt`, `project/**` | **Yes — all three Scala services** | Sync with new sha-* tags for game, history, ai |
 | `python-ai-service` (code in sibling repo) | **Never on push** — `workflow_dispatch rebuild_python_ai=true` only | Rollout canary triggered only when its tag changes |
 | `deployment/k8s/**` (manifests, overlays) | No | Sync changed manifest directly |
@@ -133,7 +133,7 @@ unnecessary image rebuilds and Rollout canary pauses.
 Developer merges PR to main (app code / Dockerfile change)
   │
   ▼
-GitHub Actions: build-images.yml  (triggered by paths: apps/**, modules/**, etc.)
+GitHub Actions: build-images.yml  (triggered by paths: backend/**, frontend/**, cli/**, modules/**, etc.)
   ├─ determine-changes: git diff → per-service build flags
   ├─ builds only services whose tracked paths changed
   │    shared Scala inputs (modules/**, build.sbt, project/**) → all three Scala services
@@ -328,7 +328,7 @@ ssh -L 33001:localhost:33001 chess@<university-server>
 | Application HTTP + Web UI | SSH tunnel: `ssh -L 10000:localhost:10000 chess@<server>` then `http://127.0.0.1:10000` |
 | Keycloak (OIDC, admin) | SSH tunnel: `-L 8080:localhost:8080` or `kubectl port-forward -n searchess svc/keycloak 8080:8080` |
 | Grafana UI | SSH tunnel: `ssh -L 33001:localhost:33001 chess@<server>` then `http://localhost:33001` |
-| Web UI (local dev against deployed backend) | `npm run dev:deployed` from `apps/web-ui/` (requires both tunnels active) |
+| Web UI (local dev against deployed backend) | `npm run dev:deployed` from `frontend/web-ui/` (requires both tunnels active) |
 
 Direct external server ports may be blocked by the university network. The SSH tunnel
 remains the standard access path.
@@ -463,7 +463,7 @@ The full game-service → ai-service → python-ai-service HTTP call chain is vi
 | Seal Keycloak credentials with `kubeseal` | Operator action required before first deploy — run `scripts/seal-keycloak-secrets.sh` |
 | Run Postgres init Job for Keycloak database | One-time manual step before Keycloak starts |
 | Build and push web-ui Docker image manually | Required before first deploy; CI integration is a follow-up task |
-| Wire `apps/web-ui/**` into build-images.yml | CI follow-up — automates web-ui image rebuild on code changes |
+| Wire `frontend/web-ui/**` into build-images.yml | CI follow-up — automates web-ui image rebuild on code changes |
 | Validate Keycloak on university server | Not yet done — see `docs/deployment/demo-checklist.md` |
 
 **Optional future work (no current timeline):**

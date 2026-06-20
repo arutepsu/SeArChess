@@ -131,7 +131,7 @@ sbt "gameService/runMain chess.server.migration.PostgresSchemaMigrationMain"
 This applies:
 
 ```text
-apps/game-service/modules/persistence/src/main/resources/db/migration/postgres/V1__create_session_persistence.sql
+backend/services/game-service/modules/persistence/src/main/resources/db/migration/postgres/V1__create_session_persistence.sql
 ```
 
 ## Create Real Source Data
@@ -146,7 +146,7 @@ For a Web UI presentation, start the Vite UI separately. Its default API base
 URL is Envoy at `http://localhost:10000`.
 
 ```powershell
-cd apps/web-ui
+cd frontend/web-ui
 npm run dev
 ```
 

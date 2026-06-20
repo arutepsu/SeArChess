@@ -33,12 +33,12 @@ WARNING: Restricted methods will be blocked in a future release unless native ac
 [warn]  
 [warn] note: a setting might still be used by a command; to exclude a key from this `lintUnused` check
 [warn] either append it to `Global / excludeLintKeys` or call .withRank(KeyRanks.Invisible) on the key
-[info] compiling 1 Scala source to C:\SeArChess\modules\benchmarks\target\scala-3.8.2\classes ...
+[info] compiling 1 Scala source to C:\SeArChess\performance\benchmarks\target\scala-3.8.2\classes ...
 [info] done compiling
-[info] running (fork) org.openjdk.jmh.generators.bytecode.JmhBytecodeGenerator C:\SeArChess\modules\benchmarks\target\scala-3.8.2\classes C:\SeArChess\modules\benchmarks\target\scala-3.8.2\src_managed\jmh C:\SeArChess\modules\benchmarks\target\scala-3.8.2\resource_managed\jmh default
-[info] Processing 1 classes from C:\SeArChess\modules\benchmarks\target\scala-3.8.2\classes with "reflection" generator
-[info] Writing out Java source to C:\SeArChess\modules\benchmarks\target\scala-3.8.2\src_managed\jmh and resources to C:\SeArChess\modules\benchmarks\target\scala-3.8.2\resource_managed\jmh
-[info] compiling 7 Java sources to C:\SeArChess\modules\benchmarks\target\scala-3.8.2\classes ...
+[info] running (fork) org.openjdk.jmh.generators.bytecode.JmhBytecodeGenerator C:\SeArChess\performance\benchmarks\target\scala-3.8.2\classes C:\SeArChess\performance\benchmarks\target\scala-3.8.2\src_managed\jmh C:\SeArChess\performance\benchmarks\target\scala-3.8.2\resource_managed\jmh default
+[info] Processing 1 classes from C:\SeArChess\performance\benchmarks\target\scala-3.8.2\classes with "reflection" generator
+[info] Writing out Java source to C:\SeArChess\performance\benchmarks\target\scala-3.8.2\src_managed\jmh and resources to C:\SeArChess\performance\benchmarks\target\scala-3.8.2\resource_managed\jmh
+[info] compiling 7 Java sources to C:\SeArChess\performance\benchmarks\target\scala-3.8.2\classes ...
 [info] done compiling
 [info] running (fork) org.openjdk.jmh.Main .* -i 5 -wi 3 -f 1
 [error] WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
