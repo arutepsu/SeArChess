@@ -274,10 +274,9 @@ export default function Homepage({
             },
             {
               id: "tournament",
-              label: "Tournament",
-              badge: "COMING NEXT",
-              disabled: true,
-              disabledReason: "Coming next.",
+              label: "Public Tournament",
+              description: "Watch and analyze bot tournaments on the public server.",
+              onSelect: () => navigate("/play-tournament"),
             },
             {
               id: "bot-tournament",
