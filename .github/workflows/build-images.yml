@@ -101,6 +101,7 @@ jobs:
       build_spark_analytics:       ${{ steps.changes.outputs.build_spark_analytics }}
       build_tournament:            ${{ steps.changes.outputs.build_tournament }}
       build_keycloak:              ${{ steps.changes.outputs.build_keycloak }}
+      build_gateway:               ${{ steps.changes.outputs.build_gateway }}
 
     steps:
       - name: Checkout
@@ -126,6 +127,7 @@ jobs:
             echo "build_spark_analytics=true"       >> $GITHUB_OUTPUT
             echo "build_tournament=true"            >> $GITHUB_OUTPUT
             echo "build_keycloak=true"              >> $GITHUB_OUTPUT
+            echo "build_gateway=true"               >> $GITHUB_OUTPUT
             exit 0
           fi
 
@@ -147,6 +149,7 @@ jobs:
             echo "build_spark_analytics=true"       >> $GITHUB_OUTPUT
             echo "build_tournament=true"            >> $GITHUB_OUTPUT
             echo "build_keycloak=true"              >> $GITHUB_OUTPUT
+            echo "build_gateway=true"               >> $GITHUB_OUTPUT
             exit 0
           fi
 
@@ -180,6 +183,7 @@ jobs:
             echo "build_spark_analytics=true"       >> $GITHUB_OUTPUT
             echo "build_tournament=true"            >> $GITHUB_OUTPUT
             echo "build_keycloak=false"             >> $GITHUB_OUTPUT
+            echo "build_gateway=true"               >> $GITHUB_OUTPUT
             exit 0
           fi
 
@@ -201,6 +205,7 @@ jobs:
             echo "build_spark_analytics=true"       >> $GITHUB_OUTPUT
             echo "build_tournament=true"            >> $GITHUB_OUTPUT
             echo "build_keycloak=true"              >> $GITHUB_OUTPUT
+            echo "build_gateway=true"               >> $GITHUB_OUTPUT
             exit 0
           fi
 
@@ -216,6 +221,7 @@ jobs:
           TOURNAMENT=$(echo        "$CHANGED" | grep -E "^backend/services/tournament-service/|^backend/jobs/bot-arena/|^backend/jobs/spark-analytics/|^deployment/docker/Dockerfile\.tournament$|^deployment/k8s/base/tournament-service/" || true)
           KEYCLOAK=$(echo          "$CHANGED" | grep -E "^deployment/docker/Dockerfile\.keycloak$|^deployment/k8s/base/keycloak/" || true)
           SPARK_ANALYTICS=$(echo   "$CHANGED" | grep -E "^backend/jobs/spark-analytics/|^backend/jobs/bot-arena/|^deployment/docker/Dockerfile\.spark-analytics$" || true)
+          GATEWAY=$(echo           "$CHANGED" | grep -E "^backend/services/gateway-service/|^deployment/docker/Dockerfile\.gateway-service$|^deployment/k8s/base/gateway-service/" || true)
 
           OVERLAY_FILE=deployment/k8s/overlays/uni-server-registry/kustomization.yaml
 
@@ -242,6 +248,10 @@ jobs:
             echo "spark-analytics overlay tag is sha-placeholder — forcing rebuild."
             SPARK_ANALYTICS="forced"
           fi
+          if grep -A1 "name: searchess/gateway-service" "$OVERLAY_FILE" 2>/dev/null | grep -q "sha-placeholder"; then
+            echo "gateway-service overlay tag is sha-placeholder — forcing rebuild."
+            GATEWAY="forced"
+          fi
 
           [ -n "$GAME" ]           && echo "build_game=true"                 >> $GITHUB_OUTPUT \
                                    || echo "build_game=false"                >> $GITHUB_OUTPUT
@@ -265,6 +275,8 @@ jobs:
                                    || echo "build_tournament=false"          >> $GITHUB_OUTPUT
           [ -n "$KEYCLOAK" ]       && echo "build_keycloak=true"            >> $GITHUB_OUTPUT \
                                    || echo "build_keycloak=false"            >> $GITHUB_OUTPUT
+          [ -n "$GATEWAY" ]        && echo "build_gateway=true"             >> $GITHUB_OUTPUT \
+                                   || echo "build_gateway=false"            >> $GITHUB_OUTPUT
           echo "build_python_ai=false" >> $GITHUB_OUTPUT
 
   # ---------------------------------------------------------------------------
@@ -694,6 +706,53 @@ jobs:
           cache-from: type=gha,scope=tournament-service
           cache-to: type=gha,mode=max,scope=tournament-service
 
+  build-gateway-service:
+    name: Build gateway-service
+    runs-on: ubuntu-latest
+    needs: determine-changes
+    if: |
+      github.actor != 'github-actions[bot]' &&
+      needs.determine-changes.outputs.build_gateway == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set short SHA
+        id: sha
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.ORG }}/searchess-gateway-service
+          tags: |
+            type=raw,value=sha-${{ steps.sha.outputs.SHORT_SHA }}
+            type=raw,value=main-latest
+            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push gateway-service
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deployment/docker/Dockerfile.gateway-service
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=gateway-service
+          cache-to: type=gha,mode=max,scope=gateway-service
+
   build-keycloak-image:
     name: Build keycloak
     runs-on: ubuntu-latest
@@ -887,6 +946,7 @@ jobs:
       - build-analytics-service
       - build-spark-analytics
       - build-tournament-service
+      - build-gateway-service
       - build-keycloak-image
     # Run if no build job failed or was cancelled AND at least one build succeeded.
     # always() is required so skipped jobs do not prevent this job from running.
@@ -907,6 +967,7 @@ jobs:
         needs.build-analytics-service.result == 'success' ||
         needs.build-spark-analytics.result == 'success' ||
         needs.build-tournament-service.result == 'success' ||
+        needs.build-gateway-service.result == 'success' ||
         needs.build-keycloak-image.result == 'success'
       )
 
@@ -1000,6 +1061,11 @@ jobs:
             kustomize edit set image \
               searchess/tournament-service=ghcr.io/${{ env.ORG }}/searchess-tournament-service:sha-${SHORT_SHA}
             IMAGES_UPDATED="${IMAGES_UPDATED} tournament-service"
+          fi
+          if [ "${{ needs.build-gateway-service.result }}" = "success" ]; then
+            kustomize edit set image \
+              searchess/gateway-service=ghcr.io/${{ env.ORG }}/searchess-gateway-service:sha-${SHORT_SHA}
+            IMAGES_UPDATED="${IMAGES_UPDATED} gateway-service"
           fi
           if [ "${{ needs.build-keycloak-image.result }}" = "success" ]; then
             kustomize edit set image \

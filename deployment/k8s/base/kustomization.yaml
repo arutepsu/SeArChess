@@ -38,6 +38,9 @@ resources:
   - tournament-service/configmap.yaml
   - tournament-service/deployment.yaml
   - tournament-service/service.yaml
+  - gateway-service/configmap.yaml
+  - gateway-service/deployment.yaml
+  - gateway-service/service.yaml
   - ai-service/configmap.yaml
   - ai-service/deployment.yaml
   - ai-service/service.yaml

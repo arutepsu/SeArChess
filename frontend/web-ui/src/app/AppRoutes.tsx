@@ -16,6 +16,7 @@ import { ProfilePanel } from "../features/settings";
 import { LichessHubPage, LichessGamePage } from "../features/lichess";
 import { AnalyticsPage, GameAnalysisView } from "../features/analytics";
 import { TournamentBuilderPage, TournamentJobsPage, TournamentRunningPage } from "../features/tournaments";
+import { PublicTournamentLobbyPage, PublicTournamentDetailPage, PublicTournamentResultsPage, PublicTournamentAnalyticsPage, PublicTournamentCreatePage, PublicTournamentLivePage, PublicTournamentGamePage, PublicTournamentRoundPage } from "../features/play-tournament";
 import { PieceTypesPage } from "../features/pieceTypes";
 
 interface AppRoutesProps {
@@ -301,6 +302,14 @@ export default function AppRoutes({
       <Route path="/tournaments" element={<TournamentBuilderPage />} />
       <Route path="/tournaments/jobs" element={<TournamentJobsPage />} />
       <Route path="/tournaments/:jobId" element={<TournamentRunningPage />} />
+      <Route path="/play-tournament" element={<PublicTournamentLobbyPage />} />
+      <Route path="/play-tournament/create" element={<PublicTournamentCreatePage />} />
+      <Route path="/play-tournament/:id/results" element={<PublicTournamentResultsPage />} />
+      <Route path="/play-tournament/:id/analytics" element={<PublicTournamentAnalyticsPage />} />
+      <Route path="/play-tournament/:id/live" element={<PublicTournamentLivePage />} />
+      <Route path="/play-tournament/:id/game/:gameId" element={<PublicTournamentGamePage />} />
+      <Route path="/play-tournament/:id/round/:round" element={<PublicTournamentRoundPage />} />
+      <Route path="/play-tournament/:id" element={<PublicTournamentDetailPage />} />
     </Routes>
   );
 }

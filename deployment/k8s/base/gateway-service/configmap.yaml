@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-service-env
+  namespace: searchess
+data:
+  GATEWAY_HTTP_HOST: "0.0.0.0"
+  GATEWAY_HTTP_PORT: "8087"
+  # External tournament-server hosted at the university server.
+  # gateway-service proxies /api/gateway/* here, injecting its own server-side JWT.
+  # The browser never sees this URL or the tournament-server JWT.
+  TOURNAMENT_SERVER_URL: "http://141.37.123.132:8086"
+  # GATEWAY_AUTH_DISABLED: "false" is the secure default.
+  # Set to "true" only in local dev when Keycloak is not running.
+  GATEWAY_AUTH_DISABLED: "false"
+  JAVA_TOOL_OPTIONS: "-javaagent:/app/opentelemetry-javaagent.jar"
+  OTEL_SERVICE_NAME: "searchess-gateway-service"
+  OTEL_TRACES_EXPORTER: "otlp"
+  OTEL_METRICS_EXPORTER: "none"
+  OTEL_LOGS_EXPORTER: "none"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+  OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"

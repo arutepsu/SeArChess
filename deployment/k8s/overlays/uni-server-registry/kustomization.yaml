@@ -86,7 +86,10 @@ images:
   newTag: sha-efca728
 - name: searchess/tournament-service
   newName: ghcr.io/arutepsu/searchess-tournament-service
-  newTag: sha-efca728
+  newTag: sha-943ba63
+- name: searchess/gateway-service
+  newName: ghcr.io/arutepsu/searchess-gateway-service
+  newTag: sha-placeholder
 - name: searchess/user-service
   newName: ghcr.io/arutepsu/searchess-user-service
   newTag: sha-efca728

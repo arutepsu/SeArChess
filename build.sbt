@@ -566,6 +566,33 @@ lazy val analyticsService = project
   )
   .dependsOn(observability)
 
+// App: gateway-service
+// Proxies public tournament-server endpoints to the browser without exposing external JWTs.
+lazy val gatewayService = project
+  .in(file("backend/services/gateway-service"))
+  .enablePlugins(JavaAppPackaging)
+  .settings(
+    commonSettings,
+    name := "searchess-gateway-service",
+    coverageMinimumStmtTotal := 0,
+    Compile / mainClass := Some("chess.gatewayservice.GatewayServiceMain"),
+    run / mainClass     := Some("chess.gatewayservice.GatewayServiceMain"),
+    run / fork          := true,
+    libraryDependencies ++= Seq(
+      "org.http4s"  %% "http4s-ember-server" % http4sVersion,
+      "org.http4s"  %% "http4s-ember-client" % http4sVersion,
+      "org.http4s"  %% "http4s-dsl"          % http4sVersion,
+      "com.lihaoyi" %% "ujson"               % "4.0.2"
+    ),
+    excludeFromCoverage(
+      ".*chess.gatewayservice.GatewayServiceMain.*",
+      ".*chess.gatewayservice.GatewayServiceConfig.*",
+      ".*chess.gatewayservice.GatewayServiceWiring.*",
+      ".*chess.gatewayservice.GatewayServiceRuntime.*"
+    )
+  )
+  .dependsOn(observability)
+
 // App: tournament-service
 // Owns Bot Evaluation Arena tournament job lifecycle and JSONL event output.
 lazy val tournamentService = project
@@ -964,6 +991,7 @@ addCommandAlias("testArenaWriterKafka",     "arenaWriterKafka/test")
 addCommandAlias("testArena",                ";arenaEvents/test;arenaCore/test;arenaBotsHeuristic/test;arenaBotsUci/test")
 addCommandAlias("testAnalyticsService",     "analyticsService/test")
 addCommandAlias("testTournamentService",    "tournamentService/test")
+addCommandAlias("testGatewayService",       "gatewayService/test")
 addCommandAlias("testSparkAnalytics",       "sparkAnalytics/test")
 addCommandAlias("demoHeuristicTournament",  "arenaDemoHeuristic/run")
 addCommandAlias("demoKafkaHeuristicTournament", "arenaDemoKafka/run")
@@ -1025,5 +1053,5 @@ lazy val root = project
     arenaEvents, arenaCore, arenaWriterJsonl, arenaWriterKafka, sparkAnalytics, arenaBotsHeuristic, arenaBotsUci,
     arenaBotsAi,
     arenaDemoHeuristic, arenaDemoKafka, arenaDemoStockfish, arenaDemoAi, arenaDemoEvaluation,
-    analyticsService, tournamentService
+    analyticsService, tournamentService, gatewayService
   )

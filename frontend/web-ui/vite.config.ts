@@ -20,6 +20,7 @@ export default defineConfig(({ mode }) => {
   const proxyTarget = env.VITE_DEV_PROXY_TARGET?.trim();
   const analyticsProxyTarget = env.VITE_ANALYTICS_PROXY_TARGET?.trim();
   const tournamentProxyTarget = env.VITE_TOURNAMENT_PROXY_TARGET?.trim();
+  const gatewayProxyTarget = env.VITE_GATEWAY_PROXY_TARGET?.trim();
   const proxy: Record<string, string | ProxyOptions> = {};
 
   // /api/analytics must be registered before /api to take precedence.
@@ -30,6 +31,11 @@ export default defineConfig(({ mode }) => {
   // /api/tournaments must be registered before /api to take precedence.
   if (tournamentProxyTarget) {
     proxy["/api/tournaments"] = { target: tournamentProxyTarget, changeOrigin: true };
+  }
+
+  // /api/gateway must be registered before /api to take precedence.
+  if (gatewayProxyTarget) {
+    proxy["/api/gateway"] = { target: gatewayProxyTarget, changeOrigin: true };
   }
 
   if (proxyTarget) {
