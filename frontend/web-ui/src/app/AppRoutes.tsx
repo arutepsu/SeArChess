@@ -180,37 +180,38 @@ export default function AppRoutes({
 }: AppRoutesProps) {
   return (
     <Routes>
-      <Route
-        path="/"
-        element={
-          <Homepage
-            hasActiveGame={Boolean(game)}
-            busy={busy}
-            onboardingRequired={onboardingRequired}
-            profile={profile}
-            backgrounds={backgrounds}
-            backgroundId={backgroundId}
-            setBackgroundId={setBackgroundId}
-            gameScenes={gameScenes}
-            gameSceneId={gameSceneId}
-            setGameSceneId={setGameSceneId}
-            onStart={onStartGame}
-            onContinueActiveGame={onContinueActiveGame}
-            onResumeSession={onResumeSession}
-            onOpenSettings={onOpenSettings}
-            onOpenOnboarding={onOpenOnboarding}
-            onOpenLichessHub={onOpenLichessHub}
-            onOpenBotDemo={onOpenBotDemo}
-          />
-        }
-      />
-
-      <Route path="/pieces" element={<PieceTypesPage />} />
       <Route path="/tournaments" element={<TournamentBuilderPage />} />
       <Route path="/tournaments/jobs" element={<TournamentJobsPage />} />
       <Route path="/tournaments/:jobId" element={<TournamentRunningPage />} />
 
       <Route element={<ProtectedRoute />}>
+        <Route
+          path="/"
+          element={
+            <Homepage
+              hasActiveGame={Boolean(game)}
+              busy={busy}
+              onboardingRequired={onboardingRequired}
+              profile={profile}
+              backgrounds={backgrounds}
+              backgroundId={backgroundId}
+              setBackgroundId={setBackgroundId}
+              gameScenes={gameScenes}
+              gameSceneId={gameSceneId}
+              setGameSceneId={setGameSceneId}
+              onStart={onStartGame}
+              onContinueActiveGame={onContinueActiveGame}
+              onResumeSession={onResumeSession}
+              onOpenSettings={onOpenSettings}
+              onOpenOnboarding={onOpenOnboarding}
+              onOpenLichessHub={onOpenLichessHub}
+              onOpenBotDemo={onOpenBotDemo}
+            />
+          }
+        />
+
+        <Route path="/pieces" element={<PieceTypesPage />} />
+
         <Route
           path="/onboarding"
           element={<OnboardingPage onComplete={onCompleteOnboarding} />}
