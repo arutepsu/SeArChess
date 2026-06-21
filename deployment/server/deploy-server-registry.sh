@@ -94,6 +94,7 @@ else
       searchess/python-ai-service=ghcr.io/arutepsu/searchess-python-ai-service:"$TAG" \
       searchess/spark-analytics=ghcr.io/arutepsu/searchess-spark-analytics:"$TAG" \
       searchess/tournament-service=ghcr.io/arutepsu/searchess-tournament-service:"$TAG" \
+      searchess/gateway-service=ghcr.io/arutepsu/searchess-gateway-service:"$TAG" \
       searchess/user-service=ghcr.io/arutepsu/searchess-user-service:"$TAG"
     kubectl apply -k .
   )

@@ -46,6 +46,8 @@ images:
     newTag: local
   - name: searchess/tournament-service
     newTag: local
+  - name: searchess/gateway-service
+    newTag: local
 
   # --- stable: pulled from GHCR, base imagePullPolicy: IfNotPresent applies ---
   - name: searchess/ai-service
@@ -165,5 +167,12 @@ patches:
     target:
       kind: Deployment
       name: tournament-service
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never
+    target:
+      kind: Deployment
+      name: gateway-service
   # history-service, ai-service, python-ai-service: base already sets
   # imagePullPolicy: IfNotPresent — no patch needed for GHCR images.

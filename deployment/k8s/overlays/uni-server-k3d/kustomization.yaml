@@ -27,6 +27,8 @@ images:
     newTag: local
   - name: searchess/user-service
     newTag: local
+  - name: searchess/gateway-service
+    newTag: local
   - name: searchess/spark-analytics
     newTag: local
   - name: searchess/lichess-bridge-service
@@ -144,3 +146,10 @@ patches:
     target:
       kind: Deployment
       name: lichess-bridge-service
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never
+    target:
+      kind: Deployment
+      name: gateway-service
