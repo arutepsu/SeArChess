@@ -21,8 +21,6 @@ class TournamentGatewayRoutes(
 
   private val upstreamBase = Uri.unsafeFromString(config.tournamentServerUrl)
 
-  val routes: HttpRoutes[IO] = operationalRoutes <+> streamRoutes <+> directorRoutes <+> gatewayRoutes
-
   // ── Liveness ──────────────────────────────────────────────────────────────────
 
   private val operationalRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
@@ -160,6 +158,10 @@ class TournamentGatewayRoutes(
     case GET -> Root / "api" / "gateway" / "tournament" / id =>
       proxyJson(s"/api/tournament/$id")
   }
+
+  // Declared after all sub-routes so each sub-route is already initialized when
+  // the <+> combinator captures them (Scala vals initialize in textual order).
+  val routes: HttpRoutes[IO] = operationalRoutes <+> streamRoutes <+> directorRoutes <+> gatewayRoutes
 
   // ── Helpers: public proxy ─────────────────────────────────────────────────────
 
