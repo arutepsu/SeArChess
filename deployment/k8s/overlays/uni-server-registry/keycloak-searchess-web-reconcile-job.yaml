@@ -81,6 +81,10 @@ spec:
                       "registrationAllowed": True,
                       "loginWithEmailAllowed": True,
                       "resetPasswordAllowed": False,
+                      # Ensures the Searchess theme is active even on realms that
+                      # were first created before loginTheme was added to the
+                      # import JSON (Keycloak --import-realm skips existing realms).
+                      "loginTheme": "searchess",
                   }
 
                   def request(method, url, *, token=None, body=None, form=None):
