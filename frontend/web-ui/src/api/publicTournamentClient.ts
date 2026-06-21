@@ -14,13 +14,25 @@ import type {
   PublicTournamentListResponse,
 } from "./publicTournamentTypes";
 
+// Resolved auth headers as a plain Headers object.
+async function gatewayAuthHeaders(): Promise<Headers> {
+  const auth = await authHeaders();
+  const h = new Headers();
+  for (const [k, v] of Object.entries(auth)) h.set(k, v);
+  return h;
+}
+
 const GATEWAY_PREFIX = "/api/gateway";
 
-// ── Public (unauthenticated) helper ──────────────────────────────────────────
+// ── Authenticated GET helper (all gateway reads require Keycloak auth via Envoy) ──
 
 async function fetchGateway<T>(path: string): Promise<T> {
-  const response = await fetch(`${GATEWAY_PREFIX}${path}`);
+  const headers = await gatewayAuthHeaders();
+  const response = await fetch(`${GATEWAY_PREFIX}${path}`, { headers });
 
+  if (response.status === 401) {
+    throw new Error("Sign in to access the Public Tournament server.");
+  }
   if (!response.ok) {
     const text = await response.text().catch(() => "");
     let message = `Request failed: ${response.status}`;
@@ -45,9 +57,12 @@ export async function getPublicTournament(id: string): Promise<PublicTournament>
 }
 
 export async function getPublicTournamentResults(id: string): Promise<PublicResult[]> {
+  const headers = await gatewayAuthHeaders();
   const response = await fetch(
-    `${GATEWAY_PREFIX}/tournament/${encodeURIComponent(id)}/results`
+    `${GATEWAY_PREFIX}/tournament/${encodeURIComponent(id)}/results`,
+    { headers }
   );
+  if (response.status === 401) throw new Error("Sign in to access the Public Tournament server.");
   if (!response.ok) throw new Error(`Failed to load results: ${response.status}`);
   const data = await response.json() as PublicResult[] | unknown;
   return Array.isArray(data) ? (data as PublicResult[]) : [];
@@ -65,9 +80,12 @@ export async function getPublicTournamentRound(
 export async function getPublicTournamentAnalyticsExport(
   id: string
 ): Promise<PublicAnalyticsResult> {
+  const headers = await gatewayAuthHeaders();
   const response = await fetch(
-    `${GATEWAY_PREFIX}/tournament/${encodeURIComponent(id)}/analytics-export`
+    `${GATEWAY_PREFIX}/tournament/${encodeURIComponent(id)}/analytics-export`,
+    { headers }
   );
+  if (response.status === 401) throw new Error("Sign in to access the Public Tournament server.");
   if (response.status === 409) {
     return {
       notReady: true,
@@ -109,6 +127,9 @@ async function fetchGatewayAuth<T>(path: string, options?: RequestInit): Promise
     headers,
   });
 
+  if (response.status === 401) {
+    throw new Error("Sign in to access the Public Tournament server.");
+  }
   if (!response.ok) {
     const text = await response.text().catch(() => "");
     let message = `Request failed: ${response.status}`;
