@@ -53,6 +53,13 @@ static_resources:
                           route:
                             cluster: user_service
                             prefix_rewrite: /users
+                        # gateway-service: public-tournament proxy. Must be before /api/ catch-all.
+                        # timeout: 0s — required for long-lived NDJSON streams.
+                        - match:
+                            prefix: /api/gateway/
+                          route:
+                            cluster: gateway_service_http
+                            timeout: 0s
                         - match:
                             prefix: /api/
                           route:
@@ -177,6 +184,18 @@ static_resources:
                     socket_address:
                       address: keycloak
                       port_value: 8080
+    - name: gateway_service_http
+      type: STRICT_DNS
+      connect_timeout: 1s
+      load_assignment:
+        cluster_name: gateway_service_http
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: gateway-service
+                      port_value: 8087
 
 # Admin bound to 0.0.0.0 (not 127.0.0.1) so Kubernetes httpGet readiness probes
 # can reach /ready from the kubelet outside the container's loopback.

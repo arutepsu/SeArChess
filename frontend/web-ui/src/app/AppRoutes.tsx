@@ -17,8 +17,8 @@ import { LichessHubPage, LichessGamePage } from "../features/lichess";
 import { AnalyticsPage, GameAnalysisView } from "../features/analytics";
 import { TournamentBuilderPage, TournamentJobsPage, TournamentRunningPage } from "../features/tournaments";
 import { PublicTournamentLobbyPage, PublicTournamentDetailPage, PublicTournamentResultsPage, PublicTournamentAnalyticsPage, PublicTournamentCreatePage, PublicTournamentLivePage, PublicTournamentGamePage, PublicTournamentRoundPage } from "../features/play-tournament";
-import PublicTournamentAuthGate from "../features/play-tournament/components/PublicTournamentAuthGate";
 import { PieceTypesPage } from "../features/pieceTypes";
+import ProtectedRoute from "./ProtectedRoute";
 
 interface AppRoutesProps {
   // Game state
@@ -205,105 +205,106 @@ export default function AppRoutes({
         }
       />
 
-      <Route
-        path="/onboarding"
-        element={<OnboardingPage onComplete={onCompleteOnboarding} />}
-      />
-
-      <Route
-        path="/game"
-        element={
-          <MainGameView
-            game={game}
-            displayedGame={displayedGame}
-            mappedBotGame={mappedBotGame}
-            selectedSquare={selectedSquare}
-            legalMoves={legalMoves}
-            animationPlan={animationPlan}
-            promotionPending={promotionPending}
-            busy={busy}
-            gameMode={gameMode}
-            boardInteractionDisabled={boardInteractionDisabled}
-            canResign={canResign}
-            notation={notation}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            botGameData={botGameData}
-            hasNewBotMoveNotification={hasNewBotMoveNotification}
-            botConnectionState={botConnectionState}
-            displayedConnection={displayedConnection}
-            displayedLiveConnection={displayedLiveConnection}
-            displayedMessage={displayedMessage}
-            timelinePly={timelinePly}
-            setTimelinePly={setTimelinePly}
-            timelineTotalPlies={timelineTotalPlies}
-            timelineLoading={timelineLoading}
-            timelineError={timelineError}
-            replayModeActive={replayModeActive}
-            boundedTimelinePly={boundedTimelinePly}
-            currentReplayMove={currentReplayMove}
-            whiteClockMs={displayedWhiteTimeMs}
-            blackClockMs={displayedBlackTimeMs}
-            clockRunning={displayedClockRunning}
-            gameScenes={gameScenes}
-            gameSceneId={gameSceneId}
-            onGameSceneChange={setGameSceneId}
-            gameScene={gameScene}
-            spriteCatalog={spriteCatalog}
-            backgrounds={backgrounds}
-            backgroundId={backgroundId}
-            onBackgroundChange={setBackgroundId}
-            session={session}
-            onSelect={onSelect}
-            onAnimationFinished={onAnimationFinished}
-            onResolvePromotion={onResolvePromotion}
-            onCancelPromotion={onCancelPromotion}
-            onNewGame={onNewGame}
-            onImportNotation={onImportNotation}
-            onExportNotation={onExportNotation}
-            onGameModeChange={onGameModeChange}
-            onSaveSession={onSaveSession}
-            onResign={onResign}
-            onRunAiTurns={onRunAiTurns}
-            onBackToMenu={onBackToMenu}
-            onOpenHeatmap={onOpenHeatmap}
-          />
-        }
-      />
-
-      <Route
-        path="/analysis"
-        element={<GameAnalysisView gameId={game?.id ?? session?.gameId ?? null} />}
-      />
-
-      <Route
-        path="/settings"
-        element={<ProfilePanel onBack={onBackToMenu} />}
-      />
-
-      <Route
-        path="/lichess"
-        element={
-          <LichessHubPage
-            profile={profile}
-            onOpenSettings={onOpenSettings}
-            onOpenLichessGame={onOpenLichessGame}
-            onBack={onBackToMenu}
-          />
-        }
-      />
-
-      <Route
-        path="/lichess/games/:gameId"
-        element={<LichessGamePage onBack={onBackToLichess} />}
-      />
-
       <Route path="/pieces" element={<PieceTypesPage />} />
-      <Route path="/analytics" element={<AnalyticsPage />} />
       <Route path="/tournaments" element={<TournamentBuilderPage />} />
       <Route path="/tournaments/jobs" element={<TournamentJobsPage />} />
       <Route path="/tournaments/:jobId" element={<TournamentRunningPage />} />
-      <Route element={<PublicTournamentAuthGate />}>
+
+      <Route element={<ProtectedRoute />}>
+        <Route
+          path="/onboarding"
+          element={<OnboardingPage onComplete={onCompleteOnboarding} />}
+        />
+
+        <Route
+          path="/game"
+          element={
+            <MainGameView
+              game={game}
+              displayedGame={displayedGame}
+              mappedBotGame={mappedBotGame}
+              selectedSquare={selectedSquare}
+              legalMoves={legalMoves}
+              animationPlan={animationPlan}
+              promotionPending={promotionPending}
+              busy={busy}
+              gameMode={gameMode}
+              boardInteractionDisabled={boardInteractionDisabled}
+              canResign={canResign}
+              notation={notation}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              botGameData={botGameData}
+              hasNewBotMoveNotification={hasNewBotMoveNotification}
+              botConnectionState={botConnectionState}
+              displayedConnection={displayedConnection}
+              displayedLiveConnection={displayedLiveConnection}
+              displayedMessage={displayedMessage}
+              timelinePly={timelinePly}
+              setTimelinePly={setTimelinePly}
+              timelineTotalPlies={timelineTotalPlies}
+              timelineLoading={timelineLoading}
+              timelineError={timelineError}
+              replayModeActive={replayModeActive}
+              boundedTimelinePly={boundedTimelinePly}
+              currentReplayMove={currentReplayMove}
+              whiteClockMs={displayedWhiteTimeMs}
+              blackClockMs={displayedBlackTimeMs}
+              clockRunning={displayedClockRunning}
+              gameScenes={gameScenes}
+              gameSceneId={gameSceneId}
+              onGameSceneChange={setGameSceneId}
+              gameScene={gameScene}
+              spriteCatalog={spriteCatalog}
+              backgrounds={backgrounds}
+              backgroundId={backgroundId}
+              onBackgroundChange={setBackgroundId}
+              session={session}
+              onSelect={onSelect}
+              onAnimationFinished={onAnimationFinished}
+              onResolvePromotion={onResolvePromotion}
+              onCancelPromotion={onCancelPromotion}
+              onNewGame={onNewGame}
+              onImportNotation={onImportNotation}
+              onExportNotation={onExportNotation}
+              onGameModeChange={onGameModeChange}
+              onSaveSession={onSaveSession}
+              onResign={onResign}
+              onRunAiTurns={onRunAiTurns}
+              onBackToMenu={onBackToMenu}
+              onOpenHeatmap={onOpenHeatmap}
+            />
+          }
+        />
+
+        <Route
+          path="/analysis"
+          element={<GameAnalysisView gameId={game?.id ?? session?.gameId ?? null} />}
+        />
+
+        <Route
+          path="/settings"
+          element={<ProfilePanel onBack={onBackToMenu} />}
+        />
+
+        <Route
+          path="/lichess"
+          element={
+            <LichessHubPage
+              profile={profile}
+              onOpenSettings={onOpenSettings}
+              onOpenLichessGame={onOpenLichessGame}
+              onBack={onBackToMenu}
+            />
+          }
+        />
+
+        <Route
+          path="/lichess/games/:gameId"
+          element={<LichessGamePage onBack={onBackToLichess} />}
+        />
+
+        <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/play-tournament" element={<PublicTournamentLobbyPage />} />
         <Route path="/play-tournament/create" element={<PublicTournamentCreatePage />} />
         <Route path="/play-tournament/:id/results" element={<PublicTournamentResultsPage />} />
