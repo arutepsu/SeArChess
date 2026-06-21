@@ -27,7 +27,7 @@ class TournamentGatewayRoutes(
 
   private val operationalRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
     case GET -> Root / "health" =>
-      jsonOk(ujson.Obj("status" -> "ok", "service" -> "searchess-gateway-service"))
+      Ok("ok")
   }
 
   // ── Authenticated streaming + game-snapshot routes ────────────────────────────
