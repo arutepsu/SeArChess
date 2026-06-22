@@ -307,10 +307,17 @@ export default function PublicTournamentGamePage() {
             )}
             <Button
               variant="secondary"
-              size="lg"
+              size="sm"
               onClick={() => navigate(`/play-tournament/${id ?? ""}/live`)}
             >
-              ← Live view
+              Live view
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate(`/play-tournament/${id ?? ""}`)}
+            >
+              ← Tournament
             </Button>
           </div>
         </div>

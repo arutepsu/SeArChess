@@ -12,6 +12,7 @@ import type {
   PublicRoundPairings,
   PublicTournament,
   PublicTournamentListResponse,
+  RegisterBotRequest,
 } from "./publicTournamentTypes";
 
 // Resolved auth headers as a plain Headers object.
@@ -145,6 +146,15 @@ async function fetchGatewayAuth<T>(path: string, options?: RequestInit): Promise
 
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
+}
+
+// ── Bot registration (authenticated) ─────────────────────────────────────────
+
+export async function registerPublicBot(req: RegisterBotRequest): Promise<PublicRegisteredBot> {
+  return fetchGatewayAuth<PublicRegisteredBot>("/bots", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
 }
 
 // ── Director endpoints ────────────────────────────────────────────────────────

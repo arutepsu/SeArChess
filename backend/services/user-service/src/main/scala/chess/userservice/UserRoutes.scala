@@ -2,32 +2,37 @@ package chess.userservice
 
 import cats.effect.IO
 import chess.observability.StructuredLog
-import chess.userservice.application.{CreateChallengeRequest, JwtSubjectExtractor, LichessActiveGameSummary, LichessChallengeService, LichessGameStateResult, LichessOAuthConfig, LichessOAuthService, SubmitLichessMoveResult, UserProfileService}
-import chess.userservice.domain.{ExternalAccountLink, UserProfile}
+import chess.userservice.application.{CreateChallengeRequest, JwtSubjectExtractor, LichessActiveGameSummary, LichessChallengeService, LichessGameStateResult, LichessOAuthConfig, LichessOAuthService, SubmitLichessMoveResult, TournamentBotOwnershipRepository, UserProfileService}
+import chess.userservice.domain.{ExternalAccountLink, TournamentBotOwnership, UserProfile}
 import fs2.Stream
 import org.http4s.*
 import org.http4s.dsl.io.*
 import org.http4s.headers.{Location, `Content-Type`}
 import org.typelevel.ci.CIString
 
+import java.util.UUID
+
 /** HTTP routes for user-service.
   *
   * Path convention (after Envoy prefix rewrite /api/users → /users):
-  *   GET    /health                                    — liveness (no JWT)
-  *   GET    /users/me                                  — current user profile + links
-  *   PATCH  /users/me/profile                          — set Searchess nickname
-  *   PUT    /users/me/links/lichess/manual             — set Lichess username (ManualDev, dev fallback)
-  *   DELETE /users/me/links/lichess                    — remove Lichess link
-  *   GET    /users/me/links/lichess/start              — begin Lichess OAuth PKCE flow (JWT required)
-  *   POST   /users/me/links/lichess/upgrade            — begin Lichess OAuth upgrade flow (JWT required)
-  *   GET    /users/me/links/lichess/callback           — OAuth callback from Lichess (no JWT, browser redirect)
-  *   POST   /users/me/lichess/challenges/searchess-bot — create Lichess challenge to Searchess BOT (challenge_ready only)
+  *   GET    /health                                         — liveness (no JWT)
+  *   GET    /users/me                                       — current user profile + links
+  *   PATCH  /users/me/profile                              — set Searchess nickname
+  *   PUT    /users/me/links/lichess/manual                 — set Lichess username (ManualDev, dev fallback)
+  *   DELETE /users/me/links/lichess                        — remove Lichess link
+  *   GET    /users/me/links/lichess/start                  — begin Lichess OAuth PKCE flow (JWT required)
+  *   POST   /users/me/links/lichess/upgrade                — begin Lichess OAuth upgrade flow (JWT required)
+  *   GET    /users/me/links/lichess/callback               — OAuth callback from Lichess (no JWT, browser redirect)
+  *   POST   /users/me/lichess/challenges/searchess-bot     — create Lichess challenge to Searchess BOT (challenge_ready only)
+  *   GET    /users/me/tournament-bots                      — list owned tournament-server bot IDs
+  *   POST   /users/me/tournament-bots                      — record ownership of a tournament-server bot
   */
 class UserRoutes(
     service: UserProfileService,
     oauthService: LichessOAuthService,
     challengeService: LichessChallengeService,
-    lichessConfig: LichessOAuthConfig
+    lichessConfig: LichessOAuthConfig,
+    botOwnershipRepo: TournamentBotOwnershipRepository
 ):
 
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
@@ -193,6 +198,29 @@ class UserRoutes(
             respond(Status.BadGateway, ujson.Obj("code" -> "LICHESS_GAME_STATE_FAILED"))
           case Right(state) =>
             respond(Status.Ok, lichessGameStateJson(state))
+        }
+      }
+
+    case req @ GET -> Root / "users" / "me" / "tournament-bots" =>
+      withSubject(req) { (_, profile) =>
+        botOwnershipRepo.findAllByUserId(profile.userId) match
+          case Left(err)   => respond(Status.InternalServerError, ujson.Obj("code" -> "INTERNAL_ERROR", "message" -> err))
+          case Right(bots) => respond(Status.Ok, ujson.Obj("bots" -> ujson.Arr(bots.map(botOwnershipJson)*)))
+      }
+
+    case req @ POST -> Root / "users" / "me" / "tournament-bots" =>
+      withSubject(req) { (_, profile) =>
+        req.bodyText.compile.string.flatMap { body =>
+          parseRecordBotRequest(body) match
+            case Left(err) =>
+              respond(Status.BadRequest, ujson.Obj("code" -> "BAD_REQUEST", "message" -> err))
+            case Right((botId, botName)) =>
+              val ownership = TournamentBotOwnership(UUID.randomUUID(), profile.userId, botId, botName, java.time.Instant.now())
+              botOwnershipRepo.insertIfAbsent(ownership) match
+                case Left(err) =>
+                  respond(Status.InternalServerError, ujson.Obj("code" -> "INTERNAL_ERROR", "message" -> err))
+                case Right(saved) =>
+                  respond(Status.Created, botOwnershipJson(saved))
         }
       }
 
@@ -370,6 +398,25 @@ class UserRoutes(
       "gameId"   -> result.gameId,
       "move"     -> result.move,
       "accepted" -> result.accepted
+    )
+
+  private def parseRecordBotRequest(body: String): Either[String, (String, String)] =
+    try
+      val json  = ujson.read(body)
+      val botId = json.obj.get("botId").flatMap(_.strOpt).map(_.trim).filter(_.nonEmpty)
+      val name  = json.obj.get("botName").flatMap(_.strOpt).map(_.trim).filter(_.nonEmpty)
+      (botId, name) match
+        case (Some(id), Some(n)) => Right((id, n))
+        case (None, _)           => Left("Missing or empty 'botId' field")
+        case (_, None)           => Left("Missing or empty 'botName' field")
+    catch
+      case _: Exception => Left("Request body must be valid JSON with 'botId' and 'botName' string fields")
+
+  private def botOwnershipJson(o: TournamentBotOwnership): ujson.Value =
+    ujson.Obj(
+      "botId"     -> o.botId,
+      "botName"   -> o.botName,
+      "createdAt" -> o.createdAt.toString
     )
 
   private def respond(status: Status, body: ujson.Value): IO[Response[IO]] =

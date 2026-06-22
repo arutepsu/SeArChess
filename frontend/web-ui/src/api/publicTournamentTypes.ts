@@ -166,6 +166,17 @@ export function isAnalyticsNotReady(r: PublicAnalyticsResult): r is PublicAnalyt
   return (r as PublicAnalyticsNotReady).notReady === true;
 }
 
+// ── Bot registration request/response types ───────────────────────────────────
+
+export interface RegisterBotRequest {
+  name: string;
+  family?: string;
+  strategyType?: string;
+  engineType?: string;
+  modelVersion?: string;
+  endpoint?: string;
+}
+
 // ── Director request/response types ───────────────────────────────────────────
 
 export interface CreatePublicTournamentRequest {
@@ -213,6 +224,27 @@ export interface PublicTournamentEvent {
   whiteBotName?: string;
   blackBotName?: string;
   [key: string]: unknown;
+}
+
+// ── Normalized game row (UI-facing, derived from analytics export or round pairings) ──
+
+export interface TournamentGameRow {
+  gameId: string;
+  tournamentId: string;
+  tournamentName: string;
+  tournamentStatus: PublicTournamentStatus;
+  round: number;
+  whiteBotId: string;
+  whiteBotName: string;
+  blackBotId: string;
+  blackBotName: string;
+  status: string;
+  winner: "white" | "black" | null;
+  winnerBotId: string | null;
+  winnerBotName: string | null;
+  terminationReason: string | null;
+  totalPly: number | null;
+  source: "analytics" | "round";
 }
 
 /** Initial game snapshot returned from GET /api/gateway/tournament/:id/game/:gameId */
