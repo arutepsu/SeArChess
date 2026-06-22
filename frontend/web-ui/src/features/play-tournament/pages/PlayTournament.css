@@ -1456,3 +1456,33 @@
   border: 1px solid var(--border-subtle, #22222e);
   border-radius: 8px;
 }
+
+/* ── Tournament detail — waiting state ────────────────────────────────────── */
+
+.pt-detail-readiness {
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle, #22222e);
+}
+
+.pt-detail-readiness--ready {
+  color: #50c878;
+}
+
+.pt-detail-readiness--waiting {
+  color: #e0a030;
+}
+
+.pt-join-success {
+  font-size: 0.85rem;
+  color: #50c878;
+  margin: 0 0 10px;
+}
+
+.pt-opponents-section {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle, #22222e);
+}

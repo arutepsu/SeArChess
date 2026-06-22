@@ -13,8 +13,10 @@ import Button from "../../../components/ui/Button";
 import ErrorState from "../../../components/ui/ErrorState";
 import LoadingState from "../../../components/ui/LoadingState";
 import SectionCard from "../../../components/ui/SectionCard";
-import { canManagePublicTournaments } from "../utils/publicTournamentAuth";
+import { canDirectPublicTournaments, canManagePublicTournaments } from "../utils/publicTournamentAuth";
 import "./PlayTournament.css";
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
 
 function pct(w: number, total: number): string {
   if (total === 0) return "0%";
@@ -27,6 +29,8 @@ function formatClock(limitSec: number, increment: number): string {
   const base = sec === 0 ? `${min}m` : `${min}m${sec}s`;
   return increment > 0 ? `${base}+${increment}s` : base;
 }
+
+// ── Common sub-components ──────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: PublicTournament["status"] }) {
   return (
@@ -96,25 +100,209 @@ function StandingsTable({ results }: { results: PublicResult[] }) {
   );
 }
 
-function DirectorActions({
+// ── Participants section (created tournaments) ─────────────────────────────────
+
+function ParticipantsSection({
+  tournament,
+  participants,
+  ownedIds,
+}: {
+  tournament: PublicTournament;
+  participants: PublicResult[];
+  ownedIds: Set<string>;
+}) {
+  // nbPlayers from the tournament info is the authoritative count.
+  // participants (standing.results) may or may not be populated for the "created" state
+  // depending on the Tournament Server — if empty, fall back to the count only.
+  const nbJoined = participants.length > 0 ? participants.length : tournament.nbPlayers;
+  const hasEnough = nbJoined >= 2;
+
+  return (
+    <SectionCard title={`Participants (${nbJoined})`}>
+      {participants.length > 0 ? (
+        <div className="pt-bot-list">
+          {participants.map((r) => {
+            const isOwned = ownedIds.has(r.bot.id);
+            return (
+              <div key={r.bot.id} className={`pt-bot-item${isOwned ? " pt-bot-item--owned" : ""}`}>
+                <span className="pt-bot-name">{r.bot.name}</span>
+                <span className="pt-bot-meta" style={{ flex: "1 1 auto" }} />
+                <span className={`pt-bot-badge ${isOwned ? "pt-bot-badge--own" : "pt-bot-badge--foreign"}`}>
+                  {isOwned ? "Your bot" : "Other team"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      ) : tournament.nbPlayers > 0 ? (
+        <p className="play-tournament-info-label">
+          {tournament.nbPlayers} bot{tournament.nbPlayers !== 1 ? "s" : ""} joined.
+          Participant list will be visible once the tournament starts.
+        </p>
+      ) : (
+        <p className="play-tournament-empty">No bots have joined yet.</p>
+      )}
+
+      <p className={`pt-detail-readiness${hasEnough ? " pt-detail-readiness--ready" : " pt-detail-readiness--waiting"}`}>
+        {hasEnough ? "Ready to start." : "At least 2 bots are required to start."}
+      </p>
+    </SectionCard>
+  );
+}
+
+// ── Join section (created tournaments, authenticated users) ────────────────────
+
+function JoinSection({
   id,
   tournament,
   bots,
   ownedIds,
+  participants,
   onRefresh,
 }: {
   id: string;
   tournament: PublicTournament;
   bots: PublicRegisteredBot[];
   ownedIds: Set<string>;
+  participants: PublicResult[];
   onRefresh: () => void;
 }) {
   const navigate = useNavigate();
   const [selectedBotId, setSelectedBotId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const joinedIds     = new Set(participants.map((r) => r.bot.id));
+  const ownedBots     = bots.filter((b) => ownedIds.has(b.id));
+  const joinableBots  = ownedBots.filter((b) => !joinedIds.has(b.id));
+  const alreadyJoined = ownedBots.filter((b) => joinedIds.has(b.id));
+  const opponents     = participants.filter((r) => !ownedIds.has(r.bot.id));
+
+  // Format-specific opponent hint
+  const isRoundRobin = tournament.format === "league" || tournament.format === "groupStage";
+  const opponentsNote = isRoundRobin
+    ? "In this format your bot plays every listed participant."
+    : "Exact pairings are decided when rounds are generated.";
+
+  if (ownedBots.length === 0) {
+    return (
+      <SectionCard title="Join with one of your bots">
+        <p className="play-tournament-info-label">
+          You have no registered bots yet. Go to the{" "}
+          <button type="button" className="pt-inline-link" onClick={() => navigate("/play-tournament")}>
+            tournament lobby
+          </button>
+          {" "}to add a Searchess bot before joining.
+        </p>
+      </SectionCard>
+    );
+  }
+
+  async function handleJoin() {
+    if (!selectedBotId) return;
+    setBusy(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await addPublicTournamentParticipant(id, selectedBotId);
+      setSelectedBotId("");
+      setSuccess("Bot joined successfully!");
+      onRefresh();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to join tournament.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <SectionCard title="Join with one of your bots">
+      {alreadyJoined.length > 0 && (
+        <p className="play-tournament-info-label" style={{ marginBottom: 12 }}>
+          Already joined: {alreadyJoined.map((b) => b.name).join(", ")}.
+        </p>
+      )}
+
+      {error && <ErrorState message={error} />}
+      {success && <p className="pt-join-success">{success}</p>}
+
+      {joinableBots.length === 0 ? (
+        <p className="play-tournament-info-label">All your bots have already joined this tournament.</p>
+      ) : (
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <select
+            className="play-tournament-form-select"
+            value={selectedBotId}
+            onChange={(e) => { setSelectedBotId(e.target.value); setSuccess(null); }}
+            disabled={busy}
+            style={{ minWidth: 180 }}
+          >
+            <option value="">Select your bot…</option>
+            {joinableBots.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={busy || !selectedBotId}
+            onClick={() => { void handleJoin(); }}
+          >
+            {busy ? "Joining…" : "Join tournament"}
+          </Button>
+        </div>
+      )}
+
+      {participants.length === 0 && joinableBots.length > 0 && (
+        <p className="play-tournament-info-label" style={{ marginTop: 10 }}>
+          Be the first to join. At least 2 bots are needed to start.
+        </p>
+      )}
+
+      {participants.length === 1 && joinableBots.length > 0 && (
+        <p className="play-tournament-info-label" style={{ marginTop: 10 }}>
+          One more bot is needed. Joining would make the tournament ready to start.
+        </p>
+      )}
+
+      {opponents.length > 0 && (
+        <div className="pt-opponents-section">
+          <p className="pt-bot-section-label">Possible opponents after start</p>
+          <p className="play-tournament-info-label" style={{ marginBottom: 8 }}>{opponentsNote}</p>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {opponents.map((r) => (
+              <span key={r.bot.id} className="pt-bot-badge pt-bot-badge--foreign">{r.bot.name}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {participants.length === 1 && joinableBots.length === 0 && (
+        <p className="play-tournament-info-label" style={{ marginTop: 10 }}>
+          No opponent yet — one more bot must join before the tournament can start.
+        </p>
+      )}
+    </SectionCard>
+  );
+}
+
+// ── Director actions (created tournaments) ─────────────────────────────────────
+
+function DirectorActions({
+  id,
+  tournament,
+  onRefresh,
+}: {
+  id: string;
+  tournament: PublicTournament;
+  onRefresh: () => void;
+}) {
+  const navigate = useNavigate();
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const ownedBots = bots.filter((b) => ownedIds.has(b.id));
+  const canStart = tournament.nbPlayers >= 2;
 
   async function handleStart() {
     setBusy(true);
@@ -142,93 +330,51 @@ function DirectorActions({
     }
   }
 
-  async function handleAddParticipant() {
-    if (!selectedBotId) return;
-    setBusy(true);
-    setActionError(null);
-    try {
-      await addPublicTournamentParticipant(id, selectedBotId);
-      setSelectedBotId("");
-      onRefresh();
-    } catch (e: unknown) {
-      setActionError(e instanceof Error ? e.message : "Failed to add participant.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <SectionCard title="Director Actions">
+      <p className="play-tournament-info-label" style={{ marginBottom: 12 }}>
+        Only the tournament director can start or delete this tournament.
+      </p>
       {actionError && <ErrorState message={actionError} />}
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
-        {tournament.status === "created" && (
-          <>
-            <Button variant="primary" size="sm" onClick={() => { void handleStart(); }} disabled={busy}>
-              Start tournament
-            </Button>
-            <Button variant="secondary" size="sm" onClick={() => { void handleDelete(); }} disabled={busy}>
-              Delete
-            </Button>
-          </>
-        )}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+        <Button
+          variant="primary"
+          size="sm"
+          disabled={busy || !canStart}
+          onClick={() => { void handleStart(); }}
+        >
+          Start tournament
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={busy}
+          onClick={() => { void handleDelete(); }}
+        >
+          Delete
+        </Button>
       </div>
-      {tournament.status === "created" && (
-        ownedBots.length > 0 ? (
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            <select
-              className="play-tournament-form-select"
-              value={selectedBotId}
-              onChange={(e) => setSelectedBotId(e.target.value)}
-              style={{ minWidth: 160 }}
-            >
-              <option value="">Select your bot…</option>
-              {ownedBots.map((b) => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </select>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => { void handleAddParticipant(); }}
-              disabled={busy || !selectedBotId}
-            >
-              Add participant
-            </Button>
-          </div>
-        ) : (
-          <p className="play-tournament-info-label">
-            You have no registered bots. Go to the{" "}
-            <button
-              type="button"
-              className="pt-inline-link"
-              onClick={() => navigate("/play-tournament")}
-            >
-              tournament lobby
-            </button>
-            {" "}to register one before adding participants.
-          </p>
-        )
-      )}
-      {tournament.status !== "created" && (
-        <p className="play-tournament-info-label">
-          {tournament.status === "started"
-            ? "Tournament is in progress. Director actions are not available."
-            : "Tournament is finished."}
+      {!canStart && (
+        <p className="play-tournament-info-label" style={{ marginTop: 10 }}>
+          At least 2 bots must join before the tournament can start.
         </p>
       )}
     </SectionCard>
   );
 }
 
+// ── Page ──────────────────────────────────────────────────────────────────────
+
 export default function PublicTournamentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [tournament, setTournament] = useState<PublicTournament | null>(null);
-  const [bots, setBots] = useState<PublicRegisteredBot[]>([]);
-  const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [bots, setBots]             = useState<PublicRegisteredBot[]>([]);
+  const [ownedIds, setOwnedIds]     = useState<Set<string>>(new Set());
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState<string | null>(null);
   const canManage = canManagePublicTournaments();
+  const canDirect = canDirectPublicTournaments();
 
   function loadTournament(active: { value: boolean }) {
     if (!id) return;
@@ -258,16 +404,21 @@ export default function PublicTournamentDetailPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  function handleRefresh() {
+    const active = { value: true };
+    loadTournament(active);
+  }
+
   const results = tournament?.standing?.results ?? [];
 
   return (
     <div className="play-tournament-page">
       <div className="play-tournament-shell">
+
+        {/* ── Header ─────────────────────────────────────────────────────────── */}
         <div className="play-tournament-header">
           <div>
-            <h1 className="play-tournament-title">
-              {tournament?.fullName ?? "Tournament"}
-            </h1>
+            <h1 className="play-tournament-title">{tournament?.fullName ?? "Tournament"}</h1>
             {tournament && (
               <p className="play-tournament-subtitle">
                 <StatusBadge status={tournament.status} />
@@ -302,7 +453,7 @@ export default function PublicTournamentDetailPage() {
                 </Button>
               </>
             )}
-            <Button variant="secondary" size="lg" onClick={() => navigate("/play-tournament")}>
+            <Button variant="secondary" size="sm" onClick={() => navigate("/play-tournament")}>
               ← Tournaments
             </Button>
           </div>
@@ -315,7 +466,52 @@ export default function PublicTournamentDetailPage() {
           <>
             <InfoGrid tournament={tournament} />
 
-            {tournament.round > 0 && (
+            {/* ── Waiting tournament sections ──────────────────────────────── */}
+            {tournament.status === "created" && (
+              <>
+                <ParticipantsSection
+                  tournament={tournament}
+                  participants={results}
+                  ownedIds={ownedIds}
+                />
+
+                {canManage ? (
+                  <>
+                    <JoinSection
+                      id={id ?? ""}
+                      tournament={tournament}
+                      bots={bots}
+                      ownedIds={ownedIds}
+                      participants={results}
+                      onRefresh={handleRefresh}
+                    />
+                    {canDirect ? (
+                      <DirectorActions
+                        id={id ?? ""}
+                        tournament={tournament}
+                        onRefresh={handleRefresh}
+                      />
+                    ) : (
+                      <div className="pt-panel">
+                        <p className="play-tournament-info-label">
+                          Only the tournament director can start or delete this tournament.
+                        </p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="pt-panel" style={{ marginTop: 0 }}>
+                    <p className="play-tournament-info-label">
+                      Sign in to join this tournament with your bots.
+                      Only the tournament director can start or delete it.
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ── In-progress / finished sections ─────────────────────────── */}
+            {tournament.status !== "created" && tournament.round > 0 && (
               <SectionCard title="Rounds">
                 <div className="pt-round-nav">
                   {Array.from({ length: tournament.round }, (_, i) => i + 1).map((n) => (
@@ -332,21 +528,10 @@ export default function PublicTournamentDetailPage() {
               </SectionCard>
             )}
 
-            <SectionCard title="Standings">
-              <StandingsTable results={results} />
-            </SectionCard>
-
-            {canManage && (
-              <DirectorActions
-                id={id ?? ""}
-                tournament={tournament}
-                bots={bots}
-                ownedIds={ownedIds}
-                onRefresh={() => {
-                  const active = { value: true };
-                  loadTournament(active);
-                }}
-              />
+            {tournament.status !== "created" && (
+              <SectionCard title="Standings">
+                <StandingsTable results={results} />
+              </SectionCard>
             )}
           </>
         )}
