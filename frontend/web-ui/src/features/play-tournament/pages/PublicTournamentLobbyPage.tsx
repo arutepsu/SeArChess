@@ -127,10 +127,11 @@ function MyBotsTab({
       {canRegister && owned.length === 0 && (
         <div className="pt-bots-empty-cta">
           <p className="pt-bots-empty-text">
-            You have no registered bots yet. Register one to participate in tournaments.
+            You have no Searchess bots on the Tournament Server yet.
+            Register a Searchess bot to participate in tournaments.
           </p>
           <Button variant="primary" size="sm" onClick={onRegisterClick}>
-            + Register your first bot
+            + Add Searchess bot
           </Button>
         </div>
       )}
@@ -388,7 +389,7 @@ export default function PublicTournamentLobbyPage() {
 
       {showRegisterModal && (
         <RegisterBotModal
-          bots={bots}
+          publicBots={bots}
           ownedIds={ownedIds}
           onClose={() => setShowRegisterModal(false)}
           onRegistered={(bot) => {

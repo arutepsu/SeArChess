@@ -706,6 +706,16 @@
   color: var(--text-secondary, #9090a8);
 }
 
+.pt-bot-badge--searchess {
+  background: rgba(124, 111, 255, 0.15);
+  color: var(--accent, #7c6fff);
+}
+
+.pt-bot-badge--unavailable {
+  background: rgba(200, 80, 80, 0.12);
+  color: #c07070;
+}
+
 /* ── Register bot modal ───────────────────────────────────────────────────── */
 
 .pt-modal-overlay {
@@ -1437,4 +1447,12 @@
   color: var(--text-secondary, #9090a8);
   padding: 16px 12px;
   text-align: center;
+}
+
+.rbm-public-note {
+  margin-top: 20px;
+  padding: 12px 14px;
+  background: var(--surface-2, #252535);
+  border: 1px solid var(--border-subtle, #22222e);
+  border-radius: 8px;
 }

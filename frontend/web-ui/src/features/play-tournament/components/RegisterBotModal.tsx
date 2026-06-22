@@ -1,121 +1,158 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { registerPublicBot } from "../../../api/publicTournamentClient";
 import { recordTournamentBotOwnership } from "../../../api/userServiceClient";
+import { fetchTournamentBots } from "../../../api/tournamentClient";
 import type { PublicRegisteredBot } from "../../../api/publicTournamentTypes";
+import type { BotSummary } from "../../../api/tournamentTypes";
 import Button from "../../../components/ui/Button";
 import ErrorState from "../../../components/ui/ErrorState";
 
-// ── Choose existing ───────────────────────────────────────────────────────────
-
-interface ExistingBotSectionProps {
-  bots: PublicRegisteredBot[];
-  ownedIds: Set<string>;
-  onAdded: (bot: PublicRegisteredBot) => void;
+// Deterministic Tournament Server bot name for a Searchess catalog entry.
+// Uses bot.botId (stable kebab-case slug) so the same Searchess bot always
+// maps to the same Tournament Server name, enabling reliable "already owned" detection.
+function toTournamentServerBotName(bot: BotSummary): string {
+  const slug = bot.botId.trim().toLowerCase();
+  return slug.startsWith("searchess-") ? slug : `searchess-${slug}`;
 }
 
-function ExistingBotSection({ bots, ownedIds, onAdded }: ExistingBotSectionProps) {
-  const [search, setSearch]     = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [adding, setAdding]     = useState(false);
-  const [error, setError]       = useState<string | null>(null);
+// ── Add Searchess bot ─────────────────────────────────────────────────────────
 
-  const trimmed = search.trim().toLowerCase();
-  const filtered = bots.filter((b) =>
-    !trimmed ||
-    b.name.toLowerCase().includes(trimmed) ||
-    (b.family ?? "").toLowerCase().includes(trimmed) ||
-    (b.strategyType ?? "").toLowerCase().includes(trimmed) ||
-    (b.engineType ?? "").toLowerCase().includes(trimmed)
-  );
+interface SearchessBotSectionProps {
+  publicBots: PublicRegisteredBot[];
+  ownedIds: Set<string>;
+  onRegistered: (bot: PublicRegisteredBot) => void;
+}
 
-  const sorted = [...filtered].sort((a, b) => {
-    const aO = ownedIds.has(a.id);
-    const bO = ownedIds.has(b.id);
-    if (aO === bO) return a.name.localeCompare(b.name);
-    return aO ? 1 : -1;
-  });
+function SearchessBotSection({ publicBots, ownedIds, onRegistered }: SearchessBotSectionProps) {
+  const [catalog, setCatalog]         = useState<BotSummary[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [loadError, setLoadError]     = useState<string | null>(null);
+  const [selectedId, setSelectedId]   = useState<string | null>(null);
+  const [registering, setRegistering] = useState(false);
+  const [regError, setRegError]       = useState<string | null>(null);
 
-  async function handleAdd() {
-    const bot = bots.find((b) => b.id === selectedId);
+  useEffect(() => {
+    fetchTournamentBots()
+      .then(setCatalog)
+      .catch((e: unknown) =>
+        setLoadError(e instanceof Error ? e.message : "Failed to load Searchess bots.")
+      )
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleRegister() {
+    const bot = catalog.find((b) => b.botId === selectedId);
     if (!bot) return;
-    setAdding(true);
-    setError(null);
+    setRegistering(true);
+    setRegError(null);
     try {
-      await recordTournamentBotOwnership({ botId: bot.id, botName: bot.name });
-      onAdded(bot);
+      const publicBot = await registerPublicBot({
+        name:         toTournamentServerBotName(bot),
+        family:       bot.family || undefined,
+        strategyType: bot.strategyType || undefined,
+        engineType:   bot.engineType || undefined,
+        modelVersion: bot.modelVersion || undefined,
+      });
+      await recordTournamentBotOwnership({ botId: publicBot.id, botName: publicBot.name });
+      onRegistered(publicBot);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to add bot.");
-      setAdding(false);
+      setRegError(e instanceof Error ? e.message : "Registration failed.");
+      setRegistering(false);
     }
   }
+
+  // Names of Tournament Server bots already owned by this user — used to detect
+  // Searchess catalog entries that were already provisioned (matched by display name).
+  const ownedNames = new Set(
+    publicBots.filter((b) => ownedIds.has(b.id)).map((b) => b.name)
+  );
 
   return (
     <div>
       <p className="rbm-hint">
-        Pick any bot already registered on the public tournament server to add it to your Searchess account.
-        This only records local ownership — it does not transfer server-side permissions.
+        Select a Searchess bot to provision it on the public Tournament Server and add it to your account.
+        Unavailable bots require additional services (e.g. Stockfish binary, Searchess AI) to be running.
       </p>
-      {bots.length === 0 ? (
-        <p className="rbm-empty">No bots found on the public server.</p>
-      ) : (
+
+      {loading && <p className="rbm-empty">Loading Searchess bots…</p>}
+      {loadError && <ErrorState message={loadError} />}
+
+      {!loading && !loadError && (
         <>
-          <input
-            className="rbm-search"
-            type="text"
-            placeholder="Search by name, family, engine…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            autoComplete="off"
-          />
-          <div className="rbm-existing-list" role="listbox" aria-label="Public bots">
-            {sorted.length === 0 ? (
-              <p className="rbm-empty">No bots match "{search}".</p>
-            ) : sorted.map((b) => {
-              const isOwned    = ownedIds.has(b.id);
-              const isSelected = selectedId === b.id;
-              const metaParts  = [b.family, b.strategyType, b.engineType, b.modelVersion].filter(Boolean);
+          <div className="rbm-existing-list" role="listbox" aria-label="Searchess bots">
+            {catalog.length === 0 ? (
+              <p className="rbm-empty">No Searchess bots found on this server.</p>
+            ) : catalog.map((b) => {
+              const isSelected     = selectedId === b.botId;
+              const isUnavailable  = !b.available;
+              const isAlreadyOwned = ownedNames.has(toTournamentServerBotName(b));
+              const isDisabled     = isUnavailable || isAlreadyOwned;
+              const parts          = [b.family, b.strategyType, b.engineType, b.modelVersion]
+                .filter((s) => s.length > 0 && s !== "none")
+                .join(" · ");
               return (
                 <div
-                  key={b.id}
+                  key={b.botId}
                   role="option"
                   aria-selected={isSelected}
-                  aria-disabled={isOwned}
+                  aria-disabled={isDisabled}
                   className={[
                     "rbm-bot-row",
-                    isSelected && !isOwned ? "rbm-bot-row--selected" : "",
-                    isOwned ? "rbm-bot-row--disabled" : "",
+                    isSelected && !isDisabled ? "rbm-bot-row--selected" : "",
+                    isDisabled ? "rbm-bot-row--disabled" : "",
                   ].filter(Boolean).join(" ")}
-                  onClick={() => { if (!isOwned) setSelectedId(b.id); }}
+                  onClick={() => { if (!isDisabled) setSelectedId(b.botId); }}
                 >
-                  <span className="rbm-bot-name">{b.name}</span>
-                  {metaParts.length > 0 && (
-                    <span className="rbm-bot-meta">{metaParts.join(" · ")}</span>
+                  <span className="rbm-bot-name">{b.displayName}</span>
+                  {parts && <span className="rbm-bot-meta">{parts}</span>}
+                  {isAlreadyOwned ? (
+                    <span className="pt-bot-badge pt-bot-badge--own">Already yours</span>
+                  ) : isUnavailable ? (
+                    <span
+                      className="pt-bot-badge pt-bot-badge--unavailable"
+                      title={b.unavailableReason ?? ""}
+                    >
+                      Unavailable
+                    </span>
+                  ) : (
+                    <span className="pt-bot-badge pt-bot-badge--searchess">Searchess</span>
                   )}
-                  <span className={`pt-bot-badge ${isOwned ? "pt-bot-badge--own" : "pt-bot-badge--foreign"}`}>
-                    {isOwned ? "Already yours" : "Public"}
-                  </span>
                 </div>
               );
             })}
           </div>
+
+          {regError && <ErrorState message={regError} />}
+
+          <div className="pt-modal-actions" style={{ justifyContent: "flex-start", marginTop: 12 }}>
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={!selectedId || registering}
+              onClick={() => { void handleRegister(); }}
+            >
+              {registering ? "Registering…" : "Register on Tournament Server"}
+            </Button>
+          </div>
         </>
       )}
-      {error && <ErrorState message={error} />}
-      <div className="pt-modal-actions" style={{ justifyContent: "flex-start", marginTop: 12 }}>
-        <Button
-          variant="primary"
-          size="sm"
-          disabled={!selectedId || adding}
-          onClick={() => { void handleAdd(); }}
-        >
-          {adding ? "Adding…" : "Add to My Bots"}
-        </Button>
-      </div>
+
+      {publicBots.length > 0 && (
+        <div className="rbm-public-note">
+          <p className="pt-bot-section-label">Public server bots</p>
+          <p className="rbm-hint" style={{ marginBottom: 0 }}>
+            {publicBots.length} bot{publicBots.length !== 1 ? "s" : ""} from all teams are registered on
+            the Tournament Server
+            {ownedIds.size > 0 ? ` (${ownedIds.size} yours)` : ""}.
+            These are managed by their respective teams and cannot be added to My Bots here.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
 
-// ── Create new ────────────────────────────────────────────────────────────────
+// ── Create custom bot ─────────────────────────────────────────────────────────
 
 interface FormState {
   name: string;
@@ -135,9 +172,9 @@ interface CreateBotSectionProps {
 }
 
 function CreateBotSection({ onCreated, onClose }: CreateBotSectionProps) {
-  const [form, setForm]         = useState<FormState>(initialForm);
+  const [form, setForm]             = useState<FormState>(initialForm);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError]       = useState<string | null>(null);
+  const [error, setError]           = useState<string | null>(null);
 
   function set<K extends keyof FormState>(key: K, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -150,10 +187,10 @@ function CreateBotSection({ onCreated, onClose }: CreateBotSectionProps) {
     setSubmitting(true);
     try {
       const bot = await registerPublicBot({
-        name: form.name.trim(),
-        family: form.family.trim() || undefined,
+        name:         form.name.trim(),
+        family:       form.family.trim() || undefined,
         strategyType: form.strategyType.trim() || undefined,
-        engineType: form.engineType.trim() || undefined,
+        engineType:   form.engineType.trim() || undefined,
         modelVersion: form.modelVersion.trim() || undefined,
       });
       await recordTournamentBotOwnership({ botId: bot.id, botName: bot.name });
@@ -167,7 +204,8 @@ function CreateBotSection({ onCreated, onClose }: CreateBotSectionProps) {
   return (
     <div>
       <p className="rbm-hint">
-        Register a brand-new bot with the public tournament server and add it to your account in one step.
+        Create a new custom tournament bot entry directly on the public Tournament Server and record ownership
+        in your Searchess account. Use this for custom or experimental bots not in the Searchess catalog.
       </p>
       {error && <ErrorState message={error} />}
       <form onSubmit={(e) => { void handleSubmit(e); }} className="pt-modal-form">
@@ -182,7 +220,7 @@ function CreateBotSection({ onCreated, onClose }: CreateBotSectionProps) {
             value={form.name}
             maxLength={80}
             onChange={(e) => set("name", e.target.value)}
-            placeholder="e.g. SearchessAlpha"
+            placeholder="e.g. MyCustomBot"
             required
           />
         </div>
@@ -256,17 +294,17 @@ function CreateBotSection({ onCreated, onClose }: CreateBotSectionProps) {
 
 // ── Modal shell ───────────────────────────────────────────────────────────────
 
-type ModalSection = "existing" | "create";
+type ModalSection = "searchess" | "create";
 
 interface Props {
-  bots: PublicRegisteredBot[];
+  publicBots: PublicRegisteredBot[];
   ownedIds: Set<string>;
   onClose: () => void;
   onRegistered: (bot: PublicRegisteredBot) => void;
 }
 
-export default function RegisterBotModal({ bots, ownedIds, onClose, onRegistered }: Props) {
-  const [section, setSection] = useState<ModalSection>("existing");
+export default function RegisterBotModal({ publicBots, ownedIds, onClose, onRegistered }: Props) {
+  const [section, setSection] = useState<ModalSection>("searchess");
 
   return (
     <div className="pt-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -279,22 +317,22 @@ export default function RegisterBotModal({ bots, ownedIds, onClose, onRegistered
         <div className="rbm-tabs">
           <button
             type="button"
-            className={`rbm-tab${section === "existing" ? " rbm-tab--active" : ""}`}
-            onClick={() => setSection("existing")}
+            className={`rbm-tab${section === "searchess" ? " rbm-tab--active" : ""}`}
+            onClick={() => setSection("searchess")}
           >
-            Choose existing
+            Add Searchess bot
           </button>
           <button
             type="button"
             className={`rbm-tab${section === "create" ? " rbm-tab--active" : ""}`}
             onClick={() => setSection("create")}
           >
-            Create new bot
+            Create custom bot
           </button>
         </div>
 
-        {section === "existing" && (
-          <ExistingBotSection bots={bots} ownedIds={ownedIds} onAdded={onRegistered} />
+        {section === "searchess" && (
+          <SearchessBotSection publicBots={publicBots} ownedIds={ownedIds} onRegistered={onRegistered} />
         )}
         {section === "create" && (
           <CreateBotSection onCreated={onRegistered} onClose={onClose} />
