@@ -6,4 +6,4 @@ spec:
   template:
     metadata:
       annotations:
-        deploy-sha: "sha-b087725"
+        deploy-sha: "sha-5017ee5"
