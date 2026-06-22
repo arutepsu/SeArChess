@@ -8,14 +8,13 @@ export function canManagePublicTournaments(): boolean {
   return Boolean(keycloak.authenticated);
 }
 
-// True only for the tournament director / admin role — gates Start and Delete.
-// Defaults to false in production (safe) until a Keycloak director role is
-// configured. In dev mode (authEnabled=false) returns true so the UI can be
-// tested without a real Keycloak setup.
-// TODO: when a director claim is added to Keycloak, replace the body with:
-//   if (!authEnabled) return true;
-//   return keycloak.hasRealmRole("tournament-director");
-export function canDirectPublicTournaments(): boolean {
+// True if the current user is the creator of the given tournament.
+// Compares tournament.createdBy (Tournament Server username mapped from Keycloak
+// preferred_username via the gateway withDirector handler) to the local Keycloak claim.
+// In dev mode (authEnabled=false) always returns true so director UX is testable.
+export function canDirectTournament(tournament: { createdBy: string }): boolean {
   if (!authEnabled) return true;
-  return false;
+  const username = keycloak.tokenParsed?.["preferred_username"] as string | undefined;
+  if (!username) return false;
+  return tournament.createdBy === username;
 }

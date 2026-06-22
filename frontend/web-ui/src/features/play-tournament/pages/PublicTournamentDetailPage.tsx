@@ -13,7 +13,7 @@ import Button from "../../../components/ui/Button";
 import ErrorState from "../../../components/ui/ErrorState";
 import LoadingState from "../../../components/ui/LoadingState";
 import SectionCard from "../../../components/ui/SectionCard";
-import { canDirectPublicTournaments, canManagePublicTournaments } from "../utils/publicTournamentAuth";
+import { canDirectTournament, canManagePublicTournaments } from "../utils/publicTournamentAuth";
 import "./PlayTournament.css";
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
@@ -106,10 +106,12 @@ function ParticipantsSection({
   tournament,
   participants,
   ownedIds,
+  onRefresh,
 }: {
   tournament: PublicTournament;
   participants: PublicResult[];
   ownedIds: Set<string>;
+  onRefresh: () => void;
 }) {
   // nbPlayers from the tournament info is the authoritative count.
   // participants (standing.results) may or may not be populated for the "created" state
@@ -134,18 +136,25 @@ function ParticipantsSection({
             );
           })}
         </div>
-      ) : tournament.nbPlayers > 0 ? (
+      ) : tournament.nbPlayers === 1 ? (
         <p className="play-tournament-info-label">
-          {tournament.nbPlayers} bot{tournament.nbPlayers !== 1 ? "s" : ""} joined.
-          Participant list will be visible once the tournament starts.
+          The server reports 1 joined bot, but does not expose its name before pairings are generated.
+        </p>
+      ) : tournament.nbPlayers > 1 ? (
+        <p className="play-tournament-info-label">
+          The server reports {tournament.nbPlayers} joined bots, but does not expose their names before pairings are generated.
         </p>
       ) : (
         <p className="play-tournament-empty">No bots have joined yet.</p>
       )}
 
-      <p className={`pt-detail-readiness${hasEnough ? " pt-detail-readiness--ready" : " pt-detail-readiness--waiting"}`}>
-        {hasEnough ? "Ready to start." : "At least 2 bots are required to start."}
-      </p>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 14 }}>
+        <p className={`pt-detail-readiness${hasEnough ? " pt-detail-readiness--ready" : " pt-detail-readiness--waiting"}`}
+           style={{ margin: 0 }}>
+          {hasEnough ? "Ready to start." : "At least 2 bots are required to start."}
+        </p>
+        <Button variant="secondary" size="sm" onClick={onRefresh}>Refresh</Button>
+      </div>
     </SectionCard>
   );
 }
@@ -254,15 +263,23 @@ function JoinSection({
         </div>
       )}
 
-      {participants.length === 0 && joinableBots.length > 0 && (
+      {/* Use tournament.nbPlayers (authoritative) for hints — standing.results may be
+          empty for "created" tournaments before the first round is generated. */}
+      {joinableBots.length > 0 && tournament.nbPlayers === 0 && (
         <p className="play-tournament-info-label" style={{ marginTop: 10 }}>
           Be the first to join. At least 2 bots are needed to start.
         </p>
       )}
 
-      {participants.length === 1 && joinableBots.length > 0 && (
+      {joinableBots.length > 0 && tournament.nbPlayers === 1 && (
         <p className="play-tournament-info-label" style={{ marginTop: 10 }}>
-          One more bot is needed. Joining would make the tournament ready to start.
+          One more bot is needed. Joining now would make the tournament ready to start.
+        </p>
+      )}
+
+      {joinableBots.length > 0 && tournament.nbPlayers >= 2 && (
+        <p className="play-tournament-info-label" style={{ marginTop: 10 }}>
+          This tournament is ready to start. The director can begin it once all teams are set.
         </p>
       )}
 
@@ -276,12 +293,6 @@ function JoinSection({
             ))}
           </div>
         </div>
-      )}
-
-      {participants.length === 1 && joinableBots.length === 0 && (
-        <p className="play-tournament-info-label" style={{ marginTop: 10 }}>
-          No opponent yet — one more bot must join before the tournament can start.
-        </p>
       )}
     </SectionCard>
   );
@@ -374,7 +385,6 @@ export default function PublicTournamentDetailPage() {
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState<string | null>(null);
   const canManage = canManagePublicTournaments();
-  const canDirect = canDirectPublicTournaments();
 
   function loadTournament(active: { value: boolean }) {
     if (!id) return;
@@ -473,6 +483,7 @@ export default function PublicTournamentDetailPage() {
                   tournament={tournament}
                   participants={results}
                   ownedIds={ownedIds}
+                  onRefresh={handleRefresh}
                 />
 
                 {canManage ? (
@@ -485,7 +496,7 @@ export default function PublicTournamentDetailPage() {
                       participants={results}
                       onRefresh={handleRefresh}
                     />
-                    {canDirect ? (
+                    {canDirectTournament(tournament) ? (
                       <DirectorActions
                         id={id ?? ""}
                         tournament={tournament}
@@ -494,7 +505,7 @@ export default function PublicTournamentDetailPage() {
                     ) : (
                       <div className="pt-panel">
                         <p className="play-tournament-info-label">
-                          Only the tournament director can start or delete this tournament.
+                          Only the tournament director ({tournament.createdBy}) can start or delete this tournament.
                         </p>
                       </div>
                     )}
