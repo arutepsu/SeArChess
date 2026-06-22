@@ -726,6 +726,8 @@
   padding: 28px;
   width: 100%;
   max-width: 520px;
+  max-height: 88vh;
+  overflow-y: auto;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
 }
 
@@ -1301,4 +1303,138 @@
   line-height: 1.55;
   padding-top: 4px;
   border-top: 1px solid var(--border-subtle, #22222e);
+}
+
+/* ── Content panel ────────────────────────────────────────────────────────── */
+
+.pt-panel {
+  background: var(--surface-0, #13131e);
+  border: 1px solid var(--border, #2a2a3a);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+/* ── Add Bot modal — section tabs ─────────────────────────────────────────── */
+
+.rbm-tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--border, #2a2a3a);
+  margin-bottom: 20px;
+}
+
+.rbm-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-secondary, #9090a8);
+  cursor: pointer;
+  margin-bottom: -1px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.rbm-tab:hover {
+  color: var(--text-primary, #e8e8f0);
+}
+
+.rbm-tab--active {
+  color: var(--accent, #7c6fff);
+  border-bottom-color: var(--accent, #7c6fff);
+  font-weight: 600;
+}
+
+/* ── Add Bot modal — existing bot picker ──────────────────────────────────── */
+
+.rbm-hint {
+  font-size: 0.82rem;
+  color: var(--text-secondary, #9090a8);
+  margin: 0 0 14px;
+  line-height: 1.5;
+}
+
+.rbm-search {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--surface-2, #252535);
+  border: 1px solid var(--border, #2a2a3a);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  color: var(--text-primary, #e8e8f0);
+  outline: none;
+  margin-bottom: 10px;
+}
+
+.rbm-search:focus {
+  border-color: var(--accent, #7c6fff);
+}
+
+.rbm-existing-list {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border, #2a2a3a);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 14px;
+}
+
+.rbm-bot-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-subtle, #22222e);
+  transition: background 0.12s;
+  user-select: none;
+}
+
+.rbm-bot-row:last-child {
+  border-bottom: none;
+}
+
+.rbm-bot-row:hover:not(.rbm-bot-row--disabled) {
+  background: var(--surface-hover, #20202e);
+}
+
+.rbm-bot-row--selected {
+  background: rgba(124, 111, 255, 0.12);
+  border-left: 3px solid var(--accent, #7c6fff);
+}
+
+.rbm-bot-row--disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.rbm-bot-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary, #e8e8f0);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rbm-bot-meta {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #9090a8);
+  flex: 2 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rbm-empty {
+  font-size: 0.82rem;
+  color: var(--text-secondary, #9090a8);
+  padding: 16px 12px;
+  text-align: center;
 }

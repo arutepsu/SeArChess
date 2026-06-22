@@ -306,74 +306,90 @@ export default function PublicTournamentLobbyPage() {
 
         {/* ── Tab panels ─────────────────────────────────────────────────── */}
         {activeTab === "tournaments" && (
-          <TournamentsTab
-            data={data}
-            loading={loading}
-            error={error}
-            onSelect={(id) => navigate(`/play-tournament/${id}`)}
-          />
+          <div className="pt-panel">
+            <TournamentsTab
+              data={data}
+              loading={loading}
+              error={error}
+              onSelect={(id) => navigate(`/play-tournament/${id}`)}
+            />
+          </div>
         )}
 
         {activeTab === "myBots" && (
-          <MyBotsTab
-            bots={bots}
-            ownedIds={ownedIds}
-            canRegister={canManage}
-            onRegisterClick={() => setShowRegisterModal(true)}
-          />
+          <div className="pt-panel">
+            <MyBotsTab
+              bots={bots}
+              ownedIds={ownedIds}
+              canRegister={canManage}
+              onRegisterClick={() => setShowRegisterModal(true)}
+            />
+          </div>
         )}
 
         {activeTab === "quickTest" && (
-          <QuickTestTab
-            bots={bots}
-            ownedIds={ownedIds}
-            canManage={canManage}
-            onRegisterClick={() => setShowRegisterModal(true)}
-            onSwitchToMyBots={() => setActiveTab("myBots")}
-            onTournamentCreated={() => { const a = { value: true }; loadAll(a); }}
-          />
+          <div className="pt-panel">
+            <QuickTestTab
+              bots={bots}
+              ownedIds={ownedIds}
+              canManage={canManage}
+              onRegisterClick={() => setShowRegisterModal(true)}
+              onSwitchToMyBots={() => setActiveTab("myBots")}
+              onTournamentCreated={() => { const a = { value: true }; loadAll(a); }}
+            />
+          </div>
         )}
         {activeTab === "allGames" && (
-          <GamesTab
-            games={games}
-            ownedIds={ownedIds}
-            loading={gamesLoading}
-            errors={gamesErrors}
-            filterOwned={false}
-            onRefresh={() => { setGamesLoaded(false); const a = { value: true }; loadAll(a); }}
-          />
+          <div className="pt-panel">
+            <GamesTab
+              games={games}
+              ownedIds={ownedIds}
+              loading={gamesLoading}
+              errors={gamesErrors}
+              filterOwned={false}
+              onRefresh={() => { setGamesLoaded(false); const a = { value: true }; loadAll(a); }}
+            />
+          </div>
         )}
         {activeTab === "myGames" && !canManage && (
-          <div className="pt-placeholder">
-            <p className="pt-placeholder-title">My Games</p>
-            <p className="pt-placeholder-body">Sign in to see your own bot games.</p>
+          <div className="pt-panel">
+            <div className="pt-placeholder">
+              <p className="pt-placeholder-title">My Games</p>
+              <p className="pt-placeholder-body">Sign in to see your own bot games.</p>
+            </div>
           </div>
         )}
         {activeTab === "myGames" && canManage && (
-          <GamesTab
-            games={games}
-            ownedIds={ownedIds}
-            loading={gamesLoading}
-            errors={gamesErrors}
-            filterOwned={true}
-            onRefresh={() => { setGamesLoaded(false); const a = { value: true }; loadAll(a); }}
-          />
+          <div className="pt-panel">
+            <GamesTab
+              games={games}
+              ownedIds={ownedIds}
+              loading={gamesLoading}
+              errors={gamesErrors}
+              filterOwned={true}
+              onRefresh={() => { setGamesLoaded(false); const a = { value: true }; loadAll(a); }}
+            />
+          </div>
         )}
         {activeTab === "analytics" && (
-          <AnalyticsTab
-            games={games}
-            ownedIds={ownedIds}
-            loading={gamesLoading}
-            errors={gamesErrors}
-            canManage={canManage}
-            onRefresh={() => { setGamesLoaded(false); const a = { value: true }; loadAll(a); }}
-          />
+          <div className="pt-panel">
+            <AnalyticsTab
+              games={games}
+              ownedIds={ownedIds}
+              loading={gamesLoading}
+              errors={gamesErrors}
+              canManage={canManage}
+              onRefresh={() => { setGamesLoaded(false); const a = { value: true }; loadAll(a); }}
+            />
+          </div>
         )}
 
       </div>
 
       {showRegisterModal && (
         <RegisterBotModal
+          bots={bots}
+          ownedIds={ownedIds}
           onClose={() => setShowRegisterModal(false)}
           onRegistered={(bot) => {
             setShowRegisterModal(false);
