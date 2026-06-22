@@ -102,3 +102,20 @@ export interface LichessActiveGameSummary {
 export interface LichessActiveGamesResponse {
   games: LichessActiveGameSummary[];
 }
+
+// ── Tournament bot ownership types ────────────────────────────────────────────
+
+export interface OwnedTournamentBot {
+  botId: string;
+  botName: string;
+  createdAt: string;
+}
+
+export interface OwnedTournamentBotsResponse {
+  bots: OwnedTournamentBot[];
+}
+
+export interface RecordTournamentBotOwnershipRequest {
+  botId: string;
+  botName: string;
+}

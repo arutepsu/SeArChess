@@ -7,6 +7,7 @@ import {
   listPublicBots,
   startPublicTournament,
 } from "../../../api/publicTournamentClient";
+import { getMyTournamentBots } from "../../../api/userServiceClient";
 import type { PublicRegisteredBot, PublicResult, PublicTournament } from "../../../api/publicTournamentTypes";
 import Button from "../../../components/ui/Button";
 import ErrorState from "../../../components/ui/ErrorState";
@@ -99,17 +100,21 @@ function DirectorActions({
   id,
   tournament,
   bots,
+  ownedIds,
   onRefresh,
 }: {
   id: string;
   tournament: PublicTournament;
   bots: PublicRegisteredBot[];
+  ownedIds: Set<string>;
   onRefresh: () => void;
 }) {
   const navigate = useNavigate();
   const [selectedBotId, setSelectedBotId] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const ownedBots = bots.filter((b) => ownedIds.has(b.id));
 
   async function handleStart() {
     setBusy(true);
@@ -167,28 +172,42 @@ function DirectorActions({
           </>
         )}
       </div>
-      {tournament.status === "created" && bots.length > 0 && (
-        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <select
-            className="play-tournament-form-select"
-            value={selectedBotId}
-            onChange={(e) => setSelectedBotId(e.target.value)}
-            style={{ minWidth: 160 }}
-          >
-            <option value="">Select a bot…</option>
-            {bots.map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
-            ))}
-          </select>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => { void handleAddParticipant(); }}
-            disabled={busy || !selectedBotId}
-          >
-            Add participant
-          </Button>
-        </div>
+      {tournament.status === "created" && (
+        ownedBots.length > 0 ? (
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <select
+              className="play-tournament-form-select"
+              value={selectedBotId}
+              onChange={(e) => setSelectedBotId(e.target.value)}
+              style={{ minWidth: 160 }}
+            >
+              <option value="">Select your bot…</option>
+              {ownedBots.map((b) => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </select>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => { void handleAddParticipant(); }}
+              disabled={busy || !selectedBotId}
+            >
+              Add participant
+            </Button>
+          </div>
+        ) : (
+          <p className="play-tournament-info-label">
+            You have no registered bots. Go to the{" "}
+            <button
+              type="button"
+              className="pt-inline-link"
+              onClick={() => navigate("/play-tournament")}
+            >
+              tournament lobby
+            </button>
+            {" "}to register one before adding participants.
+          </p>
+        )
       )}
       {tournament.status !== "created" && (
         <p className="play-tournament-info-label">
@@ -206,6 +225,7 @@ export default function PublicTournamentDetailPage() {
   const navigate = useNavigate();
   const [tournament, setTournament] = useState<PublicTournament | null>(null);
   const [bots, setBots] = useState<PublicRegisteredBot[]>([]);
+  const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const canManage = canManagePublicTournaments();
@@ -229,6 +249,11 @@ export default function PublicTournamentDetailPage() {
     listPublicBots()
       .then((b) => { if (active.value) setBots(b); })
       .catch(() => { /* bots list is optional */ });
+    if (canManage) {
+      getMyTournamentBots()
+        .then((owned) => { if (active.value) setOwnedIds(new Set(owned.map((o) => o.botId))); })
+        .catch(() => { /* ownership list is optional */ });
+    }
     return () => { active.value = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
@@ -316,6 +341,7 @@ export default function PublicTournamentDetailPage() {
                 id={id ?? ""}
                 tournament={tournament}
                 bots={bots}
+                ownedIds={ownedIds}
                 onRefresh={() => {
                   const active = { value: true };
                   loadTournament(active);

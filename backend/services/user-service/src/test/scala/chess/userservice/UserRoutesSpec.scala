@@ -10,10 +10,11 @@ import chess.userservice.application.{
   LichessOAuthService,
   LichessTokenCipher,
   OAuthLinkStateRepository,
+  TournamentBotOwnershipRepository,
   UserProfileRepository,
   UserProfileService
 }
-import chess.userservice.domain.{ExternalAccountLink, OAuthLinkState, UserProfile}
+import chess.userservice.domain.{ExternalAccountLink, OAuthLinkState, TournamentBotOwnership, UserProfile}
 import fs2.Stream
 import org.http4s.*
 import org.http4s.client.Client
@@ -62,10 +63,11 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
     val profileRepo      = InMemUserProfileRepository()
     val linkRepo         = InMemExternalAccountLinkRepository()
     val stateRepo        = InMemOAuthLinkStateRepository()
+    val botOwnerRepo     = InMemTournamentBotOwnershipRepository()
     val service          = UserProfileService(profileRepo, linkRepo)
     val oauthService     = LichessOAuthService(stateRepo, linkRepo, noopHttpClient, testLichessConfig, cipher)
     val challengeService = LichessChallengeService(linkRepo, cipher, httpClient, testChallengeConfig)
-    val routes           = UserRoutes(service, oauthService, challengeService, testLichessConfig)
+    val routes           = UserRoutes(service, oauthService, challengeService, testLichessConfig, botOwnerRepo)
     (routes.routes.orNotFound, service, linkRepo)
 
   private def makeToken(sub: String, username: String): String =
@@ -353,6 +355,83 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
     body("code").str shouldBe "TOKEN_ENCRYPTION_NOT_CONFIGURED"
   }
 
+  // ── Tournament bot ownership endpoints ────────────────────────────────────
+
+  "GET /users/me/tournament-bots" should "return 401 without JWT" in {
+    val (app, _, _) = makeRoutes()
+    val req = Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/me/tournament-bots"))
+    app.run(req).unsafeRunSync().status shouldBe Status.Unauthorized
+  }
+
+  it should "return an empty list when the user has no bots" in {
+    val (app, _, _) = makeRoutes()
+    val req = Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/me/tournament-bots"))
+      .putHeaders(bearerHeader("sub-bots-empty", "botempty"))
+    val res  = app.run(req).unsafeRunSync()
+    val body = ujson.read(res.bodyText.compile.string.unsafeRunSync())
+    res.status                 shouldBe Status.Ok
+    body("bots").arr.length    shouldBe 0
+  }
+
+  "POST /users/me/tournament-bots" should "return 401 without JWT" in {
+    val (app, _, _) = makeRoutes()
+    val req = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/tournament-bots"))
+      .withEntity("""{"botId":"abc123","botName":"TestBot"}""")
+    app.run(req).unsafeRunSync().status shouldBe Status.Unauthorized
+  }
+
+  it should "record ownership and return 201 with botId and botName" in {
+    val (app, _, _) = makeRoutes()
+    val req = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/tournament-bots"))
+      .putHeaders(bearerHeader("sub-botowner", "botowner"))
+      .withEntity("""{"botId":"abc123","botName":"TestBot"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    val res  = app.run(req).unsafeRunSync()
+    val body = ujson.read(res.bodyText.compile.string.unsafeRunSync())
+    res.status           shouldBe Status.Created
+    body("botId").str    shouldBe "abc123"
+    body("botName").str  shouldBe "TestBot"
+    body.obj.contains("createdAt") shouldBe true
+  }
+
+  it should "return 400 when botId is missing" in {
+    val (app, _, _) = makeRoutes()
+    val req = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/tournament-bots"))
+      .putHeaders(bearerHeader("sub-botbad", "botbad"))
+      .withEntity("""{"botName":"TestBot"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    app.run(req).unsafeRunSync().status shouldBe Status.BadRequest
+  }
+
+  it should "return the existing record when the same botId is submitted twice (idempotent)" in {
+    val (app, _, _) = makeRoutes()
+    def req = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/tournament-bots"))
+      .putHeaders(bearerHeader("sub-botdup", "botdup"))
+      .withEntity("""{"botId":"dup-id","botName":"DupBot"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    app.run(req).unsafeRunSync().status shouldBe Status.Created
+    val res2 = app.run(req).unsafeRunSync()
+    val body = ujson.read(res2.bodyText.compile.string.unsafeRunSync())
+    res2.status          shouldBe Status.Created
+    body("botId").str    shouldBe "dup-id"
+  }
+
+  it should "be retrievable via GET /users/me/tournament-bots after recording" in {
+    val (app, _, _) = makeRoutes()
+    val postReq = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/tournament-bots"))
+      .putHeaders(bearerHeader("sub-botget", "botget"))
+      .withEntity("""{"botId":"bot-xyz","botName":"XyzBot"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    app.run(postReq).unsafeRunSync()
+
+    val getReq = Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/me/tournament-bots"))
+      .putHeaders(bearerHeader("sub-botget", "botget"))
+    val body = ujson.read(app.run(getReq).unsafeRunSync().bodyText.compile.string.unsafeRunSync())
+    body("bots").arr.length        shouldBe 1
+    body("bots")(0)("botId").str   shouldBe "bot-xyz"
+    body("bots")(0)("botName").str shouldBe "XyzBot"
+  }
+
   // ── In-memory stubs (thread-safe, per-test instance) ──────────────────────
 
   "GET /users/me/lichess/games/{gameId}" should "return 403 NO_LICHESS_LINK when user has no Lichess link" in {
@@ -565,3 +644,20 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
 
     override def findAndDelete(state: String): Either[String, Option[OAuthLinkState]] =
       Right(Option(store.remove(state)))
+
+  private class InMemTournamentBotOwnershipRepository extends TournamentBotOwnershipRepository:
+    private val store = new ConcurrentHashMap[String, TournamentBotOwnership]()
+
+    private def key(userId: java.util.UUID, botId: String) = s"$userId:$botId"
+
+    override def findAllByUserId(userId: java.util.UUID): Either[String, List[TournamentBotOwnership]] =
+      Right(store.values.asScala.filter(_.userId == userId).toList.sortBy(_.createdAt))
+
+    override def insertIfAbsent(ownership: TournamentBotOwnership): Either[String, TournamentBotOwnership] =
+      val k = key(ownership.userId, ownership.botId)
+      val existing = Option(store.get(k))
+      existing match
+        case Some(o) => Right(o)
+        case None =>
+          store.put(k, ownership)
+          Right(ownership)

@@ -72,6 +72,23 @@ class TournamentGatewayRoutes(
 
   private val directorRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
 
+    case req @ POST -> Root / "api" / "gateway" / "bots" =>
+      withDirector(req) { claims =>
+        req.bodyText.compile.string.flatMap { jsonBody =>
+          authBridge.withToken(claims.sub, claims.preferredUsername) { token =>
+            Request[IO](
+              method  = Method.POST,
+              uri     = upstreamBase.withPath(Uri.Path.unsafeFromString("/api/bots")),
+              headers = Headers(
+                Header.Raw(CIString("Content-Type"), "application/json"),
+                Header.Raw(CIString("Authorization"), s"Bearer $token")
+              ),
+              body = Stream.emits(jsonBody.getBytes("UTF-8")).covary[IO]
+            )
+          }
+        }
+      }
+
     case req @ POST -> Root / "api" / "gateway" / "tournament" =>
       withDirector(req) { claims =>
         req.bodyText.compile.string.flatMap { jsonBody =>

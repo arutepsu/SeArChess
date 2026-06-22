@@ -6,7 +6,10 @@ import type {
   LichessGameStateResponse,
   LichessLinkStartResponse,
   LichessUpgradeResponse,
+  OwnedTournamentBot,
+  OwnedTournamentBotsResponse,
   PatchProfileRequest,
+  RecordTournamentBotOwnershipRequest,
   SetManualLichessLinkRequest,
   SubmitLichessMoveResponse,
   UserProfileResponse,
@@ -105,6 +108,20 @@ export async function submitLichessMove(gameId: string, move: string): Promise<S
 
 export async function getActiveLichessGames(): Promise<LichessActiveGamesResponse> {
   return fetchUserJson<LichessActiveGamesResponse>("/users/me/lichess/games/active");
+}
+
+export async function getMyTournamentBots(): Promise<OwnedTournamentBot[]> {
+  const data = await fetchUserJson<OwnedTournamentBotsResponse>("/users/me/tournament-bots");
+  return data.bots;
+}
+
+export async function recordTournamentBotOwnership(
+  req: RecordTournamentBotOwnershipRequest
+): Promise<OwnedTournamentBot> {
+  return fetchUserJson<OwnedTournamentBot>("/users/me/tournament-bots", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
 }
 
 export async function deleteLichessLink(): Promise<void> {
