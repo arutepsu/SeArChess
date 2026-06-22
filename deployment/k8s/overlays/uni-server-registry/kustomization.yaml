@@ -74,7 +74,7 @@ images:
   newTag: sha-abd6f69
 - name: searchess/gateway-service
   newName: ghcr.io/arutepsu/searchess-gateway-service
-  newTag: sha-1899fc3
+  newTag: sha-ed91efb
 - name: searchess/history-service
   newName: ghcr.io/arutepsu/searchess-history-service
   newTag: sha-abd6f69
@@ -92,7 +92,7 @@ images:
   newTag: sha-abd6f69
 - name: searchess/user-service
   newName: ghcr.io/arutepsu/searchess-user-service
-  newTag: sha-abd6f69
+  newTag: sha-ed91efb
 - name: searchess/web-ui
   newName: ghcr.io/arutepsu/searchess-web-ui
   newTag: main
