@@ -13,6 +13,7 @@ import type {
   PublicTournament,
   PublicTournamentListResponse,
   RegisterBotRequest,
+  TournamentIdentityResponse,
 } from "./publicTournamentTypes";
 
 // Resolved auth headers as a plain Headers object.
@@ -192,6 +193,14 @@ export async function addPublicTournamentParticipant(
     `/tournament/${encodeURIComponent(id)}/participants`,
     { method: "POST", body: JSON.stringify({ botId }) },
   );
+}
+
+// Returns the current user's tournament-server identity (tournamentUserId, preferredUsername).
+// Registers the user with the tournament-server if not already cached on the gateway.
+// tournament.createdBy is the tournament-server userId, not the Keycloak preferred_username;
+// compare against tournamentUserId for correct director detection.
+export async function getCurrentTournamentIdentity(): Promise<TournamentIdentityResponse> {
+  return fetchGatewayAuth<TournamentIdentityResponse>("/tournament/me");
 }
 
 // Bot self-join via the gateway /join endpoint.

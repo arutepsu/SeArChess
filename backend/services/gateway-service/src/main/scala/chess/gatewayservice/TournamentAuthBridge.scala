@@ -41,6 +41,14 @@ final class TournamentAuthBridge(
       case Right(entry) => executeWithRetry(sub, displayName, entry.token, mkReq)
     }
 
+  /** Returns the current user's tournament-server identity (userId + token).
+    * Registers with the tournament-server if not yet cached.
+    * Used by the identity endpoint so the frontend can compare tournament.createdBy
+    * against the real tournament-server userId rather than the Keycloak preferred_username.
+    */
+  def getOrRegisterUser(sub: String, displayName: String): IO[Either[String, TournamentJwtCache.Entry]] =
+    getOrAcquireToken(sub, displayName)
+
   /** Execute `mkReq(botToken)` using a cached or freshly-registered bot JWT
     * (isBot=true). Ownership is verified by confirming that the tournament-server's
     * idempotent registration for (botName, isBot=true) returns `botId`. A mismatch

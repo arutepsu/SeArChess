@@ -194,6 +194,11 @@ export interface PublicTournamentUserInfo {
   tournamentUserId: string;
 }
 
+export interface TournamentIdentityResponse {
+  tournamentUserId: string;
+  preferredUsername: string;
+}
+
 // ── Stream event types ─────────────────────────────────────────────────────────
 
 export type PublicTournamentEventType =

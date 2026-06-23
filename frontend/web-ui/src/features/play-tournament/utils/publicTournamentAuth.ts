@@ -9,12 +9,15 @@ export function canManagePublicTournaments(): boolean {
 }
 
 // True if the current user is the creator of the given tournament.
-// Compares tournament.createdBy (Tournament Server username mapped from Keycloak
-// preferred_username via the gateway withDirector handler) to the local Keycloak claim.
+// tournament.createdBy is the tournament-server's own user ID (e.g. "usr_eda95654"),
+// not the Keycloak preferred_username. Pass the tournamentUserId from
+// getCurrentTournamentIdentity() for a correct comparison.
 // In dev mode (authEnabled=false) always returns true so director UX is testable.
-export function canDirectTournament(tournament: { createdBy: string }): boolean {
+export function canDirectTournament(
+  tournament: { createdBy: string },
+  tournamentUserId: string | null
+): boolean {
   if (!authEnabled) return true;
-  const username = keycloak.tokenParsed?.["preferred_username"] as string | undefined;
-  if (!username) return false;
-  return tournament.createdBy === username;
+  if (!tournamentUserId) return false;
+  return tournament.createdBy === tournamentUserId;
 }
