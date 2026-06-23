@@ -175,18 +175,22 @@ class TournamentGatewayRoutes(
             case Left(err) =>
               IO.pure(errorResponse(Status.BadRequest, "BAD_REQUEST", err))
             case Right((botId, botName)) =>
+              IO.delay(System.err.println(s"[JOIN] REQUEST tournamentId='$id' botId='$botId' botName='$botName'")) >>
               authBridge.withBotToken(botId, botName) { token =>
                 Request[IO](
                   method  = Method.POST,
                   uri     = upstreamBase.withPath(Uri.Path.unsafeFromString(s"/api/tournament/$id/join")),
                   headers = Headers(Header.Raw(CIString("Authorization"), s"Bearer $token"))
-                  // No body — tournament-server reads bot identity from JWT
+                  // No body — tournament-server reads bot identity from JWT.
+                  // DIAGNOSTIC: if wrong bot joins, the TS /join endpoint may use a different
+                  // identity signal (e.g. active bot) rather than the JWT subject.
                 )
               }.flatMap { resp =>
                 // Idempotent join: if the tournament-server rejects because the bot is already
                 // joined, treat it as success so the frontend can repair the Searchess participant
                 // record.  Any other non-2xx is passed through unchanged.
                 resp.bodyText.compile.string.map { body =>
+                  System.err.println(s"[JOIN] RESPONSE tournamentId='$id' botId='$botId' status=${resp.status.code} body='${body.take(500)}'")
                   if resp.status.isSuccess then
                     buildResponse(Status.Ok,
                       ujson.write(ujson.Obj("joined" -> true, "alreadyJoined" -> false)).getBytes("UTF-8"))
