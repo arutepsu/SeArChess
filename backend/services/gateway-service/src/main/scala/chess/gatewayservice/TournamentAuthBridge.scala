@@ -111,27 +111,33 @@ final class TournamentAuthBridge(
     botName: String
   ): IO[Either[String, TournamentJwtCache.Entry]] =
     botJwtCache.get(botId) match
-      case Some(entry) => IO.pure(Right(entry))
-      case None        => registerBot(botId, botName)
+      case Some(entry) =>
+        IO.delay(System.err.println(s"[BOT-AUTH] cache HIT  botId='$botId' botName='$botName' tournamentUserId='${entry.tournamentUserId}'")) >>
+        IO.pure(Right(entry))
+      case None =>
+        IO.delay(System.err.println(s"[BOT-AUTH] cache MISS botId='$botId' botName='$botName' → registerBot")) >>
+        registerBot(botId, botName)
 
   private def registerBot(
     expectedBotId: String,
     botName: String
   ): IO[Either[String, TournamentJwtCache.Entry]] =
-    val uri  = upstreamBase.withPath(Uri.Path.unsafeFromString("/api/auth/register"))
-    val body = ujson.write(ujson.Obj("name" -> botName, "isBot" -> true))
-    val req  = Request[IO](
+    val uri     = upstreamBase.withPath(Uri.Path.unsafeFromString("/api/auth/register"))
+    val reqBody = ujson.write(ujson.Obj("name" -> botName, "isBot" -> true))
+    val req     = Request[IO](
       method  = Method.POST,
       uri     = uri,
       headers = Headers(`Content-Type`(MediaType.application.json)),
-      body    = Stream.emits(body.getBytes("UTF-8")).covary[IO]
+      body    = Stream.emits(reqBody.getBytes("UTF-8")).covary[IO]
     )
+    IO.delay(System.err.println(s"[BOT-AUTH] registerBot REQUEST expectedBotId='$expectedBotId' body='$reqBody'")) >>
     client.run(req).use { resp =>
       resp.as[String].map { respBody =>
         if resp.status.isSuccess then
           try
             val json       = ujson.read(respBody)
             val returnedId = json("id").str
+            System.err.println(s"[BOT-AUTH] registerBot RESPONSE expectedBotId='$expectedBotId' returnedId='$returnedId' match=${returnedId == expectedBotId}")
             if returnedId != expectedBotId then
               Left("bot_id_mismatch")
             else
@@ -139,12 +145,17 @@ final class TournamentAuthBridge(
               botJwtCache.put(expectedBotId, entry)
               Right(entry)
           catch
-            case _: Exception => Left("Bot registration response parse failure")
+            case _: Exception =>
+              System.err.println(s"[BOT-AUTH] registerBot PARSE_ERROR expectedBotId='$expectedBotId' body='${respBody.take(300)}'")
+              Left("Bot registration response parse failure")
         else
+          System.err.println(s"[BOT-AUTH] registerBot FAILED expectedBotId='$expectedBotId' status=${resp.status.code} body='${respBody.take(300)}'")
           Left(s"Bot registration failed: ${resp.status.code}")
       }
     }.handleErrorWith { e =>
-      IO.pure(Left(s"Tournament-server unreachable during bot registration: ${Option(e.getMessage).getOrElse("unknown")}"))
+      val msg = Option(e.getMessage).getOrElse("unknown")
+      System.err.println(s"[BOT-AUTH] registerBot UNREACHABLE expectedBotId='$expectedBotId' error='$msg'")
+      IO.pure(Left(s"Tournament-server unreachable during bot registration: $msg"))
     }
 
   private def executeBotWithRetry(

@@ -253,6 +253,7 @@ class UserRoutes(
             case Left(err) =>
               respond(Status.BadRequest, ujson.Obj("code" -> "BAD_REQUEST", "message" -> err))
             case Right((tsBotId, tsBotName, tsUserId)) =>
+              System.err.println(s"[PARTICIPANT] REQUEST tournamentId='$tournamentId' userId='${profile.userId}' tsBotId='$tsBotId' tsBotName='$tsBotName' tsUserId='$tsUserId'")
               botOwnershipRepo.findAllByUserId(profile.userId) match
                 case Left(err) =>
                   respond(Status.InternalServerError, ujson.Obj("code" -> "INTERNAL_ERROR", "message" -> err))
@@ -279,6 +280,7 @@ class UserRoutes(
                         case Left(err) =>
                           respond(Status.InternalServerError, ujson.Obj("code" -> "INTERNAL_ERROR", "message" -> err))
                         case Right(saved) =>
+                          System.err.println(s"[PARTICIPANT] SAVED tournamentId='$tournamentId' searchessUserId='${saved.searchessUserId}' searchessBotId='${saved.searchessBotId}' tsBotId='${saved.tournamentServerBotId}' tsBotName='${saved.tournamentServerBotName}'")
                           respond(Status.Created, participantJson(saved, matchingOwnership.searchessCatalogBotId))
         }
       }
