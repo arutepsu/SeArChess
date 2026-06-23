@@ -10,6 +10,9 @@ data:
   # gateway-service proxies /api/gateway/* here, injecting its own server-side JWT.
   # The browser never sees this URL or the tournament-server JWT.
   TOURNAMENT_SERVER_URL: "http://141.37.123.132:8086"
+  # user-service ClusterIP — same namespace, resolved by kube-dns.
+  # localhost would point to the gateway pod itself, not user-service.
+  USER_SERVICE_URL: "http://user-service:8082"
   # GATEWAY_AUTH_DISABLED: "false" is the secure default.
   # Set to "true" only in local dev when Keycloak is not running.
   GATEWAY_AUTH_DISABLED: "false"

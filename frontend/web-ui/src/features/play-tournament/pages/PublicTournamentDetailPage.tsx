@@ -13,7 +13,7 @@ import {
   getTournamentParticipants,
   recordTournamentParticipant,
 } from "../../../api/userServiceClient";
-import type { PublicResult, PublicTournament, TournamentIdentityResponse } from "../../../api/publicTournamentTypes";
+import type { PublicBotRef, PublicResult, PublicTournament, TournamentIdentityResponse } from "../../../api/publicTournamentTypes";
 import type { OwnedTournamentBot, TournamentParticipant, UserProfileResponse } from "../../../api/userServiceTypes";
 import Button from "../../../components/ui/Button";
 import ErrorState from "../../../components/ui/ErrorState";
@@ -135,6 +135,10 @@ function ParticipantsSection({
   const hasServerAhead  = nbServer > nbSearchess;
   // A delta of 1 is normal while recordTournamentParticipant is in-flight; only warn on larger divergence.
   const hasSyncMismatch = Math.abs(nbServer - nbSearchess) > 1;
+  // Bots the Tournament Server has that Searchess never joined (e.g. auto-added by TS on create).
+  const tsBots        = tournament.standing?.results.map((r) => r.bot) ?? [];
+  const managedBotIds = new Set(participants.map((p) => p.tournamentServerBotId));
+  const unknownTsBots = tsBots.filter((b) => !managedBotIds.has(b.id));
 
   return (
     <SectionCard title={`Joined participants (${nbSearchess})`}>
@@ -196,6 +200,27 @@ function ParticipantsSection({
         <p className="play-tournament-info-label" style={{ marginTop: 10, textTransform: "none", fontSize: "0.8rem" }}>
           Some joined bots are not shown by name yet. Refresh to sync participant details.
         </p>
+      )}
+
+      {unknownTsBots.length > 0 && (
+        <div style={{ marginTop: 12, padding: "10px 12px", background: "rgba(245,158,11,0.08)", borderRadius: 6, border: "1px solid rgba(245,158,11,0.3)" }}>
+          <p className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.8rem", margin: "0 0 6px", color: "#f59e0b" }}>
+            ⚠ {unknownTsBots.length} unmanaged bot{unknownTsBots.length !== 1 ? "s" : ""} in Tournament Server — not joined via Searchess:
+          </p>
+          <div className="pt-bot-list">
+            {unknownTsBots.map((b) => (
+              <div key={b.id} className="pt-bot-item">
+                <span className="pt-bot-name">{b.name}</span>
+                <span className="pt-bot-meta">{b.id}</span>
+                <span style={{ flex: "1 1 auto" }} />
+                <span className="pt-bot-badge" style={{ background: "rgba(245,158,11,0.2)", color: "#f59e0b" }}>Unmanaged</span>
+              </div>
+            ))}
+          </div>
+          <p className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.8rem", margin: "8px 0 0" }}>
+            Searchess will block starting this tournament. Delete it and create a fresh one.
+          </p>
+        </div>
       )}
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 14 }}>
@@ -386,12 +411,15 @@ function JoinSection({
 function DirectorActions({
   id,
   participants,
+  tsBots,
   nbPlayers,
   onRefresh,
 }: {
   id: string;
   participants: TournamentParticipant[];
-  // Tournament Server nbPlayers reflects joined bot count; Searchess registry may lag.
+  // Tournament Server actual players from standing.results — used for exact-match guard.
+  tsBots: PublicBotRef[];
+  // Tournament Server nbPlayers for UI messaging only (may lag Searchess registry).
   nbPlayers: number;
   onRefresh: () => void;
 }) {
@@ -401,11 +429,31 @@ function DirectorActions({
 
   const participantCount = participants.length;
   const distinctUsers = new Set(participants.map((p) => p.searchessUserId)).size;
-  // Require ≥2 bots AND ≥2 distinct users confirmed in Searchess registry.
-  // nbPlayers alone cannot verify distinct users, so it does not unlock Start.
-  const canStart = participantCount >= 2 && distinctUsers >= 2;
+
+  // Exact-match guard: Searchess chosen bots must equal TS players exactly.
+  const searchessBotIds = new Set(participants.map((p) => p.tournamentServerBotId));
+  const tsBotIds        = new Set(tsBots.map((b) => b.id));
+  // Bots present in TS but never joined via Searchess (e.g. auto-added by TS on create).
+  const unknownInTs   = tsBots.filter((b) => !searchessBotIds.has(b.id));
+  // Searchess-confirmed bots absent from TS.
+  const missingFromTs = participants.filter((p) => !tsBotIds.has(p.tournamentServerBotId));
+  const hasParticipantMismatch = unknownInTs.length > 0 || missingFromTs.length > 0;
+
+  // Require ≥2 bots, ≥2 distinct users, AND exact TS/Searchess participant match.
+  const canStart = participantCount >= 2 && distinctUsers >= 2 && !hasParticipantMismatch;
 
   async function handleStart() {
+    // Enforce exact match before calling TS start — block if TS has unmanaged bots.
+    if (unknownInTs.length > 0 || missingFromTs.length > 0) {
+      const msgs: string[] = ["START_PARTICIPANT_MISMATCH: Tournament Server bots do not match Searchess selections."];
+      if (unknownInTs.length > 0)
+        msgs.push(`Unmanaged bots in Tournament Server: ${unknownInTs.map((b) => b.name).join(", ")}.`);
+      if (missingFromTs.length > 0)
+        msgs.push(`Searchess bots missing from Tournament Server: ${missingFromTs.map((p) => p.tournamentServerBotName).join(", ")}.`);
+      msgs.push("Delete this tournament and create a fresh one.");
+      setActionError(msgs.join(" "));
+      return;
+    }
     setBusy(true);
     setActionError(null);
     try {
@@ -457,7 +505,11 @@ function DirectorActions({
       </div>
       {!canStart && (
         <p className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.875rem" }}>
-          {participantCount < 2 && nbPlayers >= 2
+          {hasParticipantMismatch && unknownInTs.length > 0
+            ? `Cannot start: Tournament Server has unmanaged bots (${unknownInTs.map((b) => b.name).join(", ")}). Delete this tournament and create a fresh one.`
+            : hasParticipantMismatch && missingFromTs.length > 0
+            ? `Cannot start: Searchess bots are missing from Tournament Server (${missingFromTs.map((p) => p.tournamentServerBotName).join(", ")}). Try joining again.`
+            : participantCount < 2 && nbPlayers >= 2
             ? "Tournament Server reports joined bots, but Searchess has not recorded enough participant details yet."
             : participantCount >= 2 && distinctUsers < 2
             ? "At least 2 different users must join with their bots."
@@ -656,6 +708,7 @@ export default function PublicTournamentDetailPage() {
                       <DirectorActions
                         id={id ?? ""}
                         participants={participants}
+                        tsBots={tournament.standing?.results.map((r) => r.bot) ?? []}
                         nbPlayers={tournament.nbPlayers}
                         onRefresh={handleRefresh}
                       />

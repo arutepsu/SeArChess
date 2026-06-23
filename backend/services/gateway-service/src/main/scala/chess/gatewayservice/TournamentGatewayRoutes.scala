@@ -19,7 +19,8 @@ class TournamentGatewayRoutes(
   authBridge: TournamentAuthBridge
 ):
 
-  private val upstreamBase = Uri.unsafeFromString(config.tournamentServerUrl)
+  private val upstreamBase    = Uri.unsafeFromString(config.tournamentServerUrl)
+  private val userServiceBase = Uri.unsafeFromString(config.userServiceUrl)
 
   // ── Liveness ──────────────────────────────────────────────────────────────────
 
@@ -131,12 +132,16 @@ class TournamentGatewayRoutes(
 
     case req @ POST -> Root / "api" / "gateway" / "tournament" / id / "start" =>
       withDirector(req) { claims =>
-        authBridge.withToken(claims.sub, claims.preferredUsername) { token =>
-          Request[IO](
-            method  = Method.POST,
-            uri     = upstreamBase.withPath(Uri.Path.unsafeFromString(s"/api/tournament/$id/start")),
-            headers = Headers(Header.Raw(CIString("Authorization"), s"Bearer $token"))
-          )
+        validateParticipantsBeforeStart(id).flatMap {
+          case Some(mismatchResp) => IO.pure(mismatchResp)
+          case None =>
+            authBridge.withToken(claims.sub, claims.preferredUsername) { token =>
+              Request[IO](
+                method  = Method.POST,
+                uri     = upstreamBase.withPath(Uri.Path.unsafeFromString(s"/api/tournament/$id/start")),
+                headers = Headers(Header.Raw(CIString("Authorization"), s"Bearer $token"))
+              )
+            }
         }
       }
 
@@ -380,6 +385,69 @@ class TournamentGatewayRoutes(
     fields.map { (k, v) =>
       java.net.URLEncoder.encode(k, "UTF-8") + "=" + java.net.URLEncoder.encode(v, "UTF-8")
     }.mkString("&")
+
+  // ── Helpers: pre-start participant validation ─────────────────────────────────
+
+  private def validateParticipantsBeforeStart(tournamentId: String): IO[Option[Response[IO]]] =
+    val participantsUri = userServiceBase.withPath(
+      Uri.Path.unsafeFromString(s"/users/tournaments/$tournamentId/participants"))
+    val tsDetailUri = upstreamBase.withPath(
+      Uri.Path.unsafeFromString(s"/api/tournament/$tournamentId"))
+    for
+      participantsBody <- client.expect[String](participantsUri)
+        .handleError(_ => """{"participants":[]}""")
+      tsDetailBody <- client.expect[String](tsDetailUri)
+        .handleError(_ => """{}""")
+    yield checkParticipantMismatch(participantsBody, tsDetailBody)
+
+  // Exposed as private[gatewayservice] so unit tests in the same package can call it directly.
+  private[gatewayservice] def checkParticipantMismatch(
+    participantsBody: String,
+    tsDetailBody: String
+  ): Option[Response[IO]] =
+    val searchessBots = parseSearchessParticipants(participantsBody)
+    val tsBots        = parseTsBots(tsDetailBody)
+    if searchessBots.isEmpty then
+      Some(errorResponse(Status.Conflict, "START_PARTICIPANT_MISMATCH",
+        "No Searchess participants found. Cannot verify participant integrity before start."))
+    else
+      val expectedIds   = searchessBots.map(_._1).toSet
+      val actualIds     = tsBots.map(_._1).toSet
+      val unknownInTs   = tsBots.filter { case (id, _)   => !expectedIds.contains(id) }
+      val missingFromTs = searchessBots.filter { case (id, _) => !actualIds.contains(id) }
+      if unknownInTs.nonEmpty || missingFromTs.nonEmpty then
+        Some(buildResponse(Status.Conflict, ujson.write(ujson.Obj(
+          "code"          -> "START_PARTICIPANT_MISMATCH",
+          "message"       -> "Tournament Server bots do not match Searchess participants",
+          "unknownInTs"   -> ujson.Arr(unknownInTs.map   { case (i, n) => ujson.Obj("id" -> i, "name" -> n): ujson.Value }*),
+          "missingFromTs" -> ujson.Arr(missingFromTs.map { case (i, n) => ujson.Obj("id" -> i, "name" -> n): ujson.Value }*)
+        )).getBytes("UTF-8")))
+      else
+        None
+
+  private[gatewayservice] def parseSearchessParticipants(body: String): List[(String, String)] =
+    try
+      ujson.read(body)("participants").arr.value.toList.flatMap { p =>
+        try Some((p("tournamentServerBotId").str, p("tournamentServerBotName").str))
+        catch case _: Exception => None
+      }
+    catch case _: Exception => List.empty
+
+  private[gatewayservice] def parseTsBots(body: String): List[(String, String)] =
+    try
+      val json     = ujson.read(body)
+      val standing = json("standing")
+      val entries =
+        (try Some(standing("players").arr.value.toList) catch case _: Exception => None)
+          .orElse(try Some(standing("results").arr.value.toList) catch case _: Exception => None)
+          .getOrElse(List.empty)
+      entries.flatMap { p =>
+        try
+          val bot = p("bot")
+          Some((bot("id").str, bot("name").str))
+        catch case _: Exception => None
+      }
+    catch case _: Exception => List.empty
 
   // ── Helpers: response builders ────────────────────────────────────────────────
 
