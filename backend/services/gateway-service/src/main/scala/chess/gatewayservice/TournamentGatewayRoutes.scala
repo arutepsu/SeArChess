@@ -463,7 +463,7 @@ class TournamentGatewayRoutes(
         Left(s"Host bot join failed after create: ${joinResp.status.code} ${body.take(200)}")
       }
     }.handleError { err =>
-      IO.pure(Left(s"Host bot join error: ${Option(err.getMessage).getOrElse("unknown")}"))
+      Left(s"Host bot join error: ${Option(err.getMessage).getOrElse("unknown")}")
     }
 
   private def deleteAfterContaminatedCreate(
