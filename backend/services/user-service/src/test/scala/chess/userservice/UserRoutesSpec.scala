@@ -10,11 +10,12 @@ import chess.userservice.application.{
   LichessOAuthService,
   LichessTokenCipher,
   OAuthLinkStateRepository,
+  PublicTournamentParticipantRepository,
   TournamentBotOwnershipRepository,
   UserProfileRepository,
   UserProfileService
 }
-import chess.userservice.domain.{ExternalAccountLink, OAuthLinkState, TournamentBotOwnership, UserProfile}
+import chess.userservice.domain.{ExternalAccountLink, OAuthLinkState, PublicTournamentParticipant, TournamentBotOwnership, UserProfile}
 import fs2.Stream
 import org.http4s.*
 import org.http4s.client.Client
@@ -64,10 +65,11 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
     val linkRepo         = InMemExternalAccountLinkRepository()
     val stateRepo        = InMemOAuthLinkStateRepository()
     val botOwnerRepo     = InMemTournamentBotOwnershipRepository()
+    val participantRepo  = InMemPublicTournamentParticipantRepository()
     val service          = UserProfileService(profileRepo, linkRepo)
     val oauthService     = LichessOAuthService(stateRepo, linkRepo, noopHttpClient, testLichessConfig, cipher)
     val challengeService = LichessChallengeService(linkRepo, cipher, httpClient, testChallengeConfig)
-    val routes           = UserRoutes(service, oauthService, challengeService, testLichessConfig, botOwnerRepo)
+    val routes           = UserRoutes(service, oauthService, challengeService, testLichessConfig, botOwnerRepo, participantRepo)
     (routes.routes.orNotFound, service, linkRepo)
 
   private def makeToken(sub: String, username: String): String =
@@ -661,3 +663,176 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
         case None =>
           store.put(k, ownership)
           Right(ownership)
+
+  private class InMemPublicTournamentParticipantRepository extends PublicTournamentParticipantRepository:
+    private val store = new ConcurrentHashMap[String, PublicTournamentParticipant]()
+
+    private def key(tournamentId: String, botId: String) = s"$tournamentId:$botId"
+
+    override def findByTournamentId(tournamentId: String): Either[String, List[PublicTournamentParticipant]] =
+      Right(store.values.asScala.filter(_.tournamentId == tournamentId).toList.sortBy(_.joinedAt))
+
+    override def insertIfAbsent(p: PublicTournamentParticipant): Either[String, PublicTournamentParticipant] =
+      val k = key(p.tournamentId, p.botId)
+      Option(store.get(k)) match
+        case Some(existing) if existing.userId == p.userId => Right(existing)
+        case Some(_)                                       => Left("bot_already_claimed_by_another_user")
+        case None =>
+          store.put(k, p)
+          Right(p)
+
+  // ── Public tournament participant endpoints ───────────────────────────────
+
+  "GET /users/tournaments/{tournamentId}/participants" should "return empty list when no participants have joined" in {
+    val (app, _, _) = makeRoutes()
+    val req = Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/tournaments/t-empty/participants"))
+    val res  = app.run(req).unsafeRunSync()
+    val body = ujson.read(res.bodyText.compile.string.unsafeRunSync())
+    res.status                              shouldBe Status.Ok
+    body("tournamentId").str                shouldBe "t-empty"
+    body("participants").arr.length         shouldBe 0
+  }
+
+  "POST /users/tournaments/{tournamentId}/participants" should "return 401 without JWT" in {
+    val (app, _, _) = makeRoutes()
+    val req = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/tournaments/t-001/participants"))
+      .withEntity("""{"botId":"bot-1","botName":"TestBot"}""")
+    app.run(req).unsafeRunSync().status shouldBe Status.Unauthorized
+  }
+
+  it should "succeed when user owns the bot" in {
+    val (app, _, _) = makeRoutes()
+    val registerReq = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/tournament-bots"))
+      .putHeaders(bearerHeader("sub-p-owner", "powner"))
+      .withEntity("""{"botId":"bot-p1","botName":"PBot1"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    app.run(registerReq).unsafeRunSync().status shouldBe Status.Created
+
+    val joinReq = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/tournaments/t-001/participants"))
+      .putHeaders(bearerHeader("sub-p-owner", "powner"))
+      .withEntity("""{"botId":"bot-p1","botName":"PBot1"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    val res  = app.run(joinReq).unsafeRunSync()
+    val body = ujson.read(res.bodyText.compile.string.unsafeRunSync())
+    res.status               shouldBe Status.Created
+    body("tournamentId").str shouldBe "t-001"
+    body("botId").str        shouldBe "bot-p1"
+    body("botName").str      shouldBe "PBot1"
+    body("displayName").str  shouldBe "powner"
+    body.obj.contains("userId")   shouldBe true
+    body.obj.contains("joinedAt") shouldBe true
+  }
+
+  it should "be idempotent for the same tournamentId and botId" in {
+    val (app, _, _) = makeRoutes()
+    val registerReq = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/tournament-bots"))
+      .putHeaders(bearerHeader("sub-p-idem", "pidem"))
+      .withEntity("""{"botId":"bot-idem","botName":"IdemBot"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    app.run(registerReq).unsafeRunSync()
+
+    def joinReq = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/tournaments/t-idem/participants"))
+      .putHeaders(bearerHeader("sub-p-idem", "pidem"))
+      .withEntity("""{"botId":"bot-idem","botName":"IdemBot"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    val res1 = app.run(joinReq).unsafeRunSync()
+    val res2 = app.run(joinReq).unsafeRunSync()
+    val userId1 = ujson.read(res1.bodyText.compile.string.unsafeRunSync())("userId").str
+    val userId2 = ujson.read(res2.bodyText.compile.string.unsafeRunSync())("userId").str
+    res1.status shouldBe Status.Created
+    res2.status shouldBe Status.Created
+    userId1     shouldBe userId2
+  }
+
+  it should "return 403 BOT_NOT_OWNED when user does not own the bot" in {
+    val (app, _, _) = makeRoutes()
+    val joinReq = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/tournaments/t-002/participants"))
+      .putHeaders(bearerHeader("sub-p-noown", "pnoown"))
+      .withEntity("""{"botId":"bot-someone-elses","botName":"ForeignBot"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    val res  = app.run(joinReq).unsafeRunSync()
+    val body = ujson.read(res.bodyText.compile.string.unsafeRunSync())
+    res.status       shouldBe Status.Forbidden
+    body("code").str shouldBe "BOT_NOT_OWNED"
+  }
+
+  "GET /users/tournaments/{tournamentId}/participants" should "return displayName and botName for joined participants" in {
+    val (app, _, _) = makeRoutes()
+    val registerReq = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/tournament-bots"))
+      .putHeaders(bearerHeader("sub-p-display", "displayuser"))
+      .withEntity("""{"botId":"bot-disp","botName":"DisplayBot"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    app.run(registerReq).unsafeRunSync()
+
+    val joinReq = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/tournaments/t-disp/participants"))
+      .putHeaders(bearerHeader("sub-p-display", "displayuser"))
+      .withEntity("""{"botId":"bot-disp","botName":"DisplayBot"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    app.run(joinReq).unsafeRunSync()
+
+    val getReq = Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/tournaments/t-disp/participants"))
+    val body = ujson.read(app.run(getReq).unsafeRunSync().bodyText.compile.string.unsafeRunSync())
+    body("participants").arr.length                shouldBe 1
+    body("participants")(0)("botId").str           shouldBe "bot-disp"
+    body("participants")(0)("botName").str         shouldBe "DisplayBot"
+    body("participants")(0)("displayName").str     shouldBe "displayuser"
+    body("participants")(0).obj.contains("userId") shouldBe true
+  }
+
+  it should "list participants from multiple users who joined with different bots" in {
+    val (app, _, _) = makeRoutes()
+
+    def registerAndJoin(sub: String, username: String, botId: String, botName: String): Unit =
+      app.run(
+        Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/tournament-bots"))
+          .putHeaders(bearerHeader(sub, username))
+          .withEntity(s"""{"botId":"$botId","botName":"$botName"}""")
+          .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+      ).unsafeRunSync()
+      app.run(
+        Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/tournaments/t-multi/participants"))
+          .putHeaders(bearerHeader(sub, username))
+          .withEntity(s"""{"botId":"$botId","botName":"$botName"}""")
+          .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+      ).unsafeRunSync()
+
+    registerAndJoin("sub-multi-a", "useralpha", "bot-alpha", "AlphaBot")
+    registerAndJoin("sub-multi-b", "userbeta", "bot-beta", "BetaBot")
+
+    val body = ujson.read(
+      app.run(Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/tournaments/t-multi/participants")))
+        .unsafeRunSync().bodyText.compile.string.unsafeRunSync()
+    )
+    val names = body("participants").arr.map(_("displayName").str).toSet
+    body("participants").arr.length shouldBe 2
+    names should contain("useralpha")
+    names should contain("userbeta")
+  }
+
+  "POST /users/tournaments/{tournamentId}/participants" should "return 409 when the same bot is already claimed for that tournament by another user" in {
+    val (app, _, _) = makeRoutes()
+
+    // Both users register the same botId (ownership table allows this)
+    def registerBot(sub: String, username: String): Unit =
+      app.run(
+        Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/tournament-bots"))
+          .putHeaders(bearerHeader(sub, username))
+          .withEntity("""{"botId":"bot-shared","botName":"SharedBot"}""")
+          .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+      ).unsafeRunSync()
+
+    registerBot("sub-claim-a", "claimera")
+    registerBot("sub-claim-b", "claimerb")
+
+    def joinReq(sub: String, username: String) =
+      Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/tournaments/t-claim/participants"))
+        .putHeaders(bearerHeader(sub, username))
+        .withEntity("""{"botId":"bot-shared","botName":"SharedBot"}""")
+        .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+
+    app.run(joinReq("sub-claim-a", "claimera")).unsafeRunSync().status shouldBe Status.Created
+    val res  = app.run(joinReq("sub-claim-b", "claimerb")).unsafeRunSync()
+    val body = ujson.read(res.bodyText.compile.string.unsafeRunSync())
+    res.status       shouldBe Status.Conflict
+    body("code").str shouldBe "BOT_ALREADY_CLAIMED"
+  }

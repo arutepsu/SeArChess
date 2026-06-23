@@ -83,11 +83,15 @@ function TournamentsTab({
   data,
   loading,
   error,
+  canManage,
+  onCreateClick,
   onSelect,
 }: {
   data: PublicTournamentListResponse | null;
   loading: boolean;
   error: string | null;
+  canManage: boolean;
+  onCreateClick: () => void;
   onSelect: (id: string) => void;
 }) {
   if (loading) return <LoadingState message="Loading tournaments…" />;
@@ -102,7 +106,21 @@ function TournamentsTab({
       <TournamentGroup label="Waiting to start" statusClass="created" items={data.created}  onSelect={onSelect} />
       <TournamentGroup label="Finished"       statusClass="finished" items={data.finished} onSelect={onSelect} />
       {total === 0 && (
-        <p className="play-tournament-empty">No tournaments found on the public server.</p>
+        <div className="pt-placeholder">
+          <p className="pt-placeholder-title">No tournaments yet</p>
+          {canManage ? (
+            <>
+              <p className="pt-placeholder-body">Create one to get started.</p>
+              <div style={{ marginTop: 12 }}>
+                <Button variant="primary" size="sm" onClick={onCreateClick}>
+                  + Create Tournament
+                </Button>
+              </div>
+            </>
+          ) : (
+            <p className="pt-placeholder-body">Sign in to create a tournament.</p>
+          )}
+        </div>
       )}
     </>
   );
@@ -144,9 +162,6 @@ function MyBotsTab({
               <span className="pt-bot-name">{b.name}</span>
               <span className="pt-bot-meta">
                 {[b.family, b.engineType, b.modelVersion].filter(Boolean).join(" · ")}
-              </span>
-              <span className="pt-bot-meta" style={{ flex: "none", fontSize: "0.72rem" }}>
-                id: {b.id}
               </span>
               <span className="pt-bot-badge pt-bot-badge--own">Your bot</span>
             </div>
@@ -312,6 +327,8 @@ export default function PublicTournamentLobbyPage() {
               data={data}
               loading={loading}
               error={error}
+              canManage={canManage}
+              onCreateClick={() => navigate("/play-tournament/create")}
               onSelect={(id) => navigate(`/play-tournament/${id}`)}
             />
           </div>

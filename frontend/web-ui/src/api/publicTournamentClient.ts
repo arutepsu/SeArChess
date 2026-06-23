@@ -136,7 +136,9 @@ async function fetchGatewayAuth<T>(path: string, options?: RequestInit): Promise
     let message = `Request failed: ${response.status}`;
     try {
       const json = JSON.parse(text) as { message?: string; code?: string; error?: string };
-      if (json.message) message = json.message;
+      if (json.code === "BOT_ID_MISMATCH")
+        message = "Ownership check failed: this bot is registered under a different ID. Re-register the bot and try again.";
+      else if (json.message) message = json.message;
       else if (json.error) message = json.error;
     } catch {
       // ignore parse error
@@ -189,6 +191,20 @@ export async function addPublicTournamentParticipant(
   await fetchGatewayAuth<void>(
     `/tournament/${encodeURIComponent(id)}/participants`,
     { method: "POST", body: JSON.stringify({ botId }) },
+  );
+}
+
+// Bot self-join via the gateway /join endpoint.
+// Gateway acquires a bot JWT (isBot=true) and calls the tournament-server /join.
+// Ownership is verified server-side: registration of (botName, isBot=true) must
+// return the expected botId, otherwise the gateway rejects with BOT_ID_MISMATCH.
+export async function joinPublicTournamentWithBot(
+  id: string,
+  req: { botId: string; botName: string },
+): Promise<void> {
+  await fetchGatewayAuth<void>(
+    `/tournament/${encodeURIComponent(id)}/join`,
+    { method: "POST", body: JSON.stringify(req) },
   );
 }
 

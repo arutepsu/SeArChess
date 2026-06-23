@@ -10,8 +10,11 @@ import type {
   OwnedTournamentBotsResponse,
   PatchProfileRequest,
   RecordTournamentBotOwnershipRequest,
+  RecordTournamentParticipantRequest,
   SetManualLichessLinkRequest,
   SubmitLichessMoveResponse,
+  TournamentParticipant,
+  TournamentParticipantsResponse,
   UserProfileResponse,
 } from "./userServiceTypes";
 import keycloak from "../auth/keycloak";
@@ -122,6 +125,25 @@ export async function recordTournamentBotOwnership(
     method: "POST",
     body: JSON.stringify(req),
   });
+}
+
+export async function getTournamentParticipants(
+  tournamentId: string
+): Promise<TournamentParticipant[]> {
+  const data = await fetchUserJson<TournamentParticipantsResponse>(
+    `/users/tournaments/${encodeURIComponent(tournamentId)}/participants`
+  );
+  return data.participants;
+}
+
+export async function recordTournamentParticipant(
+  tournamentId: string,
+  req: RecordTournamentParticipantRequest
+): Promise<TournamentParticipant> {
+  return fetchUserJson<TournamentParticipant>(
+    `/users/tournaments/${encodeURIComponent(tournamentId)}/participants`,
+    { method: "POST", body: JSON.stringify(req) }
+  );
 }
 
 export async function deleteLichessLink(): Promise<void> {

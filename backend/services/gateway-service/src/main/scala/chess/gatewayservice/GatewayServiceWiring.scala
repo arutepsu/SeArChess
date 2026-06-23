@@ -15,8 +15,9 @@ object GatewayServiceWiring:
         .withTimeout(24.hours)  // allow long-lived NDJSON streaming connections
         .build.allocated.unsafeRunSync()
 
-    val jwtCache  = new TournamentJwtCache()
-    val authBridge = new TournamentAuthBridge(httpClient, config.tournamentServerUrl, jwtCache)
+    val jwtCache    = new TournamentJwtCache()
+    val botJwtCache = new TournamentJwtCache()
+    val authBridge  = new TournamentAuthBridge(httpClient, config.tournamentServerUrl, jwtCache, botJwtCache)
     val routes    = new TournamentGatewayRoutes(httpClient, config, authBridge)
     val httpApp = routes.routes.orNotFound
 

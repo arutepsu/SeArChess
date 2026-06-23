@@ -283,6 +283,12 @@ export default function PublicTournamentGamePage() {
       ? `${whiteName} vs ${blackName}`
       : gameId ?? "Game";
 
+  // Map raw "white"/"black" winner token to the actual bot name for display.
+  const winnerName =
+    winner === "white" ? (whiteName ?? "White") :
+    winner === "black" ? (blackName ?? "Black") :
+    winner;
+
   const streamIdle = status === "idle";
   const streamDone = status === "closed" || status === "error";
 
@@ -361,10 +367,10 @@ export default function PublicTournamentGamePage() {
                     <p className="play-tournament-info-value">{gameStatus}</p>
                   </div>
                 )}
-                {winner && (
+                {winnerName && (
                   <div className="play-tournament-info-item">
                     <p className="play-tournament-info-label">Winner</p>
-                    <p className="play-tournament-info-value">{winner}</p>
+                    <p className="play-tournament-info-value">{winnerName}</p>
                   </div>
                 )}
                 {round !== null && (

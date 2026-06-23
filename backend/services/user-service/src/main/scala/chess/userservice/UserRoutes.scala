@@ -2,8 +2,8 @@ package chess.userservice
 
 import cats.effect.IO
 import chess.observability.StructuredLog
-import chess.userservice.application.{CreateChallengeRequest, JwtSubjectExtractor, LichessActiveGameSummary, LichessChallengeService, LichessGameStateResult, LichessOAuthConfig, LichessOAuthService, SubmitLichessMoveResult, TournamentBotOwnershipRepository, UserProfileService}
-import chess.userservice.domain.{ExternalAccountLink, TournamentBotOwnership, UserProfile}
+import chess.userservice.application.{CreateChallengeRequest, JwtSubjectExtractor, LichessActiveGameSummary, LichessChallengeService, LichessGameStateResult, LichessOAuthConfig, LichessOAuthService, PublicTournamentParticipantRepository, SubmitLichessMoveResult, TournamentBotOwnershipRepository, UserProfileService}
+import chess.userservice.domain.{ExternalAccountLink, PublicTournamentParticipant, TournamentBotOwnership, UserProfile}
 import fs2.Stream
 import org.http4s.*
 import org.http4s.dsl.io.*
@@ -26,13 +26,16 @@ import java.util.UUID
   *   POST   /users/me/lichess/challenges/searchess-bot     — create Lichess challenge to Searchess BOT (challenge_ready only)
   *   GET    /users/me/tournament-bots                      — list owned tournament-server bot IDs
   *   POST   /users/me/tournament-bots                      — record ownership of a tournament-server bot
+  *   GET    /users/tournaments/{tournamentId}/participants  — list joined participants (public)
+  *   POST   /users/tournaments/{tournamentId}/participants  — record participant join (auth required)
   */
 class UserRoutes(
     service: UserProfileService,
     oauthService: LichessOAuthService,
     challengeService: LichessChallengeService,
     lichessConfig: LichessOAuthConfig,
-    botOwnershipRepo: TournamentBotOwnershipRepository
+    botOwnershipRepo: TournamentBotOwnershipRepository,
+    participantRepo: PublicTournamentParticipantRepository
 ):
 
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
@@ -221,6 +224,48 @@ class UserRoutes(
                   respond(Status.InternalServerError, ujson.Obj("code" -> "INTERNAL_ERROR", "message" -> err))
                 case Right(saved) =>
                   respond(Status.Created, botOwnershipJson(saved))
+        }
+      }
+
+    case GET -> Root / "users" / "tournaments" / tournamentId / "participants" =>
+      participantRepo.findByTournamentId(tournamentId) match
+        case Left(err) =>
+          respond(Status.InternalServerError, ujson.Obj("code" -> "INTERNAL_ERROR", "message" -> err))
+        case Right(participants) =>
+          respond(Status.Ok, ujson.Obj(
+            "tournamentId" -> tournamentId,
+            "participants" -> ujson.Arr(participants.map(participantJson)*)
+          ))
+
+    case req @ POST -> Root / "users" / "tournaments" / tournamentId / "participants" =>
+      withSubject(req) { (_, profile) =>
+        req.bodyText.compile.string.flatMap { body =>
+          parseAddParticipantRequest(body) match
+            case Left(err) =>
+              respond(Status.BadRequest, ujson.Obj("code" -> "BAD_REQUEST", "message" -> err))
+            case Right((botId, botName)) =>
+              botOwnershipRepo.findAllByUserId(profile.userId) match
+                case Left(err) =>
+                  respond(Status.InternalServerError, ujson.Obj("code" -> "INTERNAL_ERROR", "message" -> err))
+                case Right(ownedBots) =>
+                  if !ownedBots.exists(_.botId == botId) then
+                    respond(Status.Forbidden, ujson.Obj("code" -> "BOT_NOT_OWNED", "message" -> s"Bot '$botId' is not registered to this user"))
+                  else
+                    val participant = PublicTournamentParticipant(
+                      tournamentId = tournamentId,
+                      botId        = botId,
+                      botName      = botName,
+                      userId       = profile.userId,
+                      displayName  = profile.displayName,
+                      joinedAt     = java.time.Instant.now()
+                    )
+                    participantRepo.insertIfAbsent(participant) match
+                      case Left("bot_already_claimed_by_another_user") =>
+                        respond(Status.Conflict, ujson.Obj("code" -> "BOT_ALREADY_CLAIMED", "message" -> s"Bot '$botId' is already registered for this tournament by another user"))
+                      case Left(err) =>
+                        respond(Status.InternalServerError, ujson.Obj("code" -> "INTERNAL_ERROR", "message" -> err))
+                      case Right(saved) =>
+                        respond(Status.Created, participantJson(saved))
         }
       }
 
@@ -417,6 +462,28 @@ class UserRoutes(
       "botId"     -> o.botId,
       "botName"   -> o.botName,
       "createdAt" -> o.createdAt.toString
+    )
+
+  private def parseAddParticipantRequest(body: String): Either[String, (String, String)] =
+    try
+      val json  = ujson.read(body)
+      val botId = json.obj.get("botId").flatMap(_.strOpt).map(_.trim).filter(_.nonEmpty)
+      val name  = json.obj.get("botName").flatMap(_.strOpt).map(_.trim).filter(_.nonEmpty)
+      (botId, name) match
+        case (Some(id), Some(n)) => Right((id, n))
+        case (None, _)           => Left("Missing or empty 'botId' field")
+        case (_, None)           => Left("Missing or empty 'botName' field")
+    catch
+      case _: Exception => Left("Request body must be valid JSON with 'botId' and 'botName' string fields")
+
+  private def participantJson(p: PublicTournamentParticipant): ujson.Value =
+    ujson.Obj(
+      "tournamentId" -> p.tournamentId,
+      "botId"        -> p.botId,
+      "botName"      -> p.botName,
+      "userId"       -> p.userId.toString,
+      "displayName"  -> p.displayName,
+      "joinedAt"     -> p.joinedAt.toString
     )
 
   private def respond(status: Status, body: ujson.Value): IO[Response[IO]] =
