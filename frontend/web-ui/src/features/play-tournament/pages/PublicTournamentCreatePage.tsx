@@ -4,6 +4,8 @@ import { createPublicTournament } from "../../../api/publicTournamentClient";
 import type { CreatePublicTournamentRequest, PublicTournamentFormat } from "../../../api/publicTournamentTypes";
 import { listPublicOpenings } from "../../../api/publicTournamentClient";
 import type { PublicOpening } from "../../../api/publicTournamentTypes";
+import { getMyTournamentBots, recordTournamentParticipant } from "../../../api/userServiceClient";
+import type { OwnedTournamentBot } from "../../../api/userServiceTypes";
 import Button from "../../../components/ui/Button";
 import ErrorState from "../../../components/ui/ErrorState";
 import "./PlayTournament.css";
@@ -41,7 +43,8 @@ function initialForm(): FormState {
   };
 }
 
-function validate(f: FormState): string | null {
+function validate(f: FormState, selectedBotId: string): string | null {
+  if (!selectedBotId) return "Select your participating bot before creating a tournament.";
   if (!f.name.trim()) return "Tournament name is required.";
   const rounds = Number(f.nbRounds);
   if (!Number.isInteger(rounds) || rounds < 1 || rounds > 50)
@@ -58,8 +61,8 @@ function validate(f: FormState): string | null {
   return null;
 }
 
-function toRequest(f: FormState): CreatePublicTournamentRequest {
-  const req: CreatePublicTournamentRequest = {
+function toRequest(f: FormState, bot: OwnedTournamentBot): CreatePublicTournamentRequest {
+  return {
     name: f.name.trim(),
     nbRounds: Number(f.nbRounds),
     clockLimit: Number(f.clockLimitSeconds),
@@ -68,8 +71,9 @@ function toRequest(f: FormState): CreatePublicTournamentRequest {
     format: f.format,
     matchesPerPairing: Number(f.matchesPerPairing),
     startPosition: f.openingKey || "standard",
+    tournamentServerBotId:   bot.tournamentServerBotId,
+    tournamentServerBotName: bot.tournamentServerBotName,
   };
-  return req;
 }
 
 export default function PublicTournamentCreatePage() {
@@ -78,11 +82,22 @@ export default function PublicTournamentCreatePage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [openings, setOpenings] = useState<PublicOpening[]>([]);
+  const [ownedBots, setOwnedBots] = useState<OwnedTournamentBot[]>([]);
+  const [botsLoading, setBotsLoading] = useState(true);
+  const [selectedBotId, setSelectedBotId] = useState(""); // searchessBotId ownership UUID
 
   useEffect(() => {
     listPublicOpenings()
       .then(setOpenings)
       .catch(() => { /* openings are optional */ });
+  }, []);
+
+  useEffect(() => {
+    setBotsLoading(true);
+    getMyTournamentBots()
+      .then(setOwnedBots)
+      .catch(() => { /* show no bots */ })
+      .finally(() => setBotsLoading(false));
   }, []);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -91,12 +106,25 @@ export default function PublicTournamentCreatePage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const err = validate(form);
+    const err = validate(form, selectedBotId);
     if (err) { setSubmitError(err); return; }
+    const bot = ownedBots.find((b) => b.searchessBotId === selectedBotId);
+    if (!bot) { setSubmitError("Selected bot not found. Refresh and try again."); return; }
     setSubmitError(null);
     setSubmitting(true);
     try {
-      const created = await createPublicTournament(toRequest(form));
+      const created = await createPublicTournament(toRequest(form, bot));
+      // Record host participant so the Searchess registry knows which bot the host chose.
+      // The gateway already verified and/or joined the bot before returning 200, so this
+      // call is the Searchess-side record that mirrors the gateway-side state.
+      try {
+        await recordTournamentParticipant(created.id, {
+          tournamentServerBotId:   bot.tournamentServerBotId,
+          tournamentServerBotName: bot.tournamentServerBotName,
+        });
+      } catch {
+        // Non-critical: participant record can be added on the detail page via refresh.
+      }
       navigate(`/play-tournament/${created.id}`);
     } catch (e: unknown) {
       setSubmitError(e instanceof Error ? e.message : "Failed to create tournament.");
@@ -121,6 +149,36 @@ export default function PublicTournamentCreatePage() {
         {submitError && <ErrorState message={submitError} />}
 
         <form className="play-tournament-form" onSubmit={(e) => { void handleSubmit(e); }}>
+
+          <div className="play-tournament-form-group">
+            <label className="play-tournament-form-label" htmlFor="pt-host-bot">
+              Your bot <span className="play-tournament-required">*</span>
+            </label>
+            {botsLoading ? (
+              <p className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.875rem", margin: 0 }}>
+                Loading your bots…
+              </p>
+            ) : ownedBots.length === 0 ? (
+              <p className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.875rem", margin: 0 }}>
+                You have no registered Searchess bots. Register a bot first before creating a tournament.
+              </p>
+            ) : (
+              <select
+                id="pt-host-bot"
+                className="play-tournament-form-select"
+                value={selectedBotId}
+                onChange={(e) => setSelectedBotId(e.target.value)}
+                required
+              >
+                <option value="">Select your bot…</option>
+                {ownedBots.map((b) => (
+                  <option key={b.searchessBotId} value={b.searchessBotId}>
+                    {b.tournamentServerBotName}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
 
           <div className="play-tournament-form-group">
             <label className="play-tournament-form-label" htmlFor="pt-name">
@@ -250,7 +308,12 @@ export default function PublicTournamentCreatePage() {
           </div>
 
           <div className="play-tournament-form-actions">
-            <Button type="submit" variant="primary" size="lg" disabled={submitting}>
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              disabled={submitting || botsLoading || ownedBots.length === 0}
+            >
               {submitting ? "Creating…" : "Create Tournament"}
             </Button>
           </div>

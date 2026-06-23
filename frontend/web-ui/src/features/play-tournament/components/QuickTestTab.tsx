@@ -85,7 +85,18 @@ export default function QuickTestTab({
     setSubmitError(null);
     setPartialSuccess(null);
 
-    // Phase 1: create tournament
+    // The first selected owned bot becomes the host for the gateway create call.
+    // The gateway uses a bot JWT (not a user JWT) so the Tournament Server does not
+    // auto-add an unintended active bot on tournament creation.
+    const selectedList = Array.from(selected);
+    const hostBot = owned.find((b) => selectedList.includes(b.id));
+    if (!hostBot) {
+      setSubmitError("Select at least one of your bots to host the tournament.");
+      setSubmitting(false);
+      return;
+    }
+
+    // Phase 1: create tournament with the designated host bot identity
     setSubmitPhase("create");
     let tournamentId: string;
     try {
@@ -97,8 +108,19 @@ export default function QuickTestTab({
         rated,
         format,
         startPosition: "standard",
+        tournamentServerBotId:   hostBot.id,
+        tournamentServerBotName: hostBot.name,
       });
       tournamentId = created.id;
+      // Record host bot — gateway already verified/joined it, this syncs the Searchess registry.
+      try {
+        await recordTournamentParticipant(tournamentId, {
+          tournamentServerBotId:   hostBot.id,
+          tournamentServerBotName: hostBot.name,
+        });
+      } catch {
+        // Non-critical.
+      }
     } catch (e: unknown) {
       setSubmitError(e instanceof Error ? e.message : "Failed to create tournament.");
       setSubmitting(false);
@@ -106,9 +128,9 @@ export default function QuickTestTab({
       return;
     }
 
-    // Phase 2: add selected bots as participants (director path) and record in Searchess registry
+    // Phase 2: add remaining bots via director path; host bot is already in the Tournament Server.
     setSubmitPhase("addBots");
-    for (const botId of Array.from(selected)) {
+    for (const botId of selectedList.filter((id) => id !== hostBot.id)) {
       try {
         await addPublicTournamentParticipant(tournamentId, botId);
       } catch (e: unknown) {

@@ -188,6 +188,8 @@ export interface CreatePublicTournamentRequest {
   format: PublicTournamentFormat;
   startPosition?: string;
   matchesPerPairing?: number;
+  tournamentServerBotId: string;
+  tournamentServerBotName: string;
 }
 
 export interface PublicTournamentUserInfo {

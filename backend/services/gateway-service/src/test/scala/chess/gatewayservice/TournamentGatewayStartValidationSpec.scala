@@ -37,8 +37,10 @@ class TournamentGatewayStartValidationSpec extends AnyFlatSpec with Matchers:
     }.mkString(",")
     s"""{"nbPlayers":$nbPlayers,"standing":{"players":[$items]}}"""
 
-  // Test 1 — TS contains an extra bot that Searchess never chose
-  "checkParticipantMismatch" should "return 409 when Tournament Server has an unmanaged bot" in {
+  // Test 1 — TS has an extra bot that Searchess never chose: this is an external participant (allowed).
+  // The Tournament Server is public; external users may join directly via its API.
+  // Start is only blocked when a Searchess-chosen bot is missing, not when TS has extra bots.
+  "checkParticipantMismatch" should "return None (allow start) when Tournament Server has an external participant" in {
     val sb = searchessBody(
       "bot_slow" -> "searchess-stockfish-slow",
       "bot_deep" -> "searchess-stockfish-depth-3"
@@ -49,15 +51,8 @@ class TournamentGatewayStartValidationSpec extends AnyFlatSpec with Matchers:
       "bot_now"  -> "NowChess Expert"
     )
 
-    val result = routes.checkParticipantMismatch(sb, tb)
-    result should not be empty
-
-    val resp = result.get
-    resp.status shouldBe Status.Conflict
-    val body = resp.bodyText.compile.string.unsafeRunSync()
-    body should include("START_PARTICIPANT_MISMATCH")
-    body should include("NowChess Expert")
-    body should include("unknownInTs")
+    // All Searchess bots are present in TS; NowChess Expert is an external participant — allowed.
+    routes.checkParticipantMismatch(sb, tb) shouldBe None
   }
 
   // Test 2 — a Searchess-chosen bot never joined the Tournament Server

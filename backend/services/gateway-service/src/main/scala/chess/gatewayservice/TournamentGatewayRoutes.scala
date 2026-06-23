@@ -112,11 +112,11 @@ class TournamentGatewayRoutes(
     case req @ POST -> Root / "api" / "gateway" / "tournament" =>
       withDirector(req) { claims =>
         req.bodyText.compile.string.flatMap { jsonBody =>
-          jsonToFormEncoded(jsonBody) match
+          parseHostBotCreate(jsonBody) match
             case Left(err) =>
               IO.pure(errorResponse(Status.BadRequest, "BAD_REQUEST", err))
-            case Right(formBody) =>
-              authBridge.withToken(claims.sub, claims.preferredUsername) { token =>
+            case Right((hostBotId, hostBotName, formBody)) =>
+              authBridge.withBotToken(hostBotId, hostBotName) { token =>
                 Request[IO](
                   method  = Method.POST,
                   uri     = upstreamBase.withPath(Uri.Path.unsafeFromString("/api/tournament")),
@@ -126,6 +126,22 @@ class TournamentGatewayRoutes(
                   ),
                   body = Stream.emits(formBody.getBytes("UTF-8")).covary[IO]
                 )
+              }.flatMap { createResp =>
+                createResp.bodyText.compile.string.flatMap { tsCreateBody =>
+                  if !createResp.status.isSuccess then
+                    IO.pure(buildResponse(createResp.status, tsCreateBody.getBytes("UTF-8")))
+                  else
+                    parseTournamentIdFromBody(tsCreateBody) match
+                      case None =>
+                        IO.pure(buildResponse(Status.Ok, tsCreateBody.getBytes("UTF-8")))
+                      case Some(tournamentId) =>
+                        verifyAfterCreate(tournamentId, hostBotId, hostBotName, claims).flatMap {
+                          case Right(()) =>
+                            IO.pure(buildResponse(Status.Ok, tsCreateBody.getBytes("UTF-8")))
+                          case Left(err) =>
+                            IO.pure(errorResponse(Status.Conflict, "CREATE_PARTICIPANT_CONTAMINATED", err))
+                        }
+                }
               }
         }
       }
@@ -368,23 +384,99 @@ class TournamentGatewayRoutes(
 
   // ── Helpers: form encoding ────────────────────────────────────────────────────
 
-  private def jsonToFormEncoded(body: String): Either[String, String] =
-    try
-      val json   = ujson.read(body)
-      val fields = json.obj.collect {
-        case (k, v: ujson.Str)  => k -> v.str
-        case (k, ujson.Num(n))  =>
-          k -> (if n == math.floor(n) && !n.isInfinite then n.toLong.toString else n.toString)
-        case (k, ujson.Bool(b)) => k -> b.toString
-      }.toMap
-      Right(encodeForm(fields))
-    catch
-      case NonFatal(_) => Left("Tournament creation request body must be a valid JSON object")
-
   private def encodeForm(fields: Map[String, String]): String =
     fields.map { (k, v) =>
       java.net.URLEncoder.encode(k, "UTF-8") + "=" + java.net.URLEncoder.encode(v, "UTF-8")
     }.mkString("&")
+
+  // ── Helpers: create-flow bot verification ─────────────────────────────────────
+
+  private[gatewayservice] def parseHostBotCreate(
+    body: String
+  ): Either[String, (String, String, String)] =
+    try
+      val json    = ujson.read(body)
+      val botId   = json("tournamentServerBotId").str.trim
+      val botName = json("tournamentServerBotName").str.trim
+      if botId.isEmpty then
+        Left("tournamentServerBotId must not be empty")
+      else if botName.isEmpty then
+        Left("tournamentServerBotName must not be empty")
+      else
+        val skipKeys = Set("tournamentServerBotId", "tournamentServerBotName")
+        val formFields = json.obj.collect {
+          case (k, v: ujson.Str)  if !skipKeys.contains(k) => k -> v.str
+          case (k, ujson.Num(n))  if !skipKeys.contains(k) =>
+            k -> (if n == math.floor(n) && !n.isInfinite then n.toLong.toString else n.toString)
+          case (k, ujson.Bool(b)) if !skipKeys.contains(k) => k -> b.toString
+        }.toMap
+        Right((botId, botName, encodeForm(formFields)))
+    catch
+      case NonFatal(_) =>
+        Left("Tournament creation request must include tournamentServerBotId and tournamentServerBotName")
+
+  private[gatewayservice] def parseTournamentIdFromBody(body: String): Option[String] =
+    try Some(ujson.read(body)("id").str).filter(_.nonEmpty)
+    catch case _: Exception => None
+
+  private[gatewayservice] def verifyAfterCreate(
+    tournamentId: String,
+    hostBotId: String,
+    hostBotName: String,
+    claims: GatewayJwtClaims
+  ): IO[Either[String, Unit]] =
+    val tsDetailUri = upstreamBase.withPath(Uri.Path.unsafeFromString(s"/api/tournament/$tournamentId"))
+    client.expect[String](tsDetailUri).flatMap { tsBody =>
+      val bots   = parseTsBots(tsBody)
+      val botIds = bots.map(_._1).toSet
+      if botIds.isEmpty then
+        joinHostBotAfterCreate(tournamentId, hostBotId, hostBotName).flatMap {
+          case Right(())  => IO.pure(Right(()))
+          case Left(err) =>
+            deleteAfterContaminatedCreate(tournamentId, claims)
+              .as(Left(s"Host bot join failed after tournament creation: $err. Tournament was deleted."))
+        }
+      else if botIds == Set(hostBotId) then
+        IO.pure(Right(()))
+      else
+        val unknownBots = bots.filter(_._1 != hostBotId)
+        deleteAfterContaminatedCreate(tournamentId, claims)
+          .as(Left(s"Tournament creation blocked: unexpected bots in Tournament Server: ${unknownBots.map(_._2).mkString(", ")}. Tournament deleted."))
+    }.handleError { err =>
+      Left(s"Post-create verification failed: ${Option(err.getMessage).getOrElse("unknown")}")
+    }
+
+  private def joinHostBotAfterCreate(
+    tournamentId: String,
+    hostBotId: String,
+    hostBotName: String
+  ): IO[Either[String, Unit]] =
+    authBridge.withBotToken(hostBotId, hostBotName) { token =>
+      Request[IO](
+        method  = Method.POST,
+        uri     = upstreamBase.withPath(Uri.Path.unsafeFromString(s"/api/tournament/$tournamentId/join")),
+        headers = Headers(Header.Raw(CIString("Authorization"), s"Bearer $token"))
+      )
+    }.flatMap { joinResp =>
+      if joinResp.status.isSuccess then IO.pure(Right(()))
+      else joinResp.bodyText.compile.string.map { body =>
+        Left(s"Host bot join failed after create: ${joinResp.status.code} ${body.take(200)}")
+      }
+    }.handleError { err =>
+      IO.pure(Left(s"Host bot join error: ${Option(err.getMessage).getOrElse("unknown")}"))
+    }
+
+  private def deleteAfterContaminatedCreate(
+    tournamentId: String,
+    claims: GatewayJwtClaims
+  ): IO[Unit] =
+    authBridge.withToken(claims.sub, claims.preferredUsername) { token =>
+      Request[IO](
+        method  = Method.DELETE,
+        uri     = upstreamBase.withPath(Uri.Path.unsafeFromString(s"/api/tournament/$tournamentId")),
+        headers = Headers(Header.Raw(CIString("Authorization"), s"Bearer $token"))
+      )
+    }.void.handleError(_ => ())
 
   // ── Helpers: pre-start participant validation ─────────────────────────────────
 
@@ -401,6 +493,11 @@ class TournamentGatewayRoutes(
     yield checkParticipantMismatch(participantsBody, tsDetailBody)
 
   // Exposed as private[gatewayservice] so unit tests in the same package can call it directly.
+  //
+  // Model: Searchess participants must all be present in the Tournament Server before start.
+  // Extra TS bots not tracked by Searchess are treated as external public participants and allowed —
+  // the Tournament Server is public and external users may join directly via its API.
+  // Start is only blocked when a Searchess-chosen bot is missing from the Tournament Server.
   private[gatewayservice] def checkParticipantMismatch(
     participantsBody: String,
     tsDetailBody: String
@@ -411,15 +508,12 @@ class TournamentGatewayRoutes(
       Some(errorResponse(Status.Conflict, "START_PARTICIPANT_MISMATCH",
         "No Searchess participants found. Cannot verify participant integrity before start."))
     else
-      val expectedIds   = searchessBots.map(_._1).toSet
       val actualIds     = tsBots.map(_._1).toSet
-      val unknownInTs   = tsBots.filter { case (id, _)   => !expectedIds.contains(id) }
       val missingFromTs = searchessBots.filter { case (id, _) => !actualIds.contains(id) }
-      if unknownInTs.nonEmpty || missingFromTs.nonEmpty then
+      if missingFromTs.nonEmpty then
         Some(buildResponse(Status.Conflict, ujson.write(ujson.Obj(
           "code"          -> "START_PARTICIPANT_MISMATCH",
-          "message"       -> "Tournament Server bots do not match Searchess participants",
-          "unknownInTs"   -> ujson.Arr(unknownInTs.map   { case (i, n) => ujson.Obj("id" -> i, "name" -> n): ujson.Value }*),
+          "message"       -> "Searchess participants have not all joined the Tournament Server",
           "missingFromTs" -> ujson.Arr(missingFromTs.map { case (i, n) => ujson.Obj("id" -> i, "name" -> n): ujson.Value }*)
         )).getBytes("UTF-8")))
       else
