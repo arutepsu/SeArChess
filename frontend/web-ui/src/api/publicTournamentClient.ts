@@ -259,8 +259,8 @@ export async function getCurrentTournamentIdentity(): Promise<TournamentIdentity
 export async function joinPublicTournamentWithBot(
   id: string,
   req: { tournamentServerBotId: string; tournamentServerBotName: string },
-): Promise<void> {
-  await fetchGatewayAuth<void>(
+): Promise<{ joined: boolean; alreadyJoined: boolean }> {
+  return fetchGatewayAuth<{ joined: boolean; alreadyJoined: boolean }>(
     `/tournament/${encodeURIComponent(id)}/join`,
     { method: "POST", body: JSON.stringify(req) },
   );
