@@ -68,13 +68,13 @@ images:
   newTag: sha-abd6f69
 - name: searchess/bot-service
   newName: ghcr.io/arutepsu/searchess-bot-service
-  newTag: sha-21ed99f
+  newTag: sha-fc3e939
 - name: searchess/game-service
   newName: ghcr.io/arutepsu/searchess-game-service
   newTag: sha-abd6f69
 - name: searchess/gateway-service
   newName: ghcr.io/arutepsu/searchess-gateway-service
-  newTag: sha-73ef703
+  newTag: sha-fc3e939
 - name: searchess/history-service
   newName: ghcr.io/arutepsu/searchess-history-service
   newTag: sha-abd6f69
