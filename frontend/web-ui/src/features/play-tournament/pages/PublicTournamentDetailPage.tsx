@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   deletePublicTournament,
+  getCurrentTournamentIdentity,
   getPublicTournament,
   joinPublicTournamentWithBot,
   startPublicTournament,
@@ -12,7 +13,7 @@ import {
   getTournamentParticipants,
   recordTournamentParticipant,
 } from "../../../api/userServiceClient";
-import type { PublicResult, PublicTournament } from "../../../api/publicTournamentTypes";
+import type { PublicResult, PublicTournament, TournamentIdentityResponse } from "../../../api/publicTournamentTypes";
 import type { OwnedTournamentBot, TournamentParticipant, UserProfileResponse } from "../../../api/userServiceTypes";
 import Button from "../../../components/ui/Button";
 import ErrorState from "../../../components/ui/ErrorState";
@@ -113,12 +114,16 @@ function ParticipantsSection({
   participants,
   myUserId,
   ownedBotIds,
+  hostDisplayName,
+  isDirector,
   onRefresh,
 }: {
   tournament: PublicTournament;
   participants: TournamentParticipant[];
   myUserId: string | null;
   ownedBotIds: Set<string>;
+  hostDisplayName: string;
+  isDirector: boolean;
   onRefresh: () => void;
 }) {
   const nbServer    = tournament.nbPlayers;
@@ -133,7 +138,7 @@ function ParticipantsSection({
     <SectionCard title={`Joined participants (${nbSearchess})`}>
       <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 12 }}>
         <span className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.85rem" }}>
-          Host: <strong style={{ color: "var(--text-primary, #e8e8f0)" }}>{tournament.createdBy}</strong>
+          Host: <strong style={{ color: "var(--text-primary, #e8e8f0)" }}>{hostDisplayName}</strong>
         </span>
         <span className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.85rem" }}>
           Joined: <strong style={{ color: "var(--text-primary, #e8e8f0)" }}>{nbSearchess}</strong>
@@ -151,8 +156,11 @@ function ParticipantsSection({
       {participants.length > 0 ? (
         <div className="pt-bot-list">
           {participants.map((p) => {
-            const isYou     = myUserId !== null && p.userId === myUserId;
-            const isHost    = p.displayName === tournament.createdBy;
+            const isYou      = myUserId !== null && p.userId === myUserId;
+            // Host badge: current user is the director and owns this participant's bot.
+            // Guests see "Other user" for host bots since the director's Searchess userId
+            // cannot be resolved from tournament.createdBy without a separate lookup.
+            const isHost     = isDirector && p.userId === myUserId;
             const isOwnedBot = ownedBotIds.has(p.botId);
             return (
               <div
@@ -418,7 +426,8 @@ export default function PublicTournamentDetailPage() {
   const [tournament,   setTournament]   = useState<PublicTournament | null>(null);
   const [participants, setParticipants] = useState<TournamentParticipant[]>([]);
   const [ownedBots,    setOwnedBots]    = useState<OwnedTournamentBot[]>([]);
-  const [myProfile,    setMyProfile]    = useState<UserProfileResponse | null>(null);
+  const [myProfile,         setMyProfile]         = useState<UserProfileResponse | null>(null);
+  const [tournamentIdentity, setTournamentIdentity] = useState<TournamentIdentityResponse | null>(null);
   const [loading,      setLoading]      = useState(true);
   const [error,        setError]        = useState<string | null>(null);
 
@@ -452,6 +461,11 @@ export default function PublicTournamentDetailPage() {
         .catch(() => {});
       getMyProfile()
         .then((p) => { if (active.value) setMyProfile(p); })
+        .catch(() => {});
+      // Fetch tournament-server identity so canDirectTournament can compare tournament.createdBy
+      // (a tournament-server user ID like "usr_eda95654") against the real userId, not preferred_username.
+      getCurrentTournamentIdentity()
+        .then((identity) => { if (active.value) setTournamentIdentity(identity); })
         .catch(() => {});
     }
     return () => { active.value = false; };
@@ -487,9 +501,21 @@ export default function PublicTournamentDetailPage() {
     loadParticipants(active);
   }
 
-  const results       = tournament?.standing?.results ?? [];
-  const ownedBotIds   = new Set(ownedBots.map((b) => b.botId));
-  const joinedBotIds  = new Set(participants.map((p) => p.botId));
+  const results      = tournament?.standing?.results ?? [];
+  const ownedBotIds  = new Set(ownedBots.map((b) => b.botId));
+  const joinedBotIds = new Set(participants.map((p) => p.botId));
+
+  // tournament.createdBy is the tournament-server's own user ID, not the Keycloak preferred_username.
+  // Compare against the tournamentUserId returned by the gateway identity endpoint.
+  const isDirector = tournament !== null
+    ? canDirectTournament(tournament, tournamentIdentity?.tournamentUserId ?? null)
+    : false;
+  // Resolve the host's friendly name for display. Only resolvable for the host themselves;
+  // guests see the raw tournament-server user ID since no public mapping exists.
+  const hostDisplayName =
+    tournament !== null && tournamentIdentity?.tournamentUserId === tournament.createdBy
+      ? tournamentIdentity.preferredUsername
+      : (tournament?.createdBy ?? "");
 
   return (
     <div className="play-tournament-page">
@@ -554,6 +580,8 @@ export default function PublicTournamentDetailPage() {
                   participants={participants}
                   myUserId={myProfile?.userId ?? null}
                   ownedBotIds={ownedBotIds}
+                  hostDisplayName={hostDisplayName}
+                  isDirector={isDirector}
                   onRefresh={handleRefresh}
                 />
 
@@ -572,7 +600,7 @@ export default function PublicTournamentDetailPage() {
                       participantCount={participants.length}
                       onRefresh={handleRefresh}
                     />
-                    {canDirectTournament(tournament) ? (
+                    {isDirector ? (
                       <DirectorActions
                         id={id ?? ""}
                         participantCount={participants.length}
@@ -582,7 +610,7 @@ export default function PublicTournamentDetailPage() {
                     ) : (
                       <div className="pt-panel">
                         <p className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.875rem" }}>
-                          Waiting for the host ({tournament.createdBy}) to start the tournament.
+                          Waiting for the host ({hostDisplayName}) to start the tournament.
                         </p>
                       </div>
                     )}

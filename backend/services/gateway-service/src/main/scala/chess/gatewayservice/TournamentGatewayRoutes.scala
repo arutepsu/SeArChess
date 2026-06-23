@@ -75,6 +75,22 @@ class TournamentGatewayRoutes(
 
   private val directorRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
 
+    // Returns the current user's tournament-server identity.
+    // Must be in directorRoutes (before gatewayRoutes) so "me" does not fall through to the
+    // catch-all `GET /api/gateway/tournament/:id` proxy which would forward it to the external server.
+    case req @ GET -> Root / "api" / "gateway" / "tournament" / "me" =>
+      withDirector(req) { claims =>
+        authBridge.getOrRegisterUser(claims.sub, claims.preferredUsername).flatMap {
+          case Left(err) =>
+            IO.pure(errorResponse(Status.ServiceUnavailable, "TOURNAMENT_AUTH_FAILED", err))
+          case Right(entry) =>
+            jsonOk(ujson.Obj(
+              "tournamentUserId"  -> entry.tournamentUserId,
+              "preferredUsername" -> claims.preferredUsername
+            ))
+        }
+      }
+
     case req @ POST -> Root / "api" / "gateway" / "bots" =>
       withDirector(req) { claims =>
         req.bodyText.compile.string.flatMap { jsonBody =>
