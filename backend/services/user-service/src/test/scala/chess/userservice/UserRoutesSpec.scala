@@ -676,13 +676,22 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
       Right(store.values.asScala.filter(_.tournamentId == tournamentId).toList.sortBy(_.joinedAt))
 
     override def insertIfAbsent(p: PublicTournamentParticipant): Either[String, PublicTournamentParticipant] =
-      val k = key(p.tournamentId, p.tournamentServerBotId)
-      Option(store.get(k)) match
-        case Some(existing) if existing.searchessUserId == p.searchessUserId => Right(existing)
-        case Some(_)                                                          => Left("bot_already_claimed_by_another_user")
-        case None =>
-          store.put(k, p)
-          Right(p)
+      // Enforce one bot per Searchess user per tournament.
+      val sameUserDiffBot = store.values.asScala.find { r =>
+        r.tournamentId == p.tournamentId &&
+        r.searchessUserId == p.searchessUserId &&
+        r.tournamentServerBotId != p.tournamentServerBotId
+      }
+      if sameUserDiffBot.isDefined then
+        Left("user_already_joined_with_different_bot")
+      else
+        val k = key(p.tournamentId, p.tournamentServerBotId)
+        Option(store.get(k)) match
+          case Some(existing) if existing.searchessUserId == p.searchessUserId => Right(existing)
+          case Some(_)                                                          => Left("bot_already_claimed_by_another_user")
+          case None =>
+            store.put(k, p)
+            Right(p)
 
   // ── Public tournament participant endpoints ───────────────────────────────
 
@@ -839,6 +848,77 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
     val body = ujson.read(res.bodyText.compile.string.unsafeRunSync())
     res.status       shouldBe Status.Conflict
     body("code").str shouldBe "BOT_ALREADY_CLAIMED"
+  }
+
+  it should "return 409 USER_ALREADY_JOINED when same user tries to join with a different bot" in {
+    val (app, _, _) = makeRoutes()
+    // Register two different bots for the same user
+    def registerBot(botId: String, botName: String) =
+      app.run(
+        Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/tournament-bots"))
+          .putHeaders(bearerHeader("sub-twobots", "twobotuser"))
+          .withEntity(s"""{"tournamentServerBotId":"$botId","tournamentServerBotName":"$botName"}""")
+          .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+      ).unsafeRunSync()
+
+    registerBot("bot-first", "FirstBot")
+    registerBot("bot-second", "SecondBot")
+
+    def joinReq(botId: String, botName: String) =
+      Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/tournaments/t-twobots/participants"))
+        .putHeaders(bearerHeader("sub-twobots", "twobotuser"))
+        .withEntity(s"""{"tournamentServerBotId":"$botId","tournamentServerBotName":"$botName"}""")
+        .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+
+    // First join succeeds
+    app.run(joinReq("bot-first", "FirstBot")).unsafeRunSync().status shouldBe Status.Created
+    // Second join (different bot, same user) must be rejected
+    val res  = app.run(joinReq("bot-second", "SecondBot")).unsafeRunSync()
+    val body = ujson.read(res.bodyText.compile.string.unsafeRunSync())
+    res.status       shouldBe Status.Conflict
+    body("code").str shouldBe "USER_ALREADY_JOINED"
+  }
+
+  it should "be idempotent when same user re-joins with the same bot" in {
+    val (app, _, _) = makeRoutes()
+    app.run(
+      Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/tournament-bots"))
+        .putHeaders(bearerHeader("sub-idem2", "idemuser2"))
+        .withEntity("""{"tournamentServerBotId":"bot-idem2","tournamentServerBotName":"IdemBot2"}""")
+        .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    ).unsafeRunSync()
+
+    def joinReq = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/tournaments/t-idem2/participants"))
+      .putHeaders(bearerHeader("sub-idem2", "idemuser2"))
+      .withEntity("""{"tournamentServerBotId":"bot-idem2","tournamentServerBotName":"IdemBot2"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+
+    app.run(joinReq).unsafeRunSync().status shouldBe Status.Created
+    // Same user, same bot — idempotent
+    app.run(joinReq).unsafeRunSync().status shouldBe Status.Created
+  }
+
+  "GET /users/me/tournament-bots" should "include searchessBotId (ownership UUID) in bot list response" in {
+    val (app, _, _) = makeRoutes()
+    app.run(
+      Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/tournament-bots"))
+        .putHeaders(bearerHeader("sub-uuid-check", "uuidcheckuser"))
+        .withEntity("""{"tournamentServerBotId":"bot-uuid","tournamentServerBotName":"UuidBot"}""")
+        .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    ).unsafeRunSync()
+
+    val body = ujson.read(
+      app.run(Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/me/tournament-bots"))
+        .putHeaders(bearerHeader("sub-uuid-check", "uuidcheckuser")))
+        .unsafeRunSync().bodyText.compile.string.unsafeRunSync()
+    )
+    val bot = body("bots")(0)
+    bot("tournamentServerBotId").str shouldBe "bot-uuid"
+    // searchessBotId must be a non-empty UUID string
+    val ownershipUuid = bot("searchessBotId").str
+    ownershipUuid should not be empty
+    // Verify it parses as a UUID
+    java.util.UUID.fromString(ownershipUuid) // throws if invalid
   }
 
   // ── Required tests from Phase 6 join-repair spec ──────────────────────────

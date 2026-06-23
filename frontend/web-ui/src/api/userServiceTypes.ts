@@ -106,6 +106,7 @@ export interface LichessActiveGamesResponse {
 // ── Tournament bot ownership types ────────────────────────────────────────────
 
 export interface OwnedTournamentBot {
+  searchessBotId:          string;   // Searchess ownership UUID — primary key for join/participant identity
   tournamentServerBotId:   string;
   tournamentServerBotName: string;
   searchessCatalogBotId:   string | null;

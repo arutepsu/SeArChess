@@ -466,8 +466,14 @@
 }
 
 .pt-board-wrapper {
-  width: 480px;
+  width: 640px;
   max-width: 100%;
+}
+
+@media (max-width: 720px) {
+  .pt-board-wrapper {
+    width: 480px;
+  }
 }
 
 @media (max-width: 560px) {
