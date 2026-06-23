@@ -266,18 +266,22 @@ function JoinSection({
     setError(null);
     setSuccess(null);
 
+    let alreadyJoined = false;
     try {
-      await joinPublicTournamentWithBot(id, {
+      const result = await joinPublicTournamentWithBot(id, {
         tournamentServerBotId:   bot.tournamentServerBotId,
         tournamentServerBotName: bot.tournamentServerBotName,
       });
+      alreadyJoined = result.alreadyJoined;
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to join tournament.");
       setBusy(false);
       return;
     }
 
-    // Bot is now joined on the tournament server. Best-effort Searchess registry.
+    // Always record participant after a successful or idempotent join.
+    // This repairs the Searchess registry when the Tournament Server already has the bot
+    // but the participant record was never created (e.g. previous session interrupted).
     try {
       await recordTournamentParticipant(id, {
         tournamentServerBotId:   bot.tournamentServerBotId,
@@ -285,11 +289,13 @@ function JoinSection({
         tournamentServerUserId:  tournamentServerUserId ?? undefined,
       });
     } catch {
-      // Non-critical — the participant list may lag until a refresh.
+      // Non-critical — participant list may lag until a refresh.
     }
 
     setSelectedBotId("");
-    setSuccess("Bot joined the tournament.");
+    setSuccess(alreadyJoined
+      ? "Bot was already joined — participant record synced."
+      : "Bot joined the tournament.");
     onRefresh();
     setBusy(false);
   }

@@ -182,6 +182,20 @@ class TournamentGatewayRoutes(
                   headers = Headers(Header.Raw(CIString("Authorization"), s"Bearer $token"))
                   // No body — tournament-server reads bot identity from JWT
                 )
+              }.flatMap { resp =>
+                // Idempotent join: if the tournament-server rejects because the bot is already
+                // joined, treat it as success so the frontend can repair the Searchess participant
+                // record.  Any other non-2xx is passed through unchanged.
+                resp.bodyText.compile.string.map { body =>
+                  if resp.status.isSuccess then
+                    buildResponse(Status.Ok,
+                      ujson.write(ujson.Obj("joined" -> true, "alreadyJoined" -> false)).getBytes("UTF-8"))
+                  else if looksLikeAlreadyJoined(body) then
+                    buildResponse(Status.Ok,
+                      ujson.write(ujson.Obj("joined" -> true, "alreadyJoined" -> true)).getBytes("UTF-8"))
+                  else
+                    buildResponse(resp.status, body.getBytes("UTF-8"))
+                }
               }
         }
       }
@@ -322,6 +336,15 @@ class TournamentGatewayRoutes(
   ): IO[Response[IO]] = withDirector(req)(f)
 
   // ── Helpers: bot join ─────────────────────────────────────────────────────────
+
+  // Heuristic: detect tournament-server "already joined" errors so the join route
+  // can return 200 (idempotent) and let the caller repair the Searchess participant record.
+  // Matches phrases like "already joined", "already participating", "already a member",
+  // "already enrolled" — all reasonable forms a tournament-server might use.
+  private def looksLikeAlreadyJoined(body: String): Boolean =
+    val lower = body.toLowerCase
+    lower.contains("already") &&
+      (lower.contains("join") || lower.contains("participat") || lower.contains("member") || lower.contains("enrolled"))
 
   private def parseBotJoinRequest(body: String): Either[String, (String, String)] =
     try

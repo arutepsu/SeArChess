@@ -840,3 +840,109 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
     res.status       shouldBe Status.Conflict
     body("code").str shouldBe "BOT_ALREADY_CLAIMED"
   }
+
+  // ── Required tests from Phase 6 join-repair spec ──────────────────────────
+
+  "GET /users/tournaments/{tournamentId}/participants" should "include searchessCatalogBotId when ownership has a catalog bot" in {
+    val (app, _, _) = makeRoutes()
+    // Register bot WITH a catalog bot ID
+    val registerReq = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/tournament-bots"))
+      .putHeaders(bearerHeader("sub-cat", "catuser"))
+      .withEntity("""{"tournamentServerBotId":"bot-cat","tournamentServerBotName":"CatBot","searchessCatalogBotId":"catalog-abc"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    val regBody = ujson.read(app.run(registerReq).unsafeRunSync().bodyText.compile.string.unsafeRunSync())
+    regBody("searchessCatalogBotId").str shouldBe "catalog-abc"
+
+    // Join tournament
+    val joinReq = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/tournaments/t-cat/participants"))
+      .putHeaders(bearerHeader("sub-cat", "catuser"))
+      .withEntity("""{"tournamentServerBotId":"bot-cat","tournamentServerBotName":"CatBot"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    app.run(joinReq).unsafeRunSync().status shouldBe Status.Created
+
+    // GET participants should include searchessCatalogBotId
+    val body = ujson.read(
+      app.run(Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/tournaments/t-cat/participants")))
+        .unsafeRunSync().bodyText.compile.string.unsafeRunSync()
+    )
+    body("participants").arr.length                              shouldBe 1
+    body("participants")(0)("searchessCatalogBotId").str        shouldBe "catalog-abc"
+    body("participants")(0)("tournamentServerBotId").str        shouldBe "bot-cat"
+  }
+
+  it should "return null for searchessCatalogBotId when ownership has none" in {
+    val (app, _, _) = makeRoutes()
+    val registerReq = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/tournament-bots"))
+      .putHeaders(bearerHeader("sub-nocat", "nocatuser"))
+      .withEntity("""{"tournamentServerBotId":"bot-nocat","tournamentServerBotName":"NoCatBot"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    app.run(registerReq).unsafeRunSync().status shouldBe Status.Created
+
+    val joinReq = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/tournaments/t-nocat/participants"))
+      .putHeaders(bearerHeader("sub-nocat", "nocatuser"))
+      .withEntity("""{"tournamentServerBotId":"bot-nocat","tournamentServerBotName":"NoCatBot"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    app.run(joinReq).unsafeRunSync().status shouldBe Status.Created
+
+    val body = ujson.read(
+      app.run(Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/tournaments/t-nocat/participants")))
+        .unsafeRunSync().bodyText.compile.string.unsafeRunSync()
+    )
+    body("participants")(0)("searchessCatalogBotId").isNull shouldBe true
+  }
+
+  "POST /users/tournaments/{tournamentId}/participants" should "repair missing participant record when bot is already joined on Tournament Server" in {
+    // Simulates the repair path: user calls recordParticipant after the gateway detects
+    // an idempotent join (Tournament Server already had the bot).
+    // user-service does not know about Tournament Server state — it just inserts or returns existing.
+    val (app, _, _) = makeRoutes()
+    val registerReq = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/tournament-bots"))
+      .putHeaders(bearerHeader("sub-repair", "repairuser"))
+      .withEntity("""{"tournamentServerBotId":"bot-repair","tournamentServerBotName":"RepairBot","searchessCatalogBotId":"cat-repair"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    app.run(registerReq).unsafeRunSync().status shouldBe Status.Created
+
+    // First call: creates the participant (simulates repair after gateway returned alreadyJoined=true)
+    val joinReq = Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/tournaments/t-repair/participants"))
+      .putHeaders(bearerHeader("sub-repair", "repairuser"))
+      .withEntity("""{"tournamentServerBotId":"bot-repair","tournamentServerBotName":"RepairBot"}""")
+      .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    val res1 = app.run(joinReq).unsafeRunSync()
+    res1.status shouldBe Status.Created
+    ujson.read(res1.bodyText.compile.string.unsafeRunSync())("searchessCatalogBotId").str shouldBe "cat-repair"
+
+    // Second call: idempotent, same result
+    val res2 = app.run(joinReq).unsafeRunSync()
+    res2.status shouldBe Status.Created
+    ujson.read(res2.bodyText.compile.string.unsafeRunSync())("tournamentServerBotId").str shouldBe "bot-repair"
+  }
+
+  it should "enforce distinct-user requirement: two participants from different users have different searchessUserId" in {
+    val (app, _, _) = makeRoutes()
+    def setupUser(sub: String, username: String, botId: String, botName: String): String =
+      app.run(
+        Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/tournament-bots"))
+          .putHeaders(bearerHeader(sub, username))
+          .withEntity(s"""{"tournamentServerBotId":"$botId","tournamentServerBotName":"$botName"}""")
+          .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+      ).unsafeRunSync()
+      val res = app.run(
+        Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/tournaments/t-distinct/participants"))
+          .putHeaders(bearerHeader(sub, username))
+          .withEntity(s"""{"tournamentServerBotId":"$botId","tournamentServerBotName":"$botName"}""")
+          .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+      ).unsafeRunSync()
+      ujson.read(res.bodyText.compile.string.unsafeRunSync())("searchessUserId").str
+
+    val uid1 = setupUser("sub-distinct-a", "useralfa", "bot-da", "BotDa")
+    val uid2 = setupUser("sub-distinct-b", "userbeta", "bot-db", "BotDb")
+    uid1 should not equal uid2
+
+    // GET participants shows 2 distinct users — start condition can be evaluated
+    val body = ujson.read(
+      app.run(Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/tournaments/t-distinct/participants")))
+        .unsafeRunSync().bodyText.compile.string.unsafeRunSync()
+    )
+    val userIds = body("participants").arr.map(_("searchessUserId").str).toSet
+    userIds.size shouldBe 2
+  }
