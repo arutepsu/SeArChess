@@ -106,8 +106,9 @@ export interface LichessActiveGamesResponse {
 // ── Tournament bot ownership types ────────────────────────────────────────────
 
 export interface OwnedTournamentBot {
-  botId: string;
-  botName: string;
+  tournamentServerBotId:   string;
+  tournamentServerBotName: string;
+  searchessCatalogBotId:   string | null;
   createdAt: string;
 }
 
@@ -116,19 +117,23 @@ export interface OwnedTournamentBotsResponse {
 }
 
 export interface RecordTournamentBotOwnershipRequest {
-  botId: string;
-  botName: string;
+  tournamentServerBotId:   string;
+  tournamentServerBotName: string;
+  searchessCatalogBotId?:  string;
 }
 
 // ── Tournament participant registry types ─────────────────────────────────────
 
 export interface TournamentParticipant {
-  tournamentId: string;
-  botId: string;
-  botName: string;
-  userId: string;
-  displayName: string;
-  joinedAt: string;
+  tournamentId:            string;
+  searchessUserId:         string;
+  displayName:             string;
+  searchessBotId:          string | null;
+  searchessCatalogBotId:   string | null;
+  tournamentServerUserId:  string | null;
+  tournamentServerBotId:   string;
+  tournamentServerBotName: string;
+  joinedAt:                string;
 }
 
 export interface TournamentParticipantsResponse {
@@ -137,6 +142,7 @@ export interface TournamentParticipantsResponse {
 }
 
 export interface RecordTournamentParticipantRequest {
-  botId: string;
-  botName: string;
+  tournamentServerBotId:   string;
+  tournamentServerBotName: string;
+  tournamentServerUserId?: string;
 }

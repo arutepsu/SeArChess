@@ -53,7 +53,11 @@ function SearchessBotSection({ publicBots, ownedIds, onRegistered }: SearchessBo
         engineType:   bot.engineType || undefined,
         modelVersion: bot.modelVersion || undefined,
       });
-      await recordTournamentBotOwnership({ botId: publicBot.id, botName: publicBot.name });
+      await recordTournamentBotOwnership({
+        tournamentServerBotId:   publicBot.id,
+        tournamentServerBotName: publicBot.name,
+        searchessCatalogBotId:   bot.botId,
+      });
       onRegistered(publicBot);
     } catch (e: unknown) {
       setRegError(e instanceof Error ? e.message : "Registration failed.");
@@ -193,7 +197,7 @@ function CreateBotSection({ onCreated, onClose }: CreateBotSectionProps) {
         engineType:   form.engineType.trim() || undefined,
         modelVersion: form.modelVersion.trim() || undefined,
       });
-      await recordTournamentBotOwnership({ botId: bot.id, botName: bot.name });
+      await recordTournamentBotOwnership({ tournamentServerBotId: bot.id, tournamentServerBotName: bot.name });
       onCreated(bot);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to register bot.");

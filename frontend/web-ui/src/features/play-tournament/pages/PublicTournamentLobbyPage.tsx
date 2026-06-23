@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { listPublicBots, listPublicTournaments } from "../../../api/publicTournamentClient";
 import { getMyTournamentBots } from "../../../api/userServiceClient";
-import type { PublicRegisteredBot, PublicTournamentInfo, PublicTournamentListResponse, TournamentGameRow } from "../../../api/publicTournamentTypes";
+import type { PublicAnalyticsExport, PublicRegisteredBot, PublicTournamentInfo, PublicTournamentListResponse, TournamentGameRow } from "../../../api/publicTournamentTypes";
 import Button from "../../../components/ui/Button";
 import ErrorState from "../../../components/ui/ErrorState";
 import LoadingState from "../../../components/ui/LoadingState";
@@ -204,6 +204,7 @@ export default function PublicTournamentLobbyPage() {
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [serverOnline, setServerOnline]         = useState<boolean | null>(null);
   const [games, setGames]                       = useState<TournamentGameRow[]>([]);
+  const [analyticsExports, setAnalyticsExports] = useState<PublicAnalyticsExport[]>([]);
   const [gamesLoading, setGamesLoading]         = useState(false);
   const [gamesErrors, setGamesErrors]           = useState<string[]>([]);
   const [gamesLoaded, setGamesLoaded]           = useState(false);
@@ -217,6 +218,7 @@ export default function PublicTournamentLobbyPage() {
     try {
       const result = await loadTournamentGames(listData);
       setGames(result.games);
+      setAnalyticsExports(result.exports);
       setGamesErrors(result.errors);
       setGamesLoaded(true);
     } finally {
@@ -247,7 +249,7 @@ export default function PublicTournamentLobbyPage() {
 
     if (canManage) {
       void getMyTournamentBots()
-        .then((owned) => { if (active.value) setOwnedIds(new Set(owned.map((o) => o.botId))); })
+        .then((owned) => { if (active.value) setOwnedIds(new Set(owned.map((o) => o.tournamentServerBotId))); })
         .catch(() => {});
     }
   }
@@ -393,6 +395,8 @@ export default function PublicTournamentLobbyPage() {
           <div className="pt-panel">
             <AnalyticsTab
               games={games}
+              exports={analyticsExports}
+              tournamentList={data}
               ownedIds={ownedIds}
               loading={gamesLoading}
               errors={gamesErrors}

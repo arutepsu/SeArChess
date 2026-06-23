@@ -125,7 +125,7 @@ export default function QuickTestTab({
       const botName = bots.find((b) => b.id === botId)?.name ?? "";
       if (botName) {
         try {
-          await recordTournamentParticipant(tournamentId, { botId, botName });
+          await recordTournamentParticipant(tournamentId, { tournamentServerBotId: botId, tournamentServerBotName: botName });
         } catch {
           // Non-critical: don't abort QuickTest flow if registry fails.
         }

@@ -204,6 +204,37 @@ class TournamentGatewayRoutes(
       }
   }
 
+  // ── Backend-internal move submission route ────────────────────────────────────
+  // Called by the future Searchess bot runner service — never by the browser.
+  // Requires a valid Keycloak JWT (service-account token from the runner).
+  // The caller resolves searchessBotId → tournamentServerBotId via user-service first.
+  // Bot JWT is acquired/cached server-side and never returned to the caller.
+
+  private val internalRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
+
+    case req @ POST -> Root / "api" / "internal" / "tournament" / id / "game" / gameId / "move" / uciMove =>
+      withAuth(req) { _ =>
+        req.bodyText.compile.string.flatMap { jsonBody =>
+          parseBotJoinRequest(jsonBody) match
+            case Left(err) =>
+              IO.pure(errorResponse(Status.BadRequest, "BAD_REQUEST", err))
+            case Right((botId, botName)) =>
+              authBridge.submitBotMove(id, gameId, botId, botName, uciMove).map {
+                case Right(()) =>
+                  buildResponse(
+                    Status.Ok,
+                    ujson.write(ujson.Obj("accepted" -> true, "uciMove" -> uciMove)).getBytes("UTF-8")
+                  )
+                case Left(err) =>
+                  buildResponse(
+                    Status.BadGateway,
+                    ujson.write(ujson.Obj("code" -> "MOVE_REJECTED", "message" -> err)).getBytes("UTF-8")
+                  )
+              }
+        }
+      }
+  }
+
   // ── Public read-only proxy routes ─────────────────────────────────────────────
 
   private val gatewayRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
@@ -232,7 +263,7 @@ class TournamentGatewayRoutes(
 
   // Declared after all sub-routes so each sub-route is already initialized when
   // the <+> combinator captures them (Scala vals initialize in textual order).
-  val routes: HttpRoutes[IO] = operationalRoutes <+> streamRoutes <+> directorRoutes <+> participantRoutes <+> gatewayRoutes
+  val routes: HttpRoutes[IO] = operationalRoutes <+> streamRoutes <+> directorRoutes <+> participantRoutes <+> internalRoutes <+> gatewayRoutes
 
   // ── Helpers: public proxy ─────────────────────────────────────────────────────
 
@@ -295,13 +326,13 @@ class TournamentGatewayRoutes(
   private def parseBotJoinRequest(body: String): Either[String, (String, String)] =
     try
       val json    = ujson.read(body)
-      val botId   = json("botId").str.trim
-      val botName = json("botName").str.trim
-      if botId.isEmpty then Left("botId must not be empty")
-      else if botName.isEmpty then Left("botName must not be empty")
+      val botId   = json("tournamentServerBotId").str.trim
+      val botName = json("tournamentServerBotName").str.trim
+      if botId.isEmpty then Left("tournamentServerBotId must not be empty")
+      else if botName.isEmpty then Left("tournamentServerBotName must not be empty")
       else Right((botId, botName))
     catch
-      case NonFatal(_) => Left("Request body must be a JSON object with botId and botName")
+      case NonFatal(_) => Left("Request body must be a JSON object with tournamentServerBotId and tournamentServerBotName")
 
   // ── Helpers: form encoding ────────────────────────────────────────────────────
 

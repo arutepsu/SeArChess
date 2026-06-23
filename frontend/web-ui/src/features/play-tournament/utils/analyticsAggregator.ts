@@ -1,4 +1,4 @@
-import type { TournamentGameRow } from "../../../api/publicTournamentTypes";
+import type { PublicTournamentListResponse, TournamentGameRow } from "../../../api/publicTournamentTypes";
 
 // ── Exported types ─────────────────────────────────────────────────────────────
 
@@ -239,4 +239,81 @@ export function aggregateGames(
   };
 
   return { global, mySummary, bots, terminations, lengthBuckets };
+}
+
+// ── Tournament progress aggregation ───────────────────────────────────────────
+
+export interface TournamentProgressData {
+  waitingCount: number;
+  runningCount: number;
+  finishedCount: number;
+  /** Round-pairing games discovered across all running tournaments. */
+  knownGames: number;
+  /** Round games with a definitive result (winner known, or status signals completion). */
+  completedGames: number;
+  /** Round games not yet completed (knownGames − completedGames). */
+  activeGames: number;
+  /** Highest round number seen in round-pairing data, or null if none loaded. */
+  currentRoundMax: number | null;
+  /** Highest nbRounds value across running tournaments, or null if unavailable. */
+  nbRoundsMax: number | null;
+  /** completedGames / knownGames × 100, defined only when knownGames > 0. */
+  progressPercent: number | undefined;
+  /** Always true: we can only show partial discovery progress, not a known total. */
+  progressIsEstimated: boolean;
+  /** Up to 10 round games sorted by round desc, completed first within a round. */
+  latestGames: TournamentGameRow[];
+}
+
+function isRoundGameCompleted(row: TournamentGameRow): boolean {
+  if (row.winner !== null) return true;
+  const s = row.status.toLowerCase();
+  return s === "draw" || s === "stalemate" || s === "finished";
+}
+
+export function computePublicTournamentProgress(
+  listData: PublicTournamentListResponse | null,
+  games: TournamentGameRow[],
+): TournamentProgressData {
+  const waitingCount  = listData?.created?.length  ?? 0;
+  const runningCount  = listData?.started?.length  ?? 0;
+  const finishedCount = listData?.finished?.length ?? 0;
+
+  const roundGames = games.filter((g) => g.source === "round");
+  const knownGames = roundGames.length;
+  const completedGames = roundGames.filter(isRoundGameCompleted).length;
+  const activeGames = knownGames - completedGames;
+
+  let currentRoundMax: number | null = null;
+  for (const g of roundGames) {
+    if (currentRoundMax === null || g.round > currentRoundMax) currentRoundMax = g.round;
+  }
+
+  let nbRoundsMax: number | null = null;
+  for (const t of (listData?.started ?? [])) {
+    if (t.nbRounds > 0 && (nbRoundsMax === null || t.nbRounds > nbRoundsMax)) nbRoundsMax = t.nbRounds;
+  }
+
+  const progressPercent = knownGames > 0 ? (completedGames / knownGames) * 100 : undefined;
+
+  const latestGames = [...roundGames]
+    .sort((a, b) => {
+      if (b.round !== a.round) return b.round - a.round;
+      return (isRoundGameCompleted(b) ? 1 : 0) - (isRoundGameCompleted(a) ? 1 : 0);
+    })
+    .slice(0, 10);
+
+  return {
+    waitingCount,
+    runningCount,
+    finishedCount,
+    knownGames,
+    completedGames,
+    activeGames,
+    currentRoundMax,
+    nbRoundsMax,
+    progressPercent,
+    progressIsEstimated: true,
+    latestGames,
+  };
 }
