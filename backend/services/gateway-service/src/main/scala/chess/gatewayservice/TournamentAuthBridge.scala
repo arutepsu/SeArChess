@@ -8,22 +8,29 @@ import org.http4s.headers.`Content-Type`
 
 /** Owns the server-side auth bridge to the tournament-server.
   *
-  * On the first call for a Keycloak subject, it calls POST /api/auth/register on
-  * the tournament-server (with isBot=false), caches the returned (userId, JWT),
-  * and uses that JWT for all subsequent protected requests.
+  * User tokens (isBot=false): keyed by Keycloak sub in `cache`.
+  * Bot tokens (isBot=true): keyed by tournament-server botId in `botJwtCache`.
   *
-  * If a protected call gets a 401, the cache entry is cleared and registration is
-  * retried once. Tournament-server JWTs are never forwarded to the browser.
+  * On the first call for a subject/botId, this class calls POST /api/auth/register
+  * on the tournament-server, caches the returned JWT, and reuses it for subsequent
+  * calls. On 401 the cache entry is evicted and registration is retried once.
+  *
+  * For bot tokens, ownership is verified by checking that the tournament-server's
+  * registration for (botName, isBot=true) returns the expected botId. A mismatch
+  * means the caller provided a wrong botName for the claimed botId and is rejected.
+  *
+  * Neither user nor bot JWTs are ever forwarded to the browser.
   */
 final class TournamentAuthBridge(
   client: Client[IO],
   tournamentServerUrl: String,
-  cache: TournamentJwtCache
+  cache: TournamentJwtCache,
+  botJwtCache: TournamentJwtCache
 ):
 
   private val upstreamBase = Uri.unsafeFromString(tournamentServerUrl)
 
-  /** Execute `mkReq(token)` using a cached or freshly-registered token.
+  /** Execute `mkReq(token)` using a cached or freshly-registered user token.
     * On 401, clears cache and retries once.
     */
   def withToken(sub: String, displayName: String)(
@@ -32,6 +39,94 @@ final class TournamentAuthBridge(
     getOrAcquireToken(sub, displayName).flatMap {
       case Left(err)    => IO.pure(authFailure(err))
       case Right(entry) => executeWithRetry(sub, displayName, entry.token, mkReq)
+    }
+
+  /** Execute `mkReq(botToken)` using a cached or freshly-registered bot JWT
+    * (isBot=true). Ownership is verified by confirming that the tournament-server's
+    * idempotent registration for (botName, isBot=true) returns `botId`. A mismatch
+    * is rejected with BOT_ID_MISMATCH before any upstream call is made.
+    * On 401, evicts the bot JWT cache and retries once.
+    */
+  def withBotToken(botId: String, botName: String)(
+    mkReq: String => Request[IO]
+  ): IO[Response[IO]] =
+    getOrAcquireBotToken(botId, botName).flatMap {
+      case Left("bot_id_mismatch") =>
+        IO.pure(buildJsonResponse(
+          Status.BadRequest,
+          ujson.write(ujson.Obj(
+            "code"    -> "BOT_ID_MISMATCH",
+            "message" -> s"botName '$botName' does not match the registered identity for botId '$botId'"
+          )).getBytes("UTF-8")
+        ))
+      case Left(err)    => IO.pure(authFailure(err))
+      case Right(entry) => executeBotWithRetry(botId, botName, entry.token, mkReq)
+    }
+
+  private def getOrAcquireBotToken(
+    botId: String,
+    botName: String
+  ): IO[Either[String, TournamentJwtCache.Entry]] =
+    botJwtCache.get(botId) match
+      case Some(entry) => IO.pure(Right(entry))
+      case None        => registerBot(botId, botName)
+
+  private def registerBot(
+    expectedBotId: String,
+    botName: String
+  ): IO[Either[String, TournamentJwtCache.Entry]] =
+    val uri  = upstreamBase.withPath(Uri.Path.unsafeFromString("/api/auth/register"))
+    val body = ujson.write(ujson.Obj("name" -> botName, "isBot" -> true))
+    val req  = Request[IO](
+      method  = Method.POST,
+      uri     = uri,
+      headers = Headers(`Content-Type`(MediaType.application.json)),
+      body    = Stream.emits(body.getBytes("UTF-8")).covary[IO]
+    )
+    client.run(req).use { resp =>
+      resp.as[String].map { respBody =>
+        if resp.status.isSuccess then
+          try
+            val json       = ujson.read(respBody)
+            val returnedId = json("id").str
+            if returnedId != expectedBotId then
+              Left("bot_id_mismatch")
+            else
+              val entry = TournamentJwtCache.Entry(returnedId, json("token").str)
+              botJwtCache.put(expectedBotId, entry)
+              Right(entry)
+          catch
+            case _: Exception => Left("Bot registration response parse failure")
+        else
+          Left(s"Bot registration failed: ${resp.status.code}")
+      }
+    }.handleErrorWith { e =>
+      IO.pure(Left(s"Tournament-server unreachable during bot registration: ${Option(e.getMessage).getOrElse("unknown")}"))
+    }
+
+  private def executeBotWithRetry(
+    botId: String,
+    botName: String,
+    token: String,
+    mkReq: String => Request[IO]
+  ): IO[Response[IO]] =
+    runRequest(mkReq(token)).flatMap { (status, body) =>
+      if status == Status.Unauthorized then
+        botJwtCache.remove(botId)
+        registerBot(botId, botName).flatMap {
+          case Left("bot_id_mismatch") =>
+            IO.pure(buildJsonResponse(
+              Status.BadRequest,
+              ujson.write(ujson.Obj(
+                "code"    -> "BOT_ID_MISMATCH",
+                "message" -> s"botName '$botName' does not match the registered identity for botId '$botId'"
+              )).getBytes("UTF-8")
+            ))
+          case Left(err)    => IO.pure(authFailure(err))
+          case Right(entry) => runRequest(mkReq(entry.token)).map((s, b) => buildJsonResponse(s, b))
+        }
+      else
+        IO.pure(buildJsonResponse(status, body))
     }
 
   private def executeWithRetry(

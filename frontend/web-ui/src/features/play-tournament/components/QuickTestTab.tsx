@@ -5,6 +5,7 @@ import {
   createPublicTournament,
   startPublicTournament,
 } from "../../../api/publicTournamentClient";
+import { recordTournamentParticipant } from "../../../api/userServiceClient";
 import type { PublicRegisteredBot, PublicTournamentFormat } from "../../../api/publicTournamentTypes";
 import Button from "../../../components/ui/Button";
 import ErrorState from "../../../components/ui/ErrorState";
@@ -105,7 +106,7 @@ export default function QuickTestTab({
       return;
     }
 
-    // Phase 2: add selected bots as participants
+    // Phase 2: add selected bots as participants (director path) and record in Searchess registry
     setSubmitPhase("addBots");
     for (const botId of Array.from(selected)) {
       try {
@@ -119,6 +120,15 @@ export default function QuickTestTab({
         setSubmitting(false);
         setSubmitPhase(null);
         return;
+      }
+      // Best-effort: record in Searchess participant registry for the waiting lobby.
+      const botName = bots.find((b) => b.id === botId)?.name ?? "";
+      if (botName) {
+        try {
+          await recordTournamentParticipant(tournamentId, { botId, botName });
+        } catch {
+          // Non-critical: don't abort QuickTest flow if registry fails.
+        }
       }
     }
 

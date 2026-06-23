@@ -119,3 +119,24 @@ export interface RecordTournamentBotOwnershipRequest {
   botId: string;
   botName: string;
 }
+
+// ── Tournament participant registry types ─────────────────────────────────────
+
+export interface TournamentParticipant {
+  tournamentId: string;
+  botId: string;
+  botName: string;
+  userId: string;
+  displayName: string;
+  joinedAt: string;
+}
+
+export interface TournamentParticipantsResponse {
+  tournamentId: string;
+  participants: TournamentParticipant[];
+}
+
+export interface RecordTournamentParticipantRequest {
+  botId: string;
+  botName: string;
+}

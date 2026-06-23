@@ -106,7 +106,7 @@ export default function GamesTab({ games, ownedIds, loading, errors, filterOwned
                         {" "}
                         <span className={`play-tournament-badge play-tournament-badge--${row.tournamentStatus}`}
                               style={{ fontSize: "0.65rem", padding: "1px 5px" }}>
-                          {row.tournamentStatus === "started" ? "live" : row.tournamentStatus}
+                          {row.tournamentStatus === "started" ? "in progress" : row.tournamentStatus}
                         </span>
                       </td>
                       <td className="play-tournament-table-num">{row.round}</td>
@@ -126,7 +126,7 @@ export default function GamesTab({ games, ownedIds, loading, errors, filterOwned
                       </td>
                       <td className="play-tournament-table-num">
                         <span className={`pt-games-source-badge pt-games-source-badge--${row.source}`}>
-                          {row.source === "analytics" ? "full" : "live"}
+                          {row.source === "analytics" ? "full" : "in progress"}
                         </span>
                       </td>
                       <td>

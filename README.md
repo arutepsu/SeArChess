@@ -8,6 +8,25 @@
   A chess platform built as a playground for clean software architecture.
 </p>
 
+<p align="center">
+  <a href="https://github.com/arutepsu/SeArChess/actions/workflows/ci.yml">
+    <img src="https://github.com/arutepsu/SeArChess/actions/workflows/ci.yml/badge.svg" alt="CI" />
+  </a>
+  <a href="https://github.com/arutepsu/SeArChess/actions/workflows/build-images.yml">
+    <img src="https://github.com/arutepsu/SeArChess/actions/workflows/build-images.yml/badge.svg" alt="Docker Build" />
+  </a>
+  <a href="https://coveralls.io/github/arutepsu/SeArChess?branch=main">
+    <img src="https://coveralls.io/repos/github/arutepsu/SeArChess/badge.svg?branch=main" alt="Coverage Status" />
+  </a>
+  <a href="https://github.com/arutepsu/SeArChess/actions/workflows/codeql.yml">
+    <img src="https://github.com/arutepsu/SeArChess/actions/workflows/codeql.yml/badge.svg" alt="CodeQL" />
+  </a>
+  <img src="https://img.shields.io/github/last-commit/arutepsu/SeArChess" alt="Last commit" />
+  <a href="https://opensource.org/licenses/MIT">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" />
+  </a>
+</p>
+
 ---
 
 ## 📖 About

@@ -69,6 +69,9 @@ class TournamentGatewayRoutes(
   }
 
   // ── Director-only (write) routes — require Keycloak auth ─────────────────────
+  // Director authorization is enforced by the tournament-server (start/delete check
+  // t.director == userId; create sets the caller as director). The gateway only
+  // authenticates the caller — it does not enforce director status itself.
 
   private val directorRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
 
@@ -131,9 +134,44 @@ class TournamentGatewayRoutes(
           )
         }
       }
+  }
+
+  // ── Participant routes — require Keycloak auth; any authenticated user may attempt ──
+  // The gateway does not enforce director status here. Authorization (director-only vs.
+  // open join) is enforced by the tournament-server: it will return 403 for non-directors
+  // calling /participants. That error propagates to the client without modification.
+  //
+  // POST .../join  — bot self-join via tournament-server /join endpoint.
+  //   Body: { botId, botName }. The gateway acquires a bot JWT (isBot=true) for the
+  //   given bot and proxies /join with no body — the tournament-server reads bot identity
+  //   from the JWT. Ownership is verified by confirming that registration of (botName,
+  //   isBot=true) returns the expected botId; a mismatch is rejected with BOT_ID_MISMATCH.
+  //
+  // POST .../participants — director-only registration path that proxies the body
+  //   upstream as-is. The tournament-server enforces the director check.
+
+  private val participantRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
+
+    case req @ POST -> Root / "api" / "gateway" / "tournament" / id / "join" =>
+      withAuth(req) { _ =>
+        req.bodyText.compile.string.flatMap { jsonBody =>
+          parseBotJoinRequest(jsonBody) match
+            case Left(err) =>
+              IO.pure(errorResponse(Status.BadRequest, "BAD_REQUEST", err))
+            case Right((botId, botName)) =>
+              authBridge.withBotToken(botId, botName) { token =>
+                Request[IO](
+                  method  = Method.POST,
+                  uri     = upstreamBase.withPath(Uri.Path.unsafeFromString(s"/api/tournament/$id/join")),
+                  headers = Headers(Header.Raw(CIString("Authorization"), s"Bearer $token"))
+                  // No body — tournament-server reads bot identity from JWT
+                )
+              }
+        }
+      }
 
     case req @ POST -> Root / "api" / "gateway" / "tournament" / id / "participants" =>
-      withDirector(req) { claims =>
+      withAuth(req) { claims =>
         req.bodyText.compile.string.flatMap { jsonBody =>
           authBridge.withToken(claims.sub, claims.preferredUsername) { token =>
             Request[IO](
@@ -178,7 +216,7 @@ class TournamentGatewayRoutes(
 
   // Declared after all sub-routes so each sub-route is already initialized when
   // the <+> combinator captures them (Scala vals initialize in textual order).
-  val routes: HttpRoutes[IO] = operationalRoutes <+> streamRoutes <+> directorRoutes <+> gatewayRoutes
+  val routes: HttpRoutes[IO] = operationalRoutes <+> streamRoutes <+> directorRoutes <+> participantRoutes <+> gatewayRoutes
 
   // ── Helpers: public proxy ─────────────────────────────────────────────────────
 
@@ -211,12 +249,11 @@ class TournamentGatewayRoutes(
 
   // ── Helpers: auth ─────────────────────────────────────────────────────────────
 
-  /** Resolves the Keycloak identity for director-only routes.
-    *
-    * In dev mode (authDisabled=true): uses the configured dev identity. No JWT is decoded.
-    * In prod mode: extracts claims from the Envoy-forwarded Keycloak JWT. Rejects on missing
-    * or malformed token. Does not re-verify the JWT signature — Envoy owns that.
-    */
+  // NOTE: withDirector is authentication only — it does NOT check whether the
+  // caller is the tournament director. Director enforcement happens on the
+  // tournament-server side (start and delete reject non-directors with 403).
+  // The name reflects which *logical group* of routes uses it, not a Searchess-side
+  // authorization check.
   private def withDirector(req: Request[IO])(
     f: GatewayJwtClaims => IO[Response[IO]]
   ): IO[Response[IO]] =
@@ -230,6 +267,25 @@ class TournamentGatewayRoutes(
           GatewayJwtExtractor.fromBearerHeader(headerValue) match
             case Left(err)     => IO.pure(errorResponse(Status.Unauthorized, "UNAUTHORIZED", err))
             case Right(claims) => f(claims)
+
+  // withAuth is semantically identical to withDirector. It is used for routes where
+  // any authenticated Searchess user may call the endpoint regardless of tournament role.
+  private def withAuth(req: Request[IO])(
+    f: GatewayJwtClaims => IO[Response[IO]]
+  ): IO[Response[IO]] = withDirector(req)(f)
+
+  // ── Helpers: bot join ─────────────────────────────────────────────────────────
+
+  private def parseBotJoinRequest(body: String): Either[String, (String, String)] =
+    try
+      val json    = ujson.read(body)
+      val botId   = json("botId").str.trim
+      val botName = json("botName").str.trim
+      if botId.isEmpty then Left("botId must not be empty")
+      else if botName.isEmpty then Left("botName must not be empty")
+      else Right((botId, botName))
+    catch
+      case NonFatal(_) => Left("Request body must be a JSON object with botId and botName")
 
   // ── Helpers: form encoding ────────────────────────────────────────────────────
 
