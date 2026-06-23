@@ -6,6 +6,7 @@ final case class GatewayServiceConfig(
   host: String,
   port: Int,
   tournamentServerUrl: String,
+  userServiceUrl: String,
   authDisabled: Boolean,
   devUserName: String
 )
@@ -30,6 +31,7 @@ object GatewayServiceConfig:
       host                = env("GATEWAY_HTTP_HOST").getOrElse("0.0.0.0"),
       port                = port,
       tournamentServerUrl = env("TOURNAMENT_SERVER_URL").getOrElse("http://141.37.123.132:8086"),
+      userServiceUrl      = env("USER_SERVICE_URL").getOrElse("http://localhost:8082"),
       authDisabled        = env("GATEWAY_AUTH_DISABLED").exists(_.equalsIgnoreCase("true")),
       devUserName         = env("GATEWAY_DEV_USER_NAME").getOrElse("dev-director")
     )
