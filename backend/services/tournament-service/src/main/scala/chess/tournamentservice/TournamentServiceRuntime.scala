@@ -4,13 +4,15 @@ import cats.effect.{FiberIO, IO}
 import cats.effect.unsafe.implicits.global
 
 final case class TournamentServiceRuntime(
-    shutdownHttp: IO[Unit],
-    worker: FiberIO[Nothing],
+    shutdownHttp:     IO[Unit],
+    worker:           FiberIO[Nothing],
     analyticsWorkers: List[FiberIO[Nothing]],
-    outboxPoller: Option[FiberIO[Nothing]],
-    closeResources: IO[Unit] = IO.unit
+    outboxPoller:     Option[FiberIO[Nothing]],
+    schedulerFiber:   Option[FiberIO[Nothing]] = None,
+    closeResources:   IO[Unit]                 = IO.unit
 ):
   def shutdown(): Unit =
+    schedulerFiber.foreach(_.cancel.unsafeRunSync())
     outboxPoller.foreach(_.cancel.unsafeRunSync())
     worker.cancel.unsafeRunSync()
     analyticsWorkers.foreach(_.cancel.unsafeRunSync())

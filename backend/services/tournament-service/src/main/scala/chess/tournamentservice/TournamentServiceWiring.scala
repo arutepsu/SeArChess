@@ -24,7 +24,9 @@ object TournamentServiceWiring:
     val importRepository = InMemoryPublicImportRepository.create().unsafeRunSync()
     val importClient  = JdkPublicTournamentClient()
     val importService = PublicImportService(repository, importRepository, importClient, config.outputBasePath)
-    val httpApp    = (TournamentRoutes(service).routes <+> PublicImportRoutes(importService).routes).orNotFound
+    val recentGuard   = Some(RecentSubmissionGuard(config.publicRunnerRecentlySubmittedTtlSecs * 1000L))
+    val runner        = buildRunner(config, registry, recentGuard)
+    val httpApp    = (TournamentRoutes(service).routes <+> PublicImportRoutes(importService).routes <+> RunnerRoutes(runner).routes).orNotFound
 
     val host = Host
       .fromString(config.host)
@@ -44,8 +46,60 @@ object TournamentServiceWiring:
         .unsafeRunSync()
 
     val (outboxPollerFiber, closeResources) = buildOutboxPoller(config, outboxRepoOpt)
+    val schedulerFiber = buildScheduler(config, runner)
 
-    TournamentServiceRuntime(shutdownHttp, worker, analyticsWorkers, outboxPollerFiber, closeResources)
+    TournamentServiceRuntime(shutdownHttp, worker, analyticsWorkers, outboxPollerFiber, schedulerFiber, closeResources)
+
+  private[tournamentservice] def buildRunner(
+      config:      TournamentServiceConfig,
+      registry:    BotRegistry,
+      recentGuard: Option[RecentSubmissionGuard]
+  ): Option[PublicTournamentBotRunner] =
+    (config.tournamentServerBaseUrl, config.userServiceBaseUrl, config.gatewayInternalBaseUrl) match
+      case (Some(tsUrl), Some(usUrl), Some(gwUrl)) =>
+        val serverClient      = JdkTournamentRunnerServerClient(tsUrl)
+        val participantClient = JdkSearchessParticipantClient(usUrl)
+        val moveClient        = JdkGatewayMoveClient(gwUrl, config.runnerServiceToken)
+        Some(PublicTournamentBotRunner(registry, serverClient, participantClient, moveClient, recentGuard))
+      case _ =>
+        None
+
+  private[tournamentservice] def buildScheduler(
+      config:    TournamentServiceConfig,
+      runnerOpt: Option[TournamentTickRunner]
+  ): Option[FiberIO[Nothing]] =
+    if !config.publicRunnerSchedulerEnabled then
+      StructuredLog.info("tournament-service", "runner_scheduler_disabled")
+      None
+    else
+      runnerOpt match
+        case None =>
+          StructuredLog.info("tournament-service", "runner_scheduler_skipped",
+            "reason" -> "runner not configured (check TOURNAMENT_SERVER_BASE_URL, TOURNAMENT_USER_SERVICE_BASE_URL, TOURNAMENT_GATEWAY_INTERNAL_BASE_URL)"
+          )
+          None
+        case Some(runner) =>
+          config.tournamentServerBaseUrl match
+            case None =>
+              StructuredLog.info("tournament-service", "runner_scheduler_skipped",
+                "reason" -> "TOURNAMENT_SERVER_BASE_URL not set"
+              )
+              None
+            case Some(tsUrl) =>
+              val discovery = JdkPublicTournamentDiscoveryClient(tsUrl)
+              val scheduler = PublicTournamentRunnerScheduler(
+                runner         = runner,
+                discovery      = discovery,
+                intervalSecs   = config.publicRunnerIntervalSeconds,
+                maxTournaments = config.publicRunnerMaxTournamentsPerCycle
+              )
+              StructuredLog.info(
+                "tournament-service", "runner_scheduler_starting",
+                "intervalSeconds"        -> config.publicRunnerIntervalSeconds,
+                "maxTournamentsPerCycle" -> config.publicRunnerMaxTournamentsPerCycle,
+                "recentSubmitTtlSecs"    -> config.publicRunnerRecentlySubmittedTtlSecs
+              )
+              Some(scheduler.start().start.unsafeRunSync())
 
   private[tournamentservice] def buildAnalyticsRunner(config: TournamentServiceConfig): TournamentAnalyticsRunner =
     config.analyticsCommand match

@@ -5,6 +5,7 @@ import {
 } from "../../../api/publicTournamentClient";
 import {
   isAnalyticsNotReady,
+  type PublicAnalyticsExport,
   type PublicAnalyticsExportGame,
   type PublicRoundGame,
   type PublicTournamentInfo,
@@ -69,6 +70,7 @@ function roundGameToRow(g: PublicRoundGame, round: number, t: PublicTournamentIn
 export interface GameLoadResult {
   games: TournamentGameRow[];
   errors: string[];
+  exports: PublicAnalyticsExport[];
 }
 
 export async function loadTournamentGames(
@@ -76,6 +78,7 @@ export async function loadTournamentGames(
 ): Promise<GameLoadResult> {
   const games: TournamentGameRow[] = [];
   const errors: string[] = [];
+  const exports: PublicAnalyticsExport[] = [];
 
   // ── Finished tournaments: analytics export ────────────────────────────────
   // Slice the last N to prefer newer tournaments when the list is long.
@@ -92,6 +95,7 @@ export async function loadTournamentGames(
         errors.push(`"${t.fullName}": analytics not yet available`);
       } else {
         ar.games.forEach((g) => games.push(analyticsGameToRow(g, t)));
+        exports.push(ar);
       }
     } else {
       const msg = result.reason instanceof Error ? result.reason.message : String(result.reason);
@@ -129,5 +133,5 @@ export async function loadTournamentGames(
     });
   }
 
-  return { games, errors };
+  return { games, errors, exports };
 }

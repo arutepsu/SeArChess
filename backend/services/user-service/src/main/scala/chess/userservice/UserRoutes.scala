@@ -26,7 +26,7 @@ import java.util.UUID
   *   POST   /users/me/lichess/challenges/searchess-bot     — create Lichess challenge to Searchess BOT (challenge_ready only)
   *   GET    /users/me/tournament-bots                      — list owned tournament-server bot IDs
   *   POST   /users/me/tournament-bots                      — record ownership of a tournament-server bot
-  *   GET    /users/tournaments/{tournamentId}/participants  — list joined participants (public)
+  *   GET    /users/tournaments/{tournamentId}/participants  — list joined participants (public), enriched with searchessCatalogBotId
   *   POST   /users/tournaments/{tournamentId}/participants  — record participant join (auth required)
   */
 class UserRoutes(
@@ -217,8 +217,8 @@ class UserRoutes(
           parseRecordBotRequest(body) match
             case Left(err) =>
               respond(Status.BadRequest, ujson.Obj("code" -> "BAD_REQUEST", "message" -> err))
-            case Right((botId, botName)) =>
-              val ownership = TournamentBotOwnership(UUID.randomUUID(), profile.userId, botId, botName, java.time.Instant.now())
+            case Right((tsBotId, tsBotName, catalogBotId)) =>
+              val ownership = TournamentBotOwnership(UUID.randomUUID(), profile.userId, tsBotId, tsBotName, catalogBotId, java.time.Instant.now())
               botOwnershipRepo.insertIfAbsent(ownership) match
                 case Left(err) =>
                   respond(Status.InternalServerError, ujson.Obj("code" -> "INTERNAL_ERROR", "message" -> err))
@@ -232,9 +232,18 @@ class UserRoutes(
         case Left(err) =>
           respond(Status.InternalServerError, ujson.Obj("code" -> "INTERNAL_ERROR", "message" -> err))
         case Right(participants) =>
+          val ownershipIds = participants.flatMap(_.searchessBotId).toSet
+          val catalogIdMap: Map[UUID, String] =
+            if ownershipIds.isEmpty then Map.empty
+            else botOwnershipRepo.findByIdIn(ownershipIds) match
+              case Left(_)      => Map.empty
+              case Right(items) => items.flatMap(o => o.searchessCatalogBotId.map(cid => o.id -> cid)).toMap
           respond(Status.Ok, ujson.Obj(
             "tournamentId" -> tournamentId,
-            "participants" -> ujson.Arr(participants.map(participantJson)*)
+            "participants" -> ujson.Arr(participants.map { p =>
+              val catalogId = p.searchessBotId.flatMap(catalogIdMap.get)
+              participantJson(p, catalogId)
+            }*)
           ))
 
     case req @ POST -> Root / "users" / "tournaments" / tournamentId / "participants" =>
@@ -243,29 +252,32 @@ class UserRoutes(
           parseAddParticipantRequest(body) match
             case Left(err) =>
               respond(Status.BadRequest, ujson.Obj("code" -> "BAD_REQUEST", "message" -> err))
-            case Right((botId, botName)) =>
+            case Right((tsBotId, tsBotName, tsUserId)) =>
               botOwnershipRepo.findAllByUserId(profile.userId) match
                 case Left(err) =>
                   respond(Status.InternalServerError, ujson.Obj("code" -> "INTERNAL_ERROR", "message" -> err))
                 case Right(ownedBots) =>
-                  if !ownedBots.exists(_.botId == botId) then
-                    respond(Status.Forbidden, ujson.Obj("code" -> "BOT_NOT_OWNED", "message" -> s"Bot '$botId' is not registered to this user"))
-                  else
-                    val participant = PublicTournamentParticipant(
-                      tournamentId = tournamentId,
-                      botId        = botId,
-                      botName      = botName,
-                      userId       = profile.userId,
-                      displayName  = profile.displayName,
-                      joinedAt     = java.time.Instant.now()
-                    )
-                    participantRepo.insertIfAbsent(participant) match
-                      case Left("bot_already_claimed_by_another_user") =>
-                        respond(Status.Conflict, ujson.Obj("code" -> "BOT_ALREADY_CLAIMED", "message" -> s"Bot '$botId' is already registered for this tournament by another user"))
-                      case Left(err) =>
-                        respond(Status.InternalServerError, ujson.Obj("code" -> "INTERNAL_ERROR", "message" -> err))
-                      case Right(saved) =>
-                        respond(Status.Created, participantJson(saved))
+                  ownedBots.find(_.tournamentServerBotId == tsBotId) match
+                    case None =>
+                      respond(Status.Forbidden, ujson.Obj("code" -> "BOT_NOT_OWNED", "message" -> s"Bot '$tsBotId' is not registered to this user"))
+                    case Some(matchingOwnership) =>
+                      val participant = PublicTournamentParticipant(
+                        tournamentId            = tournamentId,
+                        searchessUserId         = profile.userId,
+                        displayName             = profile.displayName,
+                        searchessBotId          = Some(matchingOwnership.id),
+                        tournamentServerUserId  = tsUserId,
+                        tournamentServerBotId   = tsBotId,
+                        tournamentServerBotName = tsBotName,
+                        joinedAt                = java.time.Instant.now()
+                      )
+                      participantRepo.insertIfAbsent(participant) match
+                        case Left("bot_already_claimed_by_another_user") =>
+                          respond(Status.Conflict, ujson.Obj("code" -> "BOT_ALREADY_CLAIMED", "message" -> s"Bot '$tsBotId' is already registered for this tournament by another user"))
+                        case Left(err) =>
+                          respond(Status.InternalServerError, ujson.Obj("code" -> "INTERNAL_ERROR", "message" -> err))
+                        case Right(saved) =>
+                          respond(Status.Created, participantJson(saved, matchingOwnership.searchessCatalogBotId))
         }
       }
 
@@ -445,45 +457,51 @@ class UserRoutes(
       "accepted" -> result.accepted
     )
 
-  private def parseRecordBotRequest(body: String): Either[String, (String, String)] =
+  private def parseRecordBotRequest(body: String): Either[String, (String, String, Option[String])] =
     try
-      val json  = ujson.read(body)
-      val botId = json.obj.get("botId").flatMap(_.strOpt).map(_.trim).filter(_.nonEmpty)
-      val name  = json.obj.get("botName").flatMap(_.strOpt).map(_.trim).filter(_.nonEmpty)
+      val json      = ujson.read(body)
+      val botId     = json.obj.get("tournamentServerBotId").flatMap(_.strOpt).map(_.trim).filter(_.nonEmpty)
+      val name      = json.obj.get("tournamentServerBotName").flatMap(_.strOpt).map(_.trim).filter(_.nonEmpty)
+      val catalogId = json.obj.get("searchessCatalogBotId").flatMap(_.strOpt).map(_.trim).filter(_.nonEmpty)
       (botId, name) match
-        case (Some(id), Some(n)) => Right((id, n))
-        case (None, _)           => Left("Missing or empty 'botId' field")
-        case (_, None)           => Left("Missing or empty 'botName' field")
+        case (Some(id), Some(n)) => Right((id, n, catalogId))
+        case (None, _)           => Left("Missing or empty 'tournamentServerBotId' field")
+        case (_, None)           => Left("Missing or empty 'tournamentServerBotName' field")
     catch
-      case _: Exception => Left("Request body must be valid JSON with 'botId' and 'botName' string fields")
+      case _: Exception => Left("Request body must be valid JSON with 'tournamentServerBotId' and 'tournamentServerBotName' string fields")
 
   private def botOwnershipJson(o: TournamentBotOwnership): ujson.Value =
     ujson.Obj(
-      "botId"     -> o.botId,
-      "botName"   -> o.botName,
-      "createdAt" -> o.createdAt.toString
+      "tournamentServerBotId"   -> o.tournamentServerBotId,
+      "tournamentServerBotName" -> o.tournamentServerBotName,
+      "searchessCatalogBotId"   -> o.searchessCatalogBotId.map(ujson.Str(_)).getOrElse(ujson.Null),
+      "createdAt"               -> o.createdAt.toString
     )
 
-  private def parseAddParticipantRequest(body: String): Either[String, (String, String)] =
+  private def parseAddParticipantRequest(body: String): Either[String, (String, String, Option[String])] =
     try
-      val json  = ujson.read(body)
-      val botId = json.obj.get("botId").flatMap(_.strOpt).map(_.trim).filter(_.nonEmpty)
-      val name  = json.obj.get("botName").flatMap(_.strOpt).map(_.trim).filter(_.nonEmpty)
+      val json   = ujson.read(body)
+      val botId  = json.obj.get("tournamentServerBotId").flatMap(_.strOpt).map(_.trim).filter(_.nonEmpty)
+      val name   = json.obj.get("tournamentServerBotName").flatMap(_.strOpt).map(_.trim).filter(_.nonEmpty)
+      val tsUser = json.obj.get("tournamentServerUserId").flatMap(_.strOpt).map(_.trim).filter(_.nonEmpty)
       (botId, name) match
-        case (Some(id), Some(n)) => Right((id, n))
-        case (None, _)           => Left("Missing or empty 'botId' field")
-        case (_, None)           => Left("Missing or empty 'botName' field")
+        case (Some(id), Some(n)) => Right((id, n, tsUser))
+        case (None, _)           => Left("Missing or empty 'tournamentServerBotId' field")
+        case (_, None)           => Left("Missing or empty 'tournamentServerBotName' field")
     catch
-      case _: Exception => Left("Request body must be valid JSON with 'botId' and 'botName' string fields")
+      case _: Exception => Left("Request body must be valid JSON with 'tournamentServerBotId' and 'tournamentServerBotName' string fields")
 
-  private def participantJson(p: PublicTournamentParticipant): ujson.Value =
+  private def participantJson(p: PublicTournamentParticipant, searchessCatalogBotId: Option[String]): ujson.Value =
     ujson.Obj(
-      "tournamentId" -> p.tournamentId,
-      "botId"        -> p.botId,
-      "botName"      -> p.botName,
-      "userId"       -> p.userId.toString,
-      "displayName"  -> p.displayName,
-      "joinedAt"     -> p.joinedAt.toString
+      "tournamentId"            -> p.tournamentId,
+      "searchessUserId"         -> p.searchessUserId.toString,
+      "displayName"             -> p.displayName,
+      "searchessBotId"          -> p.searchessBotId.map(_.toString).map(ujson.Str(_)).getOrElse(ujson.Null),
+      "searchessCatalogBotId"   -> searchessCatalogBotId.map(ujson.Str(_)).getOrElse(ujson.Null),
+      "tournamentServerUserId"  -> p.tournamentServerUserId.map(ujson.Str(_)).getOrElse(ujson.Null),
+      "tournamentServerBotId"   -> p.tournamentServerBotId,
+      "tournamentServerBotName" -> p.tournamentServerBotName,
+      "joinedAt"                -> p.joinedAt.toString
     )
 
   private def respond(status: Status, body: ujson.Value): IO[Response[IO]] =

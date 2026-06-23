@@ -5,6 +5,7 @@ import fs2.Stream
 import org.http4s.*
 import org.http4s.client.Client
 import org.http4s.headers.`Content-Type`
+import org.typelevel.ci.CIString
 
 /** Owns the server-side auth bridge to the tournament-server.
   *
@@ -69,6 +70,40 @@ final class TournamentAuthBridge(
         ))
       case Left(err)    => IO.pure(authFailure(err))
       case Right(entry) => executeBotWithRetry(botId, botName, entry.token, mkReq)
+    }
+
+  /** Submits a UCI move to the tournament-server on behalf of the given tournament-server bot.
+    *
+    * Acquires (or reuses) the bot JWT from the cache, then calls
+    * POST /api/tournament/{tournamentId}/game/{gameId}/move/{uciMove} with that JWT.
+    *
+    * The bot JWT never leaves this class — callers receive only success or an error message.
+    *
+    * The caller is responsible for resolving searchessBotId → (tournamentServerBotId,
+    * tournamentServerBotName) via user-service before calling this method. Ownership is
+    * verified by the tournament-server: it confirms the bot JWT matches the participant.
+    */
+  def submitBotMove(
+    tournamentId: String,
+    gameId: String,
+    tournamentServerBotId: String,
+    tournamentServerBotName: String,
+    uciMove: String
+  ): IO[Either[String, Unit]] =
+    withBotToken(tournamentServerBotId, tournamentServerBotName) { token =>
+      Request[IO](
+        method  = Method.POST,
+        uri     = upstreamBase.withPath(Uri.Path.unsafeFromString(
+          s"/api/tournament/$tournamentId/game/$gameId/move/$uciMove")),
+        headers = Headers(Header.Raw(CIString("Authorization"), s"Bearer $token"))
+      )
+    }.flatMap { resp =>
+      resp.bodyText.compile.string.map { body =>
+        if resp.status.isSuccess then Right(())
+        else Left(s"Tournament server rejected move '$uciMove': ${resp.status.code} $body")
+      }
+    }.handleError { err =>
+      Left(s"Move submission error: ${Option(err.getMessage).getOrElse("unknown")}")
     }
 
   private def getOrAcquireBotToken(

@@ -7,7 +7,7 @@ import type {
   StrategyRow,
   TerminationReasonRow,
 } from "../../../api/analyticsTypes";
-import type { PublicAnalyticsExport } from "../../../api/publicTournamentTypes";
+import type { PublicAnalyticsExport, PublicAnalyticsExportStanding } from "../../../api/publicTournamentTypes";
 
 // Normalized analytics model: the shared row types the existing ECharts components consume.
 // Produced by adapting a PublicAnalyticsExport without touching the local bot tournament domain.
@@ -187,4 +187,46 @@ function groupedRows<S, R>(
     acc.set(k, e);
   }
   return [...acc.entries()].map(([k, v]) => build(k, v));
+}
+
+// ── Multi-export aggregation ───────────────────────────────────────────────────
+
+/**
+ * Merges multiple analytics exports into one normalized analytics model.
+ * Standings are accumulated by botName across tournaments; all games are combined.
+ * Returns null when the input list is empty.
+ */
+export function mergePublicTournamentExports(
+  exports: PublicAnalyticsExport[],
+): PublicTournamentNormalizedAnalytics | null {
+  if (exports.length === 0) return null;
+  if (exports.length === 1) return adaptPublicTournamentAnalytics(exports[0]);
+
+  // Merge all game rows — each game belongs to exactly one tournament so no duplicates.
+  const allGames = exports.flatMap((e) => e.games);
+
+  // Accumulate standings by botName across tournaments.
+  const standingMap = new Map<string, PublicAnalyticsExportStanding>();
+  for (const exp of exports) {
+    for (const s of exp.standings) {
+      const existing = standingMap.get(s.botName);
+      if (existing) {
+        existing.nbGames  += s.nbGames;
+        existing.wins     += s.wins;
+        existing.draws    += s.draws;
+        existing.losses   += s.losses;
+        existing.points   += s.points;
+        existing.tieBreak += s.tieBreak;
+      } else {
+        standingMap.set(s.botName, { ...s });
+      }
+    }
+  }
+
+  const mergedStandings = [...standingMap.values()];
+  mergedStandings.sort((a, b) => b.points - a.points || b.wins - a.wins);
+  mergedStandings.forEach((s, i) => { s.rank = i + 1; });
+
+  // Use the first export's metadata as the synthetic container (clock, format, etc.).
+  return adaptPublicTournamentAnalytics({ ...exports[0], standings: mergedStandings, games: allGames });
 }

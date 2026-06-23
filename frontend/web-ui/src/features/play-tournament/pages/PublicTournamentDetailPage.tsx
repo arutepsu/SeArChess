@@ -126,10 +126,12 @@ function ParticipantsSection({
   isDirector: boolean;
   onRefresh: () => void;
 }) {
-  const nbServer    = tournament.nbPlayers;
-  const nbSearchess = participants.length;
-  // Mirrors DirectorActions canStart: either source reaching 2 means the tournament can start.
-  const hasEnough       = nbSearchess >= 2 || nbServer >= 2;
+  const nbServer      = tournament.nbPlayers;
+  const nbSearchess   = participants.length;
+  const distinctUsers = new Set(participants.map((p) => p.searchessUserId)).size;
+  // Ready only when Searchess has ≥2 bots from ≥2 distinct users.
+  const hasEnoughBots = nbSearchess >= 2 || nbServer >= 2;
+  const hasEnough     = nbSearchess >= 2 && distinctUsers >= 2;
   const hasServerAhead  = nbServer > nbSearchess;
   // A delta of 1 is normal while recordTournamentParticipant is in-flight; only warn on larger divergence.
   const hasSyncMismatch = Math.abs(nbServer - nbSearchess) > 1;
@@ -156,19 +158,19 @@ function ParticipantsSection({
       {participants.length > 0 ? (
         <div className="pt-bot-list">
           {participants.map((p) => {
-            const isYou      = myUserId !== null && p.userId === myUserId;
+            const isYou      = myUserId !== null && p.searchessUserId === myUserId;
             // Host badge: current user is the director and owns this participant's bot.
             // Guests see "Other user" for host bots since the director's Searchess userId
             // cannot be resolved from tournament.createdBy without a separate lookup.
-            const isHost     = isDirector && p.userId === myUserId;
-            const isOwnedBot = ownedBotIds.has(p.botId);
+            const isHost     = isDirector && p.searchessUserId === myUserId;
+            const isOwnedBot = ownedBotIds.has(p.tournamentServerBotId);
             return (
               <div
-                key={`${p.tournamentId}:${p.botId}`}
+                key={`${p.tournamentId}:${p.tournamentServerBotId}`}
                 className={`pt-bot-item${isYou || isOwnedBot ? " pt-bot-item--owned" : ""}`}
               >
                 <span className="pt-bot-name">{p.displayName}</span>
-                <span className="pt-bot-meta">{p.botName}</span>
+                <span className="pt-bot-meta">{p.tournamentServerBotName}</span>
                 <span style={{ flex: "1 1 auto" }} />
                 {isYou   && <span className="pt-bot-badge pt-bot-badge--own">You</span>}
                 {isHost  && <span className="pt-bot-badge pt-bot-badge--searchess">Host</span>}
@@ -192,7 +194,7 @@ function ParticipantsSection({
 
       {hasServerAhead && participants.length > 0 && (
         <p className="play-tournament-info-label" style={{ marginTop: 10, textTransform: "none", fontSize: "0.8rem" }}>
-          Some joined bots are not shown by name yet. You can still start once the Tournament Server reports enough bots.
+          Some joined bots are not shown by name yet. Refresh to sync participant details.
         </p>
       )}
 
@@ -201,7 +203,13 @@ function ParticipantsSection({
           className={`pt-detail-readiness${hasEnough ? " pt-detail-readiness--ready" : " pt-detail-readiness--waiting"}`}
           style={{ margin: 0 }}
         >
-          {hasEnough ? "Ready to start." : "At least 2 bots are required to start."}
+          {hasEnough
+            ? "Ready to start."
+            : !hasEnoughBots
+            ? "At least 2 bots must join."
+            : nbSearchess < 2 && nbServer >= 2
+            ? "Tournament Server reports joined bots, but Searchess has not recorded enough participant details yet."
+            : "At least 2 different users must join with their bots."}
         </p>
         <Button variant="secondary" size="sm" onClick={onRefresh}>Refresh</Button>
       </div>
@@ -216,12 +224,14 @@ function JoinSection({
   ownedBots,
   joinedBotIds,
   participantCount,
+  tournamentServerUserId,
   onRefresh,
 }: {
   id: string;
   ownedBots: OwnedTournamentBot[];
   joinedBotIds: Set<string>;
   participantCount: number;
+  tournamentServerUserId: string | null;
   onRefresh: () => void;
 }) {
   const navigate = useNavigate();
@@ -230,8 +240,8 @@ function JoinSection({
   const [error, setError]   = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const joinableBots   = ownedBots.filter((b) => !joinedBotIds.has(b.botId));
-  const alreadyJoined  = ownedBots.filter((b) => joinedBotIds.has(b.botId));
+  const joinableBots   = ownedBots.filter((b) => !joinedBotIds.has(b.tournamentServerBotId));
+  const alreadyJoined  = ownedBots.filter((b) => joinedBotIds.has(b.tournamentServerBotId));
 
   if (ownedBots.length === 0) {
     return (
@@ -249,7 +259,7 @@ function JoinSection({
 
   async function handleJoin() {
     if (!selectedBotId) return;
-    const bot = ownedBots.find((b) => b.botId === selectedBotId);
+    const bot = ownedBots.find((b) => b.tournamentServerBotId === selectedBotId);
     if (!bot) return;
 
     setBusy(true);
@@ -257,7 +267,10 @@ function JoinSection({
     setSuccess(null);
 
     try {
-      await joinPublicTournamentWithBot(id, { botId: bot.botId, botName: bot.botName });
+      await joinPublicTournamentWithBot(id, {
+        tournamentServerBotId:   bot.tournamentServerBotId,
+        tournamentServerBotName: bot.tournamentServerBotName,
+      });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to join tournament.");
       setBusy(false);
@@ -266,7 +279,11 @@ function JoinSection({
 
     // Bot is now joined on the tournament server. Best-effort Searchess registry.
     try {
-      await recordTournamentParticipant(id, { botId: bot.botId, botName: bot.botName });
+      await recordTournamentParticipant(id, {
+        tournamentServerBotId:   bot.tournamentServerBotId,
+        tournamentServerBotName: bot.tournamentServerBotName,
+        tournamentServerUserId:  tournamentServerUserId ?? undefined,
+      });
     } catch {
       // Non-critical — the participant list may lag until a refresh.
     }
@@ -281,7 +298,7 @@ function JoinSection({
     <SectionCard title="Join with one of your bots">
       {alreadyJoined.length > 0 && (
         <p className="play-tournament-info-label" style={{ marginBottom: 12, textTransform: "none", fontSize: "0.875rem" }}>
-          Already joined: {alreadyJoined.map((b) => b.botName).join(", ")}.
+          Already joined: {alreadyJoined.map((b) => b.tournamentServerBotName).join(", ")}.
         </p>
       )}
 
@@ -303,7 +320,7 @@ function JoinSection({
           >
             <option value="">Select your bot…</option>
             {joinableBots.map((b) => (
-              <option key={b.botId} value={b.botId}>{b.botName}</option>
+              <option key={b.tournamentServerBotId} value={b.tournamentServerBotId}>{b.tournamentServerBotName}</option>
             ))}
           </select>
           <Button
@@ -340,14 +357,13 @@ function JoinSection({
 
 function DirectorActions({
   id,
-  participantCount,
+  participants,
   nbPlayers,
   onRefresh,
 }: {
   id: string;
-  participantCount: number;
-  // Tournament Server nbPlayers is the authority for joined bot count;
-  // Searchess registry may lag if recordTournamentParticipant failed silently.
+  participants: TournamentParticipant[];
+  // Tournament Server nbPlayers reflects joined bot count; Searchess registry may lag.
   nbPlayers: number;
   onRefresh: () => void;
 }) {
@@ -355,7 +371,11 @@ function DirectorActions({
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const canStart = participantCount >= 2 || nbPlayers >= 2;
+  const participantCount = participants.length;
+  const distinctUsers = new Set(participants.map((p) => p.searchessUserId)).size;
+  // Require ≥2 bots AND ≥2 distinct users confirmed in Searchess registry.
+  // nbPlayers alone cannot verify distinct users, so it does not unlock Start.
+  const canStart = participantCount >= 2 && distinctUsers >= 2;
 
   async function handleStart() {
     setBusy(true);
@@ -409,7 +429,11 @@ function DirectorActions({
       </div>
       {!canStart && (
         <p className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.875rem" }}>
-          At least 2 bots must join before the tournament can start.
+          {participantCount < 2 && nbPlayers >= 2
+            ? "Tournament Server reports joined bots, but Searchess has not recorded enough participant details yet."
+            : participantCount >= 2 && distinctUsers < 2
+            ? "At least 2 different users must join with their bots."
+            : "At least 2 bots must join before the tournament can start."}
         </p>
       )}
     </SectionCard>
@@ -502,8 +526,8 @@ export default function PublicTournamentDetailPage() {
   }
 
   const results      = tournament?.standing?.results ?? [];
-  const ownedBotIds  = new Set(ownedBots.map((b) => b.botId));
-  const joinedBotIds = new Set(participants.map((p) => p.botId));
+  const ownedBotIds  = new Set(ownedBots.map((b) => b.tournamentServerBotId));
+  const joinedBotIds = new Set(participants.map((p) => p.tournamentServerBotId));
 
   // tournament.createdBy is the tournament-server's own user ID, not the Keycloak preferred_username.
   // Compare against the tournamentUserId returned by the gateway identity endpoint.
@@ -598,12 +622,13 @@ export default function PublicTournamentDetailPage() {
                       ownedBots={ownedBots}
                       joinedBotIds={joinedBotIds}
                       participantCount={participants.length}
+                      tournamentServerUserId={tournamentIdentity?.tournamentUserId ?? null}
                       onRefresh={handleRefresh}
                     />
                     {isDirector ? (
                       <DirectorActions
                         id={id ?? ""}
-                        participantCount={participants.length}
+                        participants={participants}
                         nbPlayers={tournament.nbPlayers}
                         onRefresh={handleRefresh}
                       />
@@ -617,6 +642,26 @@ export default function PublicTournamentDetailPage() {
                   </>
                 )}
               </>
+            )}
+
+            {/* ── In-progress status + bot-runner notice ───────────────────── */}
+            {tournament.status === "started" && (
+              <SectionCard title="Tournament In Progress">
+                {tournament.round === 0 ? (
+                  <p className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.875rem" }}>
+                    Round 1 pairings are being generated by the tournament server.
+                    Refresh in a few seconds.
+                  </p>
+                ) : (
+                  <p className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.875rem" }}>
+                    Round {tournament.round} of {tournament.nbRounds} is in progress.
+                  </p>
+                )}
+                <p className="play-tournament-info-label" style={{ marginTop: 8, textTransform: "none", fontSize: "0.875rem" }}>
+                  The Searchess bot scheduler is active. Registered Searchess bots will have
+                  their moves submitted automatically each round.
+                </p>
+              </SectionCard>
             )}
 
             {/* ── In-progress / finished sections ─────────────────────────── */}

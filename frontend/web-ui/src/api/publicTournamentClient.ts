@@ -6,9 +6,11 @@ import { authHeaders } from "./client";
 import type {
   CreatePublicTournamentRequest,
   PublicAnalyticsResult,
+  PublicGameSnapshot,
   PublicOpening,
   PublicRegisteredBot,
   PublicResult,
+  PublicRoundGame,
   PublicRoundPairings,
   PublicTournament,
   PublicTournamentListResponse,
@@ -51,11 +53,23 @@ async function fetchGateway<T>(path: string): Promise<T> {
 }
 
 export async function listPublicTournaments(): Promise<PublicTournamentListResponse> {
-  return fetchGateway<PublicTournamentListResponse>("/tournament");
+  const raw = await fetchGateway<Partial<PublicTournamentListResponse>>("/tournament");
+  // Normalise: some tournament-server versions omit empty arrays from the response.
+  return {
+    created:  raw.created  ?? [],
+    started:  raw.started  ?? [],
+    finished: raw.finished ?? [],
+  };
 }
 
 export async function getPublicTournament(id: string): Promise<PublicTournament> {
-  return fetchGateway<PublicTournament>(`/tournament/${encodeURIComponent(id)}`);
+  const raw = await fetchGateway<Record<string, unknown>>(`/tournament/${encodeURIComponent(id)}`);
+  // Server sends standing.players; frontend expects standing.results — normalize here.
+  const standing = raw.standing as Record<string, unknown> | null | undefined;
+  if (standing && Array.isArray(standing.players) && !Array.isArray(standing.results)) {
+    standing.results = standing.players;
+  }
+  return raw as unknown as PublicTournament;
 }
 
 export async function getPublicTournamentResults(id: string): Promise<PublicResult[]> {
@@ -74,9 +88,44 @@ export async function getPublicTournamentRound(
   id: string,
   round: number
 ): Promise<PublicRoundPairings> {
-  return fetchGateway<PublicRoundPairings>(
+  // Server response: { round: N, pairings: [{ white: {id, name}, black: {id, name}, matches: [{gameId, whiteId}] }] }
+  // The field is "pairings", not "games" — parse explicitly.
+  const raw = await fetchGateway<Record<string, unknown>>(
     `/tournament/${encodeURIComponent(id)}/round/${round}`
   );
+
+  const roundNum = typeof raw.round === "number" ? raw.round : round;
+  const games: PublicRoundGame[] = [];
+
+  const pairings = Array.isArray(raw.pairings) ? (raw.pairings as Record<string, unknown>[]) : [];
+  for (const pairing of pairings) {
+    const white = pairing.white as { id?: string; name?: string } | undefined;
+    const black = pairing.black as { id?: string; name?: string } | undefined;
+    if (!white?.id || !black?.id) continue;
+
+    const matches = Array.isArray(pairing.matches)
+      ? (pairing.matches as Record<string, unknown>[])
+      : [];
+    for (const m of matches) {
+      const gameId = typeof m.gameId === "string" ? m.gameId : null;
+      if (!gameId) continue;
+      const outcome = typeof m.outcome === "string" ? m.outcome : null;
+      const winner: "white" | "black" | null =
+        outcome === "white" ? "white" :
+        outcome === "black" ? "black" :
+        null;
+      const status = outcome !== null ? "finished" : "ongoing";
+      games.push({
+        gameId,
+        white: { id: white.id, name: white.name ?? white.id },
+        black: { id: black.id, name: black.name ?? black.id },
+        status,
+        winner,
+      });
+    }
+  }
+
+  return { round: roundNum, games };
 }
 
 export async function getPublicTournamentAnalyticsExport(
@@ -205,11 +254,11 @@ export async function getCurrentTournamentIdentity(): Promise<TournamentIdentity
 
 // Bot self-join via the gateway /join endpoint.
 // Gateway acquires a bot JWT (isBot=true) and calls the tournament-server /join.
-// Ownership is verified server-side: registration of (botName, isBot=true) must
-// return the expected botId, otherwise the gateway rejects with BOT_ID_MISMATCH.
+// Ownership is verified server-side: registration of (tournamentServerBotName, isBot=true) must
+// return the expected tournamentServerBotId, otherwise the gateway rejects with BOT_ID_MISMATCH.
 export async function joinPublicTournamentWithBot(
   id: string,
-  req: { botId: string; botName: string },
+  req: { tournamentServerBotId: string; tournamentServerBotName: string },
 ): Promise<void> {
   await fetchGatewayAuth<void>(
     `/tournament/${encodeURIComponent(id)}/join`,
@@ -218,14 +267,44 @@ export async function joinPublicTournamentWithBot(
 }
 
 // ── Game snapshot (authenticated) ─────────────────────────────────────────────
+// Server response shape differs from PublicGameSnapshot:
+//   - top-level "id" field → gameId
+//   - nested "white"/"black" objects → flat whiteBotId/whiteBotName/blackBotId/blackBotName
+//   - "moves" is a space-separated string → string[]
 
 export async function getPublicTournamentGame(
   tournamentId: string,
   gameId: string,
-): Promise<import("./publicTournamentTypes").PublicGameSnapshot> {
-  return fetchGatewayAuth<import("./publicTournamentTypes").PublicGameSnapshot>(
+): Promise<PublicGameSnapshot> {
+  const raw = await fetchGatewayAuth<Record<string, unknown>>(
     `/tournament/${encodeURIComponent(tournamentId)}/game/${encodeURIComponent(gameId)}`,
   );
+
+  const white = raw.white as { id?: string; name?: string } | undefined;
+  const black = raw.black as { id?: string; name?: string } | undefined;
+
+  // moves: server sends a space-separated string; PublicGameSnapshot expects string[]
+  const rawMoves = raw.moves;
+  const moves: string[] | undefined =
+    Array.isArray(rawMoves)
+      ? (rawMoves as string[])
+      : typeof rawMoves === "string" && rawMoves.trim().length > 0
+      ? rawMoves.trim().split(/\s+/)
+      : undefined;
+
+  return {
+    gameId: typeof raw.id === "string" ? raw.id : gameId,
+    tournamentId: typeof raw.tournamentId === "string" ? raw.tournamentId : tournamentId,
+    whiteBotId: white?.id,
+    whiteBotName: white?.name,
+    blackBotId: black?.id,
+    blackBotName: black?.name,
+    fen: typeof raw.fen === "string" ? raw.fen : undefined,
+    moves,
+    status: typeof raw.status === "string" ? raw.status : undefined,
+    winner: typeof raw.winner === "string" ? raw.winner : undefined,
+    round: typeof raw.round === "number" ? raw.round : undefined,
+  };
 }
 
 // ── Stream URL helpers ─────────────────────────────────────────────────────────

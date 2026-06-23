@@ -382,6 +382,15 @@ export default function PublicTournamentGamePage() {
               </div>
             )}
 
+            {/* No frames yet — game started but no moves have arrived */}
+            {snapshotReady && replay.totalFrames === 0 && !snapshotError && (
+              <p className="play-tournament-empty">
+                {gameStatus === "started" || gameStatus === "created" || gameStatus === "ongoing"
+                  ? "Game has started — waiting for the first bot move."
+                  : "No moves available for this game."}
+              </p>
+            )}
+
             {/* Board + move history */}
             {replay.totalFrames > 0 && (
               <div className="pt-game-layout">

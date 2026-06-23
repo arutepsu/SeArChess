@@ -28,7 +28,16 @@ final case class TournamentServiceConfig(
     kafkaBootstrapServers: Option[String] = None,
     kafkaTopic: String                    = "searchess.tournament.lifecycle.v1",
     kafkaClientId: String                 = "searchess-tournament-service",
-    kafkaAcks: String                     = "all"
+    kafkaAcks: String                     = "all",
+    tournamentServerBaseUrl:  Option[String] = None,
+    userServiceBaseUrl:       Option[String] = None,
+    gatewayInternalBaseUrl:   Option[String] = None,
+    runnerServiceToken:       Option[String] = None,
+    // ── Scheduler (Phase 4B) ─────────────────────────────────────────────────────
+    publicRunnerSchedulerEnabled:         Boolean = false,
+    publicRunnerIntervalSeconds:          Int     = 5,
+    publicRunnerMaxTournamentsPerCycle:   Int     = 10,
+    publicRunnerRecentlySubmittedTtlSecs: Int     = 30
 )
 
 object TournamentServiceConfig:
@@ -123,7 +132,21 @@ object TournamentServiceConfig:
       kafkaBootstrapServers    = kafkaBootstrapServers,
       kafkaTopic               = kafkaTopic,
       kafkaClientId            = kafkaClientId,
-      kafkaAcks                = kafkaAcks
+      kafkaAcks                = kafkaAcks,
+      tournamentServerBaseUrl  = env("TOURNAMENT_SERVER_BASE_URL"),
+      userServiceBaseUrl       = env("TOURNAMENT_USER_SERVICE_BASE_URL"),
+      gatewayInternalBaseUrl   = env("TOURNAMENT_GATEWAY_INTERNAL_BASE_URL"),
+      runnerServiceToken       = env("TOURNAMENT_RUNNER_SERVICE_TOKEN"),
+      publicRunnerSchedulerEnabled =
+        env("TOURNAMENT_PUBLIC_RUNNER_SCHEDULER_ENABLED")
+          .flatMap(s => s.toLowerCase match { case "true" => Some(true); case "false" => Some(false); case _ => None })
+          .getOrElse(false),
+      publicRunnerIntervalSeconds =
+        env("TOURNAMENT_PUBLIC_RUNNER_INTERVAL_SECONDS").flatMap(_.toIntOption).filter(_ > 0).getOrElse(5),
+      publicRunnerMaxTournamentsPerCycle =
+        env("TOURNAMENT_PUBLIC_RUNNER_MAX_TOURNAMENTS").flatMap(_.toIntOption).filter(_ > 0).getOrElse(10),
+      publicRunnerRecentlySubmittedTtlSecs =
+        env("TOURNAMENT_PUBLIC_RUNNER_RECENT_SUBMITTED_TTL_SECONDS").flatMap(_.toIntOption).filter(_ >= 0).getOrElse(30)
     )
 
   private def requireIfPostgres(name: String, jobStore: String, value: Option[String]): Either[String, Option[String]] =
