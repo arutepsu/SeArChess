@@ -222,26 +222,47 @@ function ParticipantsSection({
 function JoinSection({
   id,
   ownedBots,
-  joinedBotIds,
-  participantCount,
+  participants,
+  myUserId,
   tournamentServerUserId,
   onRefresh,
 }: {
   id: string;
   ownedBots: OwnedTournamentBot[];
-  joinedBotIds: Set<string>;
-  participantCount: number;
+  participants: TournamentParticipant[];
+  myUserId: string | null;
   tournamentServerUserId: string | null;
   onRefresh: () => void;
 }) {
   const navigate = useNavigate();
-  const [selectedBotId, setSelectedBotId] = useState("");
+  const [selectedOwnershipId, setSelectedOwnershipId] = useState("");
   const [busy, setBusy]   = useState(false);
   const [error, setError]   = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const joinableBots   = ownedBots.filter((b) => !joinedBotIds.has(b.tournamentServerBotId));
-  const alreadyJoined  = ownedBots.filter((b) => joinedBotIds.has(b.tournamentServerBotId));
+  // The current user's existing participant (if any) — one bot per user per tournament.
+  const myParticipant = myUserId !== null
+    ? participants.find((p) => p.searchessUserId === myUserId) ?? null
+    : null;
+
+  // Ownership UUIDs already recorded as participants (primary key for join identity).
+  const joinedOwnershipIds = new Set(
+    participants.map((p) => p.searchessBotId).filter((id): id is string => id !== null && id !== undefined)
+  );
+  // Fallback: tournament-server bot IDs for participant records that predate ownership UUID tracking.
+  const joinedTsBotIds = new Set(participants.map((p) => p.tournamentServerBotId));
+
+  // A bot is joinable only if: (a) the current user has NO participant yet AND (b) this specific
+  // bot is not already recorded (handles the repair path for individual bots).
+  const joinableBots = myParticipant !== null
+    ? []  // user already has one bot joined — prevent multi-bot tournament entries
+    : ownedBots.filter((b) =>
+        !joinedOwnershipIds.has(b.searchessBotId) &&
+        !joinedTsBotIds.has(b.tournamentServerBotId)
+      );
+  const alreadyJoined = ownedBots.filter((b) =>
+    joinedOwnershipIds.has(b.searchessBotId) || joinedTsBotIds.has(b.tournamentServerBotId)
+  );
 
   if (ownedBots.length === 0) {
     return (
@@ -258,8 +279,9 @@ function JoinSection({
   }
 
   async function handleJoin() {
-    if (!selectedBotId) return;
-    const bot = ownedBots.find((b) => b.tournamentServerBotId === selectedBotId);
+    if (!selectedOwnershipId) return;
+    // Resolve by ownership UUID — the exact selected bot, not by name or display order.
+    const bot = ownedBots.find((b) => b.searchessBotId === selectedOwnershipId);
     if (!bot) return;
 
     setBusy(true);
@@ -292,7 +314,7 @@ function JoinSection({
       // Non-critical — participant list may lag until a refresh.
     }
 
-    setSelectedBotId("");
+    setSelectedOwnershipId("");
     setSuccess(alreadyJoined
       ? "Bot was already joined — participant record synced."
       : "Bot joined the tournament.");
@@ -319,20 +341,20 @@ function JoinSection({
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <select
             className="play-tournament-form-select"
-            value={selectedBotId}
-            onChange={(e) => { setSelectedBotId(e.target.value); setSuccess(null); }}
+            value={selectedOwnershipId}
+            onChange={(e) => { setSelectedOwnershipId(e.target.value); setSuccess(null); }}
             disabled={busy}
             style={{ minWidth: 180 }}
           >
             <option value="">Select your bot…</option>
             {joinableBots.map((b) => (
-              <option key={b.tournamentServerBotId} value={b.tournamentServerBotId}>{b.tournamentServerBotName}</option>
+              <option key={b.searchessBotId} value={b.searchessBotId}>{b.tournamentServerBotName}</option>
             ))}
           </select>
           <Button
             variant="primary"
             size="sm"
-            disabled={busy || !selectedBotId}
+            disabled={busy || !selectedOwnershipId}
             onClick={() => { void handleJoin(); }}
           >
             {busy ? "Joining…" : "Join tournament"}
@@ -340,17 +362,17 @@ function JoinSection({
         </div>
       )}
 
-      {joinableBots.length > 0 && participantCount === 0 && (
+      {joinableBots.length > 0 && participants.length === 0 && (
         <p className="play-tournament-info-label" style={{ marginTop: 10, textTransform: "none", fontSize: "0.875rem" }}>
           Be the first to join.
         </p>
       )}
-      {joinableBots.length > 0 && participantCount === 1 && (
+      {joinableBots.length > 0 && participants.length === 1 && (
         <p className="play-tournament-info-label" style={{ marginTop: 10, textTransform: "none", fontSize: "0.875rem" }}>
           One more bot is needed before the tournament can start.
         </p>
       )}
-      {joinableBots.length > 0 && participantCount >= 2 && (
+      {joinableBots.length > 0 && participants.length >= 2 && (
         <p className="play-tournament-info-label" style={{ marginTop: 10, textTransform: "none", fontSize: "0.875rem" }}>
           This tournament has enough bots. Waiting for the host to start.
         </p>
@@ -531,9 +553,8 @@ export default function PublicTournamentDetailPage() {
     loadParticipants(active);
   }
 
-  const results      = tournament?.standing?.results ?? [];
-  const ownedBotIds  = new Set(ownedBots.map((b) => b.tournamentServerBotId));
-  const joinedBotIds = new Set(participants.map((p) => p.tournamentServerBotId));
+  const results     = tournament?.standing?.results ?? [];
+  const ownedBotIds = new Set(ownedBots.map((b) => b.tournamentServerBotId));
 
   // tournament.createdBy is the tournament-server's own user ID, not the Keycloak preferred_username.
   // Compare against the tournamentUserId returned by the gateway identity endpoint.
@@ -626,8 +647,8 @@ export default function PublicTournamentDetailPage() {
                     <JoinSection
                       id={id ?? ""}
                       ownedBots={ownedBots}
-                      joinedBotIds={joinedBotIds}
-                      participantCount={participants.length}
+                      participants={participants}
+                      myUserId={myProfile?.userId ?? null}
                       tournamentServerUserId={tournamentIdentity?.tournamentUserId ?? null}
                       onRefresh={handleRefresh}
                     />
