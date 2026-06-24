@@ -21,6 +21,7 @@ interface ReplayState {
 type ReplayAction =
   | { type: "loadFrames"; frames: PublicGameReplayFrame[]; reconstructedFromStandard: boolean }
   | { type: "addFrame"; frame: Omit<PublicGameReplayFrame, "index"> }
+  | { type: "appendFrames"; frames: Omit<PublicGameReplayFrame, "index">[] }
   | { type: "goTo"; index: number }
   | { type: "togglePlay" }
   | { type: "tick" }
@@ -48,6 +49,23 @@ function replayReducer(state: ReplayState, action: ReplayAction): ReplayState {
         ...state,
         frames: newFrames,
         currentIndex: wasAtLast ? newFrames.length - 1 : state.currentIndex,
+      };
+    }
+
+    case "appendFrames": {
+      if (action.frames.length === 0) return state;
+      const wasAtLast = state.currentIndex === state.frames.length - 1;
+      let next = state.frames;
+      for (const f of action.frames) {
+        const last = next[next.length - 1];
+        if (last && last.fen === f.fen) continue;
+        next = [...next, { ...f, index: next.length }];
+      }
+      if (next === state.frames) return state;
+      return {
+        ...state,
+        frames: next,
+        currentIndex: wasAtLast ? next.length - 1 : state.currentIndex,
       };
     }
 
@@ -163,6 +181,7 @@ export interface UsePublicGameReplayResult {
   reconstructedFromStandard: boolean;
   addSnapshot: (snapshot: PublicGameSnapshot) => void;
   addEvent: (event: PublicTournamentEvent) => void;
+  refreshFromPoll: (snapshot: PublicGameSnapshot) => void;
   goToStart: () => void;
   goPrevious: () => void;
   togglePlay: () => void;
@@ -206,6 +225,48 @@ export function usePublicGameReplay(): UsePublicGameReplayResult {
     dispatch({ type: "addFrame", frame: partial });
   }, []);
 
+  // Stable — appends only new moves from a polled snapshot without resetting position.
+  // Primary dedup: move count (allMoves.length vs existing move frames count).
+  // Secondary dedup: FEN equality in the appendFrames reducer for consecutive frames.
+  // If the delta replay from the last FEN fails (bad accumulated FEN, illegal move),
+  // falls back to a full rebuild from the authoritative moves list so the UI never
+  // gets stuck with partial or inconsistent frames.
+  const refreshFromPoll = useCallback((snapshot: PublicGameSnapshot) => {
+    const current = stateRef.current;
+    const existingMoveCount = current.frames.filter((f) => f.moveUci).length;
+    const allMoves = snapshot.moves ?? [];
+    if (allMoves.length <= existingMoveCount) return;
+
+    const newMoves = allMoves.slice(existingMoveCount);
+    const lastFen = current.frames[current.frames.length - 1]?.fen ?? STANDARD_OPENING_FEN;
+
+    try {
+      const chess = new Chess(lastFen);
+      const partials: Omit<PublicGameReplayFrame, "index">[] = [];
+      for (const uci of newMoves) {
+        const mv: ShortMove = {
+          from: uci.slice(0, 2) as Square,
+          to: uci.slice(2, 4) as Square,
+          ...(uci.length > 4 ? { promotion: uci[4] as ShortMove["promotion"] } : {}),
+        };
+        chess.move(mv);
+        partials.push({ fen: chess.fen(), moveUci: uci, sourceEventType: "poll" });
+      }
+      if (partials.length > 0) {
+        dispatch({ type: "appendFrames", frames: partials });
+      }
+    } catch {
+      // Delta replay failed (bad last FEN or illegal move) — rebuild all frames from
+      // the authoritative move list so the UI doesn't get stuck on partial frames.
+      const result = buildFramesFromSnapshot(snapshot);
+      dispatch({
+        type: "loadFrames",
+        frames: result.frames,
+        reconstructedFromStandard: result.reconstructedFromStandard,
+      });
+    }
+  }, []);
+
   const goToStart = useCallback(() => dispatch({ type: "goTo", index: 0 }), []);
   const goPrevious = useCallback(
     () => dispatch({ type: "goTo", index: stateRef.current.currentIndex - 1 }),
@@ -238,6 +299,7 @@ export function usePublicGameReplay(): UsePublicGameReplayResult {
     reconstructedFromStandard: state.reconstructedFromStandard,
     addSnapshot,
     addEvent,
+    refreshFromPoll,
     goToStart,
     goPrevious,
     togglePlay,

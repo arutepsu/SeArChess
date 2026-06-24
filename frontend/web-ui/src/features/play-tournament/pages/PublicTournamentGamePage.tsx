@@ -14,6 +14,8 @@ import PublicGameBoard from "../components/PublicGameBoard";
 import { usePublicGameReplay } from "../hooks/usePublicGameReplay";
 import "./PlayTournament.css";
 
+const LIVE_STATUSES = new Set(["started", "created", "ongoing"]);
+
 function StreamStatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
     idle:       { label: "Idle",        cls: "play-tournament-stream-badge--idle" },
@@ -125,13 +127,36 @@ function MoveHistory({
   onJumpTo: (index: number) => void;
 }) {
   const activeRowRef = useRef<HTMLTableRowElement | null>(null);
+  const [flashIndex, setFlashIndex] = useState<number | null>(null);
+  const prevMoveCountRef = useRef(-1);
+
+  const moveFrames = frames.filter((f) => f.moveUci);
 
   // Scroll active row into view whenever currentIndex changes
   useEffect(() => {
     activeRowRef.current?.scrollIntoView({ block: "nearest" });
   }, [currentIndex]);
 
-  const moveFrames = frames.filter((f) => f.moveUci);
+  // Briefly highlight newly appended moves (not on initial load)
+  useEffect(() => {
+    const cur = moveFrames.length;
+    const prev = prevMoveCountRef.current;
+    if (prev < 0) {
+      prevMoveCountRef.current = cur;
+      return;
+    }
+    if (cur > prev) {
+      prevMoveCountRef.current = cur;
+      const newest = moveFrames[moveFrames.length - 1];
+      if (newest) {
+        setFlashIndex(newest.index);
+        const t = setTimeout(() => setFlashIndex(null), 700);
+        return () => clearTimeout(t);
+      }
+    }
+    prevMoveCountRef.current = cur;
+  }, [moveFrames.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (moveFrames.length === 0) {
     return <p className="play-tournament-empty">No moves yet.</p>;
   }
@@ -167,6 +192,8 @@ function MoveHistory({
             const wActive = pair.white.frameIndex === currentIndex;
             const bActive = pair.black?.frameIndex === currentIndex;
             const rowActive = wActive || bActive;
+            const wNew = flashIndex === pair.white.frameIndex;
+            const bNew = flashIndex === pair.black?.frameIndex;
             return (
               <tr
                 key={pair.n}
@@ -176,7 +203,11 @@ function MoveHistory({
                 <td className="play-tournament-table-num">{pair.n}</td>
                 <td>
                   <button
-                    className={`pt-move-cell ${wActive ? "pt-move-cell--active" : ""}`}
+                    className={[
+                      "pt-move-cell",
+                      wActive ? "pt-move-cell--active" : "",
+                      wNew ? "pt-move-cell--new" : "",
+                    ].filter(Boolean).join(" ")}
                     onClick={() => onJumpTo(pair.white.frameIndex)}
                   >
                     {pair.white.uci}
@@ -185,7 +216,11 @@ function MoveHistory({
                 <td>
                   {pair.black && (
                     <button
-                      className={`pt-move-cell ${bActive ? "pt-move-cell--active" : ""}`}
+                      className={[
+                        "pt-move-cell",
+                        bActive ? "pt-move-cell--active" : "",
+                        bNew ? "pt-move-cell--new" : "",
+                      ].filter(Boolean).join(" ")}
                       onClick={() => onJumpTo(pair.black!.frameIndex)}
                     >
                       {pair.black.uci}
@@ -215,11 +250,17 @@ export default function PublicTournamentGamePage() {
   // Becomes true once the snapshot has been loaded and fed to the replay hook.
   // The game stream only connects after this flag is set.
   const [snapshotReady, setSnapshotReady]     = useState(false);
+  const [retryCount, setRetryCount]           = useState(0);
   const [showFen, setShowFen] = useState(false);
 
   const replay = usePublicGameReplay();
 
-  // Load snapshot first; set snapshotReady to trigger stream connection
+  // Ref so the poll interval can read the latest gameStatus without restarting.
+  const gameStatusRef = useRef(gameStatus);
+  useEffect(() => { gameStatusRef.current = gameStatus; }, [gameStatus]);
+
+  // Load snapshot first; set snapshotReady to trigger stream connection.
+  // retryCount is included so the user can manually retry a failed load.
   useEffect(() => {
     if (!id || !gameId) return;
     let cancelled = false;
@@ -247,7 +288,7 @@ export default function PublicTournamentGamePage() {
     return () => { cancelled = true; };
     // replay.addSnapshot is stable
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, gameId]);
+  }, [id, gameId, retryCount]);
 
   const getRequest = useCallback(async () => {
     const auth = await authHeaders();
@@ -267,6 +308,32 @@ export default function PublicTournamentGamePage() {
     // connect is stable (no deps other than maxEvents)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snapshotReady]);
+
+  // Poll the game snapshot every 2s while the game is live.
+  // Supplements the NDJSON stream to catch any missed moves.
+  // Uses refreshFromPoll which only appends new moves without resetting the replay position.
+  useEffect(() => {
+    if (!id || !gameId || !snapshotReady) return;
+    // Don't start polling at all for already-finished games.
+    if (!LIVE_STATUSES.has(gameStatusRef.current ?? "")) return;
+    const iv = setInterval(() => {
+      // Stop polling if the game has left live statuses since the interval started.
+      if (!LIVE_STATUSES.has(gameStatusRef.current ?? "")) {
+        clearInterval(iv);
+        return;
+      }
+      getPublicTournamentGame(id, gameId)
+        .then((snap) => {
+          replay.refreshFromPoll(snap);
+          if (snap.status) setGameStatus(snap.status);
+          if (typeof snap.winner === "string") setWinner(snap.winner);
+        })
+        .catch(() => {});
+    }, 2000);
+    return () => clearInterval(iv);
+    // replay.refreshFromPoll is stable; only restart when id/gameId/snapshotReady change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, gameId, snapshotReady]);
 
   // Feed stream events into replay hook
   useEffect(() => {
@@ -294,7 +361,7 @@ export default function PublicTournamentGamePage() {
 
   return (
     <div className="play-tournament-page">
-      <div className="play-tournament-shell">
+      <div className="play-tournament-shell play-tournament-shell--game">
 
         {/* Header */}
         <div className="play-tournament-header">
@@ -336,11 +403,20 @@ export default function PublicTournamentGamePage() {
             <p className="pt-snapshot-error__hint">
               Game history is unavailable. You can still connect to the live stream to watch ongoing play.
             </p>
-            {streamIdle && (
-              <Button variant="secondary" size="sm" onClick={connect}>
-                Connect to live stream anyway
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setRetryCount((c) => c + 1)}
+              >
+                Retry
               </Button>
-            )}
+              {streamIdle && (
+                <Button variant="secondary" size="sm" onClick={connect}>
+                  Connect to live stream anyway
+                </Button>
+              )}
+            </div>
           </div>
         )}
 
@@ -441,6 +517,11 @@ export default function PublicTournamentGamePage() {
                     currentIndex={replay.currentIndex}
                     onJumpTo={replay.jumpTo}
                   />
+                  {LIVE_STATUSES.has(gameStatus ?? "") &&
+                    status === "open" &&
+                    replay.isAtLive && (
+                    <p className="pt-waiting-hint">Waiting for next move…</p>
+                  )}
                 </div>
               </div>
             )}
