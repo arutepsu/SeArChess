@@ -702,6 +702,7 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
           store.put(r.tournamentId, r)
           Right(r)
 
+
   // ── Public tournament host endpoints ─────────────────────────────────────
 
   "POST /users/tournaments/{tournamentId}/host" should "record the current user as host and return 201" in {
@@ -771,6 +772,52 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
     val body = ujson.read(res.bodyText.compile.string.unsafeRunSync())
     res.status       shouldBe Status.Conflict
     body("code").str shouldBe "HOST_ALREADY_RECORDED"
+  }
+
+  it should "store and return director bot fields when provided in body" in {
+    val (app, _, _) = makeRoutes()
+    val res = app.run(
+      Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/tournaments/t-director1/host"))
+        .putHeaders(bearerHeader("sub-dir1", "diruser1"))
+        .withEntity("""{"directorTournamentServerBotId":"bot_abc123","directorTournamentServerBotName":"StockfishBot"}""")
+        .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    ).unsafeRunSync()
+    val body = ujson.read(res.bodyText.compile.string.unsafeRunSync())
+    res.status shouldBe Status.Created
+    body("directorTournamentServerBotId").str   shouldBe "bot_abc123"
+    body("directorTournamentServerBotName").str shouldBe "StockfishBot"
+    body("hostKeycloakSub").str                 shouldBe "sub-dir1"
+  }
+
+  "GET /users/tournaments/{tournamentId}/host" should "return director bot fields set during POST" in {
+    val (app, _, _) = makeRoutes()
+    app.run(
+      Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/tournaments/t-director2/host"))
+        .putHeaders(bearerHeader("sub-dir2", "diruser2"))
+        .withEntity("""{"directorTournamentServerBotId":"bot_xyz456","directorTournamentServerBotName":"LeelBot"}""")
+        .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
+    ).unsafeRunSync()
+
+    val getRes = app.run(
+      Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/tournaments/t-director2/host"))
+    ).unsafeRunSync()
+    val body = ujson.read(getRes.bodyText.compile.string.unsafeRunSync())
+    getRes.status shouldBe Status.Ok
+    body("directorTournamentServerBotId").str   shouldBe "bot_xyz456"
+    body("directorTournamentServerBotName").str shouldBe "LeelBot"
+    body("hostKeycloakSub").str                 shouldBe "sub-dir2"
+  }
+
+  "POST /users/tournaments/{tournamentId}/host" should "return null director fields when no body is sent" in {
+    val (app, _, _) = makeRoutes()
+    val res = app.run(
+      Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/tournaments/t-nodirector/host"))
+        .putHeaders(bearerHeader("sub-nodir", "nodiruser"))
+    ).unsafeRunSync()
+    val body = ujson.read(res.bodyText.compile.string.unsafeRunSync())
+    res.status shouldBe Status.Created
+    body("directorTournamentServerBotId").isNull   shouldBe true
+    body("directorTournamentServerBotName").isNull shouldBe true
   }
 
   // ── Public tournament participant endpoints ───────────────────────────────

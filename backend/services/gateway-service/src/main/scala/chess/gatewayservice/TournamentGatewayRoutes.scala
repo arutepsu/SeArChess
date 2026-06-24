@@ -151,24 +151,36 @@ class TournamentGatewayRoutes(
         validateParticipantsBeforeStart(id).flatMap {
           case Some(mismatchResp) => IO.pure(mismatchResp)
           case None =>
-            authBridge.withToken(claims.sub, claims.preferredUsername) { token =>
-              Request[IO](
-                method  = Method.POST,
-                uri     = upstreamBase.withPath(Uri.Path.unsafeFromString(s"/api/tournament/$id/start")),
-                headers = Headers(Header.Raw(CIString("Authorization"), s"Bearer $token"))
-              )
+            resolveDirectorAuth(id, claims).flatMap {
+              case Left(errResp) => IO.pure(errResp)
+              case Right(directorBot) =>
+                val mkReq: String => Request[IO] = token =>
+                  Request[IO](
+                    method  = Method.POST,
+                    uri     = upstreamBase.withPath(Uri.Path.unsafeFromString(s"/api/tournament/$id/start")),
+                    headers = Headers(Header.Raw(CIString("Authorization"), s"Bearer $token"))
+                  )
+                directorBot match
+                  case Some((botId, botName)) => authBridge.withBotToken(botId, botName)(mkReq)
+                  case None                   => authBridge.withToken(claims.sub, claims.preferredUsername)(mkReq)
             }
         }
       }
 
     case req @ DELETE -> Root / "api" / "gateway" / "tournament" / id =>
       withDirector(req) { claims =>
-        authBridge.withToken(claims.sub, claims.preferredUsername) { token =>
-          Request[IO](
-            method  = Method.DELETE,
-            uri     = upstreamBase.withPath(Uri.Path.unsafeFromString(s"/api/tournament/$id")),
-            headers = Headers(Header.Raw(CIString("Authorization"), s"Bearer $token"))
-          )
+        resolveDirectorAuth(id, claims).flatMap {
+          case Left(errResp) => IO.pure(errResp)
+          case Right(directorBot) =>
+            val mkReq: String => Request[IO] = token =>
+              Request[IO](
+                method  = Method.DELETE,
+                uri     = upstreamBase.withPath(Uri.Path.unsafeFromString(s"/api/tournament/$id")),
+                headers = Headers(Header.Raw(CIString("Authorization"), s"Bearer $token"))
+              )
+            directorBot match
+              case Some((botId, botName)) => authBridge.withBotToken(botId, botName)(mkReq)
+              case None                   => authBridge.withToken(claims.sub, claims.preferredUsername)(mkReq)
         }
       }
   }
@@ -433,14 +445,14 @@ class TournamentGatewayRoutes(
         joinHostBotAfterCreate(tournamentId, hostBotId, hostBotName).flatMap {
           case Right(())  => IO.pure(Right(()))
           case Left(err) =>
-            deleteAfterContaminatedCreate(tournamentId, claims)
+            deleteAfterContaminatedCreate(tournamentId, hostBotId, hostBotName)
               .as(Left(s"Host bot join failed after tournament creation: $err. Tournament was deleted."))
         }
       else if botIds == Set(hostBotId) then
         IO.pure(Right(()))
       else
         val unknownBots = bots.filter(_._1 != hostBotId)
-        deleteAfterContaminatedCreate(tournamentId, claims)
+        deleteAfterContaminatedCreate(tournamentId, hostBotId, hostBotName)
           .as(Left(s"Tournament creation blocked: unexpected bots in Tournament Server: ${unknownBots.map(_._2).mkString(", ")}. Tournament deleted."))
     }.handleError { err =>
       Left(s"Post-create verification failed: ${Option(err.getMessage).getOrElse("unknown")}")
@@ -468,15 +480,65 @@ class TournamentGatewayRoutes(
 
   private def deleteAfterContaminatedCreate(
     tournamentId: String,
-    claims: GatewayJwtClaims
+    hostBotId: String,
+    hostBotName: String
   ): IO[Unit] =
-    authBridge.withToken(claims.sub, claims.preferredUsername) { token =>
+    authBridge.withBotToken(hostBotId, hostBotName) { token =>
       Request[IO](
         method  = Method.DELETE,
         uri     = upstreamBase.withPath(Uri.Path.unsafeFromString(s"/api/tournament/$tournamentId")),
         headers = Headers(Header.Raw(CIString("Authorization"), s"Bearer $token"))
       )
     }.void.handleError(_ => ())
+
+  // ── Helpers: director bot identity resolution ─────────────────────────────────
+
+  private[gatewayservice] final case class HostMetadata(
+    hostKeycloakSub: String,
+    directorBotId: Option[String],
+    directorBotName: Option[String]
+  )
+
+  // Returns None when the body is absent/unparseable (old tournaments without host record).
+  private[gatewayservice] def parseHostMetadata(body: String): Option[HostMetadata] =
+    try
+      val json    = ujson.read(body)
+      val sub     = json("hostKeycloakSub").str
+      val botId   = json("directorTournamentServerBotId") match
+        case ujson.Null => None
+        case v          => Some(v.str)
+      val botName = json("directorTournamentServerBotName") match
+        case ujson.Null => None
+        case v          => Some(v.str)
+      Some(HostMetadata(sub, botId, botName))
+    catch case _: Exception => None
+
+  // Fetches host metadata from user-service and verifies the caller is the Searchess host.
+  // Returns:
+  //   Right(Some((botId, botName))) — use bot JWT for TS call
+  //   Right(None)                  — no host metadata (old tournament), use user JWT fallback
+  //   Left(errorResponse)          — caller is not the Searchess host → 403
+  private[gatewayservice] def resolveDirectorAuth(
+    tournamentId: String,
+    claims: GatewayJwtClaims
+  ): IO[Either[Response[IO], Option[(String, String)]]] =
+    val hostUri = userServiceBase.withPath(
+      Uri.Path.unsafeFromString(s"/users/tournaments/$tournamentId/host"))
+    client.expect[String](hostUri).map { body =>
+      parseHostMetadata(body) match
+        case None       => Right(None)
+        case Some(meta) =>
+          if meta.hostKeycloakSub != claims.sub then
+            Left(errorResponse(Status.Forbidden, "SEARCHESS_NOT_HOST",
+              "You are not the Searchess host of this tournament"))
+          else
+            (meta.directorBotId, meta.directorBotName) match
+              case (Some(botId), Some(botName)) => Right(Some((botId, botName)))
+              case _                             => Right(None)
+    }.handleError { _ =>
+      // 404 (old tournament) or network error — fall back to user JWT
+      Right(None)
+    }
 
   // ── Helpers: pre-start participant validation ─────────────────────────────────
 
