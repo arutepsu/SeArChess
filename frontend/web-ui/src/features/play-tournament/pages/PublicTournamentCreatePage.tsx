@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createPublicTournament } from "../../../api/publicTournamentClient";
+import { createPublicTournament, joinPublicTournamentWithBot } from "../../../api/publicTournamentClient";
 import type { CreatePublicTournamentRequest, PublicTournamentFormat } from "../../../api/publicTournamentTypes";
 import { listPublicOpenings } from "../../../api/publicTournamentClient";
 import type { PublicOpening } from "../../../api/publicTournamentTypes";
@@ -43,8 +43,8 @@ function initialForm(): FormState {
   };
 }
 
-function validate(f: FormState, selectedBotId: string): string | null {
-  if (!selectedBotId) return "Select your participating bot before creating a tournament.";
+function validate(f: FormState, selectedBotIds: Set<string>): string | null {
+  if (selectedBotIds.size === 0) return "Select at least one of your bots before creating a tournament.";
   if (!f.name.trim()) return "Tournament name is required.";
   const rounds = Number(f.nbRounds);
   if (!Number.isInteger(rounds) || rounds < 1 || rounds > 50)
@@ -84,7 +84,7 @@ export default function PublicTournamentCreatePage() {
   const [openings, setOpenings] = useState<PublicOpening[]>([]);
   const [ownedBots, setOwnedBots] = useState<OwnedTournamentBot[]>([]);
   const [botsLoading, setBotsLoading] = useState(true);
-  const [selectedBotId, setSelectedBotId] = useState(""); // searchessBotId ownership UUID
+  const [selectedBotIds, setSelectedBotIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     listPublicOpenings()
@@ -104,33 +104,70 @@ export default function PublicTournamentCreatePage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  function toggleBot(id: string) {
+    setSelectedBotIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const err = validate(form, selectedBotId);
+    const err = validate(form, selectedBotIds);
     if (err) { setSubmitError(err); return; }
-    const bot = ownedBots.find((b) => b.searchessBotId === selectedBotId);
-    if (!bot) { setSubmitError("Selected bot not found. Refresh and try again."); return; }
+
+    // First selected bot (stable order from ownedBots) is the host.
+    const hostBot = ownedBots.find((b) => selectedBotIds.has(b.searchessBotId));
+    if (!hostBot) { setSubmitError("Selected bot not found. Refresh and try again."); return; }
+
+    const additionalBots = ownedBots.filter(
+      (b) => selectedBotIds.has(b.searchessBotId) && b.searchessBotId !== hostBot.searchessBotId
+    );
+
     setSubmitError(null);
     setSubmitting(true);
+
+    let tournamentId: string;
     try {
-      const created = await createPublicTournament(toRequest(form, bot));
-      // Record host participant so the Searchess registry knows which bot the host chose.
-      // The gateway already verified and/or joined the bot before returning 200, so this
-      // call is the Searchess-side record that mirrors the gateway-side state.
+      const created = await createPublicTournament(toRequest(form, hostBot));
+      tournamentId = created.id;
       try {
-        await recordTournamentParticipant(created.id, {
-          tournamentServerBotId:   bot.tournamentServerBotId,
-          tournamentServerBotName: bot.tournamentServerBotName,
+        await recordTournamentParticipant(tournamentId, {
+          tournamentServerBotId:   hostBot.tournamentServerBotId,
+          tournamentServerBotName: hostBot.tournamentServerBotName,
         });
       } catch {
         // Non-critical: participant record can be added on the detail page via refresh.
       }
-      navigate(`/play-tournament/${created.id}`);
     } catch (e: unknown) {
       setSubmitError(e instanceof Error ? e.message : "Failed to create tournament.");
-    } finally {
       setSubmitting(false);
+      return;
     }
+
+    // Join and record any additional bots the user selected.
+    for (const bot of additionalBots) {
+      try {
+        await joinPublicTournamentWithBot(tournamentId, {
+          tournamentServerBotId:   bot.tournamentServerBotId,
+          tournamentServerBotName: bot.tournamentServerBotName,
+        });
+        try {
+          await recordTournamentParticipant(tournamentId, {
+            tournamentServerBotId:   bot.tournamentServerBotId,
+            tournamentServerBotName: bot.tournamentServerBotName,
+          });
+        } catch {
+          // Non-critical.
+        }
+      } catch {
+        // If an additional bot fails to join, continue — user can retry from the detail page.
+      }
+    }
+
+    setSubmitting(false);
+    navigate(`/play-tournament/${tournamentId}`);
   }
 
   return (
@@ -151,8 +188,8 @@ export default function PublicTournamentCreatePage() {
         <form className="play-tournament-form" onSubmit={(e) => { void handleSubmit(e); }}>
 
           <div className="play-tournament-form-group">
-            <label className="play-tournament-form-label" htmlFor="pt-host-bot">
-              Your bot <span className="play-tournament-required">*</span>
+            <label className="play-tournament-form-label">
+              Your bots <span className="play-tournament-required">*</span>
             </label>
             {botsLoading ? (
               <p className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.875rem", margin: 0 }}>
@@ -163,20 +200,26 @@ export default function PublicTournamentCreatePage() {
                 You have no registered Searchess bots. Register a bot first before creating a tournament.
               </p>
             ) : (
-              <select
-                id="pt-host-bot"
-                className="play-tournament-form-select"
-                value={selectedBotId}
-                onChange={(e) => setSelectedBotId(e.target.value)}
-                required
-              >
-                <option value="">Select your bot…</option>
+              <div className="qt-bot-checkboxes">
                 {ownedBots.map((b) => (
-                  <option key={b.searchessBotId} value={b.searchessBotId}>
-                    {b.tournamentServerBotName}
-                  </option>
+                  <label
+                    key={b.searchessBotId}
+                    className={`qt-bot-checkbox-item${selectedBotIds.has(b.searchessBotId) ? " qt-bot-checkbox-item--selected" : ""}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedBotIds.has(b.searchessBotId)}
+                      onChange={() => toggleBot(b.searchessBotId)}
+                    />
+                    <span className="qt-bot-checkbox-name">{b.tournamentServerBotName}</span>
+                  </label>
                 ))}
-              </select>
+              </div>
+            )}
+            {selectedBotIds.size > 1 && (
+              <p className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.8rem", marginTop: 6 }}>
+                First bot in your list hosts the tournament; additional selected bots join after creation.
+              </p>
             )}
           </div>
 
@@ -312,7 +355,7 @@ export default function PublicTournamentCreatePage() {
               type="submit"
               variant="primary"
               size="lg"
-              disabled={submitting || botsLoading || ownedBots.length === 0}
+              disabled={submitting || botsLoading || ownedBots.length === 0 || selectedBotIds.size === 0}
             >
               {submitting ? "Creating…" : "Create Tournament"}
             </Button>

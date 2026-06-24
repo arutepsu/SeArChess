@@ -21,29 +21,20 @@ class SlickPublicTournamentParticipantRepository(db: Database, schema: Option[St
       .map(_.map(rowToParticipant).toList)
 
   override def insertIfAbsent(p: PublicTournamentParticipant): Either[String, PublicTournamentParticipant] =
-    // Enforce one bot per Searchess user per tournament: reject if the user already has
-    // a participant row for a DIFFERENT bot in this tournament.
-    val sameUserDiffBot = table.filter(r =>
-      r.tournamentId === p.tournamentId &&
-      r.searchessUserId === p.searchessUserId &&
-      r.tournamentServerBotId =!= p.tournamentServerBotId
-    )
-    run(sameUserDiffBot.result.headOption).flatMap {
-      case Some(_) => Left("user_already_joined_with_different_bot")
+    // Uniqueness is (tournamentId, tournamentServerBotId): the same bot may not play twice
+    // in the same tournament, but the same Searchess user may enter multiple owned bots.
+    val existing = table.filter(r => r.tournamentId === p.tournamentId && r.tournamentServerBotId === p.tournamentServerBotId)
+    run(existing.result.headOption).flatMap {
+      case Some(row) if row.searchessUserId == p.searchessUserId => Right(rowToParticipant(row))
+      case Some(_)                                               => Left("bot_already_claimed_by_another_user")
       case None =>
-        val existing = table.filter(r => r.tournamentId === p.tournamentId && r.tournamentServerBotId === p.tournamentServerBotId)
-        run(existing.result.headOption).flatMap {
-          case Some(row) if row.searchessUserId == p.searchessUserId => Right(rowToParticipant(row))
-          case Some(_)                                               => Left("bot_already_claimed_by_another_user")
-          case None =>
-            run((table += participantToRow(p)).asTry).flatMap {
-              case util.Success(_) => Right(p)
-              case util.Failure(_) =>
-                run(existing.result.headOption).flatMap {
-                  case Some(row) if row.searchessUserId == p.searchessUserId => Right(rowToParticipant(row))
-                  case Some(_)                                               => Left("bot_already_claimed_by_another_user")
-                  case None                                                  => Left("Concurrent insert failed: participant not found after conflict")
-                }
+        run((table += participantToRow(p)).asTry).flatMap {
+          case util.Success(_) => Right(p)
+          case util.Failure(_) =>
+            run(existing.result.headOption).flatMap {
+              case Some(row) if row.searchessUserId == p.searchessUserId => Right(rowToParticipant(row))
+              case Some(_)                                               => Left("bot_already_claimed_by_another_user")
+              case None                                                  => Left("Concurrent insert failed: participant not found after conflict")
             }
         }
     }
