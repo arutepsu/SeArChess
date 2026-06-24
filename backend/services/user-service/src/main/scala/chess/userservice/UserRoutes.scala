@@ -2,8 +2,8 @@ package chess.userservice
 
 import cats.effect.IO
 import chess.observability.StructuredLog
-import chess.userservice.application.{CreateChallengeRequest, JwtSubjectExtractor, LichessActiveGameSummary, LichessChallengeService, LichessGameStateResult, LichessOAuthConfig, LichessOAuthService, PublicTournamentParticipantRepository, SubmitLichessMoveResult, TournamentBotOwnershipRepository, UserProfileService}
-import chess.userservice.domain.{ExternalAccountLink, PublicTournamentParticipant, TournamentBotOwnership, UserProfile}
+import chess.userservice.application.{CreateChallengeRequest, JwtSubjectExtractor, LichessActiveGameSummary, LichessChallengeService, LichessGameStateResult, LichessOAuthConfig, LichessOAuthService, PublicTournamentHostRepository, PublicTournamentParticipantRepository, SubmitLichessMoveResult, TournamentBotOwnershipRepository, UserProfileService}
+import chess.userservice.domain.{ExternalAccountLink, PublicTournamentHostRecord, PublicTournamentParticipant, TournamentBotOwnership, UserProfile}
 import fs2.Stream
 import org.http4s.*
 import org.http4s.dsl.io.*
@@ -28,6 +28,8 @@ import java.util.UUID
   *   POST   /users/me/tournament-bots                      — record ownership of a tournament-server bot
   *   GET    /users/tournaments/{tournamentId}/participants  — list joined participants (public), enriched with searchessCatalogBotId
   *   POST   /users/tournaments/{tournamentId}/participants  — record participant join (auth required)
+  *   GET    /users/tournaments/{tournamentId}/host          — get Searchess host metadata (public, 404 if none recorded)
+  *   POST   /users/tournaments/{tournamentId}/host          — record current user as Searchess host (auth required, idempotent)
   */
 class UserRoutes(
     service: UserProfileService,
@@ -35,7 +37,8 @@ class UserRoutes(
     challengeService: LichessChallengeService,
     lichessConfig: LichessOAuthConfig,
     botOwnershipRepo: TournamentBotOwnershipRepository,
-    participantRepo: PublicTournamentParticipantRepository
+    participantRepo: PublicTournamentParticipantRepository,
+    hostRepo: PublicTournamentHostRepository
 ):
 
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
@@ -283,6 +286,25 @@ class UserRoutes(
         }
       }
 
+    case GET -> Root / "users" / "tournaments" / tournamentId / "host" =>
+      hostRepo.findByTournamentId(tournamentId) match
+        case Left(err)      => respond(Status.InternalServerError, ujson.Obj("code" -> "INTERNAL_ERROR", "message" -> err))
+        case Right(None)    => respond(Status.NotFound, ujson.Obj("code" -> "HOST_NOT_FOUND", "message" -> "No Searchess host recorded for this tournament"))
+        case Right(Some(h)) => respond(Status.Ok, hostJson(h))
+
+    case req @ POST -> Root / "users" / "tournaments" / tournamentId / "host" =>
+      withSubject(req) { (_, profile) =>
+        val record = PublicTournamentHostRecord(
+          tournamentId        = tournamentId,
+          hostSearchessUserId = profile.userId,
+          hostDisplayName     = profile.displayName,
+          createdAt           = java.time.Instant.now()
+        )
+        hostRepo.insertIfAbsent(record) match
+          case Left(err)    => respond(Status.InternalServerError, ujson.Obj("code" -> "INTERNAL_ERROR", "message" -> err))
+          case Right(saved) => respond(Status.Created, hostJson(saved))
+      }
+
     case req @ POST -> Root / "users" / "me" / "lichess" / "games" / gameId / "move" =>
       withSubject(req) { (_, profile) =>
         req.bodyText.compile.string.flatMap { body =>
@@ -493,6 +515,14 @@ class UserRoutes(
         case (_, None)           => Left("Missing or empty 'tournamentServerBotName' field")
     catch
       case _: Exception => Left("Request body must be valid JSON with 'tournamentServerBotId' and 'tournamentServerBotName' string fields")
+
+  private def hostJson(h: PublicTournamentHostRecord): ujson.Obj =
+    ujson.Obj(
+      "tournamentId"        -> h.tournamentId,
+      "hostSearchessUserId" -> h.hostSearchessUserId.toString,
+      "hostDisplayName"     -> h.hostDisplayName,
+      "createdAt"           -> h.createdAt.toString
+    )
 
   private def participantJson(p: PublicTournamentParticipant, searchessCatalogBotId: Option[String]): ujson.Value =
     ujson.Obj(

@@ -4,7 +4,7 @@ import { createPublicTournament, joinPublicTournamentWithBot } from "../../../ap
 import type { CreatePublicTournamentRequest, PublicTournamentFormat } from "../../../api/publicTournamentTypes";
 import { listPublicOpenings } from "../../../api/publicTournamentClient";
 import type { PublicOpening } from "../../../api/publicTournamentTypes";
-import { getMyTournamentBots, recordTournamentParticipant } from "../../../api/userServiceClient";
+import { getMyTournamentBots, recordTournamentHost, recordTournamentParticipant } from "../../../api/userServiceClient";
 import type { OwnedTournamentBot } from "../../../api/userServiceTypes";
 import Button from "../../../components/ui/Button";
 import ErrorState from "../../../components/ui/ErrorState";
@@ -132,6 +132,8 @@ export default function PublicTournamentCreatePage() {
     try {
       const created = await createPublicTournament(toRequest(form, hostBot));
       tournamentId = created.id;
+      // Record the Searchess user as host so the detail page can display the correct director.
+      try { await recordTournamentHost(tournamentId); } catch { /* non-critical */ }
       try {
         await recordTournamentParticipant(tournamentId, {
           tournamentServerBotId:   hostBot.tournamentServerBotId,

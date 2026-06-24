@@ -10,11 +10,12 @@ import {
 import {
   getMyProfile,
   getMyTournamentBots,
+  getTournamentHost,
   getTournamentParticipants,
   recordTournamentParticipant,
 } from "../../../api/userServiceClient";
 import type { PublicResult, PublicTournament, TournamentIdentityResponse } from "../../../api/publicTournamentTypes";
-import type { OwnedTournamentBot, TournamentParticipant, UserProfileResponse } from "../../../api/userServiceTypes";
+import type { OwnedTournamentBot, TournamentHostInfo, TournamentParticipant, UserProfileResponse } from "../../../api/userServiceTypes";
 import Button from "../../../components/ui/Button";
 import ErrorState from "../../../components/ui/ErrorState";
 import LoadingState from "../../../components/ui/LoadingState";
@@ -476,6 +477,7 @@ export default function PublicTournamentDetailPage() {
   const [ownedBots,    setOwnedBots]    = useState<OwnedTournamentBot[]>([]);
   const [myProfile,         setMyProfile]         = useState<UserProfileResponse | null>(null);
   const [tournamentIdentity, setTournamentIdentity] = useState<TournamentIdentityResponse | null>(null);
+  const [hostInfo,      setHostInfo]    = useState<TournamentHostInfo | null>(null);
   const [loading,      setLoading]      = useState(true);
   const [error,        setError]        = useState<string | null>(null);
 
@@ -503,6 +505,12 @@ export default function PublicTournamentDetailPage() {
     const active = { value: true };
     loadTournament(active);
     loadParticipants(active);
+    // Host metadata is public — load for all users so hostDisplayName is always resolved.
+    if (id) {
+      getTournamentHost(id)
+        .then((h) => { if (active.value) setHostInfo(h); })
+        .catch(() => {});
+    }
     if (canManage) {
       getMyTournamentBots()
         .then((bots) => { if (active.value) setOwnedBots(bots); })
@@ -510,8 +518,7 @@ export default function PublicTournamentDetailPage() {
       getMyProfile()
         .then((p) => { if (active.value) setMyProfile(p); })
         .catch(() => {});
-      // Fetch tournament-server identity so canDirectTournament can compare tournament.createdBy
-      // (a tournament-server user ID like "usr_eda95654") against the real userId, not preferred_username.
+      // TS identity is kept as a fallback for tournaments created before Searchess host metadata existed.
       getCurrentTournamentIdentity()
         .then((identity) => { if (active.value) setTournamentIdentity(identity); })
         .catch(() => {});
@@ -552,17 +559,20 @@ export default function PublicTournamentDetailPage() {
   const results     = tournament?.standing?.results ?? [];
   const ownedBotIds = new Set(ownedBots.map((b) => b.tournamentServerBotId));
 
-  // tournament.createdBy is the tournament-server's own user ID, not the Keycloak preferred_username.
-  // Compare against the tournamentUserId returned by the gateway identity endpoint.
+  // Primary: compare against Searchess host metadata (recorded on create, survives BOT JWT).
+  // Fallback: TS identity comparison for tournaments created before host metadata was introduced.
   const isDirector = tournament !== null
-    ? canDirectTournament(tournament, tournamentIdentity?.tournamentUserId ?? null)
+    ? hostInfo !== null
+        ? (myProfile?.userId ?? null) === hostInfo.hostSearchessUserId
+        : canDirectTournament(tournament, tournamentIdentity?.tournamentUserId ?? null)
     : false;
-  // Resolve the host's friendly name for display. Only resolvable for the host themselves;
-  // guests see the raw tournament-server user ID since no public mapping exists.
+  // Resolve friendly host name. Searchess host metadata is authoritative; TS identity used as fallback.
   const hostDisplayName =
-    tournament !== null && tournamentIdentity?.tournamentUserId === tournament.createdBy
-      ? tournamentIdentity.preferredUsername
-      : (tournament?.createdBy ?? "");
+    hostInfo !== null
+      ? hostInfo.hostDisplayName
+      : tournament !== null && tournamentIdentity?.tournamentUserId === tournament.createdBy
+        ? tournamentIdentity.preferredUsername
+        : (tournament?.createdBy ?? "");
 
   return (
     <div className="play-tournament-page">
