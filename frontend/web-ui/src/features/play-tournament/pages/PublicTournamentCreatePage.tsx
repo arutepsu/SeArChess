@@ -132,8 +132,18 @@ export default function PublicTournamentCreatePage() {
     try {
       const created = await createPublicTournament(toRequest(form, hostBot));
       tournamentId = created.id;
-      // Record the Searchess user as host so the detail page can display the correct director.
-      try { await recordTournamentHost(tournamentId); } catch { /* non-critical */ }
+      // Record the Searchess user as host. Without this the detail page cannot identify the
+      // director (TS createdBy is the bot ID, not the user) — fail hard so the user knows.
+      try {
+        await recordTournamentHost(tournamentId);
+      } catch (e: unknown) {
+        setSubmitError(
+          `Tournament was created (ID: ${tournamentId}), but Searchess could not record you as host. ` +
+          `Please delete the tournament and try again.`
+        );
+        setSubmitting(false);
+        return;
+      }
       try {
         await recordTournamentParticipant(tournamentId, {
           tournamentServerBotId:   hostBot.tournamentServerBotId,

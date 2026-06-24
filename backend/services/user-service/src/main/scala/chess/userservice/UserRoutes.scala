@@ -301,6 +301,8 @@ class UserRoutes(
           createdAt           = java.time.Instant.now()
         )
         hostRepo.insertIfAbsent(record) match
+          case Left("host_already_recorded_by_another_user") =>
+            respond(Status.Conflict, ujson.Obj("code" -> "HOST_ALREADY_RECORDED", "message" -> "Another user has already been recorded as host for this tournament"))
           case Left(err)    => respond(Status.InternalServerError, ujson.Obj("code" -> "INTERNAL_ERROR", "message" -> err))
           case Right(saved) => respond(Status.Created, hostJson(saved))
       }
