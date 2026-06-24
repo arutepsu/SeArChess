@@ -676,22 +676,14 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
       Right(store.values.asScala.filter(_.tournamentId == tournamentId).toList.sortBy(_.joinedAt))
 
     override def insertIfAbsent(p: PublicTournamentParticipant): Either[String, PublicTournamentParticipant] =
-      // Enforce one bot per Searchess user per tournament.
-      val sameUserDiffBot = store.values.asScala.find { r =>
-        r.tournamentId == p.tournamentId &&
-        r.searchessUserId == p.searchessUserId &&
-        r.tournamentServerBotId != p.tournamentServerBotId
-      }
-      if sameUserDiffBot.isDefined then
-        Left("user_already_joined_with_different_bot")
-      else
-        val k = key(p.tournamentId, p.tournamentServerBotId)
-        Option(store.get(k)) match
-          case Some(existing) if existing.searchessUserId == p.searchessUserId => Right(existing)
-          case Some(_)                                                          => Left("bot_already_claimed_by_another_user")
-          case None =>
-            store.put(k, p)
-            Right(p)
+      // Uniqueness is (tournamentId, tournamentServerBotId): the same user may enter multiple owned bots.
+      val k = key(p.tournamentId, p.tournamentServerBotId)
+      Option(store.get(k)) match
+        case Some(existing) if existing.searchessUserId == p.searchessUserId => Right(existing)
+        case Some(_)                                                          => Left("bot_already_claimed_by_another_user")
+        case None =>
+          store.put(k, p)
+          Right(p)
 
   // ── Public tournament participant endpoints ───────────────────────────────
 
@@ -850,9 +842,8 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
     body("code").str shouldBe "BOT_ALREADY_CLAIMED"
   }
 
-  it should "return 409 USER_ALREADY_JOINED when same user tries to join with a different bot" in {
+  it should "allow the same user to join the same tournament with multiple owned bots" in {
     val (app, _, _) = makeRoutes()
-    // Register two different bots for the same user
     def registerBot(botId: String, botName: String) =
       app.run(
         Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/me/tournament-bots"))
@@ -861,7 +852,7 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
           .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
       ).unsafeRunSync()
 
-    registerBot("bot-first", "FirstBot")
+    registerBot("bot-first",  "FirstBot")
     registerBot("bot-second", "SecondBot")
 
     def joinReq(botId: String, botName: String) =
@@ -870,13 +861,15 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
         .withEntity(s"""{"tournamentServerBotId":"$botId","tournamentServerBotName":"$botName"}""")
         .putHeaders(Header.Raw(org.typelevel.ci.CIString("Content-Type"), "application/json"))
 
-    // First join succeeds
-    app.run(joinReq("bot-first", "FirstBot")).unsafeRunSync().status shouldBe Status.Created
-    // Second join (different bot, same user) must be rejected
-    val res  = app.run(joinReq("bot-second", "SecondBot")).unsafeRunSync()
-    val body = ujson.read(res.bodyText.compile.string.unsafeRunSync())
-    res.status       shouldBe Status.Conflict
-    body("code").str shouldBe "USER_ALREADY_JOINED"
+    app.run(joinReq("bot-first",  "FirstBot")).unsafeRunSync().status  shouldBe Status.Created
+    app.run(joinReq("bot-second", "SecondBot")).unsafeRunSync().status shouldBe Status.Created
+
+    val listRes  = app.run(Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/tournaments/t-twobots/participants"))).unsafeRunSync()
+    val listBody = ujson.read(listRes.bodyText.compile.string.unsafeRunSync())
+    listBody("participants").arr.length shouldBe 2
+    val names = listBody("participants").arr.map(_("tournamentServerBotName").str).toSet
+    names should contain("FirstBot")
+    names should contain("SecondBot")
   }
 
   it should "be idempotent when same user re-joins with the same bot" in {

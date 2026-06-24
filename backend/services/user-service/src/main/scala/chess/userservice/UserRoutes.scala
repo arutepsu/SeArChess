@@ -273,8 +273,6 @@ class UserRoutes(
                         joinedAt                = java.time.Instant.now()
                       )
                       participantRepo.insertIfAbsent(participant) match
-                        case Left("user_already_joined_with_different_bot") =>
-                          respond(Status.Conflict, ujson.Obj("code" -> "USER_ALREADY_JOINED", "message" -> "You have already joined this tournament with a different bot"))
                         case Left("bot_already_claimed_by_another_user") =>
                           respond(Status.Conflict, ujson.Obj("code" -> "BOT_ALREADY_CLAIMED", "message" -> s"Bot '$tsBotId' is already registered for this tournament by another user"))
                         case Left(err) =>

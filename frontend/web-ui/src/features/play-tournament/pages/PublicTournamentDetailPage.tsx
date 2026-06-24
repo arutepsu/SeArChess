@@ -126,15 +126,11 @@ function ParticipantsSection({
   isDirector: boolean;
   onRefresh: () => void;
 }) {
-  const nbServer      = tournament.nbPlayers;
-  const nbSearchess   = participants.length;
-  const distinctUsers = new Set(participants.map((p) => p.searchessUserId)).size;
-  // Ready only when Searchess has ≥2 bots from ≥2 distinct users.
-  const hasEnoughBots = nbSearchess >= 2 || nbServer >= 2;
-  const hasEnough     = nbSearchess >= 2 && distinctUsers >= 2;
-  const hasServerAhead  = nbServer > nbSearchess;
-  // A delta of 1 is normal while recordTournamentParticipant is in-flight; only warn on larger divergence.
-  const hasSyncMismatch = Math.abs(nbServer - nbSearchess) > 1;
+  const nbServer    = tournament.nbPlayers;
+  const nbSearchess = participants.length;
+  // Ready when at least 1 Searchess-managed bot is present and total TS participants ≥ 2
+  // (external bots count toward the 2-participant minimum).
+  const hasEnough   = nbSearchess >= 1 && nbServer >= 2;
   // Bots the Tournament Server has that Searchess never joined (e.g. auto-added by TS on create).
   const tsBots        = tournament.standing?.results.map((r) => r.bot) ?? [];
   const managedBotIds = new Set(participants.map((p) => p.tournamentServerBotId));
@@ -147,17 +143,10 @@ function ParticipantsSection({
           Host: <strong style={{ color: "var(--text-primary, #e8e8f0)" }}>{hostDisplayName}</strong>
         </span>
         <span className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.85rem" }}>
-          Joined: <strong style={{ color: "var(--text-primary, #e8e8f0)" }}>{nbSearchess}</strong>
-          {" / 2 minimum"}
+          Searchess bots: <strong style={{ color: "var(--text-primary, #e8e8f0)" }}>{nbSearchess}</strong>
+          {nbServer > nbSearchess ? ` · Total joined (incl. external): ${nbServer}` : ""}
         </span>
       </div>
-
-      {hasSyncMismatch && nbServer > 0 && (
-        <p className="play-tournament-info-label" style={{ marginBottom: 12, textTransform: "none", fontSize: "0.8rem" }}>
-          Tournament Server reports {nbServer} joined bot(s); Searchess has {nbSearchess} recorded participant(s).
-          Refresh if needed.
-        </p>
-      )}
 
       {participants.length > 0 ? (
         <div className="pt-bot-list">
@@ -196,16 +185,13 @@ function ParticipantsSection({
         <p className="play-tournament-empty">No bots have joined yet.</p>
       )}
 
-      {hasServerAhead && participants.length > 0 && (
-        <p className="play-tournament-info-label" style={{ marginTop: 10, textTransform: "none", fontSize: "0.8rem" }}>
-          Some joined bots are not shown by name yet. Refresh to sync participant details.
-        </p>
-      )}
-
       {unknownTsBots.length > 0 && (
         <div style={{ marginTop: 12, padding: "10px 12px", background: "rgba(99,102,241,0.06)", borderRadius: 6, border: "1px solid rgba(99,102,241,0.2)" }}>
-          <p className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.8rem", margin: "0 0 6px" }}>
-            {unknownTsBots.length} external participant{unknownTsBots.length !== 1 ? "s" : ""} joined directly via Tournament Server — not managed by Searchess:
+          <p className="play-tournament-info-label" style={{ fontWeight: 600, textTransform: "none", fontSize: "0.8rem", margin: "0 0 4px" }}>
+            External Tournament Server participants ({unknownTsBots.length})
+          </p>
+          <p className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.78rem", margin: "0 0 8px" }}>
+            These bots joined directly through the public Tournament Server. Searchess shows their games and results but does not control their moves.
           </p>
           <div className="pt-bot-list">
             {unknownTsBots.map((b) => (
@@ -227,11 +213,9 @@ function ParticipantsSection({
         >
           {hasEnough
             ? "Ready to start."
-            : !hasEnoughBots
-            ? "At least 2 bots must join."
-            : nbSearchess < 2 && nbServer >= 2
-            ? "Tournament Server reports joined bots, but Searchess has not recorded enough participant details yet."
-            : "At least 2 different users must join with their bots."}
+            : nbServer < 2
+            ? "At least 2 bots must join the Tournament Server."
+            : "At least 1 Searchess-managed bot must join."}
         </p>
         <Button variant="secondary" size="sm" onClick={onRefresh}>Refresh</Button>
       </div>
@@ -245,14 +229,12 @@ function JoinSection({
   id,
   ownedBots,
   participants,
-  myUserId,
   tournamentServerUserId,
   onRefresh,
 }: {
   id: string;
   ownedBots: OwnedTournamentBot[];
   participants: TournamentParticipant[];
-  myUserId: string | null;
   tournamentServerUserId: string | null;
   onRefresh: () => void;
 }) {
@@ -262,11 +244,6 @@ function JoinSection({
   const [error, setError]   = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // The current user's existing participant (if any) — one bot per user per tournament.
-  const myParticipant = myUserId !== null
-    ? participants.find((p) => p.searchessUserId === myUserId) ?? null
-    : null;
-
   // Ownership UUIDs already recorded as participants (primary key for join identity).
   const joinedOwnershipIds = new Set(
     participants.map((p) => p.searchessBotId).filter((id): id is string => id !== null && id !== undefined)
@@ -274,14 +251,12 @@ function JoinSection({
   // Fallback: tournament-server bot IDs for participant records that predate ownership UUID tracking.
   const joinedTsBotIds = new Set(participants.map((p) => p.tournamentServerBotId));
 
-  // A bot is joinable only if: (a) the current user has NO participant yet AND (b) this specific
-  // bot is not already recorded (handles the repair path for individual bots).
-  const joinableBots = myParticipant !== null
-    ? []  // user already has one bot joined — prevent multi-bot tournament entries
-    : ownedBots.filter((b) =>
-        !joinedOwnershipIds.has(b.searchessBotId) &&
-        !joinedTsBotIds.has(b.tournamentServerBotId)
-      );
+  // A bot is joinable if it has not already been recorded for this tournament.
+  // Multiple owned bots may join the same tournament.
+  const joinableBots = ownedBots.filter((b) =>
+    !joinedOwnershipIds.has(b.searchessBotId) &&
+    !joinedTsBotIds.has(b.tournamentServerBotId)
+  );
   const alreadyJoined = ownedBots.filter((b) =>
     joinedOwnershipIds.has(b.searchessBotId) || joinedTsBotIds.has(b.tournamentServerBotId)
   );
@@ -422,14 +397,11 @@ function DirectorActions({
   const [busy, setBusy] = useState(false);
 
   const participantCount = participants.length;
-  const distinctUsers    = new Set(participants.map((p) => p.searchessUserId)).size;
 
-  // Require ≥2 Searchess-recorded bots from ≥2 distinct users.
-  // TS-side integrity (all Searchess bots are present in TS, no auto-added defaults) is
-  // checked by the backend gateway on start — it returns 409 with details if violated.
-  // External public participants that joined directly via the Tournament Server API are
-  // allowed and do not block start.
-  const canStart = participantCount >= 2 && distinctUsers >= 2;
+  // Require ≥1 Searchess-managed bot and ≥2 total TS participants (external bots count).
+  // TS-side integrity is checked by the backend gateway on start (returns 409 if a
+  // Searchess bot is missing from TS).
+  const canStart = participantCount >= 1 && nbPlayers >= 2;
 
   async function handleStart() {
     setBusy(true);
@@ -483,11 +455,9 @@ function DirectorActions({
       </div>
       {!canStart && (
         <p className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.875rem" }}>
-          {participantCount < 2 && nbPlayers >= 2
-            ? "Tournament Server reports joined bots, but Searchess has not recorded enough participant details yet."
-            : participantCount >= 2 && distinctUsers < 2
-            ? "At least 2 different users must join with their bots."
-            : "At least 2 bots must join before the tournament can start."}
+          {participantCount < 1
+            ? "At least one Searchess-managed bot must join before the tournament can start."
+            : "At least 2 bots must join the Tournament Server before the tournament can start."}
         </p>
       )}
     </SectionCard>
@@ -674,7 +644,6 @@ export default function PublicTournamentDetailPage() {
                       id={id ?? ""}
                       ownedBots={ownedBots}
                       participants={participants}
-                      myUserId={myProfile?.userId ?? null}
                       tournamentServerUserId={tournamentIdentity?.tournamentUserId ?? null}
                       onRefresh={handleRefresh}
                     />
