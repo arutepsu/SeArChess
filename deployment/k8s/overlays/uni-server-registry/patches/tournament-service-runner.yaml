@@ -11,3 +11,14 @@ data:
   TOURNAMENT_PUBLIC_RUNNER_INTERVAL_SECONDS: "2"
   TOURNAMENT_PUBLIC_RUNNER_MAX_TOURNAMENTS: "50"
   TOURNAMENT_PUBLIC_RUNNER_RECENT_SUBMITTED_TTL_SECONDS: "10"
+  # Runner base URLs — required for the scheduler to pass the "runner configured" check.
+  # Without these the wiring logs runner_scheduler_skipped with "runner not configured".
+  #   TOURNAMENT_SERVER_BASE_URL:          external TS at uni-server (same host as gateway-service proxies to)
+  #   TOURNAMENT_USER_SERVICE_BASE_URL:    ClusterIP of user-service (kube-dns, port from service.yaml)
+  #   TOURNAMENT_GATEWAY_INTERNAL_BASE_URL: ClusterIP of gateway-service (kube-dns, port 8087 from service.yaml)
+  TOURNAMENT_SERVER_BASE_URL: "http://141.37.123.132:8086"
+  TOURNAMENT_USER_SERVICE_BASE_URL: "http://user-service:8082"
+  TOURNAMENT_GATEWAY_INTERNAL_BASE_URL: "http://gateway-service:8087"
+  # Must match GATEWAY_RUNNER_SECRET in gateway-service ConfigMap.
+  # Override both with the same strong random value via a Kubernetes Secret in production.
+  TOURNAMENT_RUNNER_SERVICE_TOKEN: "searchess-runner-internal-token"

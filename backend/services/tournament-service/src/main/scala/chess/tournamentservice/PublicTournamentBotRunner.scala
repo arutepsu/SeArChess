@@ -1,6 +1,7 @@
 package chess.tournamentservice
 
 import cats.effect.IO
+import chess.observability.StructuredLog
 import java.util.concurrent.ConcurrentHashMap
 import java.util.Set as JSet
 
@@ -109,34 +110,73 @@ final class PublicTournamentBotRunner(
     fen:          String,
     gameStatus:   String
   ): IO[List[RunnerAction]] =
-    val key = runnerKey(tournamentId, gameId, botId, fen)
+    val key        = runnerKey(tournamentId, gameId, botId, fen)
+    val sideToMove = activeColorFromFen(fen).getOrElse("?")
     if recentGuard.exists(_.isRecentlySubmitted(key)) then
       IO.pure(List(RunnerAction(gameId, botId, None, RunnerActionStatus.Skipped, Some("recently_submitted"))))
     else if !tryAcquire(key) then
       IO.pure(List(RunnerAction(gameId, botId, None, RunnerActionStatus.Skipped, Some("already_in_flight"))))
     else
-      val moveResult: Either[String, String] =
+      IO(StructuredLog.info("tournament-service", "bot_move_attempt",
+        "tournamentId" -> tournamentId,
+        "gameId"       -> gameId,
+        "botId"        -> botId,
+        "catalogBotId" -> catalogBotId,
+        "sideToMove"   -> sideToMove
+      )) >>
+      // IO.blocking: StockfishBot.selectMove spawns a subprocess and reads from its stdout.
+      // Blocking the cats-effect compute pool would stall the scheduler; use blocking threads.
+      IO.blocking {
         for
           bot <- registry.createBot(catalogBotId, seed = None)
           uci <- PublicBotMoveGenerator.generate(bot, PublicGameSnapshot(fen, gameStatus))
                    .left.map(_.describe)
         yield uci
-      moveResult match
+      }.flatMap {
         case Left(err) =>
-          release(key)
+          IO(StructuredLog.error("tournament-service", "bot_move_failed",
+            "tournamentId" -> tournamentId,
+            "gameId"       -> gameId,
+            "botId"        -> botId,
+            "catalogBotId" -> catalogBotId,
+            "error"        -> err
+          )) >>
+          IO.delay(release(key)) >>
           IO.pure(List(RunnerAction(gameId, botId, None, RunnerActionStatus.Failed, Some(err))))
         case Right(uci) =>
-          for
-            submitResult <- moveClient.submitMove(tournamentId, gameId, botId, botName, uci)
-            _            <- IO.delay {
+          IO(StructuredLog.info("tournament-service", "bot_move_generated",
+            "tournamentId" -> tournamentId,
+            "gameId"       -> gameId,
+            "botId"        -> botId,
+            "catalogBotId" -> catalogBotId,
+            "uciMove"      -> uci,
+            "sideToMove"   -> sideToMove
+          )) >>
+          moveClient.submitMove(tournamentId, gameId, botId, botName, uci).flatMap { submitResult =>
+            IO.delay {
               if submitResult.isRight then recentGuard.foreach(_.markSubmitted(key))
               release(key)
+              submitResult match
+                case Right(()) =>
+                  StructuredLog.info("tournament-service", "bot_move_submitted",
+                    "tournamentId" -> tournamentId,
+                    "gameId"       -> gameId,
+                    "botId"        -> botId,
+                    "uciMove"      -> uci
+                  )
+                  List(RunnerAction(gameId, botId, Some(uci), RunnerActionStatus.Submitted, None))
+                case Left(err) =>
+                  StructuredLog.error("tournament-service", "bot_move_submit_failed",
+                    "tournamentId" -> tournamentId,
+                    "gameId"       -> gameId,
+                    "botId"        -> botId,
+                    "uciMove"      -> uci,
+                    "error"        -> err
+                  )
+                  List(RunnerAction(gameId, botId, Some(uci), RunnerActionStatus.Failed, Some(err)))
             }
-          yield submitResult match
-            case Right(()) =>
-              List(RunnerAction(gameId, botId, Some(uci), RunnerActionStatus.Submitted, None))
-            case Left(err) =>
-              List(RunnerAction(gameId, botId, Some(uci), RunnerActionStatus.Failed, Some(err)))
+          }
+      }
 
   private def runnerKey(tournamentId: String, gameId: String, botId: String, fen: String): String =
     val hash = f"${fen.hashCode}%08x"

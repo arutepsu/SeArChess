@@ -16,6 +16,11 @@ data:
   # GATEWAY_AUTH_DISABLED: "false" is the secure default.
   # Set to "true" only in local dev when Keycloak is not running.
   GATEWAY_AUTH_DISABLED: "false"
+  # Static shared secret for the cluster-internal bot-runner move submission endpoint
+  # (POST /api/internal/tournament/.../move/...). Must match TOURNAMENT_RUNNER_SERVICE_TOKEN
+  # in tournament-service. Override with a strong random value via a Kubernetes Secret in
+  # production overlays. The default here is only for base/dev environments.
+  GATEWAY_RUNNER_SECRET: "searchess-runner-internal-token"
   JAVA_TOOL_OPTIONS: "-javaagent:/app/opentelemetry-javaagent.jar"
   OTEL_SERVICE_NAME: "searchess-gateway-service"
   OTEL_TRACES_EXPORTER: "otlp"

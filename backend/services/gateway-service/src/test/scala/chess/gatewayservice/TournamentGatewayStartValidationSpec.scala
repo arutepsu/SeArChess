@@ -18,7 +18,8 @@ class TournamentGatewayStartValidationSpec extends AnyFlatSpec with Matchers:
     tournamentServerUrl = "http://ts",
     userServiceUrl      = "http://us",
     authDisabled        = true,
-    devUserName         = "dev"
+    devUserName         = "dev",
+    runnerSecret        = None
   )
 
   private def makeRoutes(userServiceHandler: PartialFunction[Request[IO], IO[Response[IO]]] = PartialFunction.empty): TournamentGatewayRoutes =

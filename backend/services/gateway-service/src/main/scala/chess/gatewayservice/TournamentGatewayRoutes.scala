@@ -256,15 +256,17 @@ class TournamentGatewayRoutes(
   }
 
   // ── Backend-internal move submission route ────────────────────────────────────
-  // Called by the future Searchess bot runner service — never by the browser.
-  // Requires a valid Keycloak JWT (service-account token from the runner).
-  // The caller resolves searchessBotId → tournamentServerBotId via user-service first.
-  // Bot JWT is acquired/cached server-side and never returned to the caller.
+  // Called by the tournament-service bot runner — never by the browser.
+  // Auth: static shared secret (GATEWAY_RUNNER_SECRET / Authorization: Bearer <token>),
+  // not a Keycloak JWT, because tournament-service has no Keycloak service account.
+  // The endpoint is only reachable cluster-internally (ClusterIP); network isolation
+  // is the primary security boundary. The shared secret prevents accidental misuse.
+  // Bot JWT for the tournament-server call is acquired/cached server-side.
 
   private val internalRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
 
     case req @ POST -> Root / "api" / "internal" / "tournament" / id / "game" / gameId / "move" / uciMove =>
-      withAuth(req) { _ =>
+      withRunnerAuth(req) {
         req.bodyText.compile.string.flatMap { jsonBody =>
           parseBotJoinRequest(jsonBody) match
             case Left(err) =>
@@ -371,6 +373,25 @@ class TournamentGatewayRoutes(
   private def withAuth(req: Request[IO])(
     f: GatewayJwtClaims => IO[Response[IO]]
   ): IO[Response[IO]] = withDirector(req)(f)
+
+  // withRunnerAuth guards the backend-internal move submission route.
+  // Accepts a static pre-shared secret (GATEWAY_RUNNER_SECRET) instead of a Keycloak JWT
+  // because tournament-service is a backend service without a Keycloak service account.
+  // When GATEWAY_AUTH_DISABLED=true (local dev without Keycloak) all requests pass through.
+  private def withRunnerAuth(req: Request[IO])(f: IO[Response[IO]]): IO[Response[IO]] =
+    if config.authDisabled then f
+    else
+      config.runnerSecret match
+        case None =>
+          IO.pure(errorResponse(Status.ServiceUnavailable, "RUNNER_NOT_CONFIGURED",
+            "GATEWAY_RUNNER_SECRET is not configured"))
+        case Some(secret) =>
+          req.headers.get(CIString("Authorization")).map(_.head.value) match
+            case None =>
+              IO.pure(errorResponse(Status.Unauthorized, "UNAUTHORIZED", "Missing Authorization header"))
+            case Some(v) if v == s"Bearer $secret" => f
+            case _ =>
+              IO.pure(errorResponse(Status.Unauthorized, "UNAUTHORIZED", "Invalid runner token"))
 
   // ── Helpers: bot join ─────────────────────────────────────────────────────────
 

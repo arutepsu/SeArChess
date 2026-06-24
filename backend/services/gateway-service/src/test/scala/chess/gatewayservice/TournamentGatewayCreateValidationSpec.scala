@@ -32,7 +32,7 @@ class TournamentGatewayCreateValidationSpec extends AnyFlatSpec with Matchers:
         IO.pure(Response[IO](status = deleteStatus))
     }.orNotFound
     val mockClient  = Client.fromHttpApp(mockApp)
-    val config      = GatewayServiceConfig("localhost", 8087, "http://ts", "http://us", true, "dev")
+    val config      = GatewayServiceConfig("localhost", 8087, "http://ts", "http://us", true, "dev", None)
     val authBridge  = new TournamentAuthBridge(
       mockClient, config.tournamentServerUrl, new TournamentJwtCache(), new TournamentJwtCache()
     )
