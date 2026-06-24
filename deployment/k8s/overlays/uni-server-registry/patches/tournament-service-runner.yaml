@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tournament-service-env
+  namespace: searchess
+data:
+  # Public tournament bot runner scheduler — disabled by default in base to avoid
+  # accidental move submission in dev/CI environments where bots may not be wired.
+  # Enabled here for the production cluster only.
+  TOURNAMENT_PUBLIC_RUNNER_SCHEDULER_ENABLED: "true"
+  TOURNAMENT_PUBLIC_RUNNER_INTERVAL_SECONDS: "2"
+  TOURNAMENT_PUBLIC_RUNNER_MAX_TOURNAMENTS: "50"
+  TOURNAMENT_PUBLIC_RUNNER_RECENT_SUBMITTED_TTL_SECONDS: "10"
