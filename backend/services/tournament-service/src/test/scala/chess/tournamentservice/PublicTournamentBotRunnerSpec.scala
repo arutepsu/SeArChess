@@ -125,14 +125,69 @@ class PublicTournamentBotRunnerSpec extends AnyFlatSpec with Matchers:
     moveClient.submittedCount shouldBe 0
   }
 
-  it should "return Skipped with missing_catalog_bot_id when participant has no catalog id" in {
-    val noCatalogParticipant = randomBotParticipant.copy(searchessCatalogBotId = None)
-    val (runner, moveClient) = makeRunner(participants = Right(List(noCatalogParticipant)))
+  it should "return Skipped with missing_catalog_bot_id when participant has no catalog id and name is not in whitelist" in {
+    // Use a bot name that is NOT in the KnownNameToCatalogBotId whitelist.
+    // Whitelist names follow the "searchess-*" prefix convention — use an unknown external name.
+    val unknownNameParticipant = randomBotParticipant.copy(
+      tournamentServerBotName = "some-external-unknown-bot",
+      searchessCatalogBotId   = None
+    )
+    val (runner, moveClient) = makeRunner(participants = Right(List(unknownNameParticipant)))
     val result = runner.tick("t1").unsafeRunSync()
 
     result.actions should have size 1
     result.actions.head.status shouldBe RunnerActionStatus.Skipped
     result.actions.head.reason shouldBe Some("missing_catalog_bot_id")
+    moveClient.submittedCount shouldBe 0
+  }
+
+  it should "resolve catalogBotId from tournamentServerBotName whitelist when searchessCatalogBotId is null" in {
+    // Covers the production case where user-service returns searchessCatalogBotId=null.
+    // "searchess-random-bot" is in the whitelist and maps to "random-bot" (always available).
+    val derivedParticipant = randomBotParticipant.copy(
+      tournamentServerBotName = "searchess-random-bot",
+      searchessCatalogBotId   = None
+    )
+    val (runner, moveClient) = makeRunner(participants = Right(List(derivedParticipant)))
+    val result = runner.tick("t1").unsafeRunSync()
+
+    result.actions should have size 1
+    val action = result.actions.head
+    action.status shouldBe RunnerActionStatus.Submitted
+    action.uciMove.exists(UciPattern.matches) shouldBe true
+    moveClient.submittedCount shouldBe 1
+  }
+
+  it should "resolve stockfish-depth-3 from name whitelist (null catalogId) and fail gracefully when binary absent" in {
+    // Simulates the production observation: white=searchess-stockfish-depth-3,
+    // searchessCatalogBotId=null. The whitelist maps the name to "stockfish-depth-3".
+    // Without a Stockfish binary the runner should report Failed, not Skipped.
+    val stockfishParticipant = randomBotParticipant.copy(
+      tournamentServerBotName = "searchess-stockfish-depth-3",
+      searchessCatalogBotId   = None
+    )
+    val (runner, moveClient) = makeRunner(participants = Right(List(stockfishParticipant)))
+    val result = runner.tick("t1").unsafeRunSync()
+
+    result.actions should have size 1
+    val action = result.actions.head
+    action.status shouldBe RunnerActionStatus.Failed
+    action.reason.getOrElse("") should include("STOCKFISH_PATH")
+    moveClient.submittedCount shouldBe 0
+  }
+
+  it should "use explicit searchessCatalogBotId when non-null, ignoring whitelist" in {
+    // Ensures the existing explicit-ID path is untouched by the whitelist fallback.
+    val explicitParticipant = randomBotParticipant.copy(
+      tournamentServerBotName = "searchess-capture-first",
+      searchessCatalogBotId   = Some("random-bot")  // explicit overrides name-derived "capture-first"
+    )
+    val (runner, moveClient) = makeRunner(participants = Right(List(explicitParticipant)))
+    val result = runner.tick("t1").unsafeRunSync()
+
+    result.actions should have size 1
+    result.actions.head.status shouldBe RunnerActionStatus.Submitted
+    moveClient.submittedCount shouldBe 1
   }
 
   it should "return Skipped with no_fen when game snapshot has no FEN" in {

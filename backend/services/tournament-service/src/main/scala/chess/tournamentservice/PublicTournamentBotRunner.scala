@@ -76,6 +76,22 @@ final class PublicTournamentBotRunner(
       case Right(snap)   => processSnapshot(tournamentId, game, snap, participantMap)
     }
 
+  // Whitelist: known Searchess tournament-server bot names → BotRegistry catalog IDs.
+  // Used when user-service returns searchessCatalogBotId=null for a Searchess-owned bot
+  // (e.g., bots registered before that field was populated).
+  private val KnownNameToCatalogBotId: Map[String, String] = Map(
+    "searchess-random-bot"        -> "random-bot",
+    "searchess-capture-first"     -> "capture-first",
+    "searchess-material-greedy"   -> "material-greedy",
+    "searchess-stockfish-depth-1" -> "stockfish-depth-1",
+    "searchess-stockfish-depth-3" -> "stockfish-depth-3",
+    "searchess-stockfish-fast"    -> "stockfish-fast",
+    "searchess-stockfish-slow"    -> "stockfish-slow"
+  )
+
+  private def deriveCatalogBotIdFromTournamentServerBotName(name: String): Option[String] =
+    KnownNameToCatalogBotId.get(name)
+
   private def processSnapshot(
     tournamentId:  String,
     game:          RunnerRoundGame,
@@ -95,10 +111,37 @@ final class PublicTournamentBotRunner(
               case None =>
                 IO.pure(List(RunnerAction(game.gameId, botId, None, RunnerActionStatus.Skipped, Some("not_a_searchess_participant"))))
               case Some(participant) =>
-                participant.searchessCatalogBotId match
+                // Resolve catalog bot ID: prefer the explicit value stored in user-service.
+                // Fall back to the whitelist when searchessCatalogBotId is null — this covers
+                // bots that were registered before the field was populated in user-service.
+                val resolved: Option[(String, String)] = participant.searchessCatalogBotId match
+                  case Some(id) => Some((id, "explicit"))
                   case None =>
+                    deriveCatalogBotIdFromTournamentServerBotName(participant.tournamentServerBotName)
+                      .map(id => (id, "derived_from_name"))
+
+                resolved match
+                  case None =>
+                    IO(StructuredLog.warn("tournament-service", "bot_move_skipped",
+                      "tournamentId"                -> tournamentId,
+                      "gameId"                      -> game.gameId,
+                      "activeTournamentServerBotId" -> botId,
+                      "tournamentServerBotName"     -> participant.tournamentServerBotName,
+                      "searchessCatalogBotId"       -> participant.searchessCatalogBotId.getOrElse("null"),
+                      "resolvedCatalogBotId"        -> "none",
+                      "reason"                      -> "missing_catalog_bot_id"
+                    )) >>
                     IO.pure(List(RunnerAction(game.gameId, botId, None, RunnerActionStatus.Skipped, Some("missing_catalog_bot_id"))))
-                  case Some(catalogBotId) =>
+                  case Some((catalogBotId, source)) =>
+                    IO(StructuredLog.info("tournament-service", "bot_catalog_resolved",
+                      "tournamentId"                -> tournamentId,
+                      "gameId"                      -> game.gameId,
+                      "activeTournamentServerBotId" -> botId,
+                      "tournamentServerBotName"     -> participant.tournamentServerBotName,
+                      "searchessCatalogBotId"       -> participant.searchessCatalogBotId.getOrElse("null"),
+                      "resolvedCatalogBotId"        -> catalogBotId,
+                      "source"                      -> source
+                    )) >>
                     trySubmitMove(tournamentId, game.gameId, botId, participant.tournamentServerBotName, catalogBotId, fen, snap.status)
 
   private def trySubmitMove(
