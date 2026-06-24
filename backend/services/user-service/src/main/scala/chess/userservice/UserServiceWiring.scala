@@ -8,6 +8,7 @@ import chess.userservice.application.{LichessChallengeService, LichessOAuthServi
 import chess.userservice.postgres.{
   SlickExternalAccountLinkRepository,
   SlickOAuthLinkStateRepository,
+  SlickPublicTournamentHostRepository,
   SlickPublicTournamentParticipantRepository,
   SlickTournamentBotOwnershipRepository,
   SlickUserProfileRepository,
@@ -52,6 +53,7 @@ object UserServiceWiring:
     val stateRepo       = SlickOAuthLinkStateRepository(db, schema)
     val botOwnerRepo    = SlickTournamentBotOwnershipRepository(db, schema)
     val participantRepo = SlickPublicTournamentParticipantRepository(db, schema)
+    val hostRepo        = SlickPublicTournamentHostRepository(db, schema)
     val service         = UserProfileService(profileRepo, linkRepo)
     val tokenCipher: Option[LichessTokenCipher] = config.lichessTokenEncryptionKey.flatMap { key =>
       LichessTokenCipher.fromBase64Key(key) match
@@ -62,7 +64,7 @@ object UserServiceWiring:
     }
     val oauthService     = LichessOAuthService(stateRepo, linkRepo, httpClient, config.lichessOAuth, tokenCipher)
     val challengeService = LichessChallengeService(linkRepo, tokenCipher, httpClient, config.lichessChallenge)
-    val routes           = UserRoutes(service, oauthService, challengeService, config.lichessOAuth, botOwnerRepo, participantRepo)
+    val routes           = UserRoutes(service, oauthService, challengeService, config.lichessOAuth, botOwnerRepo, participantRepo, hostRepo)
     val internalRoutes = InternalLichessRoutes(linkRepo, config.internalApiKey)
 
     val httpApp = (routes.routes <+> internalRoutes.routes).orNotFound

@@ -13,6 +13,7 @@ import type {
   RecordTournamentParticipantRequest,
   SetManualLichessLinkRequest,
   SubmitLichessMoveResponse,
+  TournamentHostInfo,
   TournamentParticipant,
   TournamentParticipantsResponse,
   UserProfileResponse,
@@ -144,6 +145,28 @@ export async function recordTournamentParticipant(
     `/users/tournaments/${encodeURIComponent(tournamentId)}/participants`,
     { method: "POST", body: JSON.stringify(req) }
   );
+}
+
+export async function recordTournamentHost(tournamentId: string): Promise<TournamentHostInfo> {
+  return fetchUserJson<TournamentHostInfo>(
+    `/users/tournaments/${encodeURIComponent(tournamentId)}/host`,
+    { method: "POST" }
+  );
+}
+
+export async function getTournamentHost(tournamentId: string): Promise<TournamentHostInfo | null> {
+  const response = await fetch(apiUrl(`/users/tournaments/${encodeURIComponent(tournamentId)}/host`), {
+    headers: {
+      "Content-Type": "application/json",
+      ...(await authHeaders()),
+    },
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Request failed: ${response.status}`);
+  }
+  return (await response.json()) as TournamentHostInfo;
 }
 
 export async function deleteLichessLink(): Promise<void> {

@@ -10,12 +10,13 @@ import chess.userservice.application.{
   LichessOAuthService,
   LichessTokenCipher,
   OAuthLinkStateRepository,
+  PublicTournamentHostRepository,
   PublicTournamentParticipantRepository,
   TournamentBotOwnershipRepository,
   UserProfileRepository,
   UserProfileService
 }
-import chess.userservice.domain.{ExternalAccountLink, OAuthLinkState, PublicTournamentParticipant, TournamentBotOwnership, UserProfile}
+import chess.userservice.domain.{ExternalAccountLink, OAuthLinkState, PublicTournamentHostRecord, PublicTournamentParticipant, TournamentBotOwnership, UserProfile}
 import fs2.Stream
 import org.http4s.*
 import org.http4s.client.Client
@@ -66,10 +67,11 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
     val stateRepo        = InMemOAuthLinkStateRepository()
     val botOwnerRepo     = InMemTournamentBotOwnershipRepository()
     val participantRepo  = InMemPublicTournamentParticipantRepository()
+    val hostRepo         = InMemPublicTournamentHostRepository()
     val service          = UserProfileService(profileRepo, linkRepo)
     val oauthService     = LichessOAuthService(stateRepo, linkRepo, noopHttpClient, testLichessConfig, cipher)
     val challengeService = LichessChallengeService(linkRepo, cipher, httpClient, testChallengeConfig)
-    val routes           = UserRoutes(service, oauthService, challengeService, testLichessConfig, botOwnerRepo, participantRepo)
+    val routes           = UserRoutes(service, oauthService, challengeService, testLichessConfig, botOwnerRepo, participantRepo, hostRepo)
     (routes.routes.orNotFound, service, linkRepo)
 
   private def makeToken(sub: String, username: String): String =
@@ -684,6 +686,67 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
         case None =>
           store.put(k, p)
           Right(p)
+
+  private class InMemPublicTournamentHostRepository extends PublicTournamentHostRepository:
+    private val store = new ConcurrentHashMap[String, PublicTournamentHostRecord]()
+
+    override def findByTournamentId(tournamentId: String): Either[String, Option[PublicTournamentHostRecord]] =
+      Right(Option(store.get(tournamentId)))
+
+    override def insertIfAbsent(r: PublicTournamentHostRecord): Either[String, PublicTournamentHostRecord] =
+      val existing = Option(store.get(r.tournamentId))
+      existing match
+        case Some(row) => Right(row)
+        case None =>
+          store.put(r.tournamentId, r)
+          Right(r)
+
+  // ── Public tournament host endpoints ─────────────────────────────────────
+
+  "POST /users/tournaments/{tournamentId}/host" should "record the current user as host and return 201" in {
+    val (app, _, _) = makeRoutes()
+    val res = app.run(
+      Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/tournaments/t-host1/host"))
+        .putHeaders(bearerHeader("sub-host1", "hostuser"))
+    ).unsafeRunSync()
+    val body = ujson.read(res.bodyText.compile.string.unsafeRunSync())
+    res.status                         shouldBe Status.Created
+    body("tournamentId").str            shouldBe "t-host1"
+    body("hostDisplayName").str         shouldBe "hostuser"
+  }
+
+  it should "be idempotent — second POST returns same host record" in {
+    val (app, _, _) = makeRoutes()
+    def post() = app.run(
+      Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/tournaments/t-host2/host"))
+        .putHeaders(bearerHeader("sub-host2", "hostuser2"))
+    ).unsafeRunSync()
+    post().status shouldBe Status.Created
+    post().status shouldBe Status.Created
+  }
+
+  "GET /users/tournaments/{tournamentId}/host" should "return 404 when no host has been recorded" in {
+    val (app, _, _) = makeRoutes()
+    val res = app.run(
+      Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/tournaments/t-unknown/host"))
+    ).unsafeRunSync()
+    res.status shouldBe Status.NotFound
+  }
+
+  it should "return the recorded host after POST" in {
+    val (app, _, _) = makeRoutes()
+    app.run(
+      Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/tournaments/t-host3/host"))
+        .putHeaders(bearerHeader("sub-host3", "hostuser3"))
+    ).unsafeRunSync()
+    val getRes  = app.run(
+      Request[IO](method = Method.GET, uri = Uri.unsafeFromString("/users/tournaments/t-host3/host"))
+    ).unsafeRunSync()
+    val body = ujson.read(getRes.bodyText.compile.string.unsafeRunSync())
+    getRes.status                shouldBe Status.Ok
+    body("tournamentId").str      shouldBe "t-host3"
+    body("hostDisplayName").str   shouldBe "hostuser3"
+  }
 
   // ── Public tournament participant endpoints ───────────────────────────────
 

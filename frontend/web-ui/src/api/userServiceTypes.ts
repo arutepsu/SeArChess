@@ -147,3 +147,12 @@ export interface RecordTournamentParticipantRequest {
   tournamentServerBotName: string;
   tournamentServerUserId?: string;
 }
+
+// ── Tournament host metadata types ────────────────────────────────────────────
+
+export interface TournamentHostInfo {
+  tournamentId:        string;
+  hostSearchessUserId: string;
+  hostDisplayName:     string;
+  createdAt:           string;
+}
