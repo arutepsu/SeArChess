@@ -116,7 +116,7 @@ function ParticipantsSection({
   myUserId,
   ownedBotIds,
   hostDisplayName,
-  isDirector,
+  hostInfo,
   onRefresh,
 }: {
   tournament: PublicTournament;
@@ -124,7 +124,7 @@ function ParticipantsSection({
   myUserId: string | null;
   ownedBotIds: Set<string>;
   hostDisplayName: string;
-  isDirector: boolean;
+  hostInfo: TournamentHostInfo | null;
   onRefresh: () => void;
 }) {
   const nbServer    = tournament.nbPlayers;
@@ -152,11 +152,10 @@ function ParticipantsSection({
       {participants.length > 0 ? (
         <div className="pt-bot-list">
           {participants.map((p) => {
-            const isYou      = myUserId !== null && p.searchessUserId === myUserId;
-            // Host badge: current user is the director and owns this participant's bot.
-            // Guests see "Other user" for host bots since the director's Searchess userId
-            // cannot be resolved from tournament.createdBy without a separate lookup.
-            const isHost     = isDirector && p.searchessUserId === myUserId;
+            const isYou         = myUserId !== null && p.searchessUserId === myUserId;
+            const isDirectorBot =
+              hostInfo?.directorTournamentServerBotId != null &&
+              p.tournamentServerBotId === hostInfo.directorTournamentServerBotId;
             const isOwnedBot = ownedBotIds.has(p.tournamentServerBotId);
             return (
               <div
@@ -166,9 +165,9 @@ function ParticipantsSection({
                 <span className="pt-bot-name">{p.displayName}</span>
                 <span className="pt-bot-meta">{p.tournamentServerBotName}</span>
                 <span style={{ flex: "1 1 auto" }} />
-                {isYou   && <span className="pt-bot-badge pt-bot-badge--own">You</span>}
-                {isHost  && <span className="pt-bot-badge pt-bot-badge--searchess">Host</span>}
-                {!isYou && !isHost && (
+                {isYou        && <span className="pt-bot-badge pt-bot-badge--own">You</span>}
+                {isDirectorBot && <span className="pt-bot-badge pt-bot-badge--searchess">Director bot</span>}
+                {!isYou && !isDirectorBot && (
                   <span className="pt-bot-badge pt-bot-badge--foreign">Other user</span>
                 )}
                 {isOwnedBot && <span className="pt-bot-badge pt-bot-badge--own">Your bot</span>}
@@ -643,7 +642,7 @@ export default function PublicTournamentDetailPage() {
                   myUserId={myProfile?.userId ?? null}
                   ownedBotIds={ownedBotIds}
                   hostDisplayName={hostDisplayName}
-                  isDirector={isDirector}
+                  hostInfo={hostInfo}
                   onRefresh={handleRefresh}
                 />
 

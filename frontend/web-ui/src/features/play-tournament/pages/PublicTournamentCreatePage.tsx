@@ -135,7 +135,10 @@ export default function PublicTournamentCreatePage() {
       // Record the Searchess user as host. Without this the detail page cannot identify the
       // director (TS createdBy is the bot ID, not the user) — fail hard so the user knows.
       try {
-        await recordTournamentHost(tournamentId);
+        await recordTournamentHost(tournamentId, {
+          directorTournamentServerBotId:   hostBot.tournamentServerBotId,
+          directorTournamentServerBotName: hostBot.tournamentServerBotName,
+        });
       } catch (e: unknown) {
         setSubmitError(
           `Tournament was created (ID: ${tournamentId}), but Searchess could not record you as host. ` +

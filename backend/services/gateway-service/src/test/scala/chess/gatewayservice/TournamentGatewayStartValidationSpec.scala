@@ -2,28 +2,42 @@ package chess.gatewayservice
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
+import fs2.Stream
 import org.http4s.*
 import org.http4s.client.Client
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import GatewayJwtExtractor.GatewayJwtClaims
+
 class TournamentGatewayStartValidationSpec extends AnyFlatSpec with Matchers:
 
-  private val routes: TournamentGatewayRoutes =
-    val mockClient = Client.fromHttpApp(HttpRoutes.empty[IO].orNotFound)
-    val config = GatewayServiceConfig(
-      host                = "localhost",
-      port                = 8087,
-      tournamentServerUrl = "http://ts",
-      userServiceUrl      = "http://us",
-      authDisabled        = true,
-      devUserName         = "dev"
+  private val config = GatewayServiceConfig(
+    host                = "localhost",
+    port                = 8087,
+    tournamentServerUrl = "http://ts",
+    userServiceUrl      = "http://us",
+    authDisabled        = true,
+    devUserName         = "dev"
+  )
+
+  private def makeRoutes(userServiceHandler: PartialFunction[Request[IO], IO[Response[IO]]] = PartialFunction.empty): TournamentGatewayRoutes =
+    val client = Client.fromHttpApp(
+      HttpRoutes.of[IO](userServiceHandler).orNotFound
     )
     val authBridge = new TournamentAuthBridge(
-      mockClient, config.tournamentServerUrl,
+      client, config.tournamentServerUrl,
       new TournamentJwtCache(), new TournamentJwtCache()
     )
-    new TournamentGatewayRoutes(mockClient, config, authBridge)
+    new TournamentGatewayRoutes(client, config, authBridge)
+
+  private val routes: TournamentGatewayRoutes = makeRoutes()
+
+  private def jsonResp(status: Status, body: String): IO[Response[IO]] =
+    IO.pure(Response[IO](
+      status = status,
+      body   = Stream.emits(body.getBytes("UTF-8")).covary[IO]
+    ))
 
   private def searchessBody(bots: (String, String)*): String =
     val items = bots.map { case (id, name) =>
@@ -104,4 +118,96 @@ class TournamentGatewayStartValidationSpec extends AnyFlatSpec with Matchers:
     )
 
     routes.checkParticipantMismatch(sb, tb) shouldBe None
+  }
+
+  // ── parseHostMetadata ─────────────────────────────────────────────────────────
+
+  "parseHostMetadata" should "return Some with all fields when body is complete" in {
+    val body =
+      """{"tournamentId":"t1","hostSearchessUserId":"u1","hostKeycloakSub":"sub-abc",
+         "hostDisplayName":"Alice","createdAt":"2026-01-01T00:00:00Z",
+         "directorTournamentServerBotId":"bot_abc123",
+         "directorTournamentServerBotName":"StockfishBot"}"""
+    val result = routes.parseHostMetadata(body)
+    result should not be empty
+    val meta = result.get
+    meta.hostKeycloakSub shouldBe "sub-abc"
+    meta.directorBotId   shouldBe Some("bot_abc123")
+    meta.directorBotName shouldBe Some("StockfishBot")
+  }
+
+  it should "return Some with None director fields when they are JSON null" in {
+    val body =
+      """{"tournamentId":"t1","hostSearchessUserId":"u1","hostKeycloakSub":"sub-old",
+         "hostDisplayName":"Bob","createdAt":"2026-01-01T00:00:00Z",
+         "directorTournamentServerBotId":null,"directorTournamentServerBotName":null}"""
+    val result = routes.parseHostMetadata(body)
+    result should not be empty
+    val meta = result.get
+    meta.hostKeycloakSub shouldBe "sub-old"
+    meta.directorBotId   shouldBe None
+    meta.directorBotName shouldBe None
+  }
+
+  it should "return None when body is not valid JSON" in {
+    routes.parseHostMetadata("not json") shouldBe None
+  }
+
+  it should "return None when body is empty" in {
+    routes.parseHostMetadata("") shouldBe None
+  }
+
+  // ── resolveDirectorAuth ───────────────────────────────────────────────────────
+
+  "resolveDirectorAuth" should "return Right(Some(botId, botName)) when caller matches host and bot fields are present" in {
+    val hostBody =
+      """{"tournamentId":"t1","hostSearchessUserId":"u1","hostKeycloakSub":"sub-host",
+         "hostDisplayName":"Host","createdAt":"2026-01-01T00:00:00Z",
+         "directorTournamentServerBotId":"bot_dir","directorTournamentServerBotName":"DirBot"}"""
+    val r = makeRoutes {
+      case GET -> Root / "users" / "tournaments" / "t1" / "host" => jsonResp(Status.Ok, hostBody)
+    }
+    val claims = GatewayJwtClaims(sub = "sub-host", preferredUsername = "hostuser", email = None)
+    val result = r.resolveDirectorAuth("t1", claims).unsafeRunSync()
+    result shouldBe Right(Some("bot_dir" -> "DirBot"))
+  }
+
+  it should "return Left(403 SEARCHESS_NOT_HOST) when caller sub does not match hostKeycloakSub" in {
+    val hostBody =
+      """{"tournamentId":"t1","hostSearchessUserId":"u1","hostKeycloakSub":"sub-host",
+         "hostDisplayName":"Host","createdAt":"2026-01-01T00:00:00Z",
+         "directorTournamentServerBotId":"bot_dir","directorTournamentServerBotName":"DirBot"}"""
+    val r = makeRoutes {
+      case GET -> Root / "users" / "tournaments" / "t1" / "host" => jsonResp(Status.Ok, hostBody)
+    }
+    val claims = GatewayJwtClaims(sub = "sub-attacker", preferredUsername = "attacker", email = None)
+    val result = r.resolveDirectorAuth("t1", claims).unsafeRunSync()
+    result.isLeft shouldBe true
+    val resp     = result.left.get
+    resp.status  shouldBe Status.Forbidden
+    val body     = resp.bodyText.compile.string.unsafeRunSync()
+    body should include("SEARCHESS_NOT_HOST")
+  }
+
+  it should "return Right(None) when host endpoint returns 404 (old tournament)" in {
+    val r = makeRoutes {
+      case GET -> Root / "users" / "tournaments" / "old-t" / "host" =>
+        jsonResp(Status.NotFound, """{"code":"NOT_FOUND"}""")
+    }
+    val claims = GatewayJwtClaims(sub = "sub-host", preferredUsername = "hostuser", email = None)
+    val result = r.resolveDirectorAuth("old-t", claims).unsafeRunSync()
+    result shouldBe Right(None)
+  }
+
+  it should "return Right(None) when host metadata has null director fields (transition case)" in {
+    val hostBody =
+      """{"tournamentId":"t1","hostSearchessUserId":"u1","hostKeycloakSub":"sub-host",
+         "hostDisplayName":"Host","createdAt":"2026-01-01T00:00:00Z",
+         "directorTournamentServerBotId":null,"directorTournamentServerBotName":null}"""
+    val r = makeRoutes {
+      case GET -> Root / "users" / "tournaments" / "t1" / "host" => jsonResp(Status.Ok, hostBody)
+    }
+    val claims = GatewayJwtClaims(sub = "sub-host", preferredUsername = "hostuser", email = None)
+    val result = r.resolveDirectorAuth("t1", claims).unsafeRunSync()
+    result shouldBe Right(None)
   }

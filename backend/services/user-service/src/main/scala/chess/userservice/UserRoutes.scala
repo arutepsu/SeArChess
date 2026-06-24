@@ -293,18 +293,24 @@ class UserRoutes(
         case Right(Some(h)) => respond(Status.Ok, hostJson(h))
 
     case req @ POST -> Root / "users" / "tournaments" / tournamentId / "host" =>
-      withSubject(req) { (_, profile) =>
-        val record = PublicTournamentHostRecord(
-          tournamentId        = tournamentId,
-          hostSearchessUserId = profile.userId,
-          hostDisplayName     = profile.displayName,
-          createdAt           = java.time.Instant.now()
-        )
-        hostRepo.insertIfAbsent(record) match
-          case Left("host_already_recorded_by_another_user") =>
-            respond(Status.Conflict, ujson.Obj("code" -> "HOST_ALREADY_RECORDED", "message" -> "Another user has already been recorded as host for this tournament"))
-          case Left(err)    => respond(Status.InternalServerError, ujson.Obj("code" -> "INTERNAL_ERROR", "message" -> err))
-          case Right(saved) => respond(Status.Created, hostJson(saved))
+      withSubject(req) { (claims, profile) =>
+        req.bodyText.compile.string.flatMap { body =>
+          val (dirBotId, dirBotName) = parseDirectorBotFields(body)
+          val record = PublicTournamentHostRecord(
+            tournamentId                   = tournamentId,
+            hostSearchessUserId             = profile.userId,
+            hostKeycloakSub                = claims.sub,
+            hostDisplayName                 = profile.displayName,
+            createdAt                       = java.time.Instant.now(),
+            directorTournamentServerBotId   = dirBotId,
+            directorTournamentServerBotName = dirBotName
+          )
+          hostRepo.insertIfAbsent(record) match
+            case Left("host_already_recorded_by_another_user") =>
+              respond(Status.Conflict, ujson.Obj("code" -> "HOST_ALREADY_RECORDED", "message" -> "Another user has already been recorded as host for this tournament"))
+            case Left(err)    => respond(Status.InternalServerError, ujson.Obj("code" -> "INTERNAL_ERROR", "message" -> err))
+            case Right(saved) => respond(Status.Created, hostJson(saved))
+        }
       }
 
     case req @ POST -> Root / "users" / "me" / "lichess" / "games" / gameId / "move" =>
@@ -520,11 +526,25 @@ class UserRoutes(
 
   private def hostJson(h: PublicTournamentHostRecord): ujson.Obj =
     ujson.Obj(
-      "tournamentId"        -> h.tournamentId,
-      "hostSearchessUserId" -> h.hostSearchessUserId.toString,
-      "hostDisplayName"     -> h.hostDisplayName,
-      "createdAt"           -> h.createdAt.toString
+      "tournamentId"                   -> h.tournamentId,
+      "hostSearchessUserId"             -> h.hostSearchessUserId.toString,
+      "hostKeycloakSub"                -> h.hostKeycloakSub,
+      "hostDisplayName"                 -> h.hostDisplayName,
+      "createdAt"                       -> h.createdAt.toString,
+      "directorTournamentServerBotId"   -> h.directorTournamentServerBotId.map(ujson.Str(_)).getOrElse(ujson.Null),
+      "directorTournamentServerBotName" -> h.directorTournamentServerBotName.map(ujson.Str(_)).getOrElse(ujson.Null)
     )
+
+  private def parseDirectorBotFields(body: String): (Option[String], Option[String]) =
+    try
+      if body.trim.isEmpty then (None, None)
+      else
+        val json   = ujson.read(body)
+        val botId  = json.obj.get("directorTournamentServerBotId").flatMap(_.strOpt).map(_.trim).filter(_.nonEmpty)
+        val botName = json.obj.get("directorTournamentServerBotName").flatMap(_.strOpt).map(_.trim).filter(_.nonEmpty)
+        (botId, botName)
+    catch
+      case _: Exception => (None, None)
 
   private def participantJson(p: PublicTournamentParticipant, searchessCatalogBotId: Option[String]): ujson.Value =
     ujson.Obj(

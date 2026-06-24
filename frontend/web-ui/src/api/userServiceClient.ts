@@ -10,6 +10,7 @@ import type {
   OwnedTournamentBotsResponse,
   PatchProfileRequest,
   RecordTournamentBotOwnershipRequest,
+  RecordTournamentHostRequest,
   RecordTournamentParticipantRequest,
   SetManualLichessLinkRequest,
   SubmitLichessMoveResponse,
@@ -147,10 +148,13 @@ export async function recordTournamentParticipant(
   );
 }
 
-export async function recordTournamentHost(tournamentId: string): Promise<TournamentHostInfo> {
+export async function recordTournamentHost(
+  tournamentId: string,
+  directorBot: RecordTournamentHostRequest
+): Promise<TournamentHostInfo> {
   return fetchUserJson<TournamentHostInfo>(
     `/users/tournaments/${encodeURIComponent(tournamentId)}/host`,
-    { method: "POST" }
+    { method: "POST", body: JSON.stringify(directorBot) }
   );
 }
 

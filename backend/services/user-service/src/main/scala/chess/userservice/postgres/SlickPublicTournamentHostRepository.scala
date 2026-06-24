@@ -43,35 +43,49 @@ class SlickPublicTournamentHostRepository(db: Database, schema: Option[String] =
 
   private def recordToRow(r: PublicTournamentHostRecord): PublicTournamentHostRow =
     PublicTournamentHostRow(
-      tournamentId        = r.tournamentId,
-      hostSearchessUserId = r.hostSearchessUserId,
-      hostDisplayName     = r.hostDisplayName,
-      createdAt           = Timestamp.from(r.createdAt)
+      tournamentId                   = r.tournamentId,
+      hostSearchessUserId             = r.hostSearchessUserId,
+      hostKeycloakSub                = r.hostKeycloakSub,
+      hostDisplayName                 = r.hostDisplayName,
+      createdAt                       = Timestamp.from(r.createdAt),
+      directorTournamentServerBotId   = r.directorTournamentServerBotId,
+      directorTournamentServerBotName = r.directorTournamentServerBotName
     )
 
   private def rowToRecord(r: PublicTournamentHostRow): PublicTournamentHostRecord =
     PublicTournamentHostRecord(
-      tournamentId        = r.tournamentId,
-      hostSearchessUserId = r.hostSearchessUserId,
-      hostDisplayName     = r.hostDisplayName,
-      createdAt           = r.createdAt.toInstant
+      tournamentId                   = r.tournamentId,
+      hostSearchessUserId             = r.hostSearchessUserId,
+      hostKeycloakSub                = r.hostKeycloakSub,
+      hostDisplayName                 = r.hostDisplayName,
+      createdAt                       = r.createdAt.toInstant,
+      directorTournamentServerBotId   = r.directorTournamentServerBotId,
+      directorTournamentServerBotName = r.directorTournamentServerBotName
     )
 
   private def safeMessage(e: Throwable): String =
     Option(e.getMessage).map(_.trim).filter(_.nonEmpty).getOrElse(e.getClass.getSimpleName)
 
 private[postgres] final case class PublicTournamentHostRow(
-  tournamentId:        String,
-  hostSearchessUserId: UUID,
-  hostDisplayName:     String,
-  createdAt:           Timestamp
+  tournamentId:                   String,
+  hostSearchessUserId:             UUID,
+  hostKeycloakSub:                String,
+  hostDisplayName:                 String,
+  createdAt:                       Timestamp,
+  directorTournamentServerBotId:   Option[String],
+  directorTournamentServerBotName: Option[String]
 )
 
 private[postgres] final class PublicTournamentHostTable(tag: Tag, schema: Option[String])
     extends Table[PublicTournamentHostRow](tag, schema, "public_tournament_host"):
-  def tournamentId        = column[String]("tournament_id", O.PrimaryKey)
-  def hostSearchessUserId = column[UUID]("host_searchess_user_id")
-  def hostDisplayName     = column[String]("host_display_name")
-  def createdAt           = column[Timestamp]("created_at")
-  def *                   = (tournamentId, hostSearchessUserId, hostDisplayName, createdAt)
-                              .mapTo[PublicTournamentHostRow]
+  def tournamentId                   = column[String]("tournament_id", O.PrimaryKey)
+  def hostSearchessUserId             = column[UUID]("host_searchess_user_id")
+  def hostKeycloakSub                = column[String]("host_keycloak_sub")
+  def hostDisplayName                 = column[String]("host_display_name")
+  def createdAt                       = column[Timestamp]("created_at")
+  def directorTournamentServerBotId   = column[Option[String]]("director_tournament_server_bot_id")
+  def directorTournamentServerBotName = column[Option[String]]("director_tournament_server_bot_name")
+  def * = (
+    tournamentId, hostSearchessUserId, hostKeycloakSub, hostDisplayName, createdAt,
+    directorTournamentServerBotId, directorTournamentServerBotName
+  ).mapTo[PublicTournamentHostRow]
