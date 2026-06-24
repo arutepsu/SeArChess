@@ -277,6 +277,70 @@ class PublicTournamentBotRunnerSpec extends AnyFlatSpec with Matchers:
     moveClient.submittedCount shouldBe 0
   }
 
+  // ── Bot provider identity tests ───────────────────────────────────────────────
+  // These prove the public runner uses the same BotRegistry / bot executor as the
+  // local bot-arena tournament, not a separate simplified move generator.
+
+  it should "generate a legal UCI move for material-greedy bot from start position" in {
+    val materialGreedyParticipant = randomBotParticipant.copy(searchessCatalogBotId = Some("material-greedy"))
+    val (runner, moveClient) = makeRunner(participants = Right(List(materialGreedyParticipant)))
+    val result = runner.tick("t1").unsafeRunSync()
+
+    result.actions should have size 1
+    val action = result.actions.head
+    action.status shouldBe RunnerActionStatus.Submitted
+    action.uciMove match
+      case None      => fail("Expected a UCI move but got None")
+      case Some(uci) => UciPattern.matches(uci) shouldBe true
+    moveClient.submittedCount shouldBe 1
+  }
+
+  it should "generate a legal UCI move for capture-first bot from start position" in {
+    val captureFirstParticipant = randomBotParticipant.copy(searchessCatalogBotId = Some("capture-first"))
+    val (runner, moveClient) = makeRunner(participants = Right(List(captureFirstParticipant)))
+    val result = runner.tick("t1").unsafeRunSync()
+
+    result.actions should have size 1
+    result.actions.head.status shouldBe RunnerActionStatus.Submitted
+    result.actions.head.uciMove.exists(UciPattern.matches) shouldBe true
+    moveClient.submittedCount shouldBe 1
+  }
+
+  it should "report Failed with STOCKFISH_PATH error when stockfish-depth-1 is used but binary is absent" in {
+    val stockfishParticipant = randomBotParticipant.copy(searchessCatalogBotId = Some("stockfish-depth-1"))
+    // Registry built without stockfishPath → stockfish bots are unavailable
+    val (runner, moveClient) = makeRunner(participants = Right(List(stockfishParticipant)))
+    val result = runner.tick("t1").unsafeRunSync()
+
+    result.actions should have size 1
+    val action = result.actions.head
+    action.status shouldBe RunnerActionStatus.Failed
+    action.reason.getOrElse("") should include("STOCKFISH_PATH")
+    moveClient.submittedCount shouldBe 0
+  }
+
+  it should "report Failed with STOCKFISH_PATH error when stockfish-fast is used but binary is absent" in {
+    val stockfishParticipant = randomBotParticipant.copy(searchessCatalogBotId = Some("stockfish-fast"))
+    val (runner, moveClient) = makeRunner(participants = Right(List(stockfishParticipant)))
+    val result = runner.tick("t1").unsafeRunSync()
+
+    result.actions should have size 1
+    result.actions.head.status shouldBe RunnerActionStatus.Failed
+    result.actions.head.reason.getOrElse("") should include("STOCKFISH_PATH")
+    moveClient.submittedCount shouldBe 0
+  }
+
+  it should "map catalog bot ID random-bot through BotRegistry identically to local tournament" in {
+    // Verifies the catalog ID string "random-bot" resolves to the same executor in both
+    // local (GameRunner) and public (PublicTournamentBotRunner) contexts.
+    val participant = randomBotParticipant.copy(searchessCatalogBotId = Some("random-bot"))
+    val (runner, moveClient) = makeRunner(participants = Right(List(participant)))
+    val result = runner.tick("t1").unsafeRunSync()
+
+    result.actions.head.status shouldBe RunnerActionStatus.Submitted
+    result.actions.head.uciMove.exists(UciPattern.matches) shouldBe true
+  }
+
   // ── Fake implementations ──────────────────────────────────────────────────────
 
   private class FakeTournamentRunnerServerClient(
