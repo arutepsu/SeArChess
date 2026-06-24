@@ -696,7 +696,8 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
     override def insertIfAbsent(r: PublicTournamentHostRecord): Either[String, PublicTournamentHostRecord] =
       val existing = Option(store.get(r.tournamentId))
       existing match
-        case Some(row) => Right(row)
+        case Some(row) if row.hostSearchessUserId == r.hostSearchessUserId => Right(row)
+        case Some(_)   => Left("host_already_recorded_by_another_user")
         case None =>
           store.put(r.tournamentId, r)
           Right(r)
@@ -746,6 +747,30 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with EitherValues:
     getRes.status                shouldBe Status.Ok
     body("tournamentId").str      shouldBe "t-host3"
     body("hostDisplayName").str   shouldBe "hostuser3"
+  }
+
+  "POST /users/tournaments/{tournamentId}/host" should "return 401 without JWT" in {
+    val (app, _, _) = makeRoutes()
+    val res = app.run(
+      Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/tournaments/t-noauth/host"))
+    ).unsafeRunSync()
+    res.status shouldBe Status.Unauthorized
+  }
+
+  it should "return 409 when a different user tries to record as host for the same tournament" in {
+    val (app, _, _) = makeRoutes()
+    app.run(
+      Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/tournaments/t-conflict/host"))
+        .putHeaders(bearerHeader("sub-first-host", "firsthost"))
+    ).unsafeRunSync().status shouldBe Status.Created
+
+    val res  = app.run(
+      Request[IO](method = Method.POST, uri = Uri.unsafeFromString("/users/tournaments/t-conflict/host"))
+        .putHeaders(bearerHeader("sub-second-host", "secondhost"))
+    ).unsafeRunSync()
+    val body = ujson.read(res.bodyText.compile.string.unsafeRunSync())
+    res.status       shouldBe Status.Conflict
+    body("code").str shouldBe "HOST_ALREADY_RECORDED"
   }
 
   // ── Public tournament participant endpoints ───────────────────────────────

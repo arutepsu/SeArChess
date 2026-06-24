@@ -23,13 +23,15 @@ class SlickPublicTournamentHostRepository(db: Database, schema: Option[String] =
   override def insertIfAbsent(r: PublicTournamentHostRecord): Either[String, PublicTournamentHostRecord] =
     val existing = table.filter(_.tournamentId === r.tournamentId)
     run(existing.result.headOption).flatMap {
-      case Some(row) => Right(rowToRecord(row))
+      case Some(row) if row.hostSearchessUserId == r.hostSearchessUserId => Right(rowToRecord(row))
+      case Some(_)   => Left("host_already_recorded_by_another_user")
       case None =>
         run((table += recordToRow(r)).asTry).flatMap {
           case util.Success(_) => Right(r)
           case util.Failure(_) =>
             run(existing.result.headOption).flatMap {
-              case Some(row) => Right(rowToRecord(row))
+              case Some(row) if row.hostSearchessUserId == r.hostSearchessUserId => Right(rowToRecord(row))
+              case Some(_)   => Left("host_already_recorded_by_another_user")
               case None      => Left("Concurrent insert failed: host record not found after conflict")
             }
         }

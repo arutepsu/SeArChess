@@ -478,8 +478,17 @@ export default function PublicTournamentDetailPage() {
   const [myProfile,         setMyProfile]         = useState<UserProfileResponse | null>(null);
   const [tournamentIdentity, setTournamentIdentity] = useState<TournamentIdentityResponse | null>(null);
   const [hostInfo,      setHostInfo]    = useState<TournamentHostInfo | null>(null);
+  const [hostInfoError, setHostInfoError] = useState(false);
   const [loading,      setLoading]      = useState(true);
   const [error,        setError]        = useState<string | null>(null);
+
+  function loadHostInfo() {
+    if (!id) return;
+    setHostInfoError(false);
+    getTournamentHost(id)
+      .then((h) => { setHostInfo(h); })
+      .catch(() => { setHostInfoError(true); });
+  }
 
   function loadTournament(active: { value: boolean }) {
     if (!id) return;
@@ -506,11 +515,7 @@ export default function PublicTournamentDetailPage() {
     loadTournament(active);
     loadParticipants(active);
     // Host metadata is public — load for all users so hostDisplayName is always resolved.
-    if (id) {
-      getTournamentHost(id)
-        .then((h) => { if (active.value) setHostInfo(h); })
-        .catch(() => {});
-    }
+    if (id) loadHostInfo();
     if (canManage) {
       getMyTournamentBots()
         .then((bots) => { if (active.value) setOwnedBots(bots); })
@@ -642,6 +647,14 @@ export default function PublicTournamentDetailPage() {
                   onRefresh={handleRefresh}
                 />
 
+                {hostInfoError && (
+                  <div className="pt-panel" style={{ borderColor: "rgba(245,158,11,0.4)", background: "rgba(245,158,11,0.06)" }}>
+                    <p className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.875rem", margin: "0 0 8px" }}>
+                      Could not load host information. If you created this tournament, your director controls may not appear.
+                    </p>
+                    <Button variant="secondary" size="sm" onClick={loadHostInfo}>Retry</Button>
+                  </div>
+                )}
                 {!canManage ? (
                   <div className="pt-panel">
                     <p className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.875rem" }}>
