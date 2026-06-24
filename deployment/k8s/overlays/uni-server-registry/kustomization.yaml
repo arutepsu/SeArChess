@@ -92,7 +92,7 @@ images:
   newTag: sha-f19d6f3
 - name: searchess/user-service
   newName: ghcr.io/arutepsu/searchess-user-service
-  newTag: sha-73ef703
+  newTag: sha-4da9ce2
 - name: searchess/web-ui
   newName: ghcr.io/arutepsu/searchess-web-ui
   newTag: main
