@@ -61,6 +61,8 @@ interface ActiveGame {
   whiteName: string;
   blackName: string;
   round?: number;
+  moveCount: number;
+  lastMoveUci?: string;
 }
 
 export default function PublicTournamentLivePage() {
@@ -95,6 +97,7 @@ export default function PublicTournamentLivePage() {
           whiteName: (latestEvent.whiteBotName ?? latestEvent.whiteBotId ?? "?") as string,
           blackName: (latestEvent.blackBotName ?? latestEvent.blackBotId ?? "?") as string,
           round: latestEvent.round,
+          moveCount: 0,
         });
         return next;
       });
@@ -103,6 +106,31 @@ export default function PublicTournamentLivePage() {
       setActiveGames((prev) => {
         const next = new Map(prev);
         next.delete(gid);
+        return next;
+      });
+    } else if (
+      (latestEvent.type === "gameState" || latestEvent.type === "move") &&
+      typeof latestEvent.gameId === "string"
+    ) {
+      const gid = latestEvent.gameId;
+      setActiveGames((prev) => {
+        if (!prev.has(gid)) return prev;
+        const next = new Map(prev);
+        const game = next.get(gid)!;
+        const movesArr = latestEvent.moves as string[] | undefined;
+        const lastMove = latestEvent.lastMove as string | undefined;
+        if (movesArr !== undefined) {
+          // Server-provided full moves list is authoritative — use its length directly
+          // to avoid double-counting when gameState and move events arrive for the same move.
+          next.set(gid, {
+            ...game,
+            moveCount: movesArr.length,
+            lastMoveUci: movesArr[movesArr.length - 1],
+          });
+        } else if (lastMove && lastMove !== game.lastMoveUci) {
+          // Incremental move event — only count if it's a move we haven't seen yet.
+          next.set(gid, { ...game, moveCount: game.moveCount + 1, lastMoveUci: lastMove });
+        }
         return next;
       });
     } else if (latestEvent.type === "tournamentFinished") {
@@ -155,22 +183,40 @@ export default function PublicTournamentLivePage() {
           {activeGamesList.length > 0 ? (
             <div className="play-tournament-grid">
               {activeGamesList.map((game) => (
-                <button
+                <div
                   key={game.gameId}
-                  type="button"
                   className="play-tournament-card pt-game-card"
-                  onClick={() =>
-                    navigate(`/play-tournament/${id ?? ""}/game/${game.gameId}`)
-                  }
                 >
                   <p className="play-tournament-card-name">
-                    {game.whiteName} <span className="pt-vs">vs</span> {game.blackName}
+                    ♘ {game.whiteName}
                   </p>
-                  <p className="play-tournament-card-meta">
-                    {game.round !== undefined ? `Round ${game.round} · ` : ""}
-                    Watch board →
+                  <p className="play-tournament-card-name" style={{ marginTop: 2 }}>
+                    ♞ {game.blackName}
                   </p>
-                </button>
+                  <p className="play-tournament-card-meta" style={{ marginTop: 8 }}>
+                    {game.round !== undefined ? `Round ${game.round}` : ""}
+                    {game.round !== undefined && " · "}
+                    <span
+                      className="play-tournament-stream-badge play-tournament-stream-badge--open"
+                      style={{ fontSize: "0.65rem", padding: "1px 6px", animation: "none" }}
+                    >
+                      Ongoing
+                    </span>
+                    {game.moveCount > 0 && ` · ${game.moveCount} move${game.moveCount !== 1 ? "s" : ""}`}
+                  </p>
+                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                    <button
+                      type="button"
+                      className="pt-replay-live-btn"
+                      style={{ fontSize: "0.78rem" }}
+                      onClick={() =>
+                        navigate(`/play-tournament/${id ?? ""}/game/${game.gameId}`)
+                      }
+                    >
+                      Watch →
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           ) : (
