@@ -89,7 +89,7 @@ images:
   newTag: sha-abd6f69
 - name: searchess/tournament-service
   newName: ghcr.io/arutepsu/searchess-tournament-service
-  newTag: sha-eb93c71
+  newTag: sha-8171e7f
 - name: searchess/user-service
   newName: ghcr.io/arutepsu/searchess-user-service
   newTag: sha-0c1004c
