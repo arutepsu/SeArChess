@@ -1543,3 +1543,123 @@
   padding-top: 14px;
   border-top: 1px solid var(--border-subtle, #22222e);
 }
+
+/* ── Tournament mode selection cards ──────────────────────────────────────── */
+
+.pt-mode-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+@media (max-width: 600px) {
+  .pt-mode-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pt-mode-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px 22px;
+  border-radius: 10px;
+  background: rgba(10, 12, 18, 0.78);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  text-align: left;
+  cursor: default;
+}
+
+button.pt-mode-card {
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+button.pt-mode-card:hover {
+  border-color: rgba(124, 111, 255, 0.5);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+
+.pt-mode-card--searchess {
+  border-color: rgba(124, 111, 255, 0.25);
+}
+
+.pt-mode-card-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary, #e8e8f0);
+  margin: 0;
+}
+
+.pt-mode-card-desc {
+  font-size: 0.85rem;
+  color: var(--text-secondary, #9090a8);
+  margin: 0;
+  line-height: 1.5;
+  flex: 1;
+}
+
+.pt-mode-card-action {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent, #7c6fff);
+  margin-top: 4px;
+}
+
+/* ── Info callout (controlled mode rules) ─────────────────────────────────── */
+
+.pt-info-callout {
+  background: rgba(124, 111, 255, 0.06);
+  border: 1px solid rgba(124, 111, 255, 0.2);
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pt-info-callout__line {
+  font-size: 0.85rem;
+  color: var(--text-secondary, #9090a8);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── Bot selection warning ────────────────────────────────────────────────── */
+
+.pt-bot-warning {
+  font-size: 0.8rem;
+  color: #f0b428;
+  margin: 6px 0 0;
+  padding: 4px 8px;
+  background: rgba(240, 180, 40, 0.08);
+  border: 1px solid rgba(240, 180, 40, 0.25);
+  border-radius: 4px;
+}
+
+/* ── Catalog bots section (Step 2 placeholder) ────────────────────────────── */
+
+.pt-catalog-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pt-coming-soon-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(124, 111, 255, 0.12);
+  color: var(--accent, #7c6fff);
+  margin-left: 10px;
+  vertical-align: middle;
+}

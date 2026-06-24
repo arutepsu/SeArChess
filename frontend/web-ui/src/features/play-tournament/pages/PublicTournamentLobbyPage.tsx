@@ -19,13 +19,42 @@ import "./PlayTournament.css";
 type TabId = "tournaments" | "myBots" | "quickTest" | "allGames" | "myGames" | "analytics";
 
 const TABS: Array<{ id: TabId; label: string }> = [
-  { id: "tournaments", label: "Public Tournaments" },
+  { id: "tournaments", label: "Public Tournaments (Open)" },
   { id: "myBots",      label: "My Bots" },
   { id: "quickTest",   label: "Quick Test" },
   { id: "allGames",    label: "All Games" },
   { id: "myGames",     label: "My Games" },
   { id: "analytics",   label: "Analytics" },
 ];
+
+// ── Mode cards ────────────────────────────────────────────────────────────────
+
+function ModeCards({ onSearchessClick }: { onSearchessClick: () => void }) {
+  return (
+    <div className="pt-mode-grid">
+      <button
+        type="button"
+        className="pt-mode-card pt-mode-card--searchess"
+        onClick={onSearchessClick}
+      >
+        <p className="pt-mode-card-title">Searchess Bot Tournament</p>
+        <p className="pt-mode-card-desc">
+          Controlled mode for demos and testing. Select Searchess-managed bots
+          and let Searchess run the tournament automatically.
+        </p>
+        <span className="pt-mode-card-action">Create Searchess Bot Tournament →</span>
+      </button>
+      <div className="pt-mode-card">
+        <p className="pt-mode-card-title">Public Tournament (Open)</p>
+        <p className="pt-mode-card-desc">
+          Open public Tournament Server flow. Searchess users join with their own
+          registered bots. External participants may appear.
+        </p>
+        <span className="pt-mode-card-action">Browse Public Tournaments ↓</span>
+      </div>
+    </div>
+  );
+}
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -277,7 +306,7 @@ export default function PublicTournamentLobbyPage() {
           <div>
             <h1 className="play-tournament-title">Tournament Lab</h1>
             <p className="play-tournament-subtitle">
-              Public tournament server
+              Public tournament server · External participants may appear
               {serverOnline === true  && <span className="pt-server-status pt-server-status--online">online</span>}
               {serverOnline === false && <span className="pt-server-status pt-server-status--offline">unreachable</span>}
             </p>
@@ -305,6 +334,9 @@ export default function PublicTournamentLobbyPage() {
             </Button>
           </div>
         </div>
+
+        {/* ── Mode selection ─────────────────────────────────────────────── */}
+        <ModeCards onSearchessClick={() => navigate("/play-tournament/searchess/create")} />
 
         {/* ── Tab bar ────────────────────────────────────────────────────── */}
         <div className="pt-tab-bar" role="tablist">

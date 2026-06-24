@@ -6,3 +6,4 @@ export { default as PublicTournamentCreatePage } from "./pages/PublicTournamentC
 export { default as PublicTournamentLivePage } from "./pages/PublicTournamentLivePage";
 export { default as PublicTournamentGamePage } from "./pages/PublicTournamentGamePage";
 export { default as PublicTournamentRoundPage } from "./pages/PublicTournamentRoundPage";
+export { default as SearchessBotTournamentCreatePage } from "./pages/SearchessBotTournamentCreatePage";
