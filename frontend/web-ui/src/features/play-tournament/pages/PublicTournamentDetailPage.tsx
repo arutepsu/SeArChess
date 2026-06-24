@@ -12,6 +12,7 @@ import {
   getMyTournamentBots,
   getTournamentHost,
   getTournamentParticipants,
+  recordTournamentHost,
   recordTournamentParticipant,
 } from "../../../api/userServiceClient";
 import type { PublicResult, PublicTournament, TournamentIdentityResponse } from "../../../api/publicTournamentTypes";
@@ -140,9 +141,15 @@ function ParticipantsSection({
   return (
     <SectionCard title={`Joined participants (${nbSearchess})`}>
       <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 12 }}>
-        <span className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.85rem" }}>
-          Host: <strong style={{ color: "var(--text-primary, #e8e8f0)" }}>{hostDisplayName}</strong>
-        </span>
+        {hostDisplayName !== "unavailable" ? (
+          <span className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.85rem" }}>
+            Host: <strong style={{ color: "var(--text-primary, #e8e8f0)" }}>{hostDisplayName}</strong>
+          </span>
+        ) : (
+          <span className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.85rem" }}>
+            Host information unavailable
+          </span>
+        )}
         <span className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.85rem" }}>
           Searchess bots: <strong style={{ color: "var(--text-primary, #e8e8f0)" }}>{nbSearchess}</strong>
           {nbServer > nbSearchess ? ` · Total joined (incl. external): ${nbServer}` : ""}
@@ -476,17 +483,40 @@ export default function PublicTournamentDetailPage() {
   const [ownedBots,    setOwnedBots]    = useState<OwnedTournamentBot[]>([]);
   const [myProfile,         setMyProfile]         = useState<UserProfileResponse | null>(null);
   const [tournamentIdentity, setTournamentIdentity] = useState<TournamentIdentityResponse | null>(null);
-  const [hostInfo,      setHostInfo]    = useState<TournamentHostInfo | null>(null);
-  const [hostInfoError, setHostInfoError] = useState(false);
+  const [hostInfo,        setHostInfo]        = useState<TournamentHostInfo | null>(null);
+  const [hostInfoLoaded,  setHostInfoLoaded]  = useState(false);
+  const [hostInfoError,   setHostInfoError]   = useState(false);
+  const [recoverHostBusy, setRecoverHostBusy] = useState(false);
+  const [recoverHostError, setRecoverHostError] = useState<string | null>(null);
   const [loading,      setLoading]      = useState(true);
   const [error,        setError]        = useState<string | null>(null);
 
   function loadHostInfo() {
     if (!id) return;
     setHostInfoError(false);
+    setHostInfoLoaded(false);
     getTournamentHost(id)
-      .then((h) => { setHostInfo(h); })
-      .catch(() => { setHostInfoError(true); });
+      .then((h) => { setHostInfo(h); setHostInfoLoaded(true); })
+      .catch(() => { setHostInfoError(true); setHostInfoLoaded(true); });
+  }
+
+  async function handleRecoverHost(directorBot: OwnedTournamentBot) {
+    if (!id) return;
+    setRecoverHostBusy(true);
+    setRecoverHostError(null);
+    try {
+      const h = await recordTournamentHost(id, {
+        directorTournamentServerBotId:   directorBot.tournamentServerBotId,
+        directorTournamentServerBotName: directorBot.tournamentServerBotName,
+      });
+      setHostInfo(h);
+      setHostInfoLoaded(true);
+      setHostInfoError(false);
+    } catch (e: unknown) {
+      setRecoverHostError(e instanceof Error ? e.message : "Failed to record host metadata.");
+    } finally {
+      setRecoverHostBusy(false);
+    }
   }
 
   function loadTournament(active: { value: boolean }) {
@@ -563,6 +593,22 @@ export default function PublicTournamentDetailPage() {
   const results     = tournament?.standing?.results ?? [];
   const ownedBotIds = new Set(ownedBots.map((b) => b.tournamentServerBotId));
 
+  // Joined bots owned by the current user (bot appears in both ownedBots and participants).
+  const myJoinedBotIds = new Set(
+    participants
+      .filter((p) => p.searchessUserId === myProfile?.userId)
+      .map((p) => p.tournamentServerBotId)
+  );
+  // Best bot to use for host recovery.
+  // Prefer the bot that created the TS tournament (tournament.createdBy), falling back to
+  // the first joined owned bot.  Only defined when the user is authenticated and has a joined bot.
+  const recoveryBotCandidate = (() => {
+    if (!canManage || myProfile === null) return null;
+    const joinedOwned = ownedBots.filter((b) => myJoinedBotIds.has(b.tournamentServerBotId));
+    if (joinedOwned.length === 0) return null;
+    return joinedOwned.find((b) => b.tournamentServerBotId === tournament?.createdBy) ?? joinedOwned[0];
+  })();
+
   // Primary: compare against Searchess host metadata (recorded on create, survives BOT JWT).
   // Fallback: TS identity comparison for tournaments created before host metadata was introduced.
   const isDirector = tournament !== null
@@ -570,13 +616,19 @@ export default function PublicTournamentDetailPage() {
         ? (myProfile?.userId ?? null) === hostInfo.hostSearchessUserId
         : canDirectTournament(tournament, tournamentIdentity?.tournamentUserId ?? null)
     : false;
-  // Resolve friendly host name. Searchess host metadata is authoritative; TS identity used as fallback.
-  const hostDisplayName =
-    hostInfo !== null
-      ? hostInfo.hostDisplayName
-      : tournament !== null && tournamentIdentity?.tournamentUserId === tournament.createdBy
-        ? tournamentIdentity.preferredUsername
-        : (tournament?.createdBy ?? "");
+  // Resolve friendly host name.  Searchess host metadata is authoritative.
+  // Fallback for old tournaments: use TS identity only when createdBy is a user ID (usr_...),
+  // never when it is a bot ID (bot_...).  Show "unavailable" on error or when no safe name exists.
+  const hostDisplayName: string = (() => {
+    if (hostInfo !== null) return hostInfo.hostDisplayName;
+    if (hostInfoError) return "unavailable";
+    const createdBy = tournament?.createdBy ?? "";
+    if (!createdBy) return "unavailable";
+    // Old user-JWT tournament: createdBy is a TS user ID (usr_...) that matches the identity check
+    if (tournamentIdentity?.tournamentUserId === createdBy) return tournamentIdentity.preferredUsername;
+    // createdBy is a bot ID (bot_...) or unresolvable — never display raw bot IDs as host name
+    return "unavailable";
+  })();
 
   return (
     <div className="play-tournament-page">
@@ -651,7 +703,44 @@ export default function PublicTournamentDetailPage() {
                     <p className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.875rem", margin: "0 0 8px" }}>
                       Could not load host information. If you created this tournament, your director controls may not appear.
                     </p>
-                    <Button variant="secondary" size="sm" onClick={loadHostInfo}>Retry</Button>
+                    {recoverHostError && (
+                      <p style={{ color: "var(--color-error, #ef4444)", fontSize: "0.8rem", margin: "0 0 8px" }}>
+                        {recoverHostError}
+                      </p>
+                    )}
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <Button variant="secondary" size="sm" onClick={loadHostInfo}>Retry</Button>
+                      {recoveryBotCandidate !== null && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          disabled={recoverHostBusy}
+                          onClick={() => { void handleRecoverHost(recoveryBotCandidate); }}
+                        >
+                          {recoverHostBusy ? "Recovering…" : "Recover host metadata"}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {hostInfoLoaded && !hostInfoError && hostInfo === null && recoveryBotCandidate !== null && (
+                  <div className="pt-panel" style={{ borderColor: "rgba(245,158,11,0.4)", background: "rgba(245,158,11,0.06)" }}>
+                    <p className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.875rem", margin: "0 0 8px" }}>
+                      Host metadata is missing for this tournament. If you created it, you can recover your director access.
+                    </p>
+                    {recoverHostError && (
+                      <p style={{ color: "var(--color-error, #ef4444)", fontSize: "0.8rem", margin: "0 0 8px" }}>
+                        {recoverHostError}
+                      </p>
+                    )}
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      disabled={recoverHostBusy}
+                      onClick={() => { void handleRecoverHost(recoveryBotCandidate); }}
+                    >
+                      {recoverHostBusy ? "Recovering…" : "Recover host metadata"}
+                    </Button>
                   </div>
                 )}
                 {!canManage ? (
@@ -679,7 +768,9 @@ export default function PublicTournamentDetailPage() {
                     ) : (
                       <div className="pt-panel">
                         <p className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.875rem" }}>
-                          Waiting for the host ({hostDisplayName}) to start the tournament.
+                          {hostDisplayName !== "unavailable"
+                            ? `Waiting for the host (${hostDisplayName}) to start the tournament.`
+                            : "Waiting for the host to start the tournament."}
                         </p>
                       </div>
                     )}

@@ -69,7 +69,7 @@ class SlickPublicTournamentHostRepository(db: Database, schema: Option[String] =
 private[postgres] final case class PublicTournamentHostRow(
   tournamentId:                   String,
   hostSearchessUserId:             UUID,
-  hostKeycloakSub:                String,
+  hostKeycloakSub:                Option[String],
   hostDisplayName:                 String,
   createdAt:                       Timestamp,
   directorTournamentServerBotId:   Option[String],
@@ -80,7 +80,7 @@ private[postgres] final class PublicTournamentHostTable(tag: Tag, schema: Option
     extends Table[PublicTournamentHostRow](tag, schema, "public_tournament_host"):
   def tournamentId                   = column[String]("tournament_id", O.PrimaryKey)
   def hostSearchessUserId             = column[UUID]("host_searchess_user_id")
-  def hostKeycloakSub                = column[String]("host_keycloak_sub")
+  def hostKeycloakSub                = column[Option[String]]("host_keycloak_sub")
   def hostDisplayName                 = column[String]("host_display_name")
   def createdAt                       = column[Timestamp]("created_at")
   def directorTournamentServerBotId   = column[Option[String]]("director_tournament_server_bot_id")
