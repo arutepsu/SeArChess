@@ -131,7 +131,7 @@ class TournamentGatewayStartValidationSpec extends AnyFlatSpec with Matchers:
     val result = routes.parseHostMetadata(body)
     result should not be empty
     val meta = result.get
-    meta.hostKeycloakSub shouldBe "sub-abc"
+    meta.hostKeycloakSub shouldBe Some("sub-abc")
     meta.directorBotId   shouldBe Some("bot_abc123")
     meta.directorBotName shouldBe Some("StockfishBot")
   }
@@ -144,9 +144,29 @@ class TournamentGatewayStartValidationSpec extends AnyFlatSpec with Matchers:
     val result = routes.parseHostMetadata(body)
     result should not be empty
     val meta = result.get
-    meta.hostKeycloakSub shouldBe "sub-old"
+    meta.hostKeycloakSub shouldBe Some("sub-old")
     meta.directorBotId   shouldBe None
     meta.directorBotName shouldBe None
+  }
+
+  it should "return Some with None hostKeycloakSub when it is JSON null (old row)" in {
+    val body =
+      """{"tournamentId":"t1","hostSearchessUserId":"u1","hostKeycloakSub":null,
+         "hostDisplayName":"Carol","createdAt":"2026-01-01T00:00:00Z",
+         "directorTournamentServerBotId":null,"directorTournamentServerBotName":null}"""
+    val result = routes.parseHostMetadata(body)
+    result should not be empty
+    val meta = result.get
+    meta.hostKeycloakSub shouldBe None
+  }
+
+  it should "return Some with None hostKeycloakSub when field is absent (old user-service response)" in {
+    val body =
+      """{"tournamentId":"t1","hostSearchessUserId":"u1",
+         "hostDisplayName":"Dave","createdAt":"2026-01-01T00:00:00Z"}"""
+    val result = routes.parseHostMetadata(body)
+    result should not be empty
+    result.get.hostKeycloakSub shouldBe None
   }
 
   it should "return None when body is not valid JSON" in {
@@ -196,6 +216,19 @@ class TournamentGatewayStartValidationSpec extends AnyFlatSpec with Matchers:
     }
     val claims = GatewayJwtClaims(sub = "sub-host", preferredUsername = "hostuser", email = None)
     val result = r.resolveDirectorAuth("old-t", claims).unsafeRunSync()
+    result shouldBe Right(None)
+  }
+
+  it should "return Right(None) when hostKeycloakSub is null (old row — cannot verify identity)" in {
+    val hostBody =
+      """{"tournamentId":"t1","hostSearchessUserId":"u1","hostKeycloakSub":null,
+         "hostDisplayName":"Host","createdAt":"2026-01-01T00:00:00Z",
+         "directorTournamentServerBotId":"bot_dir","directorTournamentServerBotName":"DirBot"}"""
+    val r = makeRoutes {
+      case GET -> Root / "users" / "tournaments" / "t1" / "host" => jsonResp(Status.Ok, hostBody)
+    }
+    val claims = GatewayJwtClaims(sub = "sub-anyone", preferredUsername = "anyone", email = None)
+    val result = r.resolveDirectorAuth("t1", claims).unsafeRunSync()
     result shouldBe Right(None)
   }
 

@@ -494,30 +494,33 @@ class TournamentGatewayRoutes(
   // ── Helpers: director bot identity resolution ─────────────────────────────────
 
   private[gatewayservice] final case class HostMetadata(
-    hostKeycloakSub: String,
+    hostKeycloakSub: Option[String],
     directorBotId: Option[String],
     directorBotName: Option[String]
   )
 
   // Returns None when the body is absent/unparseable (old tournaments without host record).
+  // hostKeycloakSub is Option because old rows in the DB have NULL for that column.
   private[gatewayservice] def parseHostMetadata(body: String): Option[HostMetadata] =
     try
-      val json    = ujson.read(body)
-      val sub     = json("hostKeycloakSub").str
-      val botId   = json("directorTournamentServerBotId") match
-        case ujson.Null => None
-        case v          => Some(v.str)
-      val botName = json("directorTournamentServerBotName") match
-        case ujson.Null => None
-        case v          => Some(v.str)
+      val json = ujson.read(body)
+      val sub = json.obj.get("hostKeycloakSub") match
+        case None | Some(ujson.Null) => None
+        case Some(v)                  => Some(v.str)
+      val botId = json.obj.get("directorTournamentServerBotId") match
+        case None | Some(ujson.Null) => None
+        case Some(v)                  => Some(v.str)
+      val botName = json.obj.get("directorTournamentServerBotName") match
+        case None | Some(ujson.Null) => None
+        case Some(v)                  => Some(v.str)
       Some(HostMetadata(sub, botId, botName))
     catch case _: Exception => None
 
   // Fetches host metadata from user-service and verifies the caller is the Searchess host.
   // Returns:
-  //   Right(Some((botId, botName))) — use bot JWT for TS call
-  //   Right(None)                  — no host metadata (old tournament), use user JWT fallback
-  //   Left(errorResponse)          — caller is not the Searchess host → 403
+  //   Right(Some((botId, botName))) — caller verified as host; use bot JWT for TS call
+  //   Right(None)                  — no host metadata or no keycloak sub stored (old row); use user JWT fallback
+  //   Left(errorResponse)          — host metadata present, keycloak sub present, but caller is not the host → 403
   private[gatewayservice] def resolveDirectorAuth(
     tournamentId: String,
     claims: GatewayJwtClaims
@@ -528,15 +531,19 @@ class TournamentGatewayRoutes(
       parseHostMetadata(body) match
         case None       => Right(None)
         case Some(meta) =>
-          if meta.hostKeycloakSub != claims.sub then
-            Left(errorResponse(Status.Forbidden, "SEARCHESS_NOT_HOST",
-              "You are not the Searchess host of this tournament"))
-          else
-            (meta.directorBotId, meta.directorBotName) match
-              case (Some(botId), Some(botName)) => Right(Some((botId, botName)))
-              case _                             => Right(None)
+          meta.hostKeycloakSub match
+            case None =>
+              // Old row without keycloak sub — cannot verify caller identity; fall back to user JWT
+              Right(None)
+            case Some(keycloakSub) if keycloakSub != claims.sub =>
+              Left(errorResponse(Status.Forbidden, "SEARCHESS_NOT_HOST",
+                "You are not the Searchess host of this tournament"))
+            case Some(_) =>
+              (meta.directorBotId, meta.directorBotName) match
+                case (Some(botId), Some(botName)) => Right(Some((botId, botName)))
+                case _                             => Right(None)
     }.handleError { _ =>
-      // 404 (old tournament) or network error — fall back to user JWT
+      // 404 (old tournament without host row) or network error — fall back to user JWT
       Right(None)
     }
 

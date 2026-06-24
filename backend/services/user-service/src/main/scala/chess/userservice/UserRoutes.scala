@@ -299,7 +299,7 @@ class UserRoutes(
           val record = PublicTournamentHostRecord(
             tournamentId                   = tournamentId,
             hostSearchessUserId             = profile.userId,
-            hostKeycloakSub                = claims.sub,
+            hostKeycloakSub                = Some(claims.sub),
             hostDisplayName                 = profile.displayName,
             createdAt                       = java.time.Instant.now(),
             directorTournamentServerBotId   = dirBotId,
@@ -528,7 +528,7 @@ class UserRoutes(
     ujson.Obj(
       "tournamentId"                   -> h.tournamentId,
       "hostSearchessUserId"             -> h.hostSearchessUserId.toString,
-      "hostKeycloakSub"                -> h.hostKeycloakSub,
+      "hostKeycloakSub"                -> h.hostKeycloakSub.map(ujson.Str(_)).getOrElse(ujson.Null),
       "hostDisplayName"                 -> h.hostDisplayName,
       "createdAt"                       -> h.createdAt.toString,
       "directorTournamentServerBotId"   -> h.directorTournamentServerBotId.map(ujson.Str(_)).getOrElse(ujson.Null),

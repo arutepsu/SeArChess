@@ -6,7 +6,7 @@ import java.util.UUID
 final case class PublicTournamentHostRecord(
   tournamentId:                   String,
   hostSearchessUserId:             UUID,
-  hostKeycloakSub:                 String,
+  hostKeycloakSub:                 Option[String],
   hostDisplayName:                 String,
   createdAt:                       Instant,
   directorTournamentServerBotId:   Option[String],
