@@ -147,7 +147,7 @@ function ParticipantsSection({
           </span>
         ) : (
           <span className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.85rem" }}>
-            Host information unavailable
+            Host information unavailable.
           </span>
         )}
         <span className="play-tournament-info-label" style={{ textTransform: "none", fontSize: "0.85rem" }}>
