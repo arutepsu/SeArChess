@@ -80,51 +80,38 @@ each with their own idle/move/attack animations.
 
 ## 🛠️ Tech Stack
 
-**Backend**
+<p align="center"><strong>Backend</strong></p>
 
-![Scala](https://img.shields.io/badge/Scala-DC322F?style=for-the-badge&logo=scala&logoColor=white)
-![sbt](https://img.shields.io/badge/sbt-1B5E20?style=for-the-badge&logo=scala&logoColor=white)
-![http4s](https://img.shields.io/badge/http4s-FF6B6B?style=for-the-badge)
-![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+<p align="center">
+  <img src="https://img.shields.io/badge/Scala-DC322F?style=for-the-badge&logo=scala&logoColor=white" alt="Scala" />
+  <img src="https://img.shields.io/badge/sbt-1B5E20?style=for-the-badge&logo=scala&logoColor=white" alt="sbt" />
+  <img src="https://img.shields.io/badge/http4s-FF6B6B?style=for-the-badge" alt="http4s" />
+  <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
+</p>
 
-**Data & Infra**
+<p align="center"><strong>Data & Infra</strong></p>
 
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
-![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)
-![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
-![Envoy](https://img.shields.io/badge/Envoy-AC6199?style=for-the-badge&logo=envoyproxy&logoColor=white)
+<p align="center">
+  <img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
+  <img src="https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white" alt="MongoDB" />
+  <img src="https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white" alt="Redis" />
+  <img src="https://img.shields.io/badge/Kafka-231F20?style=for-the-badge&logo=apachekafka&logoColor=white" alt="Kafka" />
+  <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
+  <img src="https://img.shields.io/badge/Kubernetes-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white" alt="Kubernetes" />
+  <img src="https://img.shields.io/badge/Envoy-AC6199?style=for-the-badge&logo=envoyproxy&logoColor=white" alt="Envoy" />
+  <img src="https://img.shields.io/badge/Apache%20Spark-E25A1C?style=for-the-badge&logo=apachespark&logoColor=white" alt="Apache Spark" />
+</p>
 
-**Frontend**
+<p align="center"><strong>Frontend</strong></p>
 
-![React](https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black)
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
-![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
+<p align="center">
+  <img src="https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React" />
+  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" />
+</p>
 
-## 🚧 Current Focus
+---
 
-Right now the project is centered on:
-
-- A clean, service-oriented backend with well-defined contracts between services
-- A polished, pixel-art Web UI for playing, watching bots, and exploring analytics
-- A Lichess-trained AI service playable as an opponent
-- A persistence layer that can move between PostgreSQL and MongoDB through real
-  application ports, not ad-hoc scripts
-- Bot tournaments and analytics pipelines built on top of the same game core
-
-## 🌱 Still Evolving
-
-Searchess is a living university project — modules get refactored, services
-get split out, and the architecture keeps maturing as the course progresses.
-Expect things to change, and expect them to keep getting cleaner.
-
-For operational use, either run `DryRun`, then `Execute`, then `ValidateOnly`,
-or run `DryRun` followed by `Execute --validate-after-execute`. The inline
-validation pass only runs after a successful execute report; failed execution
-reports are returned without running validation.
-
-### Future Extension: Admin API / Microservice
-
-The current design is intentionally suitable for later exposure as an admin API
-or dedicated migration service. The migration orchestration already lives behind
-application ports; the CLI is only a thin operational shell around it.
+<p align="center">
+  Released under the <a href="https://opensource.org/licenses/MIT">MIT License</a>.
+</p>
