@@ -27,6 +27,10 @@
   </a>
 </p>
 
+<p align="center">
+  <img src="https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExNW1vMDlxbW1tYXJmcmI4dHY1ZHp0NWdqaHVsazM4dnkwang0OWJibiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/ngzenbiLE0FSRHh0Fn/giphy.gif" alt="Searchess gameplay demo" width="560" />
+</p>
+
 ---
 
 ## 📖 About
@@ -54,6 +58,11 @@ The codebase is guided by a few core ideas rather than one rigid framework:
 - **Modular service boundaries** — services own their own data and responsibilities
 - **Event-driven / cloud-native thinking** — designed to grow into a distributed system
 - **High test coverage** — behavior-focused tests as a safety net for refactors
+
+## 📚 Documentation
+
+- [Architecture](docs/architecture.md) — overview of the system architecture, deployable services, data flows, analytics, persistence, and deployment.
+- [Features Guide](docs/features.md) — visual overview of the Web UI, game experience, tournaments, analytics, profile features, and screenshots.
 
 ## 🤖 Self-Trained AI
 
