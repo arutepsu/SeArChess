@@ -43,29 +43,35 @@ inspired by Japanese aesthetics.
 
 Players choose from six board and background themes, each with a distinct look and feel.
 
-<img src="./screenshots/game1.png" alt="Oni board style" width="850" />
+<p align="center">
+  <img src="./screenshots/game1.png" alt="Oni board style" width="850" /><br/>
+  <em>Oni — a dark, fierce theme with demonic warrior aesthetics.</em>
+</p>
 
-*Oni — a dark, fierce theme with demonic warrior aesthetics.*
+<p align="center">
+  <img src="./screenshots/game2.png" alt="Sakura board style" width="850" /><br/>
+  <em>Sakura — a delicate, pink-blossom theme evoking classic Japanese spring.</em>
+</p>
 
-<img src="./screenshots/game2.png" alt="Sakura board style" width="850" />
+<p align="center">
+  <img src="./screenshots/game3.png" alt="Ocean board style" width="850" /><br/>
+  <em>Ocean — a cool, deep-blue theme with a flowing, aquatic atmosphere.</em>
+</p>
 
-*Sakura — a delicate, pink-blossom theme evoking classic Japanese spring.*
+<p align="center">
+  <img src="./screenshots/game4.png" alt="Shrine board style" width="850" /><br/>
+  <em>Shrine — a red and gold theme inspired by traditional Japanese torii gates.</em>
+</p>
 
-<img src="./screenshots/game3.png" alt="Ocean board style" width="850" />
+<p align="center">
+  <img src="./screenshots/game5.png" alt="Lantern board style" width="850" /><br/>
+  <em>Lantern — a warm, glowing theme lit by paper lanterns and candlelight.</em>
+</p>
 
-*Ocean — a cool, deep-blue theme with a flowing, aquatic atmosphere.*
-
-<img src="./screenshots/game4.png" alt="Shrine board style" width="850" />
-
-*Shrine — a red and gold theme inspired by traditional Japanese torii gates.*
-
-<img src="./screenshots/game5.png" alt="Lantern board style" width="850" />
-
-*Lantern — a warm, glowing theme lit by paper lanterns and candlelight.*
-
-<img src="./screenshots/game6.png" alt="Heaven board style" width="850" />
-
-*Heaven — a bright, ethereal theme set high above the clouds.*
+<p align="center">
+  <img src="./screenshots/game6.png" alt="Heaven board style" width="850" /><br/>
+  <em>Heaven — a bright, ethereal theme set high above the clouds.</em>
+</p>
 
 ---
 
@@ -114,9 +120,10 @@ feel alive rather than static. The horizontal board layout gives these wide, det
 enough space to animate without crowding each other — it is also what makes games feel more
 cinematic than a standard vertical chessboard.
 
-<img src="./screenshots/types.png" alt="All warrior piece types and their animation frames" width="850" />
-
-*The full cast of warrior pieces, each with its own animated frame set.*
+<p align="center">
+  <img src="./screenshots/types.png" alt="All warrior piece types and their animation frames" width="850" /><br/>
+  <em>The full cast of warrior pieces, each with its own animated frame set.</em>
+</p>
 
 > **Piece credits:** Warrior sprite assets by **LuizMelo**, sourced from
 > [GameDevMarket](https://www.gamedevmarket.net/).
@@ -129,17 +136,19 @@ Local bot tournaments pit Searchess bots against each other in a structured comp
 any human players. You configure the tournament — choosing the tournament type, which bots
 participate, how many repetitions to run, and other settings — then let the bots play automatically.
 
-<img src="./screenshots/localtournament.png" alt="Local tournament setup" width="850" />
-
-*Tournament configuration — select bots, set the type and repetitions, and start.*
+<p align="center">
+  <img src="./screenshots/localtournament.png" alt="Local tournament setup" width="850" /><br/>
+  <em>Tournament configuration — select bots, set the type and repetitions, and start.</em>
+</p>
 
 Once the tournament finishes, all completed games are saved and can be reviewed individually. This
 is the primary way to compare different bot strategies, calibrate difficulty levels, and evaluate
 how the Searchess AI performs across different configurations.
 
-<img src="./screenshots/localpastgames.png" alt="Completed bot tournament games" width="850" />
-
-*Completed games — browse results and replay any game from the tournament.*
+<p align="center">
+  <img src="./screenshots/localpastgames.png" alt="Completed bot tournament games" width="850" /><br/>
+  <em>Completed games — browse results and replay any game from the tournament.</em>
+</p>
 
 ---
 
@@ -160,13 +169,15 @@ Analytics include:
 - **Color performance** — how each bot performs as White vs Black
 - **Bot family and strategy comparisons**
 
-<img src="./screenshots/analytics.png" alt="Local tournament analytics overview" width="850" />
+<p align="center">
+  <img src="./screenshots/analytics.png" alt="Local tournament analytics overview" width="850" /><br/>
+  <em>Analytics overview — leaderboard, scores, win rates, and summary statistics.</em>
+</p>
 
-*Analytics overview — leaderboard, scores, win rates, and summary statistics.*
-
-<img src="./screenshots/analytics2.png" alt="Detailed local tournament analytics" width="850" />
-
-*Detailed statistics — Elo ratings, head-to-head results, termination breakdown, and more.*
+<p align="center">
+  <img src="./screenshots/analytics2.png" alt="Detailed local tournament analytics" width="850" /><br/>
+  <em>Detailed statistics — Elo ratings, head-to-head results, termination breakdown, and more.</em>
+</p>
 
 ---
 
@@ -179,9 +190,10 @@ against bots from other teams through a shared tournament server.
 The idea is similar to local bot tournaments, but the opponents are external — each running on a
 different team's system. Users can join or create public tournaments depending on their permissions.
 
-<img src="./screenshots/Tournamets.png" alt="Public tournament browser" width="850" />
-
-*Public tournament browser — see available tournaments and join or create one.*
+<p align="center">
+  <img src="./screenshots/Tournamets.png" alt="Public tournament browser" width="850" /><br/>
+  <em>Public tournament browser — see available tournaments and join or create one.</em>
+</p>
 
 While a tournament is running, the UI shows live bot moves as they happen so you can follow the
 game in real time. Once a game finishes, it can be replayed in the UI.
@@ -191,9 +203,10 @@ game in real time. Once a game finishes, it can be replayed in the UI.
   <em>Live game — watch bot moves happen in real time.</em>
 </p>
 
-<img src="./screenshots/runningtournament.png" alt="Live public tournament view" width="850" />
-
-*Live tournament view — watch bot moves happen in real time during a running tournament.*
+<p align="center">
+  <img src="./screenshots/runningtournament.png" alt="Live public tournament view" width="850" /><br/>
+  <em>Live tournament view — watch bot moves happen in real time during a running tournament.</em>
+</p>
 
 ---
 
@@ -205,32 +218,39 @@ local tournaments.
 <p align="center">
   <img src="https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExeWMyNHRxb3BwenJ6djgxejdjM2o3dXRlMTRneG1xcDZ0Z3Exc2c2YSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/J61o1ws6uaaycmHfGY/giphy.gif" alt="Public tournament analytics in action" width="620" /><br/>
   <em>Analytics processing — turning public tournament game data into results.</em>
-</p> After a public tournament finishes, game data can be gathered, converted into
-the common event format, and processed by the same Spark analytics pipeline used for local
-tournaments. This lets you compare bots across teams using the same metrics.
+</p>
+
+After a public tournament finishes, game data can be gathered, converted into the common event
+format, and processed by the same Spark analytics pipeline used for local tournaments. This lets
+you compare bots across teams using the same metrics.
 
 The UI shows aggregated analytics for the whole tournament — standings, bot performance, game-level
 results, and more.
 
-<img src="./screenshots/TournamentAnalytics.png" alt="Public tournament analytics overview" width="850" />
+<p align="center">
+  <img src="./screenshots/TournamentAnalytics.png" alt="Public tournament analytics overview" width="850" /><br/>
+  <em>Public tournament analytics — overall standings and summary statistics.</em>
+</p>
 
-*Public tournament analytics — overall standings and summary statistics.*
+<p align="center">
+  <img src="./screenshots/TournamentAnalytics2.png" alt="Public tournament analytics detail" width="850" /><br/>
+  <em>Detailed analytics — per-bot statistics and performance comparisons across the tournament.</em>
+</p>
 
-<img src="./screenshots/TournamentAnalytics2.png" alt="Public tournament analytics detail" width="850" />
+<p align="center">
+  <img src="./screenshots/fullanalytics.png" alt="Full public tournament analytics view" width="850" /><br/>
+  <em>Full analytics page — a broader view of all available tournament statistics.</em>
+</p>
 
-*Detailed analytics — per-bot statistics and performance comparisons across the tournament.*
+<p align="center">
+  <img src="./screenshots/fullanalytics2.png" alt="Extended public tournament analytics" width="850" /><br/>
+  <em>Extended analytics — additional charts covering game patterns and bot behavior.</em>
+</p>
 
-<img src="./screenshots/fullanalytics.png" alt="Full public tournament analytics view" width="850" />
-
-*Full analytics page — a broader view of all available tournament statistics.*
-
-<img src="./screenshots/fullanalytics2.png" alt="Extended public tournament analytics" width="850" />
-
-*Extended analytics — additional charts covering game patterns and bot behavior.*
-
-<img src="./screenshots/fullanalytics3.png" alt="Complete public tournament analytics" width="850" />
-
-*Complete analytics — the full set of computed metrics for a public tournament run.*
+<p align="center">
+  <img src="./screenshots/fullanalytics3.png" alt="Complete public tournament analytics" width="850" /><br/>
+  <em>Complete analytics — the full set of computed metrics for a public tournament run.</em>
+</p>
 
 ---
 
@@ -240,16 +260,18 @@ The profile section lets users manage their account details and link an external
 Linking Lichess enables the bridge integration — the connected bot account can accept and play
 games on Lichess.org with moves handled by the Searchess AI.
 
-<img src="./screenshots/profile.png" alt="Profile and Lichess account linking" width="850" />
-
-*Profile page — account settings and Lichess account linking.*
+<p align="center">
+  <img src="./screenshots/profile.png" alt="Profile and Lichess account linking" width="850" /><br/>
+  <em>Profile page — account settings and Lichess account linking.</em>
+</p>
 
 The UI can also display move history and game-level visualizations such as heatmaps, helping
 players and developers review past games and understand patterns in play.
 
-<img src="./screenshots/features.png" alt="Game history and platform features" width="850" />
-
-*Game history and additional platform features — move review, visualizations, and more.*
+<p align="center">
+  <img src="./screenshots/features.png" alt="Game history and platform features" width="850" /><br/>
+  <em>Game history and additional platform features — move review, visualizations, and more.</em>
+</p>
 
 ---
 
