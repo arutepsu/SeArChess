@@ -37,7 +37,7 @@ death animations to read clearly. The result is a **cinematic, fantasy-style che
 inspired by Japanese aesthetics.
 
 <p align="center">
-  <img src="https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExNW1vMDlxbW1tYXJmcmI4dHY1ZHp0NWdqaHVsazM4dnkwang0OWJibiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/ngzenbiLE0FSRHh0Fn/giphy.gif" alt="Searchess gameplay demo" width="620" /><br/>
+  <img src="https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExNXVhc2l4Y241NXV2bGl2bjg0b2R5dDZudG45N2ZrcGFhamN6cjI2YiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/LjXbY46jQtONhnfUoe/giphy.gif" alt="Searchess gameplay demo" width="620" /><br/>
   <em>Demo — a game in action.</em>
 </p>
 
