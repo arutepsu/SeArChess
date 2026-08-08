@@ -17,7 +17,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "chess.js": "^0.10.3",
+    "chess.js": "^1.4.0",
     "echarts": "^6.1.0",
     "echarts-for-react": "^3.0.6",
     "keycloak-js": "^26.0.0",
